@@ -1,8 +1,7 @@
 import { defineCommand } from 'citty'
 import { check } from '@matizze/prumo-rules/check'
-import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { assertValidName, generatePage, pageFolder, type PlanSummary } from '../codemod/index.ts'
+import { assertValidName, generatePage, pageFolder } from '../codemod/index.ts'
 import { ExitError } from '../errors.ts'
 import {
   MINIMAL_SCREEN,
@@ -14,31 +13,7 @@ import {
 import { findProject, type Project } from '../project.ts'
 import type { Choice, Runtime } from '../runtime.ts'
 import { formatViolation } from './check.ts'
-
-/** A lista de arquivos de um grupo, um por linha, com o título e a contagem. */
-function section(title: string, files: string[]): string {
-  if (files.length === 0) return ''
-  return `${title} (${files.length}):\n${files.map((file) => `  ${file}`).join('\n')}\n`
-}
-
-/** O que o plano criou e alterou, em texto. `dryRun` troca os verbos para o futuro do pretérito. */
-export function formatSummary({ created, modified }: PlanSummary, dryRun: boolean): string {
-  const [made, changed] = dryRun ? ['Seriam criados', 'Seriam alterados'] : ['Criados', 'Alterados']
-  return [section(made, created), section(changed, modified)].filter(Boolean).join('\n')
-}
-
-/** Se o projeto tem o script `test`, que roda o Vitest do projeto (no app de referência, o projeto `unit`). */
-function hasTestScript(project: Project): boolean {
-  const file = path.join(project.root, 'package.json')
-  if (!existsSync(file)) return false
-  try {
-    const scripts = (JSON.parse(readFileSync(file, 'utf8')) as { scripts?: Record<string, string> })
-      .scripts
-    return typeof scripts?.test === 'string'
-  } catch {
-    return false
-  }
-}
+import { formatSummary, testCommandFor } from './shared.ts'
 
 /**
  * A tela de referência do comando: o `--like` (nome de padrão ou de tela), ou, sem ele, a escolha
@@ -53,17 +28,11 @@ async function chooseReference(runtime: Runtime, like: string | undefined): Prom
 }
 
 /**
- * O comando que roda os testes da tela nova, para o mesmo terminal onde o `make:page` rodou: usa o
- * script `test` do projeto, se houver, e o Vitest direto, se não. Fora da pasta atual, o `pnpm
- * --dir` aponta para o projeto.
+ * O comando que roda os testes da tela nova, para o mesmo terminal onde o `make:page` rodou
+ * (ver `testCommandFor`).
  */
 export function testCommand(project: Project, cwd: string, name: string): string {
-  const folder = pageFolder(name)
-  const run = hasTestScript(project) ? `test ${folder}` : `exec vitest run ${folder}`
-  const relative = path.relative(cwd, project.root)
-  if (relative === '') return `pnpm ${run}`
-  // Fora da pasta atual, o caminho absoluto é mais claro que uma subida de várias pastas
-  return `pnpm --dir ${relative.startsWith('..') ? project.root : relative} ${run}`
+  return testCommandFor(project, cwd, pageFolder(name))
 }
 
 /** As opções da escolha interativa: os dez padrões e, por último, a tela mínima. */

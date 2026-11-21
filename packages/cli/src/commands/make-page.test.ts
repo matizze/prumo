@@ -8,7 +8,8 @@ import { createRoot } from '../root.ts'
 import { runCli } from '../run.ts'
 import { captureRuntime, type CaptureOptions } from '../test-support.ts'
 import { PATTERNS } from '../patterns.ts'
-import { formatSummary, patternChoices, testCommand } from './make-page.ts'
+import { patternChoices, testCommand } from './make-page.ts'
+import { formatSummary } from './shared.ts'
 
 /** Cópia do app em miniatura do codemod, numa pasta temporária. */
 const newProject = () => fixtureProject()

@@ -84,6 +84,14 @@ function registeredNamespaces(index: SourceFile): Map<string, string | undefined
 }
 
 /**
+ * Acrescenta o import e a chave do namespace no `index.ts` do idioma, cada um na posição
+ * alfabética. As duas posições vêm da árvore de antes de qualquer edição.
+ */
+function addToIndex(index: SourceFile, file: string, camel: string): void {
+  applyEdits(index, [importEdit(index, file, camel), keyEdit(index, camel)])
+}
+
+/**
  * Registra o namespace novo nas mensagens, nos dois idiomas (em todos os que o projeto tem):
  * copia `src/messages/<idioma>/<refFile>.json` para `<newFile>.json` e acrescenta, no `index.ts`
  * do idioma, o import e a chave de `export default`, cada um na posição alfabética (antes do
@@ -117,7 +125,27 @@ export function registerMessages(
         `src/messages/${language}/index.ts já registra o namespace '${camel}'${file === undefined ? '' : ` (${file}.json)`}: o nome '${newFile}' dá o mesmo namespace (o hífen e os números não mudam o nome em camelCase). Escolha outro nome para a tela.`,
       )
     }
-    // As duas posições vêm da árvore de antes de qualquer edição
-    applyEdits(index, [importEdit(index, newFile, camel), keyEdit(index, camel)])
+    addToIndex(index, newFile, camel)
+  }
+}
+
+/**
+ * Registra no `index.ts` de cada idioma do projeto um namespace cujo JSON já está (ou vai estar,
+ * pelo plano) em `src/messages/<idioma>/<file>.json`: é o registro do `prumo add`, que copia o
+ * JSON da origem. O namespace que o índice já registra com o mesmo arquivo fica como está, o que
+ * deixa o `add` repetível. Registrado com outro arquivo (`error404` para `error-404.json`, ou um
+ * `import` do produto com o mesmo nome local): `UsageError`, sem escrever nada.
+ */
+export function registerMessageNamespace(plan: ChangePlan, file: string, camel: string): void {
+  for (const language of messageLanguages(plan.project)) {
+    const index = plan.source(path.join(plan.project.messages, language, 'index.ts'))
+    const registered = registeredNamespaces(index)
+    if (registered.has(camel)) {
+      if (registered.get(camel) === file) continue
+      throw new UsageError(
+        `src/messages/${language}/index.ts já registra o namespace '${camel}' com outro arquivo (${registered.get(camel) ?? 'sem import de JSON'}): o item traz '${file}.json'.`,
+      )
+    }
+    addToIndex(index, file, camel)
   }
 }

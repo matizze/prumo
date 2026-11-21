@@ -5,7 +5,7 @@ import { UsageError } from '../errors.ts'
 import { findProject } from '../project.ts'
 import { makeProject } from '../test-support.ts'
 import { ChangePlan } from './plan.ts'
-import { registerMessages } from './register-messages.ts'
+import { registerMessageNamespace, registerMessages } from './register-messages.ts'
 import { fixturePlan } from './test-support.ts'
 
 const indexOf = (plan: ChangePlan, language: string) =>
@@ -171,5 +171,48 @@ export default {
     const root = makeProject({}, ['src/messages'])
     const plan = new ChangePlan(findProject(root))
     expect(() => registerMessages(plan, 'a', 'b', 'b')).toThrow(/não tem idioma em src\/messages/)
+  })
+})
+
+describe('registerMessageNamespace', () => {
+  it('registra import e chave em todos os idiomas, sem copiar JSON, na posição alfabética', () => {
+    const plan = fixturePlan()
+
+    registerMessageNamespace(plan, 'orders', 'orders')
+
+    expect(plan.summary()).toEqual({
+      created: [],
+      modified: ['src/messages/en/index.ts', 'src/messages/pt-BR/index.ts'],
+    })
+    for (const language of ['pt-BR', 'en']) {
+      expect(indexOf(plan, language)).toContain(
+        "import layout from './layout.json'\nimport orders from './orders.json'\nimport productsList from './products-list.json'\n",
+      )
+      expect(indexOf(plan, language)).toContain('  layout,\n  orders,\n  productsList,\n')
+    }
+  })
+
+  it('deixa como está o namespace que o índice já registra com o mesmo arquivo', () => {
+    const plan = fixturePlan()
+
+    registerMessageNamespace(plan, 'products-list', 'productsList')
+
+    expect(plan.summary()).toEqual({ created: [], modified: [] })
+  })
+
+  it('recusa o namespace registrado com outro arquivo, e o que está só na chave', () => {
+    const other = fixturePlan()
+    expect(() => registerMessageNamespace(other, 'produtos', 'productsList')).toThrow(
+      "já registra o namespace 'productsList' com outro arquivo (products-list): o item traz 'produtos.json'.",
+    )
+
+    const root = makeProject({
+      'src/messages/en/index.ts':
+        "const x = {}\nimport a from './a.json'\nexport default { a, x }\n",
+    })
+    const plan = new ChangePlan(findProject(root))
+    expect(() => registerMessageNamespace(plan, 'x', 'x')).toThrow(
+      'com outro arquivo (sem import de JSON)',
+    )
   })
 })

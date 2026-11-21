@@ -46,6 +46,8 @@ export interface CaptureOptions {
   interactive?: boolean
   /** O valor que o usuário escolhe quando o comando pergunta; `undefined` é cancelar. */
   answer?: string
+  /** As variáveis de ambiente do comando. Padrão: nenhuma. */
+  env?: Record<string, string | undefined>
 }
 
 /** Um `Runtime` que guarda o que o comando escreve e pergunta, para os testes lerem. */
@@ -55,6 +57,7 @@ export function captureRuntime(
 ): Runtime & { stdout: string; stderr: string; asked: AskedQuestion[] } {
   const runtime = {
     cwd,
+    env: options.env ?? {},
     stdout: '',
     stderr: '',
     asked: [] as AskedQuestion[],

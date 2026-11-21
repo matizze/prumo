@@ -4,9 +4,13 @@ import { makeProject } from '../test-support.ts'
 import { domainNames } from './names.ts'
 import { ChangePlan } from './plan.ts'
 import {
+  isQueriesRegistered,
+  isRepositoryRegistered,
   registerDomain,
   registerQueries,
+  registerQueriesEntry,
   registerRepository,
+  registerRepositoryEntry,
   registerSchema,
 } from './register-domain.ts'
 import { fixturePlan } from './test-support.ts'
@@ -270,5 +274,51 @@ describe('registerDomain', () => {
       modified: ['src/queries/index.ts', 'src/repositories/index.ts', 'src/schemas/index.ts'],
     })
     expect(text(plan, `${plan.project.src}/queries/index.ts`)).toContain('supplierKeys')
+  })
+})
+
+describe('registerRepositoryEntry e registerQueriesEntry (o que o prumo add usa)', () => {
+  it('registram o repositório e as queries com os nomes do catálogo, sem derivar nada', () => {
+    const plan = fixturePlan()
+
+    registerRepositoryEntry(plan, {
+      directory: 'order',
+      factory: 'createOrderRepository',
+      key: 'orders',
+    })
+    registerQueriesEntry(plan, { module: 'orders', exports: ['orderKeys', 'orderQueries'] })
+
+    expect(text(plan, `${plan.project.src}/repositories/index.ts`)).toContain(
+      "import { DATA_SOURCES, type RepositoryOptions } from './options'\nimport { createOrderRepository } from './order'\n",
+    )
+    expect(text(plan, `${plan.project.src}/repositories/index.ts`)).toContain(
+      "export * from './customers'\nexport * from './order'\n",
+    )
+    expect(text(plan, `${plan.project.src}/repositories/index.ts`)).toContain(
+      '  customers: createCustomersRepository,\n  orders: createOrderRepository,\n',
+    )
+    expect(text(plan, `${plan.project.src}/queries/index.ts`)).toContain(
+      "export { customerKeys, customerQueries } from './customers'\nexport { orderKeys, orderQueries } from './orders'\n",
+    )
+  })
+
+  it('dizem se o índice já registra a pasta e o módulo', () => {
+    const plan = fixturePlan()
+
+    expect(isRepositoryRegistered(plan, 'customers')).toBe(true)
+    expect(isRepositoryRegistered(plan, 'order')).toBe(false)
+    expect(isQueriesRegistered(plan, 'customers')).toBe(true)
+    expect(isQueriesRegistered(plan, 'orders')).toBe(false)
+  })
+
+  it('recusam o índice que não existe', () => {
+    const plan = new ChangePlan(findProject(makeProject({}, ['src'])))
+
+    expect(() => isRepositoryRegistered(plan, 'order')).toThrow(
+      'o projeto não tem src/repositories/index.ts.',
+    )
+    expect(() => isQueriesRegistered(plan, 'orders')).toThrow(
+      'o projeto não tem src/queries/index.ts.',
+    )
   })
 })

@@ -1,4 +1,5 @@
 import { defineCommand } from 'citty'
+import { createAddCommand } from './commands/add.ts'
 import { createCheckCommand } from './commands/check.ts'
 import { createMakeComponentCommand } from './commands/make-component.ts'
 import { createMakeDomainCommand } from './commands/make-domain.ts'
@@ -14,6 +15,7 @@ export function createRoot(runtime: Runtime) {
         'Prumo, o framework React da Matizze: gera e confere projetos na arquitetura do Prumo.',
     },
     subCommands: {
+      add: createAddCommand(runtime),
       check: createCheckCommand(runtime),
       'make:component': createMakeComponentCommand(runtime),
       'make:domain': createMakeDomainCommand(runtime),

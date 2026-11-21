@@ -91,4 +91,46 @@ describe('ChangePlan', () => {
     plan.createSource(file, 'export {}\n').saveSync()
     expect(existsSync(file)).toBe(false)
   })
+
+  it('overwriteCopy troca o arquivo existente pela cópia no commit, e o conta como alterado', () => {
+    const plan = fixturePlan()
+    const { root } = plan.project
+    const target = at(root, 'src/pages/products-list/README.md')
+    const from = at(root, 'src/pages/blank/model.ts')
+    plan.overwriteCopy(from, target)
+
+    expect(plan.summary()).toEqual({ created: [], modified: ['src/pages/products-list/README.md'] })
+    expect(readFileSync(target, 'utf8')).toBe('Notas da tela de lista.\n')
+
+    plan.commit()
+    expect(readFileSync(target, 'utf8')).toBe(readFileSync(from, 'utf8'))
+  })
+
+  it('overwriteCopy recusa o arquivo que não existe e o que o plano mesmo vai criar', () => {
+    const plan = fixturePlan()
+    const { root } = plan.project
+    const from = at(root, 'src/pages/blank/model.ts')
+
+    expect(() => plan.overwriteCopy(from, at(root, 'src/nada.ts'))).toThrow(UsageError)
+    plan.createText(at(root, 'src/novo.json'), '{}\n')
+    expect(() => plan.overwriteCopy(from, at(root, 'src/novo.json'))).toThrow(
+      "'src/novo.json' não existe no projeto.",
+    )
+  })
+
+  it('edits lista o antes e o depois das costuras, em ordem, sem as que ficaram iguais', () => {
+    const plan = fixturePlan()
+    const { root } = plan.project
+    applyEdits(plan.source(plan.project.app), [{ pos: 0, end: 0, text: '// alterado\n' }])
+    plan.source(at(root, 'src/queries/index.ts'))
+    plan.editText(at(root, 'src/messages/en/common.json'), '{ "close": "Close" }\n')
+
+    const edits = plan.edits()
+    expect(edits.map((edit) => path.relative(root, edit.file))).toEqual([
+      'src/App.tsx',
+      'src/messages/en/common.json',
+    ])
+    expect(edits[0]?.after.startsWith('// alterado\n')).toBe(true)
+    expect(edits[0]?.before.startsWith('// alterado')).toBe(false)
+  })
 })

@@ -28,9 +28,7 @@ export async function renderHelp(command: AnyCommand, path: string[]): Promise<s
 
   const syntax = [path.join(' ')]
   if (subCommands.length > 0) syntax.push('<comando> [opções]')
-  for (const [name, def] of positionals) {
-    syntax.push(isRequired(def) ? `<${name}>` : `[${name}]`)
-  }
+  for (const [name, def] of positionals) syntax.push(positionalText(name, def))
   for (const [name, def] of options) {
     const text = `--${name}${valueOf(name, def)}`
     syntax.push(isRequired(def) ? text : `[${text}]`)
@@ -59,6 +57,18 @@ export async function renderHelp(command: AnyCommand, path: string[]): Promise<s
     sections.push(`Rode "${path.join(' ')} <comando> --help" para ver as opções de um comando.`)
   }
   return sections.join('\n\n')
+}
+
+/** O argumento posicional que aceita vários valores: o nome termina em `...` (`item...`). */
+export function isVariadic(name: string | undefined): boolean {
+  return name?.endsWith('...') ?? false
+}
+
+/** O argumento posicional na sintaxe: `<nome>`, `[nome]` se opcional, e `<item>...` se aceita vários. */
+function positionalText(name: string, def: ArgDef): string {
+  const text = isVariadic(name) ? `${name.slice(0, -3)}` : name
+  const wrapped = isRequired(def) ? `<${text}>` : `[${text}]`
+  return isVariadic(name) ? `${wrapped}...` : wrapped
 }
 
 /** Os apelidos da opção (`-h` de `--help`). O argumento posicional não tem. */

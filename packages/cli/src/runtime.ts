@@ -14,6 +14,8 @@ export interface Runtime {
   out: (text: string) => void
   err: (text: string) => void
   cwd: string
+  /** As variáveis de ambiente (`PRUMO_REPOSITORY`, `PRUMO_CACHE_DIR`, `HOME`). Os testes passam um mapa vazio. */
+  env: Readonly<Record<string, string | undefined>>
   /** Há uma pessoa no terminal para responder perguntas. Em CI e em agentes é falso. */
   interactive: boolean
   /**

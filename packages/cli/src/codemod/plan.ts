@@ -37,6 +37,7 @@ export class ChangePlan {
   readonly #loadedSources = new Map<string, { file: SourceFile; original: string }>()
   readonly #createdFiles = new Map<string, TextEntry | CopyEntry>()
   readonly #editedTexts = new Map<string, { original: string; content: string }>()
+  readonly #overwrites = new Map<string, string>()
 
   constructor(project: Project) {
     this.project = project
@@ -93,6 +94,14 @@ export class ChangePlan {
     this.#createdFiles.set(file, { kind: 'copy', from })
   }
 
+  /** Troca um arquivo que já existe no projeto pela cópia byte a byte de `from` (o `add --overwrite`). */
+  overwriteCopy(from: string, file: string): void {
+    if (!this.hasFile(file) || this.#createdSources.has(file) || this.#createdFiles.has(file)) {
+      throw new UsageError(`'${this.#display(file)}' não existe no projeto.`)
+    }
+    this.#overwrites.set(file, from)
+  }
+
   /**
    * Muda o caminho de um arquivo de código que o plano vai criar, e o ts-morph atualiza os imports
    * relativos que apontam para ele nos outros arquivos do plano. `to` não pode existir.
@@ -141,6 +150,28 @@ export class ChangePlan {
     this.#editedTexts.set(file, { original, content })
   }
 
+  /**
+   * Os arquivos existentes que o plano altera por edição (as costuras), com o texto de antes e o
+   * de depois, em ordem de caminho. É o que o `add --diff` mostra. Não inclui as substituições
+   * de `overwriteCopy`, que o chamador compara com a origem.
+   */
+  edits(): { file: string; before: string; after: string }[] {
+    return [
+      ...[...this.#loadedSources].map(([file, s]) => ({
+        file,
+        before: s.original,
+        after: s.file.getFullText(),
+      })),
+      ...[...this.#editedTexts].map(([file, t]) => ({
+        file,
+        before: t.original,
+        after: t.content,
+      })),
+    ]
+      .filter((edit) => edit.before !== edit.after)
+      .sort((a, b) => a.file.localeCompare(b.file))
+  }
+
   /** O que o plano criaria e alteraria. Arquivos editados que ficaram iguais não contam. */
   summary(): PlanSummary {
     const relative = (file: string) =>
@@ -151,6 +182,7 @@ export class ChangePlan {
         .filter(([, s]) => s.file.getFullText() !== s.original)
         .map(([f]) => f),
       ...[...this.#editedTexts].filter(([, t]) => t.content !== t.original).map(([f]) => f),
+      ...this.#overwrites.keys(),
     ].map(relative)
     return { created: created.sort(), modified: modified.sort() }
   }
@@ -179,6 +211,7 @@ export class ChangePlan {
     for (const [file, { original, content }] of this.#editedTexts) {
       if (content !== original) write(file, content)
     }
+    for (const [file, from] of this.#overwrites) copyFileSync(from, file)
     return summary
   }
 

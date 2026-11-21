@@ -1,3 +1,4 @@
+export { addRoute, openOriginApp, type RouteSpec } from './add-route.ts'
 export { copyDomain, domainPaths, type DomainPaths } from './copy-domain.ts'
 export { copyPage } from './copy-page.ts'
 export { applyEdits, spliceText, type TextEdit } from './edit.ts'
@@ -43,15 +44,22 @@ export {
 } from './names.ts'
 export { ChangePlan, isCodeFile, type PlanSummary } from './plan.ts'
 export {
+  isQueriesRegistered,
+  isRepositoryRegistered,
   registerDomain,
   registerQueries,
+  registerQueriesEntry,
   registerRepository,
+  registerRepositoryEntry,
   registerSchema,
+  type QueriesEntry,
+  type RepositoryEntry,
 } from './register-domain.ts'
 export { registerRegistry } from './register-registry.ts'
 export { messageKeys } from './messages.ts'
 export { registerMenuItem, type MenuLabel } from './register-menu-item.ts'
-export { registerMessages } from './register-messages.ts'
+export { registerMessageNamespace, registerMessages } from './register-messages.ts'
+export { mergeBarrel } from './merge-barrel.ts'
 export { referenceComponent, type ReferenceComponent } from './reference-component.ts'
 export { registerRoute } from './register-route.ts'
 export { idPrefix, NOT_FOUND_MESSAGE, renameDomain } from './rename-domain.ts'

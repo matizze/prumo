@@ -1,107 +1,163 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { act, renderHook, waitFor } from '@testing-library/react'
-import { toast } from 'sonner'
-import { describe, expect, it, vi } from 'vitest'
-import { UIError } from '@matizze/prumo-core/errors'
-import { QueryProvider } from './query.provider'
+// @vitest-environment jsdom
+import { useMutation, useQuery, type QueryClient } from '@tanstack/react-query'
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createQueryClient, QueryProvider } from './index.ts'
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn() } }))
+afterEach(cleanup)
 
-const GENERIC_ERROR_MESSAGE = 'Algo deu errado. Tente novamente.'
+class FixtureError extends Error {}
 
-const uiError = new UIError('TASK_NOT_FOUND', 'Tarefa não encontrada.')
+const GENERIC_MESSAGE = 'mensagem genérica'
 
-function renderFailingMutation(error: unknown, meta?: { errorMessage?: string; silent?: boolean }) {
-  const mutationFn = vi.fn(() => Promise.reject(error))
-  const { result } = renderHook(() => useMutation({ mutationFn, meta }), {
-    wrapper: QueryProvider,
-  })
-  act(() => result.current.mutate())
-  return { result, mutationFn }
+/** Resolvedor de mensagem de fixture: o teste não depende dos textos de um produto. */
+function getErrorMessage(error: unknown) {
+  return error instanceof FixtureError ? `traduzido: ${error.message}` : GENERIC_MESSAGE
 }
 
-describe('QueryProvider global error handling', () => {
+const fixtureError = new FixtureError('não encontrado')
+
+function setup(createClient?: () => QueryClient) {
+  const notify = vi.fn<(message: string) => void>()
+  const create =
+    createClient ??
+    (() =>
+      createQueryClient({
+        notify,
+        getErrorMessage,
+        // retry: false para não esperar o retry padrão
+        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      }))
+  function wrapper({ children }: { children: ReactNode }) {
+    return <QueryProvider createClient={create}>{children}</QueryProvider>
+  }
+  return { notify, wrapper }
+}
+
+function renderFailingMutation(error: unknown, meta?: { errorMessage?: string; silent?: boolean }) {
+  const { notify, wrapper } = setup()
+  const mutationFn = vi.fn(() => Promise.reject(error))
+  const { result } = renderHook(() => useMutation({ mutationFn, meta }), { wrapper })
+  act(() => result.current.mutate())
+  return { result, mutationFn, notify }
+}
+
+describe('QueryProvider', () => {
+  it('cria o client uma vez por montagem, mesmo com re-renderizações', () => {
+    const create = vi.fn(() => createQueryClient({ notify: vi.fn(), getErrorMessage }))
+    const { wrapper } = setup(create)
+    const { rerender } = renderHook(() => null, { wrapper })
+
+    rerender()
+    rerender()
+
+    expect(create).toHaveBeenCalledOnce()
+  })
+})
+
+describe('tratamento global de erro', () => {
   describe('mutations', () => {
-    it('shows the UIError message in a toast', async () => {
-      const { result } = renderFailingMutation(uiError)
+    it('notifica a mensagem traduzida do erro', async () => {
+      const { result, notify } = renderFailingMutation(fixtureError)
 
       await waitFor(() => expect(result.current.isError).toBe(true))
-      expect(toast.error).toHaveBeenCalledExactlyOnceWith('Tarefa não encontrada.')
+      expect(notify).toHaveBeenCalledExactlyOnceWith('traduzido: não encontrado')
     })
 
-    it('shows the generic message for errors that are not UIError', async () => {
-      const { result } = renderFailingMutation(new TypeError('Failed to fetch'))
+    it('notifica a mensagem genérica quando o resolvedor não reconhece o erro', async () => {
+      const { result, notify } = renderFailingMutation(new TypeError('Failed to fetch'))
 
       await waitFor(() => expect(result.current.isError).toBe(true))
-      expect(toast.error).toHaveBeenCalledExactlyOnceWith(GENERIC_ERROR_MESSAGE)
+      expect(notify).toHaveBeenCalledExactlyOnceWith(GENERIC_MESSAGE)
     })
 
-    it('uses meta.errorMessage in place of the error message', async () => {
-      const { result } = renderFailingMutation(uiError, { errorMessage: 'Custom message' })
+    it('usa meta.errorMessage no lugar da mensagem do erro', async () => {
+      const { result, notify } = renderFailingMutation(fixtureError, {
+        errorMessage: 'Texto da tela',
+      })
 
       await waitFor(() => expect(result.current.isError).toBe(true))
-      expect(toast.error).toHaveBeenCalledExactlyOnceWith('Custom message')
+      expect(notify).toHaveBeenCalledExactlyOnceWith('Texto da tela')
     })
 
-    it('skips the toast when meta.silent is set', async () => {
-      const { result, mutationFn } = renderFailingMutation(uiError, { silent: true })
+    it('não notifica com meta.silent', async () => {
+      const { result, mutationFn, notify } = renderFailingMutation(fixtureError, { silent: true })
 
       await waitFor(() => expect(result.current.isError).toBe(true))
       expect(mutationFn).toHaveBeenCalledOnce()
-      expect(toast.error).not.toHaveBeenCalled()
+      expect(notify).not.toHaveBeenCalled()
     })
   })
 
   describe('queries', () => {
-    it('does not toast when the first load fails (the screen shows that error)', async () => {
-      const queryFn = vi.fn(() => Promise.reject(uiError))
+    it('não notifica quando o primeiro carregamento falha (a tela mostra esse erro)', async () => {
+      const { notify, wrapper } = setup()
+      const queryFn = vi.fn(() => Promise.reject(fixtureError))
 
-      const { result } = renderHook(
-        // retry: false para não esperar o retry padrão do provider
-        () => useQuery({ queryKey: ['first-load'], queryFn, retry: false }),
-        { wrapper: QueryProvider },
-      )
+      const { result } = renderHook(() => useQuery({ queryKey: ['first-load'], queryFn }), {
+        wrapper,
+      })
 
       await waitFor(() => expect(result.current.isError).toBe(true))
       expect(queryFn).toHaveBeenCalledOnce()
-      expect(toast.error).not.toHaveBeenCalled()
+      expect(notify).not.toHaveBeenCalled()
     })
 
-    it('toasts when a background refetch fails and keeps the cached data', async () => {
+    it('notifica quando o refetch em segundo plano falha e mantém os dados em cache', async () => {
+      const { notify, wrapper } = setup()
       const queryFn = vi
         .fn<() => Promise<string>>()
         .mockResolvedValueOnce('cached')
-        .mockRejectedValueOnce(uiError)
+        .mockRejectedValueOnce(fixtureError)
 
-      const { result } = renderHook(
-        () => useQuery({ queryKey: ['refetch'], queryFn, retry: false }),
-        { wrapper: QueryProvider },
-      )
+      const { result } = renderHook(() => useQuery({ queryKey: ['refetch'], queryFn }), {
+        wrapper,
+      })
       await waitFor(() => expect(result.current.data).toBe('cached'))
-      expect(toast.error).not.toHaveBeenCalled()
+      expect(notify).not.toHaveBeenCalled()
 
       await act(() => result.current.refetch())
 
-      expect(toast.error).toHaveBeenCalledExactlyOnceWith('Tarefa não encontrada.')
+      expect(notify).toHaveBeenCalledExactlyOnceWith('traduzido: não encontrado')
       expect(result.current.data).toBe('cached')
     })
 
-    it('respects meta.silent on a failed refetch', async () => {
+    it('respeita meta.silent no refetch que falha', async () => {
+      const { notify, wrapper } = setup()
       const queryFn = vi
         .fn<() => Promise<string>>()
         .mockResolvedValueOnce('cached')
-        .mockRejectedValueOnce(uiError)
+        .mockRejectedValueOnce(fixtureError)
 
       const { result } = renderHook(
-        () => useQuery({ queryKey: ['silent'], queryFn, retry: false, meta: { silent: true } }),
-        { wrapper: QueryProvider },
+        () => useQuery({ queryKey: ['silent'], queryFn, meta: { silent: true } }),
+        { wrapper },
       )
       await waitFor(() => expect(result.current.data).toBe('cached'))
 
       await act(() => result.current.refetch())
 
       expect(queryFn).toHaveBeenCalledTimes(2)
-      expect(toast.error).not.toHaveBeenCalled()
+      expect(notify).not.toHaveBeenCalled()
+    })
+
+    it('usa meta.errorMessage no refetch que falha', async () => {
+      const { notify, wrapper } = setup()
+      const queryFn = vi
+        .fn<() => Promise<string>>()
+        .mockResolvedValueOnce('cached')
+        .mockRejectedValueOnce(fixtureError)
+
+      const { result } = renderHook(
+        () => useQuery({ queryKey: ['message'], queryFn, meta: { errorMessage: 'Texto da tela' } }),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.data).toBe('cached'))
+
+      await act(() => result.current.refetch())
+
+      expect(notify).toHaveBeenCalledExactlyOnceWith('Texto da tela')
     })
   })
 })

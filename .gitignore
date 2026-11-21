@@ -1,0 +1,23 @@
+# Dependências
+node_modules
+
+# Saída de build e caches do TypeScript
+dist
+*.tsbuildinfo
+coverage
+
+# Logs
+*.log
+
+# Variáveis de ambiente (nunca commite segredos)
+.env
+.env.*
+!.env.example
+*.local
+
+# Editores e sistema
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db

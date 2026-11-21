@@ -9,6 +9,9 @@ import type { Runtime } from '../runtime.ts'
 import { formatViolation } from './check.ts'
 import { formatSummary, testCommandFor } from './shared.ts'
 
+/** O pacote do `defineContractSuite` e do `runContractSuite`, que o teste de contrato gerado usa. */
+const TESTING_PACKAGE = '@matizze/prumo-testing'
+
 /**
  * `prumo make:domain <nome> [--entity <singular>]`: gera um domínio de dados a partir do domínio
  * de referência do próprio projeto (`customers`): o schema da entidade, o repositório (contrato,
@@ -39,7 +42,10 @@ ches, shes ou sses), o comando recusa e pede a entidade com --entity: categories
 o certo é --entity category.
 
 Os campos e as fixtures são os de ${REFERENCE_DOMAIN}, e o produto edita o schema depois: o teste de
-contrato gerado passa porque as fixtures vêm junto. A mensagem do erro "não encontrado" cita a
+contrato gerado passa porque as fixtures vêm junto. Ele importa
+defineContractSuite e runContractSuite de src/test/contract.ts, a ligação do projeto com
+${TESTING_PACKAGE}; para rodar o mesmo contrato contra outra implementação (HTTP, Dexie),
+acrescente um runContractSuite no mesmo arquivo. A mensagem do erro "não encontrado" cita a
 entidade em português e vira "${NOT_FOUND_MESSAGE}", e o comentário das fixtures que cita a
 origem dos dados da referência vira um aviso de dados de exemplo.
 
@@ -98,7 +104,10 @@ que um índice já exporta (TS2308), referência incompleta, índice que falta.`
       const keysTest = existsSync(path.join(project.src, 'queries', 'keys.test.ts'))
         ? `As chaves (${to.singular.camel}Keys) não entram sozinhas no snapshot de src/queries/keys.test.ts: acrescente-as à lista de grupos protegidos dele, se quiser congelá-las.\n`
         : ''
-      const next = `Os campos e as fixtures são os de ${from.plural.kebab}: edite ${schema} e ${fixtures}. A mensagem de erro do "não encontrado" é "${NOT_FOUND_MESSAGE}".\n${keysTest}\nPara rodar os testes do domínio novo:\n  ${testCommandFor(project, runtime.cwd, `src/repositories/${to.plural.kebab}`)}\n`
+      const contractLink = existsSync(path.join(project.src, 'test', 'contract.ts'))
+        ? ''
+        : `O teste de contrato importa src/test/contract.ts (a ligação com ${TESTING_PACKAGE}), e o projeto não tem o arquivo: crie-o reexportando defineContractSuite e runContractSuite de ${TESTING_PACKAGE}/contract.\n`
+      const next = `Os campos e as fixtures são os de ${from.plural.kebab}: edite ${schema} e ${fixtures}. A mensagem de erro do "não encontrado" é "${NOT_FOUND_MESSAGE}".\n${keysTest}${contractLink}\nPara rodar os testes do domínio novo:\n  ${testCommandFor(project, runtime.cwd, `src/repositories/${to.plural.kebab}`)}\n`
       if (violations.length === 0) {
         runtime.out(`prumo check: nenhuma violação.\n\n${next}`)
         return

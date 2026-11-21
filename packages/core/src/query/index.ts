@@ -1,2 +1,6 @@
 export { createQueryKeys } from './keys.ts'
 export type { QueryKeys } from './keys.ts'
+export { createQueryClient } from './client.ts'
+export type { ErrorMeta, QueryClientOptions } from './client.ts'
+export { QueryProvider } from './provider.tsx'
+export type { QueryProviderProps } from './provider.tsx'

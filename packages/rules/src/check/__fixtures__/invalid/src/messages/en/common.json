@@ -1,0 +1,5 @@
+{
+  "title": "",
+  "greeting": "Hello, {user}!",
+  "farewell": "Bye, {name}!"
+}

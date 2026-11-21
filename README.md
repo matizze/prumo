@@ -6,7 +6,7 @@ O plano completo está em [docs/plano-prumo.md](docs/plano-prumo.md).
 
 ## Situação
 
-**Fase 0 (preparação).** O monorepo tem o app de referência, com o histórico do `template-react-vite-app`, e os cinco pacotes como esqueleto. A Fase 1 extrai o prumo-core e o prumo-rules do app, um módulo por pull request, conforme [docs/fase-1.md](docs/fase-1.md).
+**Fase 1 concluída.** O `@matizze/prumo-core`, o `@matizze/prumo-rules` e o `@matizze/prumo-cli` têm código, extraído do app de referência um módulo por pull request, conforme [docs/fase-1.md](docs/fase-1.md). O app de referência importa dos pacotes e roda o `prumo check` no verify. O `@matizze/prumo-testing` e o `@matizze/prumo-mcp` ainda são esqueleto (Fases 3 e 4), e os comandos de criação do `prumo` (new, make, add, promote e doctor) chegam na Fase 2.
 
 ## Estrutura
 
@@ -32,15 +32,18 @@ pnpm install
 pnpm --filter @matizze/prumo-reference exec playwright install chromium   # uma vez por máquina, para as stories
 ```
 
-| Comando                 | O que faz                                                                               |
-| ----------------------- | --------------------------------------------------------------------------------------- |
-| `pnpm verify`           | verify dos pacotes e depois do app de referência; é o que a CI cobra                    |
-| `pnpm verify:packages`  | typecheck e testes de `packages/*`, um pacote por vez                                   |
-| `pnpm verify:reference` | o `pnpm verify` do app: typecheck, lint, testes, stories com axe nos dois temas e build |
-| `pnpm dev`              | o app de referência em modo dev                                                         |
-| `pnpm changeset`        | registra a mudança de um pacote para a próxima versão                                   |
+| Comando                                        | O que faz                                                                             |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `pnpm verify`                                  | verify dos pacotes e depois do app de referência; é o que a CI cobra                  |
+| `pnpm verify:packages`                         | typecheck, lint e testes de `packages/*`, um pacote por vez                           |
+| `pnpm verify:reference`                        | o `pnpm verify` do app: typecheck, lint, prumo check, testes, stories com axe e build |
+| `pnpm dev`                                     | o app de referência em modo dev                                                       |
+| `pnpm --filter @matizze/prumo-reference check` | o `prumo check` no app de referência (também roda dentro do verify)                   |
+| `pnpm changeset`                               | registra a mudança de um pacote para a próxima versão                                 |
 
 Os outros scripts do app (Storybook, registry, paridade visual) rodam dentro de `apps/reference` ou com `pnpm --filter @matizze/prumo-reference <script>`. Eles estão descritos em [apps/reference/README.md](apps/reference/README.md).
+
+O `prumo check` é o comando do `@matizze/prumo-cli`: no app de referência, `pnpm check` dentro de `apps/reference`. Em outro projeto, rode `prumo check [--root <pasta>]` (veja [packages/cli/README.md](packages/cli/README.md)); ele sai com 0 sem violação, 1 com violação e 2 se o uso está errado.
 
 O verify do app é pesado: as stories rodam no Chromium e o processo chega a uns 2 GB de memória. Rode um verify por vez.
 
@@ -56,11 +59,15 @@ Nas mensagens antigas, as referências a pull requests apontam para `matizze/tem
 
 Por enquanto, o app mantém a própria cópia dos componentes de UI (`src/components/ui`, `src/icons` e `src/styles`). A troca para o registry `@mads` fica para quando o MaDS estiver publicado.
 
+## Branches
+
+O trabalho acontece na `develop`, que é a branch padrão: todo pull request abre contra ela. A `main` recebe as versões.
+
 ## Pacotes, versões e CI
 
-- **Pacotes.** Cada pacote exporta o próprio código-fonte (`src/index.ts`) e está com `"private": true` até as decisões de distribuição (GitHub Packages ou npm) e de build (tsup), que vêm antes da Fase 1.
+- **Pacotes.** Cada pacote exporta o próprio código-fonte em TypeScript, sem build, e está com `"private": true` até a decisão de distribuição (GitHub Packages ou npm). Os pacotes com código usam exports por subcaminho, um por módulo (`@matizze/prumo-core/query`, `@matizze/prumo-rules/eslint`), para que importar um módulo não traga as dependências dos outros. O build (tsup) entra só na primeira publicação, como decidido em [docs/fase-1.md](docs/fase-1.md).
 - **Versões.** Todo pull request que muda um pacote traz um changeset (`pnpm changeset`). As regras estão em [.changeset/README.md](.changeset/README.md).
-- **CI.** O [.github/workflows/ci.yml](.github/workflows/ci.yml) roda os testes dos pacotes e o verify do app de referência a cada pull request e a cada push na `main`.
+- **CI.** O [.github/workflows/ci.yml](.github/workflows/ci.yml) roda os testes dos pacotes e o verify do app de referência a cada pull request e a cada push na `main` ou na `develop`.
 
 ## Convenções
 

@@ -12,6 +12,10 @@ pnpm changeset version  # aplica: sobe as versões e escreve o CHANGELOG.md de c
 
 A descrição do changeset vai para o CHANGELOG do pacote, então escreva em português e do ponto de vista de quem usa o pacote.
 
+## Versão
+
+Na hora de lançar uma versão, um pull request no branch `changeset-release/develop` roda `pnpm changeset version`: sobe as versões, escreve os CHANGELOGs e apaga os changesets. Depois, um pull request leva a `develop` para a `main`. A CI não cobra changeset nesses dois.
+
 ## Decisões desta configuração
 
 - **Pacotes privados por enquanto.** Os pacotes estão com `"private": true` até a decisão de distribuição (GitHub Packages ou npm, seção 10 do plano). Por isso `privatePackages.version` está ligado: os pacotes ganham versão e changelog, mas não são publicados nem recebem tag.

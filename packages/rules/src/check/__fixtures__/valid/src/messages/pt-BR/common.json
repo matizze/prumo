@@ -1,0 +1,5 @@
+{
+  "title": "Início",
+  "greeting": "Olá, {name}!",
+  "items": "{count, plural, one {# item} other {# itens}}"
+}

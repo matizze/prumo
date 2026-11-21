@@ -1,4 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
-  "include": ["src"]
+  "compilerOptions": {
+    // Código de Node: o plugin de ESLint e a análise do projeto
+    "types": ["node"]
+  },
+  "include": ["src"],
+  // Projetos de fixture do prumo check: código de mentira, que não compila de propósito
+  "exclude": ["src/**/__fixtures__"]
 }

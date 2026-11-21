@@ -2,6 +2,12 @@
 
 Infraestrutura comum dos produtos do Prumo: container de repositórios, query keys, tipo Page, utilitários de mock, i18n, erros com código, guarda de login e provedor de query.
 
-**Situação:** esqueleto da Fase 0, sem código de produção. O conteúdo chega na Fase 1; o plano está em [docs/fase-1.md](../../docs/fase-1.md).
+**Situação:** Fase 1, em extração do app de referência (`apps/reference`), um módulo por pull request. O plano está em [docs/fase-1.md](../../docs/fase-1.md).
 
-**Origem no app de referência:** `src/providers`, `src/repositories/mock-utils.ts`, `src/i18n`, `src/lib/errors` e `protected-route.tsx`.
+## Módulos
+
+Cada módulo tem um subcaminho próprio, para que importar um deles não traga as dependências dos outros.
+
+| Subcaminho                   | O que tem                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| `@matizze/prumo-core/errors` | `UIError`: erro com código estável, que a interface traduz por `errors.<CODE>` |

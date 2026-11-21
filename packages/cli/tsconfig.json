@@ -4,5 +4,7 @@
     // Código de Node: o comando prumo
     "types": ["node"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Projetos de fixture do codemod: código de mentira (app em miniatura), que não compila de propósito
+  "exclude": ["src/**/__fixtures__"]
 }

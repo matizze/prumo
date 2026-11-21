@@ -1,7 +1,7 @@
 /**
  * Ponto de entrada do @matizze/prumo-core.
  *
- * Por enquanto o pacote só se identifica. O conteúdo chega na Fase 1, extraído do app de
- * referência (apps/reference) com o verify verde a cada passo.
+ * Este ponto de entrada só identifica o pacote: o conteúdo está nos subcaminhos (um por módulo,
+ * listados no `exports` do package.json e no README).
  */
 export const PACKAGE_NAME = '@matizze/prumo-core'

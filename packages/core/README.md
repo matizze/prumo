@@ -2,7 +2,7 @@
 
 Infraestrutura comum dos produtos do Prumo: container de repositórios, query keys, tipo Page, utilitários de mock, i18n, erros com código, guarda de login e provedor de query.
 
-**Situação:** Fase 1, em extração do app de referência (`apps/reference`), um módulo por pull request. O plano está em [docs/fase-1.md](../../docs/fase-1.md).
+**Situação:** Fase 1, extração concluída: os sete módulos abaixo vieram do app de referência (`apps/reference`), que agora importa deles. O plano está em [docs/fase-1.md](../../docs/fase-1.md).
 
 ## Módulos
 

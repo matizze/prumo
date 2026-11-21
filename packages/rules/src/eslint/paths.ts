@@ -74,8 +74,9 @@ export function matchesPackage(specifier: string, name: string): boolean {
 
 /**
  * Listener que chama `check` a cada especificador de import ou export com origem: `import`,
- * `import type`, `export ... from`, `export *` e `import()` com texto fixo. Lê os mesmos
- * casos que o teste de arquitetura lia por expressão regular.
+ * `import type`, `export ... from`, `export *`, `import()` com texto fixo e `import('x')` em
+ * posição de tipo (`type Row = import('@/x').Row`, o `TSImportType` do typescript-eslint). Lê
+ * os mesmos casos que o teste de arquitetura lia por expressão regular.
  */
 export function importListener(
   check: (node: Rule.Node, specifier: string) => void,
@@ -88,5 +89,17 @@ export function importListener(
     ExportAllDeclaration: (node) => visit(node, node.source),
     ExportNamedDeclaration: (node) => visit(node, node.source),
     ImportExpression: (node) => visit(node, node.source),
-  }
+    // O tipo `import('x')` não está nos tipos do ESLint, que não conhece a sintaxe de tipos.
+    // O texto fica em `source` (typescript-eslint 8.5x em diante) e, antes, em `argument.literal`.
+    TSImportType: (node: Rule.Node) => {
+      type Literal = { type: string; value?: unknown }
+      const type = node as unknown as {
+        source?: Literal
+        argument?: { type: string; literal?: Literal }
+      }
+      // `argument` só é lido sem `source`: nas versões novas, ler o `argument` avisa de obsoleto
+      if (type.source) return visit(node, type.source)
+      visit(node, type.argument?.type === 'TSLiteralType' ? type.argument.literal : null)
+    },
+  } as Rule.RuleListener
 }

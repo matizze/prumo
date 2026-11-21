@@ -16,6 +16,11 @@
   "peerDependencies": {
     "eslint": "^10.13.0"
   },
+  "peerDependenciesMeta": {
+    "eslint": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/node": "^24.19.2",
     "eslint": "^10.13.0",

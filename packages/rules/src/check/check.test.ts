@@ -297,6 +297,189 @@ describe('messages', () => {
   })
 })
 
+describe('messages com index.ts', () => {
+  const json = (value: unknown) => JSON.stringify(value)
+  const indexOf = (imports: Record<string, string>, entries: string) =>
+    `${Object.entries(imports)
+      .map(([ident, stem]) => `import ${ident} from './${stem}.json'`)
+      .join('\n')}\n\nexport default { ${entries} }\n`
+  const messages = (root: string) =>
+    check({ root })
+      .filter((v) => v.rule === 'messages')
+      .map((v) => [v.file, v.message])
+
+  /** Um namespace `add-product` registrado como `addProduct` nos dois idiomas. */
+  const registered = (title = 'Título', extra: Record<string, string> = {}) => ({
+    'src/messages/pt-BR/add-product.json': json({ title }),
+    'src/messages/en/add-product.json': json({ title: 'Title', ...extra }),
+    'src/messages/pt-BR/index.ts': indexOf({ addProduct: 'add-product' }, 'addProduct'),
+    'src/messages/en/index.ts': indexOf({ addProduct: 'add-product' }, 'addProduct'),
+  })
+
+  it('o projeto com index.ts em dia passa limpo', () => {
+    expect(messages(makeProject(registered()))).toEqual([])
+  })
+
+  it('cita a chave pelo nome registrado, como o app a usa no t()', () => {
+    const root = makeProject({
+      ...registered('', { extra: 'Extra' }),
+      'src/messages/pt-BR/ai-chat.json': json({ nested: { a: 'A' } }),
+      'src/messages/en/ai-chat.json': json({ nested: {} }),
+      'src/messages/pt-BR/index.ts': indexOf(
+        { addProduct: 'add-product', aiChat: 'ai-chat' },
+        'addProduct, aiChat',
+      ),
+      'src/messages/en/index.ts': indexOf(
+        { addProduct: 'add-product', aiChat: 'ai-chat' },
+        'addProduct, aiChat',
+      ),
+    })
+    expect(messages(root)).toEqual([
+      ['src/messages/pt-BR/add-product.json', "A mensagem 'addProduct.title' está vazia."],
+      [
+        'src/messages/en/ai-chat.json',
+        "A chave 'aiChat.nested.a' existe em 'pt-BR' e falta em 'en'.",
+      ],
+      [
+        'src/messages/en/add-product.json',
+        "A chave 'addProduct.extra' existe em 'en' e falta em 'pt-BR'.",
+      ],
+    ])
+  })
+
+  it('usa o nome da forma "chave: identificador" e da chave entre aspas', () => {
+    const root = makeProject({
+      'src/messages/pt-BR/add-product.json': json({ title: 'Título' }),
+      'src/messages/en/add-product.json': json({ title: 'Title', extra: 'Extra' }),
+      'src/messages/pt-BR/index.ts': indexOf({ product: 'add-product' }, "'add-product': product"),
+      'src/messages/en/index.ts': indexOf({ product: 'add-product' }, 'newName: product'),
+    })
+    expect(messages(root)).toEqual([
+      [
+        'src/messages/en/index.ts',
+        "O namespace 'add-product' está registrado em 'pt-BR' e falta em 'en'.",
+      ],
+      [
+        'src/messages/en/index.ts',
+        "O namespace 'newName' está registrado em 'en' e falta em 'pt-BR'.",
+      ],
+      [
+        'src/messages/en/add-product.json',
+        "A chave 'add-product.title' existe em 'pt-BR' e falta em 'en'.",
+      ],
+      [
+        'src/messages/en/add-product.json',
+        "A chave 'newName.title' existe em 'en' e falta em 'pt-BR'.",
+      ],
+      [
+        'src/messages/en/add-product.json',
+        "A chave 'newName.extra' existe em 'en' e falta em 'pt-BR'.",
+      ],
+    ])
+  })
+
+  it('acusa o JSON da pasta que o index.ts não importa', () => {
+    const root = makeProject({
+      ...registered(),
+      'src/messages/pt-BR/forgotten-one.json': json({ x: 'x' }),
+      'src/messages/en/forgotten-one.json': json({ x: 'x' }),
+    })
+    expect(messages(root)).toEqual([
+      [
+        'src/messages/pt-BR/index.ts',
+        "O arquivo 'forgotten-one.json' não está importado nem exportado no index.ts.",
+      ],
+      [
+        'src/messages/en/index.ts',
+        "O arquivo 'forgotten-one.json' não está importado nem exportado no index.ts.",
+      ],
+    ])
+  })
+
+  it('acusa o JSON importado e fora do export default', () => {
+    const root = makeProject({
+      ...registered(),
+      'src/messages/en/index.ts': indexOf({ addProduct: 'add-product' }, ''),
+    })
+    expect(messages(root)).toEqual([
+      [
+        'src/messages/en/index.ts',
+        "O namespace de './add-product.json' está importado, mas não está no export default.",
+      ],
+      [
+        'src/messages/en/index.ts',
+        "O namespace 'addProduct' está registrado em 'pt-BR' e falta em 'en'.",
+      ],
+    ])
+  })
+
+  it('acusa o index.ts que importa um JSON que não existe', () => {
+    const root = makeProject({
+      ...registered(),
+      'src/messages/en/index.ts': indexOf(
+        { addProduct: 'add-product', ghost: 'ghost' },
+        'addProduct, ghost',
+      ),
+    })
+    expect(messages(root)).toEqual([
+      ['src/messages/en/index.ts', "O index.ts importa './ghost.json', que não existe em 'en'."],
+      [
+        'src/messages/en/index.ts',
+        "O namespace 'ghost' está registrado em 'en' e falta em 'pt-BR'.",
+      ],
+    ])
+  })
+
+  it('acusa o namespace esquecido num idioma, que o JSON solto não mostra', () => {
+    const root = makeProject({
+      ...registered(),
+      'src/messages/pt-BR/billing.json': json({ title: 'Cobrança' }),
+      'src/messages/en/billing.json': json({ title: 'Billing' }),
+      'src/messages/pt-BR/index.ts': indexOf(
+        { addProduct: 'add-product', billing: 'billing' },
+        'addProduct, billing',
+      ),
+    })
+    expect(messages(root)).toEqual([
+      [
+        'src/messages/en/index.ts',
+        "O arquivo 'billing.json' não está importado nem exportado no index.ts.",
+      ],
+      [
+        'src/messages/en/index.ts',
+        "O namespace 'billing' está registrado em 'pt-BR' e falta em 'en'.",
+      ],
+    ])
+  })
+
+  it('ignora comentário no index.ts e aceita as chaves em várias linhas', () => {
+    const source = `// import fake from './fake.json'
+/* export default { fake } */
+import addProduct from './add-product.json'
+
+export default {
+  // o namespace da tela
+  addProduct,
+}
+`
+    const root = makeProject({
+      ...registered(),
+      'src/messages/pt-BR/index.ts': source,
+      'src/messages/en/index.ts': source,
+    })
+    expect(messages(root)).toEqual([])
+  })
+
+  it('só um idioma com index.ts: acusa a diferença antes das chaves soltas', () => {
+    const files: Record<string, string> = registered()
+    delete files['src/messages/en/index.ts']
+    expect(messages(makeProject(files))[0]).toEqual([
+      'src/messages/en',
+      "O idioma 'pt-BR' registra os namespaces num index.ts e 'en' não tem index.ts.",
+    ])
+  })
+})
+
 describe('opções', () => {
   it('aceita a raiz relativa ao diretório de trabalho', () => {
     const relative = path.relative(process.cwd(), path.join(fixtures, 'valid'))

@@ -283,3 +283,37 @@ describe('messages.test.ts: "nenhuma mensagem está vazia"', () => {
     expect(check({ root })).toEqual([])
   })
 })
+
+describe('messages.test.ts: "cada index.ts registra todos os namespaces do idioma"', () => {
+  const registry = (imports: string[], entries: string[]) =>
+    `${imports.map((name) => `import ${name} from './${name}.json'`).join('\n')}\n\nexport default { ${entries.join(', ')} }\n`
+  const project = (enIndex: string) => ({
+    'src/messages/pt-BR/a.json': json({ x: 'x' }),
+    'src/messages/pt-BR/b.json': json({ y: 'y' }),
+    'src/messages/pt-BR/index.ts': registry(['a', 'b'], ['a', 'b']),
+    'src/messages/en/a.json': json({ x: 'x' }),
+    'src/messages/en/b.json': json({ y: 'y' }),
+    'src/messages/en/index.ts': enIndex,
+  })
+
+  it('acusa o namespace que um idioma esqueceu de registrar', () => {
+    const root = makeProject(project(registry(['a'], ['a'])))
+    expect(check({ root }).map((v) => [v.rule, v.file, v.message])).toEqual([
+      [
+        'messages',
+        'src/messages/en/index.ts',
+        "O arquivo 'b.json' não está importado nem exportado no index.ts.",
+      ],
+      [
+        'messages',
+        'src/messages/en/index.ts',
+        "O namespace 'b' está registrado em 'pt-BR' e falta em 'en'.",
+      ],
+    ])
+  })
+
+  it('passa quando os dois index.ts registram os mesmos namespaces', () => {
+    const root = makeProject(project(registry(['b', 'a'], ['b', 'a'])))
+    expect(check({ root })).toEqual([])
+  })
+})

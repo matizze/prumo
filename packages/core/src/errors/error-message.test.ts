@@ -66,4 +66,24 @@ describe('createErrorMessage', () => {
     expect(getErrorMessage(new UIError('SEM_TRADUCAO', 'x'))).toBe('Falha genérica.')
     expect(getErrorMessage(new Error('x'))).toBe('Falha genérica.')
   })
+
+  it('lança na criação se a chave de reserva não existe nas mensagens', () => {
+    const i18n = createInstance()
+    void i18n.init({
+      lng: 'pt-BR',
+      initAsync: false,
+      keySeparator: '.',
+      nsSeparator: false,
+      resources: { 'pt-BR': { translation: { errors: { NOT_FOUND: 'Não encontrado.' } } } },
+    })
+
+    expect(() => createErrorMessage(i18n)).toThrow(/'errors\.generic'/)
+    expect(() =>
+      createErrorMessage(createFixture(), { fallbackKey: 'falhas.inexistente' }),
+    ).toThrow(/'falhas\.inexistente'/)
+  })
+
+  it('lança na criação com a instância ainda sem inicializar', () => {
+    expect(() => createErrorMessage(createInstance())).toThrow(/errors\.generic/)
+  })
 })

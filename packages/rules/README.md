@@ -6,7 +6,7 @@ Regras da arquitetura do Prumo: plugin de ESLint, com aviso no editor, e anális
 
 ## Plugin de ESLint
 
-`@matizze/prumo-rules/eslint` exporta o plugin. O pacote entrega o código-fonte em TypeScript, então o `eslint.config.js` precisa de um Node que execute `.ts` (Node 24 ou mais novo). O `eslint` é peer dependency, na faixa `^10.13.0`.
+`@matizze/prumo-rules/eslint` exporta o plugin. O pacote entrega o código-fonte em TypeScript, então o `eslint.config.js` precisa de um Node que execute `.ts` (Node 24 ou mais novo). O `eslint` é peer dependency, na faixa `^10.13.0`, e opcional: só o plugin precisa dele, e o `prumo check` (`@matizze/prumo-rules/check`) roda sem ele.
 
 ```js
 import prumo from '@matizze/prumo-rules/eslint'

@@ -90,8 +90,24 @@ describe('defineI18n: configuração', () => {
   })
 
   it('a moeda padrão vem da configuração', () => {
-    expect(kit.getFormat().currency(5)).toMatch(/US\$|\$/)
-    expect(kit.getFormat().currency(5, 'EUR')).toMatch(/€/)
+    // Comparação exata: o BRL, que seria a moeda sem a configuração, também tem "$" no símbolo.
+    // O Intl separa o símbolo do número com um espaço não separável (U+00A0).
+    expect(kit.getFormat().currency(5)).toBe('US$\u00a05,00')
+    expect(kit.getFormat().currency(5)).not.toContain('R$')
+    expect(kit.getFormat().currency(5, 'EUR')).toBe('€\u00a05,00')
+    expect(kit.getFormat().currency(5, 'BRL')).toBe('R$\u00a05,00')
+  })
+
+  it('o hook useFormat usa a moeda padrão da configuração e acompanha o idioma', () => {
+    const { result } = renderHook(() => kit.useFormat().currency(5))
+
+    expect(result.current).toBe('US$\u00a05,00')
+
+    act(() => {
+      void kit.i18n.changeLanguage('en')
+    })
+
+    expect(result.current).toBe('$5.00')
   })
 })
 

@@ -22,6 +22,8 @@ createRuleTester().run('no-cross-page-import', noCrossPageImport, {
       filename: inProject('src/pages/dashboard/components/chart.tsx'),
       code: "import x from '../../dashboard/model'",
     },
+    { filename: view, code: "type Row = import('./model').Row" },
+    { filename: view, code: "type Fn = typeof import('wouter').useLocation" },
     // Fora das telas: shared, ui, repositórios e pacotes npm
     { filename: view, code: "import { Card } from '@/components/ui/card'" },
     { filename: view, code: "import { Table } from '@/components/shared/table'" },
@@ -99,6 +101,12 @@ createRuleTester().run('no-cross-page-import', noCrossPageImport, {
       filename: view,
       code: "const load = () => import('@/pages/billing')",
       errors: [cross('dashboard', 'billing', '@/pages/billing')],
+    },
+    // import('x') em posição de tipo
+    {
+      filename: view,
+      code: "type Row = import('@/pages/billing/model').InvoiceRow",
+      errors: [cross('dashboard', 'billing', '@/pages/billing/model')],
     },
     // Testes e stories de uma tela também não olham outra
     {

@@ -1,7 +1,7 @@
 import { defineCommand } from 'citty'
 import { check } from '@matizze/prumo-rules/check'
 import path from 'node:path'
-import { assertValidName, generatePage, pageFolder } from '../codemod/index.ts'
+import { generatePage, pageFolder, usableNames } from '../codemod/index.ts'
 import { ExitError } from '../errors.ts'
 import {
   MINIMAL_SCREEN,
@@ -75,7 +75,7 @@ dele (CI, agentes), gera a tela mínima, a partir de ${MINIMAL_SCREEN}.
 
 Valida tudo antes de escrever. Ao terminar, roda o prumo check e mostra o comando dos testes da
 tela nova. Sai com código 1 se o check achar violação (a tela já foi gerada) e com 2 se o uso
-está errado: nome inválido, tela que já existe, referência ou rota da referência que não existem.`,
+está errado: nome inválido ou reservado, tela que já existe, referência ou rota da referência que não existem.`,
     },
     args: {
       // O nome do argumento aparece na ajuda e nas mensagens de erro: `<nome>`
@@ -109,7 +109,7 @@ está errado: nome inválido, tela que já existe, referência ou rota da refer�
       const project = findProject(path.resolve(runtime.cwd, args.root ?? '.'))
       const dryRun = Boolean(args['dry-run'])
       // O nome é conferido antes de perguntar: não vale escolher um padrão para um nome inválido
-      assertValidName(args.nome, 'o nome da tela')
+      usableNames(args.nome, 'o nome da tela')
       const like = await chooseReference(runtime, args.like)
       const { plan, route, from, to, ownMessages } = generatePage(project, {
         name: args.nome,

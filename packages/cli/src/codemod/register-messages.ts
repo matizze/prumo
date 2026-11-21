@@ -65,11 +65,31 @@ function keyEdit(index: SourceFile, camel: string): TextEdit {
 }
 
 /**
+ * Os namespaces que o índice já registra, com o arquivo de cada um quando é um import: as chaves
+ * do `export default { ... }` e os nomes locais dos imports de JSON.
+ */
+function registeredNamespaces(index: SourceFile): Map<string, string | undefined> {
+  const namespaces = new Map<string, string | undefined>()
+  for (const declaration of index.getImportDeclarations()) {
+    const local = declaration.getDefaultImport()?.getText()
+    if (local !== undefined) namespaces.set(local, importedFile(declaration))
+  }
+  for (const property of messagesObject(index).getProperties()) {
+    if (Node.isShorthandPropertyAssignment(property) || Node.isPropertyAssignment(property)) {
+      const key = property.getName()
+      if (!namespaces.has(key)) namespaces.set(key, undefined)
+    }
+  }
+  return namespaces
+}
+
+/**
  * Registra o namespace novo nas mensagens, nos dois idiomas (em todos os que o projeto tem):
  * copia `src/messages/<idioma>/<refFile>.json` para `<newFile>.json` e acrescenta, no `index.ts`
  * do idioma, o import e a chave de `export default`, cada um na posição alfabética (antes do
  * primeiro que vem depois dele; no fim, se nenhum vem). `camel` é o namespace: `produtos`.
- * Falta o JSON da referência ou já existe o novo em algum idioma: `UsageError`, sem escrever nada.
+ * Falta o JSON da referência, já existe o novo em algum idioma ou o índice já registra o namespace
+ * (`error404` e `error-404` dão o mesmo): `UsageError`, sem escrever nada.
  */
 export function registerMessages(
   plan: ChangePlan,
@@ -85,9 +105,18 @@ export function registerMessages(
       throw new UsageError(
         `faltam as mensagens da referência: src/messages/${language}/${refFile}.json.`,
       )
+
     plan.createCopy(from, path.join(dir, `${newFile}.json`))
 
     const index = plan.source(path.join(dir, 'index.ts'))
+    // `error404` e `error-404` dão o mesmo namespace: o índice teria o import e a chave repetidos
+    const registered = registeredNamespaces(index)
+    if (registered.has(camel)) {
+      const file = registered.get(camel)
+      throw new UsageError(
+        `src/messages/${language}/index.ts já registra o namespace '${camel}'${file === undefined ? '' : ` (${file}.json)`}: o nome '${newFile}' dá o mesmo namespace (o hífen e os números não mudam o nome em camelCase). Escolha outro nome para a tela.`,
+      )
+    }
     // As duas posições vêm da árvore de antes de qualquer edição
     applyEdits(index, [importEdit(index, newFile, camel), keyEdit(index, camel)])
   }

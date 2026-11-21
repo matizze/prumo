@@ -348,9 +348,38 @@ Simulação (--dry-run): nada foi escrito.
         args: ['add-product', '--like', 'products-list'],
         reason: "'src/messages/en/add-product.json' já existe.",
       },
+      {
+        title: 'palavra reservada: new vira import new from ./new.json',
+        args: ['new', '--like', 'lista'],
+        reason: "o nome da tela 'new' vira o identificador 'new', que é palavra reservada",
+      },
+      {
+        title: 'palavra reservada: default',
+        args: ['default', '--like', 'products-list'],
+        reason: "o nome da tela 'default' vira o identificador 'default'",
+      },
+      {
+        title: 'palavra reservada: class, com a tela mínima',
+        args: ['class'],
+        reason: "o nome da tela 'class' vira o identificador 'class'",
+      },
+      {
+        title: 'namespace que as mensagens já registram: error404 e a tela error-404',
+        args: ['error404', '--like', 'blank'],
+        reason: "src/messages/en/index.ts já registra o namespace 'error404' (error-404.json)",
+      },
+      {
+        title: 'rota coberta por uma curinga das irmãs: /settings e /settings/*?',
+        args: ['settings', '--like', 'blank'],
+        reason: "a rota '/settings' conflita com a rota '/settings/*?' que src/App.tsx já tem",
+      },
     ]
 
-    for (const { title, args, reason } of cases) {
+    // O --dry-run valida do mesmo jeito: não pode aceitar o que o comando de verdade recusa
+    for (const { title, args, reason } of cases.flatMap((entry) => [
+      entry,
+      { ...entry, title: `${entry.title} (--dry-run)`, args: [...entry.args, '--dry-run'] },
+    ])) {
       it(title, async () => {
         const { root } = newProject()
         // A tela sem rota e a rota repetida que alguns casos pedem

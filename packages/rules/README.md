@@ -2,7 +2,7 @@
 
 Regras da arquitetura do Prumo: plugin de ESLint, com aviso no editor, e análise do projeto inteiro para o prumo check.
 
-**Situação:** Fase 1, em extração do app de referência (`apps/reference`), um módulo por pull request. O plano está em [docs/fase-1.md](../../docs/fase-1.md).
+**Situação:** Fase 1, extração concluída: o plugin de ESLint e a análise do projeto vieram do app de referência (`apps/reference`), que agora roda as duas. O plano está em [docs/fase-1.md](../../docs/fase-1.md).
 
 ## Plugin de ESLint
 

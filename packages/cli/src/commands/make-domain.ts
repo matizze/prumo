@@ -34,15 +34,17 @@ em src/repositories/index.ts (em ordem alfabética); e o export em src/queries/i
 container acompanha o mapa sozinho.
 
 O nome é o do domínio, no plural e em kebab-case (suppliers, purchase-orders). A entidade é o
-singular, que sai do nome (tira o s final). Quando a regra erra, informe a entidade com --entity:
-categories daria categorie, e o certo é --entity category.
+singular, que sai do nome (tira o s final). Onde a regra erra (o plural termina em ies, us, ss, xes,
+ches, shes ou sses), o comando recusa e pede a entidade com --entity: categories daria categorie, e
+o certo é --entity category.
 
 Os campos, as fixtures e a mensagem de erro são os de ${REFERENCE_DOMAIN}, e o produto edita o
 schema depois: o teste de contrato gerado passa porque as fixtures vêm junto.
 
 Valida tudo antes de escrever. Ao terminar, roda o prumo check e mostra o comando dos testes do
 domínio novo. Sai com código 1 se o check achar violação (o domínio já foi gerado) e com 2 se o uso
-está errado: nome inválido, domínio que já existe, referência incompleta, índice que falta.`,
+está errado: nome inválido ou reservado, singular suspeito, domínio que já existe, nome exportado
+que um índice já exporta (TS2308), referência incompleta, índice que falta.`,
     },
     args: {
       nome: {

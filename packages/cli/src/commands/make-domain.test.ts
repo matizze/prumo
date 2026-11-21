@@ -167,9 +167,39 @@ Simulação (--dry-run): nada foi escrito.
         args: ['users', '--entity', 'customer'],
         reason: 'já existe: src/schemas/entities/customer.ts',
       },
+      {
+        title: 'singular suspeito: status viraria statu',
+        args: ['status'],
+        reason: "'status' parece já estar no singular",
+      },
+      {
+        title: 'singular suspeito: categories viraria categorie',
+        args: ['categories'],
+        reason: "daria 'categorie'",
+      },
+      {
+        title: 'entidade que é palavra reservada',
+        args: ['classes', '--entity', 'class'],
+        reason: "a entidade 'class' vira o identificador 'class', que é palavra reservada",
+      },
+      {
+        title: 'entidade que é nome global',
+        args: ['records', '--entity', 'record'],
+        reason: "a entidade 'record' vira o identificador 'Record', que é um nome global",
+      },
+      {
+        title: 'nomes exportados que um índice já exporta (TS2308)',
+        args: ['profiles'],
+        reason: 'src/schemas/index.ts: ProfileSchema, profileSchema',
+      },
     ]
 
-    it.each(cases)('$title', async ({ args, reason }) => {
+    it.each(
+      cases.flatMap((entry) => [
+        entry,
+        { ...entry, title: `${entry.title} (--dry-run)`, args: [...entry.args, '--dry-run'] },
+      ]),
+    )('$title', async ({ args, reason }) => {
       const { root } = fixtureProject()
       const before = snapshot(root)
       const result = await run(['make:domain', ...args], root)

@@ -35,9 +35,10 @@ export default [
 
 Cada regra olha só os arquivos da pasta que protege e deixa os demais passarem, então a config `recommended` vale para o projeto inteiro.
 
-| Regra               | O que cobra                                                                                                                                                                                                | Opções                                                                                              |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `prumo/ui-boundary` | O design system (`src/components/ui`) não conhece o app: importa dele mesmo, das pastas permitidas do app (`@/icons`, `@/lib/utils`, `@/hooks/use-mobile`) e de pacotes npm, menos os proibidos (`wouter`) | `alias`, `aliasRoot`, `designSystemDir`, `allow` (permitidos do app) e `forbidPackages` (proibidos) |
+| Regra                        | O que cobra                                                                                                                                                                                                | Opções                                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `prumo/ui-boundary`          | O design system (`src/components/ui`) não conhece o app: importa dele mesmo, das pastas permitidas do app (`@/icons`, `@/lib/utils`, `@/hooks/use-mobile`) e de pacotes npm, menos os proibidos (`wouter`) | `alias`, `aliasRoot`, `designSystemDir`, `allow` (permitidos do app) e `forbidPackages` (proibidos) |
+| `prumo/no-cross-page-import` | Uma tela não importa da pasta de outra: um arquivo de `src/pages/<tela>/` não importa de `src/pages/<outra>/`, nem pelo alias nem por caminho relativo                                                     | `alias`, `aliasRoot` e `pagesDir` (a pasta das telas)                                               |
 
 ## Código-fonte
 

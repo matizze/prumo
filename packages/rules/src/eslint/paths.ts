@@ -58,11 +58,11 @@ export function resolveSpecifier(
       trimSlashes(options.aliasRoot),
       specifier.slice(alias.length),
     )
-    return { target, relative: false }
+    return { target: target.replace(/\/+$/, ''), relative: false }
   }
   if (specifier === '.' || specifier === '..' || /^\.\.?\//.test(specifier)) {
     const target = path.posix.join(path.posix.dirname(toPosix(options.filename)), specifier)
-    return { target, relative: true }
+    return { target: target.replace(/\/+$/, ''), relative: true }
   }
   return null
 }

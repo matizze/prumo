@@ -23,6 +23,16 @@ export function routeElements(root: Node): RouteElement[] {
   return root.getDescendants().filter(isRouteElement)
 }
 
+/** Se o `<Route>` tem o atributo `nest`: as rotas de dentro dele são relativas ao `path` dele. */
+export function isNestRoute(element: RouteElement): boolean {
+  const attributes = Node.isJsxElement(element)
+    ? element.getOpeningElement().getAttributes()
+    : element.getAttributes()
+  return attributes.some(
+    (attribute) => Node.isJsxAttribute(attribute) && attribute.getNameNode().getText() === 'nest',
+  )
+}
+
 /** O literal do atributo `path` de um `<Route>`: `path="/x"` ou `path={'/x'}`. */
 export function pathLiteral(element: RouteElement): TextLiteral | undefined {
   const attributes = Node.isJsxElement(element)

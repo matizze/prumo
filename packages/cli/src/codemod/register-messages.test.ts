@@ -134,6 +134,39 @@ export default {
     )
   })
 
+  it('recusa o namespace que o índice já registra, mesmo com outro nome de arquivo (error404 e error-404)', () => {
+    const plan = fixturePlan()
+    // O índice já tem `import error404 from './error-404.json'` e a chave `error404`
+    const message = (): string => {
+      try {
+        registerMessages(plan, 'blank', 'error404', 'error404')
+      } catch (error) {
+        expect(error).toBeInstanceOf(UsageError)
+        return (error as Error).message
+      }
+      throw new Error('devia ter falhado')
+    }
+
+    expect(message()).toBe(
+      "src/messages/en/index.ts já registra o namespace 'error404' (error-404.json): o nome 'error404' dá o mesmo namespace (o hífen e os números não mudam o nome em camelCase). Escolha outro nome para a tela.",
+    )
+    // O plano não ficou com o índice pela metade: o import e a chave não foram repetidos
+    expect(indexOf(plan, 'en').match(/error404/g)).toHaveLength(2)
+  })
+
+  it('recusa o namespace que existe só como chave do objeto, sem import (índice montado à mão)', () => {
+    const root = makeProject({
+      'src/messages/en/index.ts':
+        "import a from './a.json'\n\nexport default {\n  a,\n  shared: { x: 1 },\n}\n",
+      'src/messages/en/a.json': '{}\n',
+    })
+    const plan = new ChangePlan(findProject(root))
+
+    expect(() => registerMessages(plan, 'a', 'shared', 'shared')).toThrow(
+      /src\/messages\/en\/index.ts já registra o namespace 'shared': /,
+    )
+  })
+
   it('recusa um projeto sem idiomas', () => {
     const root = makeProject({}, ['src/messages'])
     const plan = new ChangePlan(findProject(root))

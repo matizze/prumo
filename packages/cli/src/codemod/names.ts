@@ -16,6 +16,113 @@ export interface DomainNames {
   singular: Names
 }
 
+/**
+ * As palavras que não servem de identificador no código gerado, porque o nome da tela, do
+ * domínio ou do componente vira `import <camel> from './<nome>.json'`, `const <camel> = ...` e
+ * chaves de objeto. Entram as palavras reservadas do JavaScript, as reservadas só em modo estrito
+ * (todo módulo é estrito: `let`, `static`, `yield`, `await`...), os literais (`null`, `true`) e os
+ * nomes que o modo estrito proíbe como identificador (`eval`, `arguments`, `undefined`).
+ */
+export const RESERVED_WORDS: ReadonlySet<string> = new Set([
+  'arguments',
+  'await',
+  'break',
+  'case',
+  'catch',
+  'class',
+  'const',
+  'continue',
+  'debugger',
+  'default',
+  'delete',
+  'do',
+  'else',
+  'enum',
+  'eval',
+  'export',
+  'extends',
+  'false',
+  'finally',
+  'for',
+  'function',
+  'if',
+  'implements',
+  'import',
+  'in',
+  'instanceof',
+  'interface',
+  'let',
+  'new',
+  'null',
+  'package',
+  'private',
+  'protected',
+  'public',
+  'return',
+  'static',
+  'super',
+  'switch',
+  'this',
+  'throw',
+  'true',
+  'try',
+  'typeof',
+  'undefined',
+  'var',
+  'void',
+  'while',
+  'with',
+  'yield',
+])
+
+/**
+ * Os nomes globais que um tipo ou componente com o mesmo nome esconderia dentro do arquivo gerado,
+ * e o código que usa `Date`, `Promise` ou `Record<...>` passaria a apontar para o nome novo: os
+ * objetos do JavaScript, os tipos utilitários do TypeScript e o `React`. São nomes em Pascal, o
+ * que o domínio (`Date`, `Record`) e o componente usam sozinhos, sem prefixo nem sufixo.
+ */
+export const GLOBAL_NAMES: ReadonlySet<string> = new Set([
+  'Array',
+  'ArrayBuffer',
+  'Awaited',
+  'BigInt',
+  'Boolean',
+  'Date',
+  'Error',
+  'Exclude',
+  'Extract',
+  'Function',
+  'Intl',
+  'InstanceType',
+  'JSON',
+  'JSX',
+  'Map',
+  'Math',
+  'NonNullable',
+  'Number',
+  'Object',
+  'Omit',
+  'Parameters',
+  'Partial',
+  'Pick',
+  'Promise',
+  'Proxy',
+  'React',
+  'Readonly',
+  'Record',
+  'Reflect',
+  'RegExp',
+  'Required',
+  'ReturnType',
+  'Set',
+  'String',
+  'Symbol',
+  'URL',
+  'URLSearchParams',
+  'WeakMap',
+  'WeakSet',
+])
+
 const NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/
 
 /** Nome válido: kebab-case com letras minúsculas, números e hífen, começando por letra. */
@@ -42,15 +149,69 @@ export function deriveNames(name: string): Names {
 }
 
 /**
+ * Lança um `UsageError` (saída 2) se o nome derivado não serve de identificador no código gerado:
+ * o camel é palavra reservada do JavaScript (`new`, `class`, `default`...: viraria
+ * `import new from './new.json'`), ou, com `globals`, o Pascal é um nome global que o tipo ou o
+ * componente esconderia (`Date`, `Record`, `Promise`...). `what` entra na mensagem.
+ */
+export function assertNotReserved(names: Names, what: string, { globals = false } = {}): void {
+  if (RESERVED_WORDS.has(names.camel)) {
+    throw new UsageError(
+      `${what} '${names.kebab}' vira o identificador '${names.camel}', que é palavra reservada do JavaScript e quebraria o código gerado: escolha outro nome.`,
+    )
+  }
+  if (globals && GLOBAL_NAMES.has(names.pascal)) {
+    throw new UsageError(
+      `${what} '${names.kebab}' vira o identificador '${names.pascal}', que é um nome global do JavaScript ou do TypeScript e esconderia o original no código gerado: escolha outro nome.`,
+    )
+  }
+}
+
+/** Valida o nome (kebab-case, sem palavra reservada) e devolve os nomes derivados dele. */
+export function usableNames(name: string, what: string, options?: { globals?: boolean }): Names {
+  assertValidName(name, what)
+  const names = deriveNames(name)
+  assertNotReserved(names, what, options)
+  return names
+}
+
+/**
+ * Os plurais cujo singular a regra de tirar o `s` erra, e o que costuma ser o singular. Terminam
+ * em `ies` (`categories`, de `category`), `sses`, `xes`, `ches` e `shes` (`classes`, `boxes`,
+ * `matches`, `wishes`: o singular perde o `es`), ou em `us` e `ss`, que já parecem singulares
+ * (`status`, `address`) e não têm um palpite.
+ */
+const IRREGULAR_PLURALS: { suffix: string; singular: (plural: string) => string | undefined }[] = [
+  { suffix: 'ies', singular: (plural) => `${plural.slice(0, -3)}y` },
+  { suffix: 'sses', singular: (plural) => plural.slice(0, -2) },
+  { suffix: 'xes', singular: (plural) => plural.slice(0, -2) },
+  { suffix: 'ches', singular: (plural) => plural.slice(0, -2) },
+  { suffix: 'shes', singular: (plural) => plural.slice(0, -2) },
+  { suffix: 'us', singular: () => undefined },
+  { suffix: 'ss', singular: () => undefined },
+]
+
+/**
  * O singular de um plural, pela regra simples que serve ao inglês e ao português: tira o `s`
- * final (`suppliers` vira `supplier`, `pedidos` vira `pedido`). Os casos que a regra erra
- * (`status`, `categories`) pedem o singular explícito em `domainNames`.
+ * final (`suppliers` vira `supplier`, `pedidos` vira `pedido`). Onde a regra erra, recusa em vez
+ * de derivar um nome errado em silêncio (`status` viraria `statu`, `categories`, `categorie`):
+ * o plural que termina em `ies`, `us`, `ss`, `xes`, `ches`, `shes` ou `sses` pede o singular
+ * explícito (`--entity`), e a mensagem sugere o provável (`categories`: `--entity category`).
  */
 export function singularOf(plural: string): string {
   const singular = plural.slice(0, -1)
   if (!plural.endsWith('s') || singular.length < 2 || singular.endsWith('-')) {
     throw new UsageError(
       `não consegui derivar o singular de '${plural}': o nome do domínio é o plural e termina em 's'. Informe o singular com --entity.`,
+    )
+  }
+  const irregular = IRREGULAR_PLURALS.find(({ suffix }) => plural.endsWith(suffix))
+  if (irregular) {
+    const guess = irregular.singular(plural)
+    throw new UsageError(
+      guess === undefined
+        ? `'${plural}' parece já estar no singular, e tirar o 's' daria '${singular}': informe a entidade com --entity (ela tem que diferir do nome do domínio).`
+        : `tirar o 's' de '${plural}' daria '${singular}', que provavelmente não é o singular: informe a entidade com --entity (provavelmente --entity ${guess}).`,
     )
   }
   return singular
@@ -64,11 +225,17 @@ export function singularOf(plural: string): string {
 export function domainNames(plural: string, singular?: string): DomainNames {
   assertValidName(plural, 'o nome do domínio')
   if (singular !== undefined) assertValidName(singular, 'a entidade')
+  // O singular e o plural viram tipos, constantes e variáveis locais: nenhum pode ser palavra
+  // reservada nem um nome global
+  const pluralNames = usableNames(plural, 'o nome do domínio', { globals: true })
   const entity = singular ?? singularOf(plural)
   if (entity === plural) {
     throw new UsageError(
       `a entidade '${entity}' é igual ao nome do domínio: o singular tem que diferir do plural.`,
     )
   }
-  return { plural: deriveNames(plural), singular: deriveNames(entity) }
+  return {
+    plural: pluralNames,
+    singular: usableNames(entity, 'a entidade', { globals: true }),
+  }
 }

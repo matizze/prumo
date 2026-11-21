@@ -67,6 +67,12 @@ export class ChangePlan {
     return this.#createdSources.has(file) || this.#createdFiles.has(file) || existsSync(file)
   }
 
+  /** O plano vai criar o arquivo, ou ele já existe no disco como arquivo (pasta não conta). */
+  hasFile(file: string): boolean {
+    if (this.#createdSources.has(file) || this.#createdFiles.has(file)) return true
+    return existsSync(file) && statSync(file).isFile()
+  }
+
   /** Um arquivo de código novo, com o conteúdo dado. */
   createSource(file: string, text: string): SourceFile {
     this.#assertNew(file)

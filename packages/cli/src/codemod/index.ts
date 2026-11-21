@@ -22,11 +22,15 @@ export {
   type PageRequest,
 } from './generate-page.ts'
 export {
+  assertNotReserved,
   assertValidName,
   deriveNames,
   domainNames,
+  GLOBAL_NAMES,
   isValidName,
+  RESERVED_WORDS,
   singularOf,
+  usableNames,
   type DomainNames,
   type Names,
 } from './names.ts'

@@ -33,7 +33,9 @@ components/shared, e quem move é o prumo promote (ainda não existe).
 
 Valida tudo antes de escrever. Ao terminar, roda o prumo check e mostra o comando do teste da
 story. Sai com código 1 se o check achar violação (os arquivos já foram gerados) e com 2 se o uso
-está errado: nome inválido, tela que não existe, componente que já existe.`,
+está errado: nome inválido, reservado ou global (Date, Promise), nome que repete um identificador da
+story ou do componente de referência (Video, FolderIcon), tela que não existe, componente que já
+existe.`,
     },
     args: {
       nome: {

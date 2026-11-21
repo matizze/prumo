@@ -51,3 +51,29 @@ export function pathLiteral(element: RouteElement): TextLiteral | undefined {
 export function usesIdentifier(element: RouteElement, name: string): boolean {
   return element.getDescendantsOfKind(SyntaxKind.Identifier).some((id) => id.getText() === name)
 }
+
+/** Escapa o texto de um segmento fixo para entrar numa expressão regular. */
+function escapeSegment(segment: string): string {
+  return segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Se o `path` de um `<Route>` (o padrão do wouter) casa com o endereço dado. O padrão pode ter
+ * segmentos com parâmetro (`:id`, `:id?`, `:resto*`, `:resto+`) e curinga (`*`, `*?`). A curinga
+ * vale por tudo o que vier depois, inclusive nada: `/inbox/*?` casa com `/inbox`, `/inbox/x` e
+ * `/inbox/x/y`, e `/inbox/*` também casa com `/inbox` (o wouter exige algo depois da barra, mas a
+ * rota nova no mesmo trecho ficaria confusa do mesmo jeito, então a checagem é a do lado seguro).
+ * O `address` é lido como texto: o `:id` de uma rota nova com parâmetro conta como um segmento.
+ */
+export function patternMatches(pattern: string, address: string): boolean {
+  let source = ''
+  for (const segment of pattern.split('/').filter((part) => part !== '')) {
+    if (segment === '*' || segment === '*?') source += '(?:/.*)?'
+    else if (/^:[^/]+\*$/.test(segment)) source += '(?:/.*)?'
+    else if (/^:[^/]+\+$/.test(segment)) source += '/.+'
+    else if (/^:[^/]+\?$/.test(segment)) source += '(?:/[^/]+)?'
+    else if (segment.startsWith(':')) source += '/[^/]+'
+    else source += `/${escapeSegment(segment)}`
+  }
+  return new RegExp(`^${source}/?$`).test(address === '' ? '/' : address)
+}

@@ -25,6 +25,7 @@ describe('registerMessages', () => {
       expect(indexOf(plan, language)).toBe(`// Mensagens, um arquivo por namespace.
 import addProduct from './add-product.json'
 import common from './common.json'
+import invoiceDetail from './invoice-detail.json'
 import layout from './layout.json'
 import productsList from './products-list.json'
 import produtos from './produtos.json'
@@ -34,6 +35,7 @@ import comingSoon from './coming-soon.json'
 export default {
   addProduct,
   common,
+  invoiceDetail,
   layout,
   productsList,
   produtos,

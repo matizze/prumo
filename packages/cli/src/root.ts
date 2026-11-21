@@ -1,5 +1,6 @@
 import { defineCommand } from 'citty'
 import { createCheckCommand } from './commands/check.ts'
+import { createMakePageCommand } from './commands/make-page.ts'
 import type { Runtime } from './runtime.ts'
 
 /** A árvore de comandos do `prumo`. Cada comando novo entra em `subCommands`. */
@@ -12,6 +13,7 @@ export function createRoot(runtime: Runtime) {
     },
     subCommands: {
       check: createCheckCommand(runtime),
+      'make:page': createMakePageCommand(runtime),
     },
   })
 }

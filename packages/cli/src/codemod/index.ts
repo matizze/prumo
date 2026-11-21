@@ -1,5 +1,13 @@
 export { copyPage } from './copy-page.ts'
 export { applyEdits, spliceText, type TextEdit } from './edit.ts'
+export { deriveRoute, findReferenceRoute, splitRoute, type ReferenceRoute } from './find-route.ts'
+export {
+  generatePage,
+  menuLabel,
+  pageFolder,
+  type PagePlan,
+  type PageRequest,
+} from './generate-page.ts'
 export {
   assertValidName,
   deriveNames,

@@ -164,8 +164,11 @@ describe('bin prumo', () => {
       const result = node(args)
       expect(result.status, args.join(' ')).toBe(0)
       expect(result.stdout).toContain('Uso: prumo <comando> [opções]')
-      expect(result.stdout).toContain(
-        'check  Analisa o projeto e lista as violações da arquitetura.',
+      expect(result.stdout).toMatch(
+        /check\s+Analisa o projeto e lista as violações da arquitetura\./,
+      )
+      expect(result.stdout).toMatch(
+        /make:page\s+Gera uma tela nova a partir de uma tela de referência/,
       )
     }
   })

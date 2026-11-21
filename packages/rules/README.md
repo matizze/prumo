@@ -41,6 +41,7 @@ Cada regra olha só os arquivos que protege (uma pasta, ou o projeto menos a pas
 | `prumo/icons-from-alias`     | Ícone só da pasta de ícones: fora de `src/icons`, nada de importar arquivo `.svg` nem biblioteca de ícones (`lucide-react`, `react-icons`, `@heroicons/*`, `@tabler/icons-react` e `@phosphor-icons/react`) | `iconsDir`, `iconsImport` (só para a mensagem) e `libraries` (a lista de bibliotecas proibidas)     |
 | `prumo/no-cross-page-import` | Uma tela não importa da pasta de outra: um arquivo de `src/pages/<tela>/` não importa de `src/pages/<outra>/`, nem pelo alias nem por caminho relativo                                                      | `alias`, `aliasRoot` e `pagesDir` (a pasta das telas)                                               |
 | `prumo/no-inline-svg`        | Nenhum SVG solto nas telas: o elemento `<svg>` em JSX dentro de `src/pages/**/*.tsx` vira um ícone da pasta de ícones                                                                                       | `pagesDir` (a pasta das telas) e `iconsImport` (só para a mensagem)                                 |
+| `prumo/page-structure`       | Toda tela tem a mesma estrutura: o `index.tsx` de `src/pages/<tela>/` tem ao lado o `model.ts` e a `view.tsx`. O `skeleton.tsx` não é cobrado (só o registry o cobra, nas telas publicadas)                 | `pagesDir` (a pasta das telas) e `requiredFiles` (os arquivos cobrados)                             |
 
 ## Código-fonte
 

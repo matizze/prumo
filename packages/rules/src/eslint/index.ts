@@ -3,17 +3,20 @@ import pkg from '../../package.json' with { type: 'json' }
 import { iconsFromAlias } from './rules/icons-from-alias.ts'
 import { noCrossPageImport } from './rules/no-cross-page-import.ts'
 import { noInlineSvg } from './rules/no-inline-svg.ts'
+import { pageStructure } from './rules/page-structure.ts'
 import { uiBoundary } from './rules/ui-boundary.ts'
 
 export type { IconsFromAliasOptions } from './rules/icons-from-alias.ts'
 export type { NoCrossPageImportOptions } from './rules/no-cross-page-import.ts'
 export type { NoInlineSvgOptions } from './rules/no-inline-svg.ts'
+export type { PageStructureOptions } from './rules/page-structure.ts'
 export type { UiBoundaryOptions } from './rules/ui-boundary.ts'
 
 const rules = {
   'icons-from-alias': iconsFromAlias,
   'no-cross-page-import': noCrossPageImport,
   'no-inline-svg': noInlineSvg,
+  'page-structure': pageStructure,
   'ui-boundary': uiBoundary,
 }
 
@@ -24,6 +27,7 @@ const recommended: Linter.Config = {
     'prumo/icons-from-alias': 'error',
     'prumo/no-cross-page-import': 'error',
     'prumo/no-inline-svg': 'error',
+    'prumo/page-structure': 'error',
     'prumo/ui-boundary': 'error',
   },
 }

@@ -2,7 +2,7 @@
 
 O comando prumo: new, make, add, promote, check e doctor.
 
-**Situação:** Fase 2 em andamento. O `prumo` é uma árvore de comandos ([citty](https://github.com/unjs/citty)) e hoje tem o `prumo check`, o `prumo make:page` (com os dez padrões e a escolha no terminal, por [@clack/prompts](https://github.com/bombshell-dev/clack)), o `prumo make:domain` e o `prumo make:component`; o núcleo do codemod ([ts-morph](https://ts-morph.com), em `src/codemod/`) é o que os três usam ([docs/fase-2.md](../../docs/fase-2.md)). O plano está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md).
+**Situação:** Fase 2 concluída. O `prumo` é uma árvore de comandos ([citty](https://github.com/unjs/citty)) com o `prumo check` e os três comandos que geram código: `prumo make:page` (os dez padrões de tela e a escolha no terminal, por [@clack/prompts](https://github.com/bombshell-dev/clack)), `prumo make:domain` e `prumo make:component`. Os três renomeiam pela estrutura do código ([ts-morph](https://ts-morph.com), em `src/codemod/`), nunca por busca e troca de texto, e fazem as costuras que eram manuais. O portão da fase está cumprido: uma tela de cada padrão, um domínio e um componente gerados pela CLI passam no `pnpm verify` (`pnpm verify:generated`, na raiz do monorepo; o resultado está em [docs/fase-2.md](../../docs/fase-2.md#resultado)). Faltam o `new`, o `add`, o `promote` e o `doctor` (Fase 3), a troca de domínio da tela gerada (`--domain`) e o arquivo de configuração do `check`. O plano está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md).
 
 ## Comandos
 
@@ -12,6 +12,25 @@ O comando prumo: new, make, add, promote, check e doctor.
 | `prumo make:domain <nome> [--entity <singular>]`   | Gera um domínio de dados novo a partir do domínio `customers` do projeto: o schema, o repositório (contrato, mock com latência, fixtures e teste de contrato) e as queries, renomeados pela estrutura do código, e as costuras nos três índices (`schemas`, `repositories` e `queries`) |
 | `prumo make:component <nome> --page <tela>`        | Gera um componente e a story dele em `src/pages/<tela>/components/`, a partir de um componente pequeno do projeto (`storage-card`), renomeado pela estrutura do código. A story tem play function e roda com o axe nos dois temas                                                       |
 | `prumo check`                                      | Analisa o projeto inteiro e lista as violações da arquitetura: as pastas de `src/components`, o uso de `components/shared` pelas telas, a estrutura de cada tela e os textos completos nos idiomas                                                                                      |
+
+Os três comandos `make:*` geram a partir do próprio projeto (no app de referência, fonte e destino são o mesmo) e fazem sozinhos as costuras:
+
+| Comando          | Gera a partir de                         | Costuras automáticas                                                                                                                           |
+| ---------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `make:page`      | a tela do padrão (`--like`) ou a `blank` | mensagens nos dois idiomas e os `index.ts` delas, o `<Route>` no `src/App.tsx` (com o layout da referência) e, com `--menu`, o menu            |
+| `make:domain`    | o domínio `customers`                    | os exports de `src/schemas/index.ts` e de `src/queries/index.ts`, e o import, o `export *` e o mapa `factories` de `src/repositories/index.ts` |
+| `make:component` | o componente `storage-card`, com a story | nenhuma: o componente e a story ficam em `src/pages/<tela>/components/`, com o título da story único                                           |
+
+Exemplos (no app de referência, `pnpm exec prumo ...` dentro de `apps/reference`; em outro projeto, `prumo ... --root <pasta>`):
+
+```sh
+prumo make:page produtos --like lista --menu ecommerce   # tela de lista em /produtos, com item no menu
+prumo make:page pedidos --like detalhe --dry-run         # só lista o que seria feito (/pedidos/:id)
+prumo make:domain suppliers                              # domínio de fornecedores (entidade supplier)
+prumo make:domain categories --entity category           # quando tirar o "s" não dá o singular
+prumo make:component resumo-do-pedido --page produtos    # componente e story em src/pages/produtos/components
+prumo check                                              # a arquitetura do projeto inteiro
+```
 
 ### Ajuda e códigos de saída
 
@@ -27,7 +46,7 @@ prumo check [--root <pasta>]
 - `--root <pasta>`: a pasta do projeto, a que tem o `src`. Padrão: a pasta atual.
 - Cada violação sai numa linha com o arquivo, a regra e o que está errado: `src/components/widgets  [components-folders]  A pasta 'widgets' não é permitida ...`.
 - O código de saída é 0 sem violação, 1 com violação e 2 se o uso está errado, então o comando serve de portão na CI. Raiz que não existe, que não é pasta ou que não tem `package.json` e `src` também sai com 2 e uma mensagem clara, em vez de passar sem analisar nada. Essa conferência é do `findProject` (`src/project.ts`), que todos os comandos usam para achar a raiz e os caminhos do projeto: `src/pages`, `src/messages`, `src/App.tsx` e o menu lateral.
-- As verificações, as pastas e os idiomas vêm de [`@matizze/prumo-rules/check`](../rules/README.md#análise-do-projeto-prumo-check), com os padrões da arquitetura do Prumo. O arquivo de configuração chega na Fase 2.
+- As verificações, as pastas e os idiomas vêm de [`@matizze/prumo-rules/check`](../rules/README.md#análise-do-projeto-prumo-check), com os padrões da arquitetura do Prumo. O arquivo de configuração ainda não existe (fica para depois da Fase 2).
 
 ### prumo make:page
 
@@ -136,4 +155,8 @@ Os testes usam um app em miniatura em `src/codemod/__fixtures__/app` (fora do ts
 
 O bin roda o código-fonte em TypeScript, então precisa de um Node que execute `.ts` (Node 24 ou mais novo).
 
-**Origem no app de referência:** o roteiro de criação de tela, hoje feito à mão (`docs/patterns.md` e `AGENTS.md`), e os testes `src/architecture.test.ts` e `src/i18n/messages.test.ts`.
+### Portão da geração
+
+O que a CLI gera tem que passar no `pnpm verify`, e a tela de referência pode mudar sem aviso. Por isso, na raiz do monorepo, o `pnpm verify:generated` (`scripts/verify-generated.sh`) cria uma worktree temporária, instala sem rede, gera nela uma tela de cada um dos dez padrões, a tela mínima, uma tela com `--menu`, um domínio e um componente, e roda o `pnpm verify`. A CI tem o job "Geração", que faz a mesma geração direto no checkout. Quem muda uma tela de referência, o `customers` ou o `storage-card` roda o portão antes do pull request. O `src/gate.test.ts` confere que o script gera os dez padrões de `src/patterns.ts`.
+
+**Origem no app de referência:** o roteiro de criação de tela, que era feito à mão (`docs/patterns.md` e `AGENTS.md`, agora com a CLI no começo da receita), e os testes `src/architecture.test.ts` e `src/i18n/messages.test.ts`.

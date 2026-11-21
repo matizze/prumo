@@ -31,6 +31,9 @@ import productsList from './products-list.json'
 import produtos from './produtos.json'
 import profile from './profile.json'
 import comingSoon from './coming-soon.json'
+import settingsGeneral from './settings-general.json'
+import error404 from './error-404.json'
+import blank from './blank.json'
 
 export default {
   addProduct,
@@ -41,6 +44,9 @@ export default {
   produtos,
   profile,
   comingSoon,
+  settingsGeneral,
+  error404,
+  blank,
 }
 `)
     }
@@ -70,9 +76,9 @@ export default {
     const last = fixturePlan()
     registerMessages(last, 'products-list', 'zzz', 'zzz')
     expect(indexOf(last, 'en')).toContain(
-      "import comingSoon from './coming-soon.json'\nimport zzz from './zzz.json'\n",
+      "import blank from './blank.json'\nimport zzz from './zzz.json'\n",
     )
-    expect(indexOf(last, 'en')).toContain('  comingSoon,\n  zzz,\n}')
+    expect(indexOf(last, 'en')).toContain('  blank,\n  zzz,\n}')
   })
 
   it('usa o camel do namespace na chave e o kebab no arquivo', () => {

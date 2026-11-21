@@ -80,6 +80,6 @@ As opções, todas com padrão, exceto a raiz:
 ## Código-fonte
 
 - `src/eslint/`: o plugin e as regras, cada uma com o teste ao lado (`RuleTester` do ESLint).
-- `src/check/`: a análise do projeto, uma verificação por arquivo, com o teste nos projetos de `__fixtures__` (um sem violação e um com uma violação plantada por verificação) e no próprio app de referência.
+- `src/check/`: a análise do projeto, uma verificação por arquivo, com o teste nos projetos de `__fixtures__` (um sem violação e um com uma violação plantada por verificação) e no próprio app de referência. O `gate.test.ts` prova que a análise acusa tudo o que o `architecture.test.ts` e o `messages.test.ts` do app acusavam, com uma violação equivalente a cada verificação deles.
 
-**Origem no app de referência:** `src/architecture.test.ts`, `src/i18n/messages.test.ts` e as regras de import do `eslint.config.js`.
+**Origem no app de referência:** `src/architecture.test.ts`, `src/i18n/messages.test.ts` e as regras de import do `eslint.config.js`. Os dois testes foram removidos do app quando o `prumo check` entrou no verify dele (R6): o histórico fica em `git log --follow -- apps/reference/src/architecture.test.ts`.

@@ -78,13 +78,17 @@ nos dois idiomas, a rota no src/App.tsx (com o mesmo layout da referência) e, c
 do menu lateral. A rota nova é /<nome> mais os parâmetros da rota da referência (por exemplo,
 /pedidos/:id); numa referência dentro de um <Route nest>, a tela entra no mesmo nest.
 
-O --like aceita o nome de um padrão ou o de uma tela de src/pages. Os padrões são ${patternNames()}.
+O --like aceita o nome de um padrão ou o de uma tela de src/pages. Os padrões são
+${patternNames()}.
 Sem --like, num terminal interativo o comando pergunta o padrão (com a opção "tela mínima"); fora
 dele (CI, agentes), gera a tela mínima, a partir de ${MINIMAL_SCREEN}.
 
 Valida tudo antes de escrever. Ao terminar, roda o prumo check e mostra o comando dos testes da
 tela nova. Sai com código 1 se o check achar violação (a tela já foi gerada) e com 2 se o uso
-está errado: nome inválido ou reservado, tela que já existe, referência ou rota da referência que não existem.`,
+está errado: nome inválido ou reservado, tela que já existe, nome que o App.tsx ou as mensagens já
+registram (error404 e error-404), referência ou rota da referência que não existem, rota nova que
+uma curinga ou um parâmetro das rotas irmãs já cobre (inbox-details, com /inbox-details/*? no
+Switch), --menu com um grupo que não existe e --menu numa tela com parâmetro na rota.`,
     },
     args: {
       // O nome do argumento aparece na ajuda e nas mensagens de erro: `<nome>`

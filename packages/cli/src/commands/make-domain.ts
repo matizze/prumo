@@ -2,7 +2,7 @@ import { defineCommand } from 'citty'
 import { check } from '@matizze/prumo-rules/check'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import { generateDomain, REFERENCE_DOMAIN } from '../codemod/index.ts'
+import { generateDomain, NOT_FOUND_MESSAGE, REFERENCE_DOMAIN } from '../codemod/index.ts'
 import { ExitError } from '../errors.ts'
 import { findProject } from '../project.ts'
 import type { Runtime } from '../runtime.ts'
@@ -38,8 +38,16 @@ singular, que sai do nome (tira o s final). Onde a regra erra (o plural termina 
 ches, shes ou sses), o comando recusa e pede a entidade com --entity: categories daria categorie, e
 o certo é --entity category.
 
-Os campos, as fixtures e a mensagem de erro são os de ${REFERENCE_DOMAIN}, e o produto edita o
-schema depois: o teste de contrato gerado passa porque as fixtures vêm junto.
+Os campos e as fixtures são os de ${REFERENCE_DOMAIN}, e o produto edita o schema depois: o teste de
+contrato gerado passa porque as fixtures vêm junto. A mensagem do erro "não encontrado" cita a
+entidade em português e vira "${NOT_FOUND_MESSAGE}", e o comentário das fixtures que cita a
+origem dos dados da referência vira um aviso de dados de exemplo.
+
+Se o projeto tem registry.json e um item dele publica src/schemas/index.ts,
+src/repositories/index.ts ou src/queries/index.ts, os arquivos novos que esse índice reexporta
+entram no mesmo item (menos os testes, que o registry não publica), e o registry.json aparece
+entre os alterados. Sem registry.json, nada muda. O arquivo é regravado com JSON.stringify, no
+recuo que já tinha.
 
 Valida tudo antes de escrever. Ao terminar, roda o prumo check e mostra o comando dos testes do
 domínio novo. Sai com código 1 se o check achar violação (o domínio já foi gerado) e com 2 se o uso
@@ -90,7 +98,7 @@ que um índice já exporta (TS2308), referência incompleta, índice que falta.`
       const keysTest = existsSync(path.join(project.src, 'queries', 'keys.test.ts'))
         ? `As chaves (${to.singular.camel}Keys) não entram sozinhas no snapshot de src/queries/keys.test.ts: acrescente-as à lista de grupos protegidos dele, se quiser congelá-las.\n`
         : ''
-      const next = `Os campos, as fixtures e a mensagem de erro são os de ${from.plural.kebab}: edite ${schema} e ${fixtures}.\n${keysTest}\nPara rodar os testes do domínio novo:\n  ${testCommandFor(project, runtime.cwd, `src/repositories/${to.plural.kebab}`)}\n`
+      const next = `Os campos e as fixtures são os de ${from.plural.kebab}: edite ${schema} e ${fixtures}. A mensagem de erro do "não encontrado" é "${NOT_FOUND_MESSAGE}".\n${keysTest}\nPara rodar os testes do domínio novo:\n  ${testCommandFor(project, runtime.cwd, `src/repositories/${to.plural.kebab}`)}\n`
       if (violations.length === 0) {
         runtime.out(`prumo check: nenhuma violação.\n\n${next}`)
         return

@@ -106,6 +106,11 @@ export class ChangePlan {
     this.#createdSources.set(to, source)
   }
 
+  /** Os caminhos absolutos de todos os arquivos que o plano cria (código ou não), em ordem. */
+  createdPaths(): string[] {
+    return [...this.#createdSources.keys(), ...this.#createdFiles.keys()].sort()
+  }
+
   /** Os arquivos de código criados pelo plano, em ordem de caminho. */
   createdSources(): SourceFile[] {
     return [...this.#createdSources.entries()]

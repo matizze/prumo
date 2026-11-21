@@ -29,6 +29,16 @@ function hasScript(project: Project, script: string): boolean {
 }
 
 /**
+ * O caminho como o shell o lê: sem mudança se só tem caracteres seguros, e entre aspas simples
+ * (com `'` escrito como `'\''`) se tem espaço ou outro caractere especial. Sem isso, o comando
+ * impresso, copiado para o terminal, quebraria num projeto com espaço no caminho.
+ */
+export function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(value)) return value
+  return `'${value.replaceAll("'", `'\\''`)}'`
+}
+
+/**
  * O comando que roda os testes de uma pasta ou de um arquivo do projeto (`src/pages/produtos`),
  * para o mesmo terminal onde o `make:*` rodou: usa o script do projeto (`test`, por padrão; o das
  * stories é `test:storybook`), se houver, e o Vitest direto, se não. Fora da pasta atual, o
@@ -44,5 +54,5 @@ export function testCommandFor(
   const relative = path.relative(cwd, project.root)
   if (relative === '') return `pnpm ${run}`
   // Fora da pasta atual, o caminho absoluto é mais claro que uma subida de várias pastas
-  return `pnpm --dir ${relative.startsWith('..') ? project.root : relative} ${run}`
+  return `pnpm --dir ${shellQuote(relative.startsWith('..') ? project.root : relative)} ${run}`
 }

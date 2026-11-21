@@ -805,3 +805,17 @@ describe('prumo make:page: tela num nest cujo layout pode ter menu próprio', ()
     expect(result.stdout).not.toContain('Aviso:')
   })
 })
+
+describe('ajuda do make:page', () => {
+  it('lista os erros de uso do --menu e do que o projeto já registra, e cabe em 100 colunas', async () => {
+    const { root } = newProject()
+    const result = await run(['make:page', '--help'], root)
+
+    expect(result.stdout).toContain('--menu com um grupo que não existe')
+    expect(result.stdout).toContain('--menu numa tela com parâmetro na rota')
+    expect(result.stdout).toContain('curinga ou um parâmetro das rotas irmãs')
+    expect(result.stdout).toContain('nome que o App.tsx ou as mensagens já')
+    const description = result.stdout.split('\n\n').slice(0, 6).join('\n\n')
+    for (const line of description.split('\n')) expect(line.length, line).toBeLessThanOrEqual(100)
+  })
+})

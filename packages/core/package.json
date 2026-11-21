@@ -10,7 +10,8 @@
     "./data": "./src/data/index.ts",
     "./mock": "./src/mock/index.ts",
     "./query": "./src/query/index.ts",
-    "./auth": "./src/auth/index.ts"
+    "./auth": "./src/auth/index.ts",
+    "./repositories": "./src/repositories/index.ts"
   },
   "scripts": {
     "typecheck": "tsc",

@@ -1,0 +1,128 @@
+import { afterEach, beforeEach, describe } from 'vitest'
+
+/**
+ * Teste de contrato: o mesmo conjunto de casos roda contra o mock de um repositório e contra
+ * qualquer outra implementação dele (Dexie, HTTP...). O contrato é o que o produto espera do
+ * repositório, não o que uma implementação faz.
+ *
+ * ```ts
+ * const customersContract = defineContractSuite<ICustomersRepository>(
+ *   'ICustomersRepository contract',
+ *   ({ repo }) => {
+ *     it('lists the fixtures', async () => {
+ *       expect((await repo.list()).total).toBe(18)
+ *     })
+ *   },
+ * )
+ *
+ * runContractSuite(customersContract, {
+ *   name: 'MockCustomersRepository',
+ *   create: () => new MockCustomersRepository({ latencyMs: 0 }),
+ * })
+ * ```
+ *
+ * **Os dados.** Os casos que dependem dos dados do mock (as fixtures: "lista as 18 linhas")
+ * só valem para uma implementação que parte dos mesmos dados. Quem adiciona outra implementação
+ * a semeia com as mesmas fixtures no `create`, ou deixa os casos de dados fora do contrato dela.
+ */
+
+/** Uma implementação do repositório contra a qual o contrato roda. */
+export interface ContractImplementation<R extends object> {
+  /** O nome da implementação, que entra no título do `describe` (`MockTaskRepository`). */
+  name: string
+  /**
+   * Cria uma instância nova, com o estado de partida. O contrato chama uma vez por teste e a cada
+   * `create` do contexto, então nenhuma instância herda estado de outra.
+   */
+  create: () => R
+  /**
+   * Libera o que as instâncias do teste deixaram (um banco, um arquivo). Roda uma vez depois de
+   * cada teste, também quando ele falha. Quem cria mais de um recurso por teste os registra no
+   * `create` e os libera aqui.
+   */
+  dispose?: () => void | Promise<void>
+}
+
+/** O que cada caso do contrato recebe. */
+export interface ContractContext<R extends object> {
+  /**
+   * O repositório do teste em andamento: uma instância nova, criada antes dele. É uma referência
+   * estável que repassa para a instância do teste atual, então vale ler `repo` fora do `it` (em
+   * uma função auxiliar, por exemplo), mas só chamar métodos dentro de um teste ou de um hook.
+   */
+  repo: R
+  /** Cria uma instância a mais, com o estado de partida: para testes com dois repositórios. */
+  create: () => R
+}
+
+/** Os casos de um contrato, ainda sem implementação. */
+export interface ContractSuite<R extends object> {
+  readonly name: string
+  readonly cases: (context: ContractContext<R>) => void
+}
+
+/**
+ * Declara o contrato de um repositório. `cases` registra os `it` e `describe` do Vitest e
+ * recebe o acesso ao repositório de cada teste. Os `beforeEach` e `afterEach` de `cases`
+ * (um relógio falso, por exemplo) rodam antes da criação do repositório, e os `afterEach` depois
+ * da limpeza dele.
+ *
+ * @param name o nome do contrato (`IBillingRepository contract`); o título do `describe` é
+ * `<name>: <nome da implementação>`.
+ */
+export function defineContractSuite<R extends object>(
+  name: string,
+  cases: (context: ContractContext<R>) => void,
+): ContractSuite<R> {
+  return { name, cases }
+}
+
+/**
+ * Roda o contrato contra uma implementação: um `describe` com uma instância nova por teste
+ * e o `dispose` no fim de cada um. Chame uma vez por implementação.
+ */
+export function runContractSuite<R extends object>(
+  suite: ContractSuite<R>,
+  implementation: ContractImplementation<R>,
+): void {
+  describe(`${suite.name}: ${implementation.name}`, () => {
+    let current: R | undefined
+
+    suite.cases({
+      repo: currentInstance(
+        () => current,
+        `${suite.name}: o repositório só existe dentro de um teste ou de um hook, depois da criação.`,
+      ),
+      create: implementation.create,
+    })
+
+    // Depois dos hooks dos casos: eles preparam o ambiente antes de a instância nascer
+    beforeEach(() => {
+      current = implementation.create()
+    })
+
+    afterEach(async () => {
+      await implementation.dispose?.()
+    })
+  })
+}
+
+/**
+ * Uma referência fixa para a instância do teste em andamento. Os métodos saem presos à instância
+ * (`this` do repositório, não do proxy), para campos privados e métodos soltos funcionarem.
+ */
+function currentInstance<R extends object>(get: () => R | undefined, outsideMessage: string): R {
+  const instance = (): R => {
+    const value = get()
+    if (value === undefined) throw new Error(outsideMessage)
+    return value
+  }
+  return new Proxy({} as R, {
+    get(_target, property) {
+      const target = instance()
+      const value: unknown = Reflect.get(target, property, target)
+      return typeof value === 'function' ? value.bind(target) : value
+    },
+    has: (_target, property) => property in instance(),
+  })
+}

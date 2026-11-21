@@ -48,6 +48,7 @@ export {
   registerRepository,
   registerSchema,
 } from './register-domain.ts'
+export { registerRegistry } from './register-registry.ts'
 export { messageKeys } from './messages.ts'
 export { registerMenuItem, type MenuLabel } from './register-menu-item.ts'
 export { registerMessages } from './register-messages.ts'

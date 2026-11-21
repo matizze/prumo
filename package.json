@@ -10,6 +10,8 @@
     "typecheck": "pnpm --filter \"./packages/*\" --workspace-concurrency=1 run typecheck",
     "test": "pnpm --filter \"./packages/*\" --workspace-concurrency=1 run test",
     "verify:packages": "pnpm typecheck && pnpm test",
-    "verify": "pnpm verify:packages"
+    "verify:reference": "pnpm --filter @matizze/prumo-reference run verify",
+    "verify": "pnpm verify:packages && pnpm verify:reference",
+    "dev": "pnpm --filter @matizze/prumo-reference run dev"
   }
 }

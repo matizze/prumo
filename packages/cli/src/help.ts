@@ -1,0 +1,95 @@
+import type { ArgDef, ArgsDef, CommandDef, Resolvable } from 'citty'
+
+/** Um comando de qualquer forma: os comandos têm argumentos de tipos diferentes. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AnyCommand = CommandDef<any>
+
+/** Resolve o que o citty aceita como valor, função ou promessa. */
+export async function resolveValue<T>(value: Resolvable<T>): Promise<T> {
+  return typeof value === 'function' ? await (value as () => T | Promise<T>)() : await value
+}
+
+/** A primeira linha da descrição, que é o resumo mostrado na lista de comandos. */
+export function summary(description: string | undefined): string {
+  return (description ?? '').split('\n')[0] ?? ''
+}
+
+/**
+ * A ajuda de um comando, em português: a sintaxe, a descrição, os argumentos, as opções e, para um
+ * comando com subcomandos, a lista deles. O citty tem uma ajuda própria, mas ela é em inglês e
+ * não permite trocar os títulos. `path` é o caminho do comando, como `['prumo', 'check']`.
+ */
+export async function renderHelp(command: AnyCommand, path: string[]): Promise<string> {
+  const meta = await resolveValue(command.meta ?? {})
+  const args = Object.entries(await resolveValue<ArgsDef>(command.args ?? {}))
+  const subCommands = Object.entries(await resolveValue(command.subCommands ?? {}))
+  const positionals = args.filter(([, def]) => def.type === 'positional')
+  const options = args.filter(([, def]) => def.type !== 'positional')
+
+  const syntax = [path.join(' ')]
+  if (subCommands.length > 0) syntax.push('<comando> [opções]')
+  for (const [name, def] of positionals) {
+    syntax.push(isRequired(def) ? `<${name}>` : `[${name}]`)
+  }
+  for (const [name, def] of options) {
+    const text = `--${name}${valueOf(name, def)}`
+    syntax.push(isRequired(def) ? text : `[${text}]`)
+  }
+
+  const sections = [`Uso: ${syntax.join(' ')}`]
+  if (meta.description) sections.push(meta.description)
+
+  if (positionals.length > 0) {
+    sections.push(
+      `Argumentos:\n${columns(positionals.map(([name, def]) => [name, def.description ?? '']))}`,
+    )
+  }
+
+  const optionRows = options.map(([name, def]) => [optionLabel(name, def), def.description ?? ''])
+  if (subCommands.length === 0) optionRows.push(['-h, --help', 'Mostra esta ajuda.'])
+  if (optionRows.length > 0) sections.push(`Opções:\n${columns(optionRows)}`)
+
+  if (subCommands.length > 0) {
+    const rows: string[][] = []
+    for (const [name, sub] of subCommands) {
+      const subMeta = await resolveValue((await resolveValue(sub)).meta ?? {})
+      if (!subMeta.hidden) rows.push([name, summary(subMeta.description)])
+    }
+    sections.push(`Comandos:\n${columns(rows)}`)
+    sections.push(`Rode "${path.join(' ')} <comando> --help" para ver as opções de um comando.`)
+  }
+  return sections.join('\n\n')
+}
+
+/** Os apelidos da opção (`-h` de `--help`). O argumento posicional não tem. */
+export function aliasesOf(def: ArgDef): string[] {
+  return 'alias' in def ? [def.alias ?? []].flat() : []
+}
+
+/** Se o argumento é obrigatório: o posicional é, a não ser que diga o contrário; a opção só se disser. */
+export function isRequired(def: ArgDef): boolean {
+  return (
+    def.default === undefined &&
+    (def.type === 'positional' ? def.required !== false : !!def.required)
+  )
+}
+
+/** O valor da opção na sintaxe: ` <pasta>`, ou nada para a opção que é só liga e desliga. */
+function valueOf(name: string, def: ArgDef): string {
+  if (def.type === 'boolean') return ''
+  if (def.type === 'enum' && def.options?.length) return ` <${def.options.join('|')}>`
+  return ` <${def.valueHint ?? name}>`
+}
+
+function optionLabel(name: string, def: ArgDef): string {
+  const aliases = aliasesOf(def).map((alias) => `-${alias}`)
+  return [...aliases, `--${name}`].join(', ') + valueOf(name, def)
+}
+
+/** Duas colunas alinhadas, recuadas em dois espaços. */
+function columns(rows: string[][]): string {
+  const width = Math.max(...rows.map(([label]) => label?.length ?? 0))
+  return rows
+    .map(([label = '', text = '']) => `  ${label.padEnd(width)}  ${text}`.trimEnd())
+    .join('\n')
+}

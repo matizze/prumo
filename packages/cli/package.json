@@ -15,7 +15,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@matizze/prumo-rules": "workspace:*"
+    "@matizze/prumo-rules": "workspace:*",
+    "citty": "^0.2.2"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

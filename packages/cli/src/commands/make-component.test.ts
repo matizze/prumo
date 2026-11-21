@@ -126,9 +126,39 @@ Simulação (--dry-run): nada foi escrito.
         args: ['product-table', '--page', 'products-list'],
         reason: "'src/pages/products-list/components/product-table.tsx' já existe.",
       },
+      {
+        title: 'nome que repete uma export da story: Video',
+        args: ['video', '--page', 'products-list'],
+        reason: "o nome do componente 'video' repetiria 'Video' (em storage-card.stories.tsx)",
+      },
+      {
+        title: 'nome que repete um import da story: FolderIcon',
+        args: ['folder-icon', '--page', 'products-list'],
+        reason: "'FolderIcon' (em storage-card.stories.tsx)",
+      },
+      {
+        title: 'nome que repete um import do componente: ReactNode',
+        args: ['react-node', '--page', 'products-list'],
+        reason: "'ReactNode' (em storage-card.tsx)",
+      },
+      {
+        title: 'palavra reservada',
+        args: ['new', '--page', 'products-list'],
+        reason: "o nome do componente 'new' vira o identificador 'new', que é palavra reservada",
+      },
+      {
+        title: 'nome global',
+        args: ['promise', '--page', 'products-list'],
+        reason: "vira o identificador 'Promise', que é um nome global",
+      },
     ]
 
-    it.each(cases)('$title', async ({ args, reason }) => {
+    it.each(
+      cases.flatMap((entry) => [
+        entry,
+        { ...entry, title: `${entry.title} (--dry-run)`, args: [...entry.args, '--dry-run'] },
+      ]),
+    )('$title', async ({ args, reason }) => {
       const { root } = fixtureProject()
       const before = snapshot(root)
       const result = await run(['make:component', ...args], root)

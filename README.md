@@ -18,7 +18,7 @@ O plano completo está em [docs/plano-prumo.md](docs/plano-prumo.md).
 | `packages/cli`     | `@matizze/prumo-cli`: o comando `prumo` (Fases 1 e 2)                                    |
 | `packages/mcp`     | `@matizze/prumo-mcp`: servidor MCP para agentes (Fase 4)                                 |
 | `apps/reference`   | o app de referência: as 65 telas portadas, fonte do `--like` e alvo do verify            |
-| `catalog`          | blocos e telas que o `prumo add` instala (Fase 3)                                        |
+| `catalog`          | `@matizze/prumo-catalog`: o índice dos blocos e telas que o `prumo add` instala (Fase 3) |
 | `starter`          | o que o `prumo new` copia (Fase 3)                                                       |
 | `docs`             | planos do Prumo e do MaDS, e os planos das Fases 1 e 2                                   |
 | `.changeset`       | versões e changelog por pacote                                                           |
@@ -35,11 +35,12 @@ pnpm --filter @matizze/prumo-reference exec playwright install chromium   # uma 
 | Comando                                        | O que faz                                                                                                                                    |
 | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm verify`                                  | verify dos pacotes e depois do app de referência; é o que a CI cobra                                                                         |
-| `pnpm verify:packages`                         | typecheck, lint e testes de `packages/*`, um pacote por vez                                                                                  |
+| `pnpm verify:packages`                         | typecheck, lint e testes de `packages/*` e do `catalog`, um pacote por vez                                                                   |
 | `pnpm verify:reference`                        | o `pnpm verify` do app: typecheck, lint, prumo check, testes, stories com axe e build                                                        |
 | `pnpm verify:generated`                        | o portão da geração: gera com a CLI uma tela de cada padrão, um domínio e um componente numa worktree temporária e roda o `pnpm verify` nela |
 | `pnpm dev`                                     | o app de referência em modo dev                                                                                                              |
 | `pnpm --filter @matizze/prumo-reference check` | o `prumo check` no app de referência (também roda dentro do verify)                                                                          |
+| `pnpm --filter @matizze/prumo-catalog build`   | regera o `catalog/index.json` a partir do `registry.json` do app (rode depois de mudar o registry; o teste do catálogo acusa o índice velho) |
 | `pnpm changeset`                               | registra a mudança de um pacote para a próxima versão                                                                                        |
 
 Os outros scripts do app (Storybook, registry, paridade visual) rodam dentro de `apps/reference` ou com `pnpm --filter @matizze/prumo-reference <script>`. Eles estão descritos em [apps/reference/README.md](apps/reference/README.md).

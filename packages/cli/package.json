@@ -4,6 +4,9 @@
   "description": "O comando prumo: new, make, add, promote, check e doctor.",
   "private": true,
   "type": "module",
+  "bin": {
+    "prumo": "./src/bin.ts"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
@@ -11,7 +14,11 @@
     "typecheck": "tsc",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@matizze/prumo-rules": "workspace:*"
+  },
   "devDependencies": {
+    "@types/node": "^24.19.2",
     "typescript": "~6.0.3",
     "vitest": "^5.1.0"
   }

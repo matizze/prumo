@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemod/test-support.ts'
@@ -55,7 +55,7 @@ Alterados (3):
 
 prumo check: nenhuma violação.
 
-Os campos, as fixtures e a mensagem de erro são os de customers: edite src/schemas/entities/supplier.ts e src/repositories/suppliers/fixtures.ts.
+Os campos e as fixtures são os de customers: edite src/schemas/entities/supplier.ts e src/repositories/suppliers/fixtures.ts. A mensagem de erro do "não encontrado" é "Registro não encontrado.".
 
 Para rodar os testes do domínio novo:
   pnpm exec vitest run src/repositories/suppliers
@@ -70,6 +70,67 @@ Para rodar os testes do domínio novo:
       '  suppliers: createSuppliersRepository,\n  support: createSupportRepository,',
     )
     expect(read(root, 'src/schemas/index.ts')).toContain("export * from './entities/supplier'\n")
+  })
+
+  it('a mensagem de erro do domínio gerado é a que a saída diz, e não a de customers', async () => {
+    const { root } = fixtureProject()
+    await run(['make:domain', 'suppliers'], root)
+
+    expect(read(root, 'src/repositories/suppliers/repository.mock.ts')).toContain(
+      "'Registro não encontrado.'",
+    )
+    expect(read(root, 'src/repositories/suppliers/repository.mock.ts')).not.toContain('Cliente')
+  })
+
+  it('com registry.json, o item que publica o índice ganha o schema novo, e o arquivo vai na lista de alterados', async () => {
+    const { root } = fixtureProject()
+    const registry = {
+      items: [
+        {
+          name: 'schemas',
+          files: [
+            { path: 'src/schemas/index.ts', type: 'registry:lib', target: 'src/schemas/index.ts' },
+          ],
+        },
+      ],
+    }
+    writeFileSync(path.join(root, 'registry.json'), `${JSON.stringify(registry, null, 2)}\n`)
+
+    const dry = await run(['make:domain', 'suppliers', '--dry-run'], root)
+    expect(dry.code, dry.stderr).toBe(0)
+    expect(dry.stdout).toContain(
+      'Seriam alterados (4):\n  registry.json\n  src/queries/index.ts\n  src/repositories/index.ts\n  src/schemas/index.ts\n',
+    )
+    expect(read(root, 'registry.json')).not.toContain('supplier')
+
+    const result = await run(['make:domain', 'suppliers'], root)
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).toContain('Alterados (4):\n  registry.json\n')
+    expect(JSON.parse(read(root, 'registry.json')).items[0].files).toEqual([
+      {
+        path: 'src/schemas/entities/supplier.ts',
+        type: 'registry:lib',
+        target: 'src/schemas/entities/supplier.ts',
+      },
+      { path: 'src/schemas/index.ts', type: 'registry:lib', target: 'src/schemas/index.ts' },
+    ])
+  })
+
+  it('sem registry.json, o registry.json não aparece e nenhum é criado', async () => {
+    const { root } = fixtureProject()
+    const result = await run(['make:domain', 'suppliers'], root)
+
+    expect(result.stdout).not.toContain('registry.json')
+    expect(existsSync(path.join(root, 'registry.json'))).toBe(false)
+  })
+
+  it('a ajuda e a saída não dizem que a mensagem de erro é a de customers', async () => {
+    const { root } = fixtureProject()
+    const help = await run(['make:domain', '--help'], root)
+
+    expect(help.stdout).not.toContain('as fixtures e a mensagem de erro')
+    expect(help.stdout).toContain('vira "Registro não encontrado."')
+    expect(help.stdout).toContain('registry.json')
   })
 
   it('mostra o aviso do snapshot das chaves quando o projeto tem o keys.test.ts', async () => {

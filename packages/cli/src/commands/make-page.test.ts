@@ -6,16 +6,17 @@ import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemod/test-support.ts'
 import { createRoot } from '../root.ts'
 import { runCli } from '../run.ts'
-import { captureRuntime } from '../test-support.ts'
-import { formatSummary, testCommand } from './make-page.ts'
+import { captureRuntime, type CaptureOptions } from '../test-support.ts'
+import { PATTERNS } from '../patterns.ts'
+import { formatSummary, patternChoices, testCommand } from './make-page.ts'
 
 /** Cópia do app em miniatura do codemod, numa pasta temporária. */
 const newProject = () => fixtureProject()
 
-async function run(args: string[], cwd: string) {
-  const runtime = captureRuntime(cwd)
+async function run(args: string[], cwd: string, terminal?: CaptureOptions) {
+  const runtime = captureRuntime(cwd, terminal)
   const code = await runCli(createRoot(runtime), args, runtime)
-  return { code, stdout: runtime.stdout, stderr: runtime.stderr }
+  return { code, stdout: runtime.stdout, stderr: runtime.stderr, asked: runtime.asked }
 }
 
 /** Caminho relativo de cada arquivo da pasta, com o hash do conteúdo, para comparar antes e depois. */
@@ -332,11 +333,6 @@ Simulação (--dry-run): nada foi escrito.
         reason: "src/App.tsx não tem uma rota com path para 'SemRotaPage'",
       },
       {
-        title: 'referência com rota aninhada',
-        args: ['geral', '--like', 'settings-general'],
-        reason: "a rota da tela 'settings-general' está dentro de outro <Route> (rota aninhada)",
-      },
-      {
         title: 'grupo de menu que não existe',
         args: ['produtos', '--like', 'products-list', '--menu', 'nao-existe'],
         reason: "o menu lateral não tem o grupo 'nao-existe' com subitens",
@@ -369,7 +365,7 @@ Simulação (--dry-run): nada foi escrito.
         expect(result.code).toBe(2)
         expect(result.stdout).toBe('')
         expect(result.stderr).toContain(`prumo make:page: ${reason}`)
-        expect(result.stderr).toContain('Uso: prumo make:page <nome> --like <tela>')
+        expect(result.stderr).toContain('Uso: prumo make:page <nome> [--like <padrão|tela>]')
         expect(snapshot(root)).toEqual(before)
       })
     }
@@ -410,11 +406,31 @@ Simulação (--dry-run): nada foi escrito.
       expect(Object.keys(before)).toContain('src/messages/pt-BR/invoice-detail.json')
     })
 
-    it('falta o --like, o nome ou sobra argumento', async () => {
+    it('referência dentro de um <Route> que não é nest', async () => {
+      const { root } = newProject()
+      const app = path.join(root, 'src/App.tsx')
+      writeFileSync(
+        app,
+        readFileSync(app, 'utf8').replace(
+          '<Route path="/settings" nest>',
+          '<Route path="/settings">',
+        ),
+      )
+      const before = snapshot(root)
+
+      const result = await run(['make:page', 'geral', '--like', 'settings-general'], root)
+
+      expect(result.code).toBe(2)
+      expect(result.stderr).toContain(
+        "a rota da tela 'settings-general' está dentro de outro <Route> que não é 'nest'",
+      )
+      expect(snapshot(root)).toEqual(before)
+    })
+
+    it('falta o nome ou sobra argumento', async () => {
       const { root } = newProject()
       const before = snapshot(root)
       const cases: [string[], string][] = [
-        [['produtos'], 'a opção --like é obrigatória.'],
         [['--like', 'products-list'], 'falta o argumento <nome>.'],
         [['produtos', '--like'], 'a opção --like precisa de um valor.'],
         [['produtos', 'outro', '--like', 'products-list'], "argumento inesperado: 'outro'."],
@@ -476,13 +492,195 @@ Simulação (--dry-run): nada foi escrito.
       const result = await run(['make:page', flag], root)
       expect(result.code).toBe(0)
       expect(result.stdout).toContain(
-        'Uso: prumo make:page <nome> --like <tela> [--root <pasta>] [--menu <grupo>] [--dry-run]',
+        'Uso: prumo make:page <nome> [--like <padrão|tela>] [--root <pasta>] [--menu <grupo>] [--dry-run]',
       )
       expect(result.stdout).toContain('--dry-run')
       expect(result.stdout).toContain('Só lista o que seria criado e alterado')
     }
     const list = await run([], root)
-    expect(list.stdout).toMatch(/make:page\s+Gera uma tela nova a partir de uma tela de referência/)
+    expect(list.stdout).toMatch(
+      /make:page\s+Gera uma tela nova a partir de um padrão ou de uma tela de referência/,
+    )
+  })
+})
+
+describe('prumo make:page: os padrões e a tela mínima', () => {
+  it('--like aceita o nome do padrão e gera o mesmo que o nome da tela', async () => {
+    const byPattern = newProject()
+    const byScreen = newProject()
+    const first = await run(['make:page', 'produtos', '--like', 'lista'], byPattern.root)
+    const second = await run(['make:page', 'produtos', '--like', 'products-list'], byScreen.root)
+
+    expect(first.code, first.stderr).toBe(0)
+    expect(first.stdout).toContain('produtos a partir de products-list, na rota /produtos.')
+    expect(first.stdout).toBe(second.stdout)
+    expect(snapshot(byPattern.root)).toEqual(snapshot(byScreen.root))
+  })
+
+  it('o erro de uma referência ausente cita a tela que o padrão escolhe', async () => {
+    const { root } = newProject()
+    const before = snapshot(root)
+    // O projeto de fixture não tem a tela de configurações do app de referência
+    const result = await run(['make:page', 'minhas-opcoes', '--like', 'configuracoes'], root)
+
+    expect(result.code).toBe(2)
+    expect(result.stderr).toContain("a tela de referência 'ai-settings-general' não existe")
+    expect(snapshot(root)).toEqual(before)
+  })
+
+  it('uma referência dentro de um <Route nest> gera a tela no mesmo nest', async () => {
+    const { root } = newProject()
+    const result = await run(['make:page', 'geral', '--like', 'settings-general'], root)
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).toContain('geral a partir de settings-general, na rota /settings/geral.')
+    expect(read(root, 'src/App.tsx')).toContain(
+      `                <Route path="/general" component={SettingsGeneralPage} />
+                <Route path="/geral" component={GeralPage} />`,
+    )
+    expect(read(root, 'src/App.tsx')).toContain("import GeralPage from '@/pages/geral'")
+    expect(read(root, 'src/pages/geral/index.test.tsx')).toContain("{ path: '/geral' }")
+    expect(read(root, 'src/pages/geral/model.ts')).toContain("useTranslations('geral')")
+    expect(read(root, 'src/messages/en/geral.json')).toBe(
+      read(root, 'src/messages/en/settings-general.json'),
+    )
+  })
+
+  it('a tela de entrada não ganha arquivo de mensagens e avisa', async () => {
+    const { root } = newProject()
+    const before = snapshot(root)
+    const result = await run(['make:page', 'entrar', '--like', 'autenticacao'], root)
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).toContain(
+      "A referência não tem arquivo de mensagens próprio (usa namespaces compartilhados): 'entrar' não ganha um.",
+    )
+    const after = snapshot(root)
+    expect(Object.keys(after).filter((file) => !(file in before))).toEqual([
+      'src/pages/entrar/index.test.tsx',
+      'src/pages/entrar/index.tsx',
+      'src/pages/entrar/model.ts',
+      'src/pages/entrar/view.tsx',
+    ])
+    expect(after['src/messages/en/index.ts']).toBe(before['src/messages/en/index.ts'])
+    expect(read(root, 'src/App.tsx')).toContain('<AuthLayout>\n          <EntrarPage />')
+  })
+
+  it('a tela de status entra no BareLayout, sem casca', async () => {
+    const { root } = newProject()
+    const result = await run(['make:page', 'aviso', '--like', 'status'], root)
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(read(root, 'src/App.tsx')).toContain(`      <Route path="/aviso">
+        <BareLayout>
+          <AvisoPage />
+        </BareLayout>
+      </Route>`)
+    expect(read(root, 'src/pages/aviso/model.ts')).toContain("useTranslations('aviso')")
+  })
+
+  describe('sem --like', () => {
+    it('fora de um terminal interativo, gera a tela mínima a partir de blank, sem perguntar', async () => {
+      const { root } = newProject()
+      const result = await run(['make:page', 'relatorio'], root)
+
+      expect(result.code, result.stderr).toBe(0)
+      expect(result.asked).toEqual([])
+      expect(result.stdout).toContain('relatorio a partir de blank, na rota /relatorio.')
+      expect(read(root, 'src/pages/relatorio/model.ts')).toContain("useTranslations('relatorio')")
+      expect(read(root, 'src/App.tsx')).toContain('<RelatorioPage />')
+    })
+
+    it('num terminal interativo, pergunta o padrão: os dez e a tela mínima', async () => {
+      const { root } = newProject()
+      const result = await run(['make:page', 'produtos'], root, {
+        interactive: true,
+        answer: 'lista',
+      })
+
+      expect(result.code, result.stderr).toBe(0)
+      expect(result.asked).toHaveLength(1)
+      expect(result.asked[0]!.message).toBe('Qual padrão de tela?')
+      expect(result.asked[0]!.options.map((option) => option.value)).toEqual([
+        ...PATTERNS.map((pattern) => pattern.name),
+        'blank',
+      ])
+      expect(result.asked[0]!.options.at(-1)).toMatchObject({ label: 'Tela mínima' })
+      expect(result.stdout).toContain('produtos a partir de products-list, na rota /produtos.')
+    })
+
+    it('a escolha "tela mínima" gera a partir de blank', async () => {
+      const { root } = newProject()
+      const result = await run(['make:page', 'relatorio'], root, {
+        interactive: true,
+        answer: 'blank',
+      })
+
+      expect(result.code, result.stderr).toBe(0)
+      expect(result.stdout).toContain('relatorio a partir de blank')
+    })
+
+    it('cancelar a pergunta sai com 1 e não gera nada', async () => {
+      const { root } = newProject()
+      const before = snapshot(root)
+      const result = await run(['make:page', 'produtos'], root, { interactive: true })
+
+      expect(result.code).toBe(1)
+      expect(result.stderr).toContain('prumo make:page: cancelado: nada foi gerado.')
+      expect(snapshot(root)).toEqual(before)
+    })
+
+    it('com --like, não pergunta, mesmo no terminal', async () => {
+      const { root } = newProject()
+      const result = await run(['make:page', 'produtos', '--like', 'lista'], root, {
+        interactive: true,
+        answer: 'blank',
+      })
+
+      expect(result.code, result.stderr).toBe(0)
+      expect(result.asked).toEqual([])
+      expect(result.stdout).toContain('a partir de products-list')
+    })
+
+    it('nome inválido sai com 2 antes de perguntar', async () => {
+      const { root } = newProject()
+      const result = await run(['make:page', 'Produtos'], root, {
+        interactive: true,
+        answer: 'lista',
+      })
+
+      expect(result.code).toBe(2)
+      expect(result.asked).toEqual([])
+    })
+
+    it('--dry-run também pergunta e não escreve nada', async () => {
+      const { root } = newProject()
+      const before = snapshot(root)
+      const result = await run(['make:page', 'produtos', '--dry-run'], root, {
+        interactive: true,
+        answer: 'lista',
+      })
+
+      expect(result.code, result.stderr).toBe(0)
+      expect(result.asked).toHaveLength(1)
+      expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')
+      expect(snapshot(root)).toEqual(before)
+    })
+  })
+
+  it('as opções da escolha trazem a tela de cada padrão como dica', () => {
+    const choices = patternChoices()
+    expect(choices).toHaveLength(11)
+    expect(choices[1]).toEqual({
+      value: 'lista',
+      label: 'Lista com CRUD, filtros e CSV',
+      hint: 'src/pages/products-list',
+    })
+    expect(choices[10]).toEqual({
+      value: 'blank',
+      label: 'Tela mínima',
+      hint: 'src/pages/blank',
+    })
   })
 })
 

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterAll } from 'vitest'
-import type { Runtime } from './runtime.ts'
+import type { Choice, Runtime } from './runtime.ts'
 
 const created: string[] = []
 afterAll(() => {
@@ -34,14 +34,37 @@ export function makeDir(): string {
   return dir
 }
 
-/** Um `Runtime` que guarda o que o comando escreve, para os testes lerem. */
-export function captureRuntime(cwd = process.cwd()): Runtime & { stdout: string; stderr: string } {
+/** A pergunta que o comando fez ao usuário, para os testes conferirem. */
+export interface AskedQuestion {
+  message: string
+  options: readonly Choice[]
+}
+
+/** O que o `captureRuntime` simula do terminal. */
+export interface CaptureOptions {
+  /** Há uma pessoa no terminal. Padrão: não, como na CI. */
+  interactive?: boolean
+  /** O valor que o usuário escolhe quando o comando pergunta; `undefined` é cancelar. */
+  answer?: string
+}
+
+/** Um `Runtime` que guarda o que o comando escreve e pergunta, para os testes lerem. */
+export function captureRuntime(
+  cwd = process.cwd(),
+  options: CaptureOptions = {},
+): Runtime & { stdout: string; stderr: string; asked: AskedQuestion[] } {
   const runtime = {
     cwd,
     stdout: '',
     stderr: '',
+    asked: [] as AskedQuestion[],
+    interactive: options.interactive ?? false,
     out: (text: string) => void (runtime.stdout += text),
     err: (text: string) => void (runtime.stderr += text),
+    choose: (message: string, choices: readonly Choice[]) => {
+      runtime.asked.push({ message, options: choices })
+      return Promise.resolve(options.answer)
+    },
   }
   return runtime
 }

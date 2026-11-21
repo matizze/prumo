@@ -279,6 +279,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@clack/prompts':
+        specifier: ^1.9.0
+        version: 1.9.0
       '@matizze/prumo-rules':
         specifier: workspace:*
         version: link:../rules

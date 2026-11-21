@@ -2,7 +2,7 @@
 
 O comando prumo: new, make, add, promote, check e doctor.
 
-**Situação:** Fase 2 em andamento. O `prumo` é uma árvore de comandos ([citty](https://github.com/unjs/citty)) e hoje tem o `prumo check`, o `prumo make:page` (com os dez padrões e a escolha no terminal, por [@clack/prompts](https://github.com/bombshell-dev/clack)) e o `prumo make:domain`; o núcleo do codemod ([ts-morph](https://ts-morph.com), em `src/codemod/`) já existe, e o `make:component` chega no próximo pull request da fase ([docs/fase-2.md](../../docs/fase-2.md)). O plano está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md).
+**Situação:** Fase 2 em andamento. O `prumo` é uma árvore de comandos ([citty](https://github.com/unjs/citty)) e hoje tem o `prumo check`, o `prumo make:page` (com os dez padrões e a escolha no terminal, por [@clack/prompts](https://github.com/bombshell-dev/clack)), o `prumo make:domain` e o `prumo make:component`; o núcleo do codemod ([ts-morph](https://ts-morph.com), em `src/codemod/`) é o que os três usam ([docs/fase-2.md](../../docs/fase-2.md)). O plano está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md).
 
 ## Comandos
 
@@ -10,6 +10,7 @@ O comando prumo: new, make, add, promote, check e doctor.
 | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `prumo make:page <nome> [--like <padrão ou tela>]` | Gera uma tela nova a partir de um dos dez padrões ou de uma tela de referência do projeto: copia a pasta, renomeia pela estrutura do código e faz as costuras (mensagens, rota e, com `--menu`, o menu lateral). Sem `--like`, pergunta o padrão no terminal ou gera a tela mínima      |
 | `prumo make:domain <nome> [--entity <singular>]`   | Gera um domínio de dados novo a partir do domínio `customers` do projeto: o schema, o repositório (contrato, mock com latência, fixtures e teste de contrato) e as queries, renomeados pela estrutura do código, e as costuras nos três índices (`schemas`, `repositories` e `queries`) |
+| `prumo make:component <nome> --page <tela>`        | Gera um componente e a story dele em `src/pages/<tela>/components/`, a partir de um componente pequeno do projeto (`storage-card`), renomeado pela estrutura do código. A story tem play function e roda com o axe nos dois temas                                                       |
 | `prumo check`                                      | Analisa o projeto inteiro e lista as violações da arquitetura: as pastas de `src/components`, o uso de `components/shared` pelas telas, a estrutura de cada tela e os textos completos nos idiomas                                                                                      |
 
 ### Ajuda e códigos de saída
@@ -97,14 +98,38 @@ O que o comando faz:
 
 Códigos de saída: 0 quando gerou (ou, com `--dry-run`, quando simulou) e o `check` não achou violação; 1 quando gerou, mas o `check` achou violação; 2 para uso errado.
 
+### prumo make:component
+
+```sh
+prumo make:component <nome> --page <tela> [--root <pasta>] [--dry-run]
+```
+
+- `<nome>`: o nome do componente, em kebab-case (`resumo-do-pedido`). Dele saem os arquivos (`resumo-do-pedido.tsx` e `resumo-do-pedido.stories.tsx`) e o componente em Pascal (`ResumoDoPedido`).
+- `--page <tela>`: a tela que recebe o componente, uma pasta de `src/pages` (`orders`). Obrigatória.
+- `--root <pasta>`: a pasta do projeto. Padrão: a pasta atual.
+- `--dry-run`: lista o que seria criado, sem escrever nada.
+
+**A fonte** é um componente real do app de referência, o `storage-card` (`src/pages/file-manager/components/`): pequeno, só de apresentação (sem i18n e sem dados) e com uma story que tem play function e passa no axe nos dois temas. O comando o copia, com a story, para `src/pages/<tela>/components/`, e renomeia pela estrutura do código (ts-morph): o componente e o tipo das props (`StorageCard` e `StorageCardProps` viram `<Pascal>` e `<Pascal>Props`), o import da story (`./storage-card` vira `./<nome>`), o título da story (`Pages/<PascalDaTela>/<Pascal>`, porque título repetido quebra o Storybook) e a descrição da story, que citava a tela e o assunto da referência e vira um texto neutro para o produto trocar. Não há arquivo de modelo no pacote: a fonte é o próprio projeto, como nos outros comandos, e o teste que gera a partir do app de referência avisa se o componente mudar.
+
+**O componente novo não precisa ser usado pela tela**, e a pasta `components` é criada se a tela ainda não tiver. As props (ícone, tom, título, uso, arquivos e tamanho), o visual e os textos da story são os da referência, e o produto os edita. Um componente usado por duas ou mais telas é de `src/components/shared`, e quem move é o `prumo promote` (Fase 3); por isso o comando não tem `--shared`.
+
+O que o comando faz:
+
+1. **Valida tudo antes de escrever.** Nome ou tela inválidos, tela que não existe, nome do componente de referência, componente ou story que já existem, título de story que a tela já usa, referência ausente: tudo sai com código 2 e uma mensagem clara, sem tocar em arquivo. Tudo é montado em memória e só vai para o disco no fim.
+2. **Copia e renomeia** o componente e a story.
+3. **Confere.** Roda a análise do `prumo check` e imprime o comando do teste da story (`pnpm test:storybook <arquivo>`, que roda os dois temas; sem esse script no projeto, `pnpm exec vitest run <arquivo>`). Não roda o teste, que sobe o Chromium.
+
+Códigos de saída: 0 quando gerou (ou, com `--dry-run`, quando simulou) e o `check` não achou violação; 1 quando gerou, mas o `check` achou violação; 2 para uso errado.
+
 ### Núcleo do codemod (interno)
 
-`src/codemod/` tem as peças dos comandos `make:*`, uma função por operação. O `make:page` as junta (`generatePage`, em `src/codemod/generate-page.ts`) e o `make:domain` também (`generateDomain`, em `src/codemod/generate-domain.ts`); o `make:component` chega no próximo pull request.
+`src/codemod/` tem as peças dos comandos `make:*`, uma função por operação. O `make:page` as junta (`generatePage`, em `src/codemod/generate-page.ts`) o `make:domain` (`generateDomain`, em `src/codemod/generate-domain.ts`) e o `make:component` (`generateComponent`, em `src/codemod/generate-component.ts`) também.
 
 - **Plano de mudanças** (`ChangePlan`): um `Project` do ts-morph em memória, sem tsconfig, sem checagem de tipos e sem ler o disco por conta própria; só entram nele as cópias e os arquivos de costura. Os arquivos que não são código (JSON de mensagens, imagens) ficam numa lista à parte. Nada é escrito até o `commit()`, e o `summary()` diz o que seria criado e alterado (o `--dry-run`).
 - **Nomes** (`names.ts`): valida o nome (kebab-case: minúsculas, números e hífen, começando por letra) e deriva Pascal, camel e, para domínios, singular e plural (a regra tira o `s` final; um singular explícito vale mais).
 - **Cópia e renomeação**: `copyPage` copia `src/pages/<ref>/**`; `renameExports` renomeia `<Pascal>Page`, `use<Pascal>Model` e os demais exportados com o prefixo, com as referências, pelo language service; `replaceNamespace` troca o namespace do i18n; `renameStoryTitles` dá a cada story o título `Pages/<Pascal>/<último segmento>`; `replaceRoute` troca a rota e o nome da suíte nos testes (e a rota citada entre crases em textos corridos); `findReferenceRoute` acha a rota da tela de referência no `App.tsx` e `deriveRoute` monta a rota nova.
 - **Domínio** (`make:domain`): `copyDomain` copia o schema, a pasta do repositório e as queries da referência; `renameDomain` renomeia os identificadores, os literais e os comentários com o nome do domínio; `registerDomain` faz as costuras nos três índices (`registerSchema`, `registerRepository` e `registerQueries`).
+- **Componente** (`make:component`): `renameComponent` renomeia o componente, o tipo das props, o import e o título da story (`renameStoryTitles` com o nome do componente) e a descrição dela.
 - **Costuras**: `registerMessages` (JSON nos dois idiomas e o `index.ts`, em ordem alfabética), `registerRoute` (clona o `<Route>` da referência no `App.tsx`, inclusive dentro de `nest`, e acrescenta o import) e `registerMenuItem` (item nos `subItems` de um grupo da barra lateral e o rótulo em `layout.nav.items`).
 
 Os testes usam um app em miniatura em `src/codemod/__fixtures__/app` (fora do tsconfig, do lint e do Vitest).

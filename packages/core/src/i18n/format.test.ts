@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createFormat } from './format'
+import { createFormat } from './format.ts'
 
 // Intl usa espaço não separável (U+00A0) entre a moeda e o número
 const nbsp = (text: string) => text.replaceAll(' ', ' ')

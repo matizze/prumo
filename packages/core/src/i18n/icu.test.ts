@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest'
-import i18n from './config'
-import { getTranslations } from './index'
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { fixtureKit } from './fixtures.ts'
+
+const { i18n, getTranslations } = fixtureKit
+
+// O jsdom anuncia `en-US`: cada teste parte do idioma padrão
+beforeEach(() => i18n.changeLanguage('pt-BR'))
+
+afterEach(() => localStorage.clear())
 
 describe('sintaxe ICU', () => {
   it('plural em pt-BR (0 e 1 são "one")', () => {

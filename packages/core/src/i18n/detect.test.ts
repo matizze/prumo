@@ -1,12 +1,19 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { LOCALE_STORAGE_KEY, createI18n, resolveLocale } from './index'
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { fixtureKit } from './fixtures.ts'
+
+const { LOCALE_STORAGE_KEY, createI18n, resolveLocale } = fixtureKit
 
 function stubNavigator(...languages: string[]) {
   vi.spyOn(navigator, 'languages', 'get').mockReturnValue(languages)
   vi.spyOn(navigator, 'language', 'get').mockReturnValue(languages[0] ?? '')
 }
 
+// A instância do kit já gravou o idioma detectado no import; cada teste parte do zero
+beforeEach(() => localStorage.clear())
+
 afterEach(() => {
+  localStorage.clear()
   document.documentElement.removeAttribute('lang')
   document.documentElement.removeAttribute('dir')
 })

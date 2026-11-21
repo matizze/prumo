@@ -32,13 +32,13 @@ pnpm install
 pnpm --filter @matizze/prumo-reference exec playwright install chromium   # uma vez por máquina, para as stories
 ```
 
-| Comando                 | O que faz                                                                               |
-| ----------------------- | --------------------------------------------------------------------------------------- |
-| `pnpm verify`           | verify dos pacotes e depois do app de referência; é o que a CI cobra                    |
-| `pnpm verify:packages`  | typecheck, lint e testes de `packages/*`, um pacote por vez                             |
-| `pnpm verify:reference` | o `pnpm verify` do app: typecheck, lint, testes, stories com axe nos dois temas e build |
-| `pnpm dev`              | o app de referência em modo dev                                                         |
-| `pnpm changeset`        | registra a mudança de um pacote para a próxima versão                                   |
+| Comando                 | O que faz                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| `pnpm verify`           | verify dos pacotes e depois do app de referência; é o que a CI cobra                  |
+| `pnpm verify:packages`  | typecheck, lint e testes de `packages/*`, um pacote por vez                           |
+| `pnpm verify:reference` | o `pnpm verify` do app: typecheck, lint, prumo check, testes, stories com axe e build |
+| `pnpm dev`              | o app de referência em modo dev                                                       |
+| `pnpm changeset`        | registra a mudança de um pacote para a próxima versão                                 |
 
 Os outros scripts do app (Storybook, registry, paridade visual) rodam dentro de `apps/reference` ou com `pnpm --filter @matizze/prumo-reference <script>`. Eles estão descritos em [apps/reference/README.md](apps/reference/README.md).
 

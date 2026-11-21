@@ -1,7 +1,14 @@
 export { copyDomain, domainPaths, type DomainPaths } from './copy-domain.ts'
 export { copyPage } from './copy-page.ts'
 export { applyEdits, spliceText, type TextEdit } from './edit.ts'
-export { deriveRoute, findReferenceRoute, splitRoute, type ReferenceRoute } from './find-route.ts'
+export {
+  deriveRoute,
+  findReferenceRoute,
+  locateReferenceRoute,
+  splitRoute,
+  type LocatedRoute,
+  type ReferenceRoute,
+} from './find-route.ts'
 export {
   generateComponent,
   REFERENCE_COMPONENT,
@@ -41,12 +48,15 @@ export {
   registerRepository,
   registerSchema,
 } from './register-domain.ts'
+export { messageKeys } from './messages.ts'
 export { registerMenuItem, type MenuLabel } from './register-menu-item.ts'
 export { registerMessages } from './register-messages.ts'
+export { referenceComponent, type ReferenceComponent } from './reference-component.ts'
 export { registerRoute } from './register-route.ts'
 export { idPrefix, NOT_FOUND_MESSAGE, renameDomain } from './rename-domain.ts'
 export { renameComponent } from './rename-component.ts'
 export { renameExports } from './rename-exports.ts'
+export { renameFiles } from './rename-files.ts'
 export { renameStoryTitles } from './rename-story-titles.ts'
 export { replaceNamespace } from './replace-namespace.ts'
-export { replaceRoute } from './replace-route.ts'
+export { replaceRoute, type RouteChange } from './replace-route.ts'

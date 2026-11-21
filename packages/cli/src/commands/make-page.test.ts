@@ -101,7 +101,7 @@ export function useProdutosModel() {
     // Chave completa, de fora do hook
     exportLabel: t('produtos.export'),
     goToAdd: () => navigate('/add-product'),
-    goToDetail: (id: string) => navigate(\`/produtos/\${id}\`),
+    goToDetail: (id: string) => navigate(\`/invoices/\${id}\`),
     goToFirstPage: () => navigate('/produtos?page=1'),
   }
 }
@@ -768,5 +768,40 @@ describe('bin prumo make:page', () => {
     )
     expect(result.status).toBe(2)
     expect(result.stderr).toContain("a tela 'invoice-detail' já existe em src/pages")
+  })
+})
+
+describe('prumo make:page: tela num nest cujo layout pode ter menu próprio', () => {
+  const NOTICE =
+    'Aviso: a tela entra no <Route nest> de /settings, cujo layout (SettingsLayout) pode ter um menu de seções próprio. O make:page não mexe nesse menu: a tela nova só abre pela URL /settings/geral, até o item entrar na lista do layout.'
+
+  it('avisa no resumo, logo depois da rota', async () => {
+    const { root } = newProject()
+    const result = await run(['make:page', 'geral', '--like', 'settings-general'], root)
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).toContain(
+      `prumo make:page: geral a partir de settings-general, na rota /settings/geral.\n${NOTICE}\n\nCriados`,
+    )
+  })
+
+  it('avisa também no --dry-run, sem escrever nada', async () => {
+    const { root } = newProject()
+    const before = snapshot(root)
+    const result = await run(
+      ['make:page', 'geral', '--like', 'settings-general', '--dry-run'],
+      root,
+    )
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).toContain(NOTICE)
+    expect(snapshot(root)).toEqual(before)
+  })
+
+  it('não avisa numa tela fora de um nest', async () => {
+    const { root } = newProject()
+    const result = await run(['make:page', 'produtos', '--like', 'products-list'], root)
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).not.toContain('Aviso:')
   })
 })

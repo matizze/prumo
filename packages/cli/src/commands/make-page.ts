@@ -35,6 +35,15 @@ export function testCommand(project: Project, cwd: string, name: string): string
   return testCommandFor(project, cwd, pageFolder(name))
 }
 
+/**
+ * O aviso de uma tela que entra num `<Route nest>` cujo layout pode ter um menu de seções próprio
+ * (as configurações de IA, com o `AiSettingsLayout`): o menu é uma lista do layout, que o
+ * `make:page` não edita, então a tela nova só abre pela URL.
+ */
+export function nestMenuNotice(layout: string, nest: string, route: string): string {
+  return `Aviso: a tela entra no <Route nest> de ${nest}, cujo layout (${layout}) pode ter um menu de seções próprio. O make:page não mexe nesse menu: a tela nova só abre pela URL ${route}, até o item entrar na lista do layout.`
+}
+
 /** As opções da escolha interativa: os dez padrões e, por último, a tela mínima. */
 export function patternChoices(): Choice[] {
   return [
@@ -111,7 +120,7 @@ está errado: nome inválido ou reservado, tela que já existe, referência ou r
       // O nome é conferido antes de perguntar: não vale escolher um padrão para um nome inválido
       usableNames(args.nome, 'o nome da tela')
       const like = await chooseReference(runtime, args.like)
-      const { plan, route, from, to, ownMessages } = generatePage(project, {
+      const { plan, route, from, to, ownMessages, reference, nestLayout } = generatePage(project, {
         name: args.nome,
         like,
         menu: args.menu,
@@ -121,7 +130,7 @@ está errado: nome inválido ou reservado, tela que já existe, referência ou r
         ownMessages
           ? ''
           : `\nA referência não tem arquivo de mensagens próprio (usa namespaces compartilhados): '${to.kebab}' não ganha um.`
-      }`
+      }${nestLayout === undefined ? '' : `\n${nestMenuNotice(nestLayout, reference.prefix, route)}`}`
       if (dryRun) {
         runtime.out(
           `${heading}\n\n${formatSummary(plan.summary(), true)}\nSimulação (--dry-run): nada foi escrito.\n`,

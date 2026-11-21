@@ -93,6 +93,19 @@ export class ChangePlan {
     this.#createdFiles.set(file, { kind: 'copy', from })
   }
 
+  /**
+   * Muda o caminho de um arquivo de código que o plano vai criar, e o ts-morph atualiza os imports
+   * relativos que apontam para ele nos outros arquivos do plano. `to` não pode existir.
+   */
+  moveCreatedSource(file: string, to: string): void {
+    const source = this.#createdSources.get(file)
+    if (!source) throw new Error(`o plano não criou ${file}`)
+    this.#assertNew(to)
+    source.move(to)
+    this.#createdSources.delete(file)
+    this.#createdSources.set(to, source)
+  }
+
   /** Os arquivos de código criados pelo plano, em ordem de caminho. */
   createdSources(): SourceFile[] {
     return [...this.#createdSources.entries()]

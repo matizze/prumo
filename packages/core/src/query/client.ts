@@ -1,17 +1,28 @@
 import { MutationCache, QueryCache, QueryClient, type DefaultOptions } from '@tanstack/react-query'
 
-/** Controle da notificação global de erro, por query ou mutation, via `meta`. */
-export type ErrorMeta = {
+/**
+ * Controle da notificação global de erro, por query ou mutation, via `meta`. É uma `interface`
+ * para o produto acrescentar campos por declaration merging (veja o README do core).
+ */
+export interface ErrorMeta {
   /** Texto da notificação no lugar da mensagem derivada do erro. */
   errorMessage?: string
   /** Sem notificação: a própria tela já mostra o erro (ex.: alerta inline no formulário). */
   silent?: boolean
 }
 
+/**
+ * O `ErrorMeta` sem o nome de interface. O TanStack só aceita no `Register` um tipo atribuível a
+ * `Record<string, unknown>`, e uma interface não é (não tem assinatura de índice implícita): com
+ * ela, o meta voltaria em silêncio ao `Record` genérico e perderia a tipagem. O tipo mapeado
+ * tem os mesmos campos, inclusive os que o produto acrescenta ao `ErrorMeta`, e é atribuível.
+ */
+type RegisteredMeta = { [K in keyof ErrorMeta]: ErrorMeta[K] }
+
 declare module '@tanstack/react-query' {
   interface Register {
-    queryMeta: ErrorMeta
-    mutationMeta: ErrorMeta
+    queryMeta: RegisteredMeta
+    mutationMeta: RegisteredMeta
   }
 }
 

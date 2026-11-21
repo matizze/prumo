@@ -12,7 +12,7 @@ import {
   replaceNamespace,
   replaceRoute,
 } from './index.ts'
-import { fixturePlan } from './test-support.ts'
+import { fixturePlan, routeAt } from './test-support.ts'
 
 /** Gera a tela `pedidos-recentes` a partir de `products-list`, na ordem que o `make:page` usará. */
 function generate() {
@@ -28,7 +28,7 @@ function generate() {
   registerMessages(plan, from.kebab, to.kebab, to.camel)
   registerRoute(
     plan,
-    '/products-list',
+    routeAt(plan, '/products-list'),
     '/pedidos-recentes',
     `${from.pascal}Page`,
     `${to.pascal}Page`,

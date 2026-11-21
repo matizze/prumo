@@ -8,7 +8,8 @@ Infraestrutura comum dos produtos do Prumo: container de repositórios, query ke
 
 Cada módulo tem um subcaminho próprio, para que importar um deles não traga as dependências dos outros.
 
-| Subcaminho                   | O que tem                                                                          |
-| ---------------------------- | ---------------------------------------------------------------------------------- |
-| `@matizze/prumo-core/errors` | `UIError`: erro com código estável, que a interface traduz por `errors.<CODE>`     |
-| `@matizze/prumo-core/data`   | `pageSchema` e os tipos `Page`, `PageQuery`, `Sort`, `SortDirection` e `DateRange` |
+| Subcaminho                   | O que tem                                                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `@matizze/prumo-core/errors` | `UIError`: erro com código estável, que a interface traduz por `errors.<CODE>`                                      |
+| `@matizze/prumo-core/data`   | `pageSchema` e os tipos `Page`, `PageQuery`, `Sort`, `SortDirection` e `DateRange`                                  |
+| `@matizze/prumo-core/mock`   | `wait`, `normalize`, `matchesSearch`, `sortBy`, `paginate`, `sum` e `addDays`, os utilitários dos repositórios mock |

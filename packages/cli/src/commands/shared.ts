@@ -15,26 +15,32 @@ export function formatSummary({ created, modified }: PlanSummary, dryRun: boolea
   return [section(made, created), section(changed, modified)].filter(Boolean).join('\n')
 }
 
-/** Se o projeto tem o script `test`, que roda o Vitest do projeto (no app de referência, o projeto `unit`). */
-function hasTestScript(project: Project): boolean {
+/** Se o projeto tem o script do `package.json` (`test` roda o Vitest do projeto; no app de referência, o projeto `unit`). */
+function hasScript(project: Project, script: string): boolean {
   const file = path.join(project.root, 'package.json')
   if (!existsSync(file)) return false
   try {
     const scripts = (JSON.parse(readFileSync(file, 'utf8')) as { scripts?: Record<string, string> })
       .scripts
-    return typeof scripts?.test === 'string'
+    return typeof scripts?.[script] === 'string'
   } catch {
     return false
   }
 }
 
 /**
- * O comando que roda os testes de uma pasta do projeto (`src/pages/produtos`), para o mesmo
- * terminal onde o `make:*` rodou: usa o script `test` do projeto, se houver, e o Vitest direto,
- * se não. Fora da pasta atual, o `pnpm --dir` aponta para o projeto.
+ * O comando que roda os testes de uma pasta ou de um arquivo do projeto (`src/pages/produtos`),
+ * para o mesmo terminal onde o `make:*` rodou: usa o script do projeto (`test`, por padrão; o das
+ * stories é `test:storybook`), se houver, e o Vitest direto, se não. Fora da pasta atual, o
+ * `pnpm --dir` aponta para o projeto.
  */
-export function testCommandFor(project: Project, cwd: string, folder: string): string {
-  const run = hasTestScript(project) ? `test ${folder}` : `exec vitest run ${folder}`
+export function testCommandFor(
+  project: Project,
+  cwd: string,
+  target: string,
+  script = 'test',
+): string {
+  const run = hasScript(project, script) ? `${script} ${target}` : `exec vitest run ${target}`
   const relative = path.relative(cwd, project.root)
   if (relative === '') return `pnpm ${run}`
   // Fora da pasta atual, o caminho absoluto é mais claro que uma subida de várias pastas

@@ -11,14 +11,19 @@
     "./mock": "./src/mock/index.ts",
     "./query": "./src/query/index.ts",
     "./auth": "./src/auth/index.ts",
-    "./repositories": "./src/repositories/index.ts"
+    "./repositories": "./src/repositories/index.ts",
+    "./i18n": "./src/i18n/index.ts"
   },
   "scripts": {
     "typecheck": "tsc",
     "test": "vitest run"
   },
   "peerDependencies": {
+    "i18next": "^26.4.2",
+    "i18next-browser-languagedetector": "^8.2.1",
+    "i18next-icu": "^2.5.0",
     "react": "^19.3.1",
+    "react-i18next": "^17.0.15",
     "wouter": "^3.13.0",
     "zod": "^4.6.7"
   },
@@ -27,9 +32,13 @@
     "@testing-library/react": "^16.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "i18next": "^26.4.2",
+    "i18next-browser-languagedetector": "^8.2.1",
+    "i18next-icu": "^2.5.0",
     "jsdom": "^31.0.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-i18next": "^17.0.15",
     "typescript": "~6.0.3",
     "vitest": "^5.1.0",
     "wouter": "^3.13.0",

@@ -13,5 +13,8 @@
     "verify:reference": "pnpm --filter @matizze/prumo-reference run verify",
     "verify": "pnpm verify:packages && pnpm verify:reference",
     "dev": "pnpm --filter @matizze/prumo-reference run dev"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^3.0.3"
   }
 }

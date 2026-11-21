@@ -1,5 +1,6 @@
 import { defineCommand } from 'citty'
 import { createCheckCommand } from './commands/check.ts'
+import { createMakeDomainCommand } from './commands/make-domain.ts'
 import { createMakePageCommand } from './commands/make-page.ts'
 import type { Runtime } from './runtime.ts'
 
@@ -13,6 +14,7 @@ export function createRoot(runtime: Runtime) {
     },
     subCommands: {
       check: createCheckCommand(runtime),
+      'make:domain': createMakeDomainCommand(runtime),
       'make:page': createMakePageCommand(runtime),
     },
   })

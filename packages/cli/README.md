@@ -2,14 +2,15 @@
 
 O comando prumo: new, make, add, promote, check e doctor.
 
-**Situação:** Fase 2 em andamento. O `prumo` é uma árvore de comandos ([citty](https://github.com/unjs/citty)) e hoje tem o `prumo check` e o `prumo make:page` (com os dez padrões e a escolha no terminal, por [@clack/prompts](https://github.com/bombshell-dev/clack)); o núcleo do codemod ([ts-morph](https://ts-morph.com), em `src/codemod/`) já existe, e os outros comandos `make:*` chegam nos próximos pull requests da fase ([docs/fase-2.md](../../docs/fase-2.md)). O plano está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md).
+**Situação:** Fase 2 em andamento. O `prumo` é uma árvore de comandos ([citty](https://github.com/unjs/citty)) e hoje tem o `prumo check`, o `prumo make:page` (com os dez padrões e a escolha no terminal, por [@clack/prompts](https://github.com/bombshell-dev/clack)) e o `prumo make:domain`; o núcleo do codemod ([ts-morph](https://ts-morph.com), em `src/codemod/`) já existe, e o `make:component` chega no próximo pull request da fase ([docs/fase-2.md](../../docs/fase-2.md)). O plano está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md).
 
 ## Comandos
 
-| Comando                                            | O que faz                                                                                                                                                                                                                                                                          |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prumo make:page <nome> [--like <padrão ou tela>]` | Gera uma tela nova a partir de um dos dez padrões ou de uma tela de referência do projeto: copia a pasta, renomeia pela estrutura do código e faz as costuras (mensagens, rota e, com `--menu`, o menu lateral). Sem `--like`, pergunta o padrão no terminal ou gera a tela mínima |
-| `prumo check`                                      | Analisa o projeto inteiro e lista as violações da arquitetura: as pastas de `src/components`, o uso de `components/shared` pelas telas, a estrutura de cada tela e os textos completos nos idiomas                                                                                 |
+| Comando                                            | O que faz                                                                                                                                                                                                                                                                               |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prumo make:page <nome> [--like <padrão ou tela>]` | Gera uma tela nova a partir de um dos dez padrões ou de uma tela de referência do projeto: copia a pasta, renomeia pela estrutura do código e faz as costuras (mensagens, rota e, com `--menu`, o menu lateral). Sem `--like`, pergunta o padrão no terminal ou gera a tela mínima      |
+| `prumo make:domain <nome> [--entity <singular>]`   | Gera um domínio de dados novo a partir do domínio `customers` do projeto: o schema, o repositório (contrato, mock com latência, fixtures e teste de contrato) e as queries, renomeados pela estrutura do código, e as costuras nos três índices (`schemas`, `repositories` e `queries`) |
+| `prumo check`                                      | Analisa o projeto inteiro e lista as violações da arquitetura: as pastas de `src/components`, o uso de `components/shared` pelas telas, a estrutura de cada tela e os textos completos nos idiomas                                                                                      |
 
 ### Ajuda e códigos de saída
 
@@ -72,13 +73,38 @@ Códigos de saída: 0 quando gerou (ou, com `--dry-run`, quando simulou) e o `ch
 
 **Formatação.** O nome novo muda o tamanho das linhas, e uma linha de código gerada pode passar do limite do prettier do projeto (aconteceu num teste de `configuracoes`). O comando não formata: rode o `prettier --write` do projeto nos arquivos novos, se o `format:check` fizer parte da CI.
 
+### prumo make:domain
+
+```sh
+prumo make:domain <nome> [--entity <singular>] [--root <pasta>] [--dry-run]
+```
+
+- `<nome>`: o nome do domínio, no plural e em kebab-case (`suppliers`, `purchase-orders`). Dele saem a pasta do repositório (`src/repositories/<nome>/`), o arquivo de queries (`src/queries/<nome>.ts`), o `create<Pascal>Repository` e a chave do container e do `createQueryKeys` em camelCase (`purchaseOrders`).
+- `--entity <singular>`: a entidade (`supplier`). Sem a opção, sai do nome pela regra de tirar o `s` final; quando a regra erra (`categories` daria `categorie`), informe a entidade (`--entity category`). Dela saem o schema (`src/schemas/entities/<entidade>.ts`), os tipos (`Supplier`, `SupplierListQuery`), as chaves (`supplierKeys`, `supplierQueries`), a constante das fixtures (`MOCK_SUPPLIERS`) e o código de erro (`SUPPLIER_NOT_FOUND`).
+- `--root <pasta>`: a pasta do projeto. Padrão: a pasta atual.
+- `--dry-run`: lista o que seria criado e alterado, sem escrever nada.
+
+O que o comando faz:
+
+1. **Valida tudo antes de escrever.** Nome ou entidade inválidos, singular que a regra não deriva, domínio que já existe (a pasta do repositório, o arquivo de queries ou o schema da entidade), domínio de referência incompleto, índice que falta ou sem o formato esperado: tudo sai com código 2 e uma mensagem clara, sem tocar em arquivo. Tudo é montado em memória e só vai para o disco no fim.
+2. **Copia e renomeia pela estrutura** (ts-morph, nunca busca e troca de texto) o domínio de referência `customers`: `src/schemas/entities/customer.ts`, `src/repositories/customers/` e `src/queries/customers.ts`. Cada identificador com o nome da entidade ou do domínio troca a parte do nome (`Customer`, `ICustomersRepository`, `MockCustomersRepository`, `createCustomersRepository`, `MOCK_CUSTOMERS`, `customerKeys`, `customerQueries` e as variáveis locais); os exports do schema que o nome não cita (`addressSchema`) ganham o prefixo da entidade (`supplierAddressSchema`), senão os dois domínios exportariam o mesmo nome por `export *`. Nos literais mudam a chave do `createQueryKeys('customers', ...)`, o código de erro, o prefixo dos ids das fixtures (`cus_` vira `sup_`) e os títulos de `describe` e `it`; a mensagem do erro "não encontrado" vira `Registro não encontrado.`, porque cita a entidade em português. Os nomes citados em comentários (como `CUSTOMER_NOT_FOUND`) mudam também.
+3. **Faz as costuras.** Export em `src/schemas/index.ts` (depois do último); import, `export *` e a entrada do mapa `factories` em `src/repositories/index.ts` (em ordem alfabética); e `export { <entidade>Keys, <entidade>Queries }` em `src/queries/index.ts` (em ordem alfabética, no formato das linhas existentes). O tipo do container acompanha o mapa sozinho.
+4. **Confere.** Roda a análise do `prumo check` no projeto, mostra o resultado e imprime o comando dos testes do domínio novo (`pnpm test src/repositories/<nome>`). Não roda testes nem o verify, que são pesados.
+
+**Depois de gerar.** Os campos, as fixtures (com os nomes de pessoas) e o texto da mensagem de erro são os de `customers`: o produto edita o schema e as fixtures. O teste de contrato gerado passa porque as fixtures vêm junto, e confere os dados delas (as 18 linhas, a busca por `emilia`), então ajuste-o junto com as fixtures.
+
+**Os testes de índice do app de referência.** Um domínio novo toca dois testes do app: o `src/repositories/index.test.ts` (os domínios do container) e o `src/queries/keys.test.ts` (o snapshot das chaves). Os dois listam explicitamente os domínios do app de referência que protegem, então um domínio gerado entra no container e nas exports sem quebrá-los (na CI, o Vitest não grava snapshot novo, e um grupo sem snapshot falharia). Para congelar as chaves de um domínio novo, acrescente o grupo (`supplierKeys`) à lista `PROTECTED` do `keys.test.ts` e grave o snapshot (`vitest -u`).
+
+Códigos de saída: 0 quando gerou (ou, com `--dry-run`, quando simulou) e o `check` não achou violação; 1 quando gerou, mas o `check` achou violação; 2 para uso errado.
+
 ### Núcleo do codemod (interno)
 
-`src/codemod/` tem as peças dos comandos `make:*`, uma função por operação. O `make:page` as junta (`generatePage`, em `src/codemod/generate-page.ts`); os outros comandos `make:*` chegam nos próximos pull requests.
+`src/codemod/` tem as peças dos comandos `make:*`, uma função por operação. O `make:page` as junta (`generatePage`, em `src/codemod/generate-page.ts`) e o `make:domain` também (`generateDomain`, em `src/codemod/generate-domain.ts`); o `make:component` chega no próximo pull request.
 
 - **Plano de mudanças** (`ChangePlan`): um `Project` do ts-morph em memória, sem tsconfig, sem checagem de tipos e sem ler o disco por conta própria; só entram nele as cópias e os arquivos de costura. Os arquivos que não são código (JSON de mensagens, imagens) ficam numa lista à parte. Nada é escrito até o `commit()`, e o `summary()` diz o que seria criado e alterado (o `--dry-run`).
 - **Nomes** (`names.ts`): valida o nome (kebab-case: minúsculas, números e hífen, começando por letra) e deriva Pascal, camel e, para domínios, singular e plural (a regra tira o `s` final; um singular explícito vale mais).
 - **Cópia e renomeação**: `copyPage` copia `src/pages/<ref>/**`; `renameExports` renomeia `<Pascal>Page`, `use<Pascal>Model` e os demais exportados com o prefixo, com as referências, pelo language service; `replaceNamespace` troca o namespace do i18n; `renameStoryTitles` dá a cada story o título `Pages/<Pascal>/<último segmento>`; `replaceRoute` troca a rota e o nome da suíte nos testes (e a rota citada entre crases em textos corridos); `findReferenceRoute` acha a rota da tela de referência no `App.tsx` e `deriveRoute` monta a rota nova.
+- **Domínio** (`make:domain`): `copyDomain` copia o schema, a pasta do repositório e as queries da referência; `renameDomain` renomeia os identificadores, os literais e os comentários com o nome do domínio; `registerDomain` faz as costuras nos três índices (`registerSchema`, `registerRepository` e `registerQueries`).
 - **Costuras**: `registerMessages` (JSON nos dois idiomas e o `index.ts`, em ordem alfabética), `registerRoute` (clona o `<Route>` da referência no `App.tsx`, inclusive dentro de `nest`, e acrescenta o import) e `registerMenuItem` (item nos `subItems` de um grupo da barra lateral e o rótulo em `layout.nav.items`).
 
 Os testes usam um app em miniatura em `src/codemod/__fixtures__/app` (fora do tsconfig, do lint e do Vitest).

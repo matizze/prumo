@@ -13,6 +13,7 @@
     "verify:packages": "pnpm typecheck && pnpm lint && pnpm test",
     "verify:reference": "pnpm --filter @matizze/prumo-reference run verify",
     "verify": "pnpm verify:packages && pnpm verify:reference",
+    "verify:generated": "scripts/verify-generated.sh",
     "dev": "pnpm --filter @matizze/prumo-reference run dev"
   },
   "devDependencies": {

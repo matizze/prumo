@@ -8,13 +8,20 @@
   },
   "scripts": {
     "typecheck": "pnpm --filter \"./packages/*\" --workspace-concurrency=1 run typecheck",
+    "lint": "eslint packages",
     "test": "pnpm --filter \"./packages/*\" --workspace-concurrency=1 run test",
-    "verify:packages": "pnpm typecheck && pnpm test",
+    "verify:packages": "pnpm typecheck && pnpm lint && pnpm test",
     "verify:reference": "pnpm --filter @matizze/prumo-reference run verify",
     "verify": "pnpm verify:packages && pnpm verify:reference",
     "dev": "pnpm --filter @matizze/prumo-reference run dev"
   },
   "devDependencies": {
-    "@changesets/cli": "^3.0.3"
+    "@changesets/cli": "^3.0.3",
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.1"
   }
 }

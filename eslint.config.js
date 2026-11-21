@@ -9,7 +9,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
  * apps/reference/eslint.config.js, e roda o lint dele no `pnpm verify:reference`.
  */
 export default defineConfig([
-  globalIgnores(['apps/**', '**/dist', '**/node_modules']),
+  globalIgnores(['apps/**', '**/dist', '**/node_modules', '**/__fixtures__']),
   {
     files: ['packages/*/src/**/*.{ts,tsx}'],
     extends: [js.configs.recommended, tseslint.configs.recommended],

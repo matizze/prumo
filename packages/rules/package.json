@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./eslint": "./src/eslint/index.ts"
+    "./eslint": "./src/eslint/index.ts",
+    "./check": "./src/check/index.ts"
   },
   "scripts": {
     "typecheck": "tsc",

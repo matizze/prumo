@@ -43,8 +43,43 @@ Cada regra olha só os arquivos que protege (uma pasta, ou o projeto menos a pas
 | `prumo/no-inline-svg`        | Nenhum SVG solto nas telas: o elemento `<svg>` em JSX dentro de `src/pages/**/*.tsx` vira um ícone da pasta de ícones                                                                                       | `pagesDir` (a pasta das telas) e `iconsImport` (só para a mensagem)                                 |
 | `prumo/page-structure`       | Toda tela tem a mesma estrutura: o `index.tsx` de `src/pages/<tela>/` tem ao lado o `model.ts` e a `view.tsx`. O `skeleton.tsx` não é cobrado (só o registry o cobra, nas telas publicadas)                 | `pagesDir` (a pasta das telas) e `requiredFiles` (os arquivos cobrados)                             |
 
+## Análise do projeto (prumo check)
+
+`@matizze/prumo-rules/check` exporta `check(options)`, a análise do projeto inteiro. Ela cobre o que o ESLint não vê, porque a regra olha o conjunto de arquivos, e devolve a lista de violações (`{ rule, file, message }`, com o `file` relativo à raiz do projeto). É o que o comando `prumo check`, do [`@matizze/prumo-cli`](../cli/README.md), roda.
+
+```ts
+import { check } from '@matizze/prumo-rules/check'
+
+const violations = check({ root: process.cwd() })
+```
+
+| Verificação          | O que cobra                                                                                                                                                                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `components-folders` | `src/components` só tem as subpastas permitidas (`ui`, `shared` e `layout`). Pasta de fora acusa; pasta que falta, não                                                                                                                                  |
+| `shared-usage`       | O que está em `src/components/shared` é usado por 2 ou mais telas. O uso conta pelo grafo de imports (lidos por expressão regular), a casca do layout conta como duas telas, e teste e story não contam                                                 |
+| `page-structure`     | Toda pasta de `src/pages` tem `index.tsx`, `model.ts` e `view.tsx`: a mesma regra do `prumo/page-structure`, que no ESLint só vê a tela que já tem `index.tsx`                                                                                          |
+| `messages`           | Textos completos: os idiomas têm as mesmas chaves, cada chave usa os mesmos argumentos ICU em todos eles (interpolação, `plural`, `select` e formatos como `date`) e nenhuma mensagem fica vazia. O JSON malformado e o ICU que não fecha também acusam |
+
+As mensagens são um JSON por namespace em `src/messages/<idioma>/<namespace>.json`, e o primeiro idioma da lista é a referência. Sem a pasta de mensagens, o projeto não tem i18n e a verificação passa.
+
+As opções, todas com padrão, exceto a raiz:
+
+| Opção                  | O que é                                               | Padrão                                  |
+| ---------------------- | ----------------------------------------------------- | --------------------------------------- |
+| `root`                 | A pasta do projeto, a que tem o `src`                 | (obrigatória)                           |
+| `alias` e `aliasRoot`  | O alias de import e a pasta para onde ele aponta      | `'@/'` e `'src'`                        |
+| `pagesDir`             | A pasta das telas                                     | `'src/pages'`                           |
+| `requiredPageFiles`    | Os arquivos que toda tela tem                         | `['index.tsx', 'model.ts', 'view.tsx']` |
+| `componentsDir`        | A pasta dos componentes                               | `'src/components'`                      |
+| `allowedComponentDirs` | As únicas subpastas permitidas nela                   | `['layout', 'shared', 'ui']`            |
+| `sharedDir`            | A pasta dos componentes compartilhados                | `'src/components/shared'`               |
+| `layoutDir`            | A pasta da casca do layout, que conta como duas telas | `'src/components/layout'`               |
+| `messagesDir`          | A pasta das mensagens, com uma subpasta por idioma    | `'src/messages'`                        |
+| `locales`              | Os idiomas do produto, o primeiro é a referência      | `['pt-BR', 'en']`                       |
+
 ## Código-fonte
 
 - `src/eslint/`: o plugin e as regras, cada uma com o teste ao lado (`RuleTester` do ESLint).
+- `src/check/`: a análise do projeto, uma verificação por arquivo, com o teste nos projetos de `__fixtures__` (um sem violação e um com uma violação plantada por verificação) e no próprio app de referência.
 
-**Origem no app de referência:** `src/architecture.test.ts` e as regras de import do `eslint.config.js`.
+**Origem no app de referência:** `src/architecture.test.ts`, `src/i18n/messages.test.ts` e as regras de import do `eslint.config.js`.

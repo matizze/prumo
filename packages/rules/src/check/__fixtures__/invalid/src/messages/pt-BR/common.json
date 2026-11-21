@@ -1,0 +1,6 @@
+{
+  "title": "Início",
+  "subtitle": "Subtítulo",
+  "greeting": "Olá, {name}!",
+  "farewell": "Tchau, {name}!"
+}

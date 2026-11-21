@@ -7,9 +7,9 @@
     "node": ">=24"
   },
   "scripts": {
-    "typecheck": "pnpm --filter \"./packages/*\" --workspace-concurrency=1 run typecheck",
-    "lint": "eslint packages",
-    "test": "pnpm --filter \"./packages/*\" --workspace-concurrency=1 run test",
+    "typecheck": "pnpm --filter \"./packages/*\" --filter ./catalog --workspace-concurrency=1 run typecheck",
+    "lint": "eslint packages catalog",
+    "test": "pnpm --filter \"./packages/*\" --filter ./catalog --workspace-concurrency=1 run test",
     "verify:packages": "pnpm typecheck && pnpm lint && pnpm test",
     "verify:reference": "pnpm --filter @matizze/prumo-reference run verify",
     "verify": "pnpm verify:packages && pnpm verify:reference",

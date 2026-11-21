@@ -18,6 +18,7 @@ O Prumo é o framework da Matizze para produtos React: pacotes versionados (core
 
 ## Verificação
 
-- Mudança só em `packages/*`: `pnpm verify:packages`.
+- Mudança só em `packages/*` ou em `catalog/`: `pnpm verify:packages` (typecheck, lint e testes dos pacotes e do catálogo).
+- Mudança no `apps/reference/registry.json` ou no `catalog/seams.json`: regere o índice com `pnpm --filter @matizze/prumo-catalog build` e faça o commit do `catalog/index.json`; o teste do catálogo acusa o índice velho.
 - Antes de abrir o pull request: `pnpm verify`, que roda os pacotes e o app de referência.
 - Mudança no codemod, nos comandos `make:*` ou numa tela de referência: também `pnpm verify:generated`, o portão da Fase 2, que gera uma tela de cada padrão, um domínio e um componente numa worktree temporária e roda o `pnpm verify` nela (etapas `prepare`, `run` e `clean`, cada uma com menos de 10 minutos; um verify por vez). Veja `scripts/verify-generated.sh`.

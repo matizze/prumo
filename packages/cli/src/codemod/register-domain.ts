@@ -97,18 +97,38 @@ function propertyName(property: Node): string | undefined {
   return undefined
 }
 
+/** Onde um repositório entra em `src/repositories/index.ts`. */
+export interface RepositoryEntry {
+  /** A pasta em `src/repositories`, em kebab-case: `customers`. */
+  directory: string
+  /** A fábrica: `createCustomersRepository`. */
+  factory: string
+  /** A chave no mapa `factories`: `customers`. */
+  key: string
+}
+
 /**
- * Registra o repositório em `src/repositories/index.ts`: o `import { create<Dominio>Repository }`,
- * o `export * from` da pasta e a entrada `<dominio>: create<Dominio>Repository` no mapa
- * `factories`, cada um na posição alfabética. O tipo do container acompanha o mapa sozinho.
+ * Se `src/repositories/index.ts` já exporta a pasta do repositório (`export * from './<pasta>'`).
+ * É como o `prumo add` sabe que o domínio já está registrado.
  */
-export function registerRepository(plan: ChangePlan, to: DomainNames): void {
+export function isRepositoryRegistered(plan: ChangePlan, directory: string): boolean {
+  const index = indexSource(plan, path.join(plan.project.src, 'repositories', 'index.ts'))
+  return index
+    .getExportDeclarations()
+    .some((declaration) => specifierOf(declaration) === `./${directory}`)
+}
+
+/**
+ * Registra o repositório em `src/repositories/index.ts`: o `import { <fábrica> }`, o `export *
+ * from` da pasta e a entrada `<chave>: <fábrica>` no mapa `factories`, cada um na posição
+ * alfabética. O tipo do container acompanha o mapa sozinho.
+ */
+export function registerRepositoryEntry(plan: ChangePlan, entry: RepositoryEntry): void {
   const file = path.join(plan.project.src, 'repositories', 'index.ts')
   const where = display(plan, file)
   const index = indexSource(plan, file)
-  const specifier = `./${to.plural.kebab}`
-  const factory = `create${to.plural.pascal}Repository`
-  const key = to.plural.camel
+  const specifier = `./${entry.directory}`
+  const { factory, key } = entry
 
   const imports = index.getImportDeclarations()
   const relativeImports = imports.filter((declaration) => specifierOf(declaration).startsWith('./'))
@@ -139,20 +159,20 @@ export function registerRepository(plan: ChangePlan, to: DomainNames): void {
   const last = properties[properties.length - 1]
   const indent = last ? indentOf(index.getFullText(), last.getStart()) : '  '
   const next = properties.find((property) => (propertyName(property) ?? '') > key)
-  const entry = `${key}: ${factory}`
+  const mapEntry = `${key}: ${factory}`
   let factoryEdit: TextEdit
   if (next) {
-    factoryEdit = { pos: next.getStart(), end: next.getStart(), text: `${entry},\n${indent}` }
+    factoryEdit = { pos: next.getStart(), end: next.getStart(), text: `${mapEntry},\n${indent}` }
   } else if (last) {
     const { end, hasComma } = afterComma(index.getFullText(), last.getEnd())
     factoryEdit = {
       pos: end,
       end,
-      text: `${hasComma ? '' : ','}\n${indent}${entry}${hasComma ? ',' : ''}`,
+      text: `${hasComma ? '' : ','}\n${indent}${mapEntry}${hasComma ? ',' : ''}`,
     }
   } else {
     const open = factories.getStart() + 1
-    factoryEdit = { pos: open, end: open, text: `\n${indent}${entry},\n` }
+    factoryEdit = { pos: open, end: open, text: `\n${indent}${mapEntry},\n` }
   }
 
   // As posições vêm da árvore de antes de qualquer edição
@@ -163,15 +183,43 @@ export function registerRepository(plan: ChangePlan, to: DomainNames): void {
   ])
 }
 
+/** O repositório de um domínio novo: a pasta, a fábrica e a chave saem do nome do domínio. */
+export function registerRepository(plan: ChangePlan, to: DomainNames): void {
+  registerRepositoryEntry(plan, {
+    directory: to.plural.kebab,
+    factory: `create${to.plural.pascal}Repository`,
+    key: to.plural.camel,
+  })
+}
+
+/** O que um domínio exporta de `src/queries/index.ts`. */
+export interface QueriesEntry {
+  /** O arquivo em `src/queries`, sem a extensão: `customers`. */
+  module: string
+  /** Os nomes reexportados: `customerKeys`, `customerQueries`. */
+  exports: string[]
+}
+
+/** Se `src/queries/index.ts` já reexporta o módulo (`export { ... } from './<módulo>'`). */
+export function isQueriesRegistered(plan: ChangePlan, module: string): boolean {
+  const index = indexSource(plan, path.join(plan.project.src, 'queries', 'index.ts'))
+  return index
+    .getExportDeclarations()
+    .some(
+      (declaration) =>
+        declaration.hasModuleSpecifier() && specifierOf(declaration) === `./${module}`,
+    )
+}
+
 /**
- * O `export { <entidade>Keys, <entidade>Queries } from './<dominio>'` em `src/queries/index.ts`,
- * na posição alfabética pelo nome do arquivo, no formato das linhas que já existem.
+ * O `export { <nomes> } from './<módulo>'` em `src/queries/index.ts`, na posição alfabética pelo
+ * nome do arquivo, no formato das linhas que já existem.
  */
-export function registerQueries(plan: ChangePlan, to: DomainNames): void {
+export function registerQueriesEntry(plan: ChangePlan, entry: QueriesEntry): void {
   const file = path.join(plan.project.src, 'queries', 'index.ts')
   const where = display(plan, file)
   const index = indexSource(plan, file)
-  const specifier = `./${to.plural.kebab}`
+  const specifier = `./${entry.module}`
   const exports = index
     .getExportDeclarations()
     .filter((declaration) => declaration.hasModuleSpecifier())
@@ -179,8 +227,19 @@ export function registerQueries(plan: ChangePlan, to: DomainNames): void {
     throw new UsageError(`${where} já exporta '${specifier}'.`)
   }
   const { quote, semicolon } = styleOf(exports[0])
-  const line = `export { ${to.singular.camel}Keys, ${to.singular.camel}Queries } from ${quote}${specifier}${quote}${semicolon}`
+  const line = `export { ${entry.exports.join(', ')} } from ${quote}${specifier}${quote}${semicolon}`
   applyEdits(index, [insertSorted(exports, specifier, line, undefined, where)])
+}
+
+/**
+ * O `export { <entidade>Keys, <entidade>Queries } from './<dominio>'` em `src/queries/index.ts`,
+ * na posição alfabética pelo nome do arquivo, no formato das linhas que já existem.
+ */
+export function registerQueries(plan: ChangePlan, to: DomainNames): void {
+  registerQueriesEntry(plan, {
+    module: to.plural.kebab,
+    exports: [`${to.singular.camel}Keys`, `${to.singular.camel}Queries`],
+  })
 }
 
 /** As três costuras de um domínio novo: `schemas`, `repositories` e `queries`. */

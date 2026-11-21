@@ -1,6 +1,6 @@
 import { parseArgs, type ArgDef, type ArgsDef } from 'citty'
 import { UsageError } from './errors.ts'
-import { aliasesOf, isRequired } from './help.ts'
+import { aliasesOf, isRequired, isVariadic } from './help.ts'
 
 const toKebab = (text: string) => text.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
 const toCamel = (text: string) =>
@@ -32,7 +32,7 @@ export function validateArgs(argsDef: ArgsDef, rawArgs: string[]): void {
     const value = parsed[name]
     if (def.type === 'positional') {
       if (value === undefined && isRequired(def))
-        throw new UsageError(`falta o argumento <${name}>.`)
+        throw new UsageError(`falta o argumento <${isVariadic(name) ? name.slice(0, -3) : name}>.`)
       continue
     }
     if (value === undefined) {
@@ -48,9 +48,11 @@ export function validateArgs(argsDef: ArgsDef, rawArgs: string[]): void {
     }
   }
 
-  const positionals = entries.filter(([, def]) => def.type === 'positional').length
-  const extra = parsed._[positionals]
-  if (extra !== undefined) throw new UsageError(`argumento inesperado: '${extra}'.`)
+  const positionals = entries.filter(([, def]) => def.type === 'positional')
+  // O último argumento posicional pode aceitar vários valores (`item...`): o que sobra é dele
+  const variadic = isVariadic(positionals.at(-1)?.[0])
+  const extra = parsed._[positionals.length]
+  if (extra !== undefined && !variadic) throw new UsageError(`argumento inesperado: '${extra}'.`)
 }
 
 /** A mesma definição sem obrigação e sem lista de valores, para o citty só separar os argumentos. */

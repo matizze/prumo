@@ -43,6 +43,16 @@ function createTree(calls: unknown[][]) {
         },
       }),
       secret: defineCommand({ meta: { description: 'Escondido.', hidden: true }, run() {} }),
+      many: defineCommand({
+        meta: { description: 'Aceita vários valores.' },
+        args: {
+          'item...': { type: 'positional', required: true, description: 'Os itens.' },
+          flag: { type: 'boolean', description: 'Uma opção.' },
+        },
+        run({ args }) {
+          calls.push(['many', args._, args.flag])
+        },
+      }),
       group: defineCommand({
         meta: { description: 'Um grupo.' },
         subCommands: {
@@ -81,6 +91,7 @@ Comandos:
   fail    Sai com o código 7.
   silent  Sai com 3 sem mensagem.
   crash   Quebra.
+  many    Aceita vários valores.
   group   Um grupo.
 
 Rode "demo <comando> --help" para ver as opções de um comando.
@@ -173,6 +184,20 @@ Opções:
       const extra = await run(['greet', 'Ana', 'Aninha', 'Anita', '--times', '1'])
       expect(extra.code).toBe(2)
       expect(extra.stderr).toContain("argumento inesperado: 'Anita'.")
+    })
+
+    it('argumento posicional com vários valores: aceita todos, e exige pelo menos um', async () => {
+      const several = await run(['many', 'a', '--flag', 'b', 'c'])
+      expect(several.code).toBe(0)
+      expect(several.calls).toEqual([['many', ['a', 'b', 'c'], true]])
+
+      const none = await run(['many', '--flag'])
+      expect(none.code).toBe(2)
+      expect(none.stderr).toContain('demo many: falta o argumento <item>.')
+      expect(none.stderr).toContain('Uso: demo many <item>... [--flag]')
+
+      const help = await run(['many', '--help'])
+      expect(help.stdout).toContain('Argumentos:\n  item...  Os itens.')
     })
 
     it('opção obrigatória que falta e opção sem valor', async () => {

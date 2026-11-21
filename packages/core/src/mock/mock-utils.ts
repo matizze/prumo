@@ -1,4 +1,4 @@
-import { invoiceTotals, type Page, type Sort } from '@/schemas'
+import type { Page, Sort } from '../data/index.ts'
 
 /** Espera `ms` (latência simulada dos mocks). */
 export function wait(ms: number) {
@@ -21,12 +21,17 @@ export function matchesSearch(fields: readonly string[], search?: string) {
   return fields.some((field) => normalize(field).includes(query))
 }
 
-/** Ordena uma cópia; sem `sort` mantém a ordem original. Texto compara por pt-BR. */
+/**
+ * Ordena uma cópia; sem `sort` mantém a ordem original. Números comparam pelo valor e texto pelo
+ * idioma `options.locale` (padrão `'pt-BR'`), com números naturais ("Item 9" antes de "Item 10").
+ */
 export function sortBy<T, K extends string>(
   items: readonly T[],
   sort: Sort<K> | undefined,
   accessors: Record<K, (item: T) => string | number>,
+  options: { locale?: string } = {},
 ): T[] {
+  const { locale = 'pt-BR' } = options
   const copy = [...items]
   if (!sort) return copy
   const get = accessors[sort.key]
@@ -37,7 +42,7 @@ export function sortBy<T, K extends string>(
     const result =
       typeof left === 'number' && typeof right === 'number'
         ? left - right
-        : String(left).localeCompare(String(right), 'pt-BR', { numeric: true })
+        : String(left).localeCompare(String(right), locale, { numeric: true })
     return result * sign
   })
 }
@@ -59,24 +64,4 @@ export function addDays(isoDate: string, days: number) {
   const date = new Date(`${isoDate.slice(0, 10)}T00:00:00.000Z`)
   date.setUTCDate(date.getUTCDate() + days)
   return date.toISOString().slice(0, 10)
-}
-
-/**
- * Preço unitário (centavos) de um item único cujo total com imposto (`taxRate`, razão) fica mais
- * perto de `totalReais`; usado para as fixtures baterem com os totais da lista do Pro.
- */
-export function unitPriceFor(totalReais: number, taxRate: number) {
-  const target = totalReais * 100
-  const guess = Math.round(target / (1 + taxRate))
-  for (let delta = 0; delta <= 3; delta += 1) {
-    for (const candidate of [guess + delta, guess - delta]) {
-      if (
-        invoiceTotals([{ quantity: 1, unit_price_cents: candidate, discount: 0 }], taxRate)
-          .total_cents === target
-      ) {
-        return candidate
-      }
-    }
-  }
-  return guess
 }

@@ -1,6 +1,6 @@
 {
   "name": "@matizze/prumo-cli",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "O comando prumo: new, make, add, promote, check e doctor.",
   "private": true,
   "type": "module",

@@ -14,3 +14,4 @@ Cada módulo tem um subcaminho próprio, para que importar um deles não traga a
 | `@matizze/prumo-core/data`   | `pageSchema` e os tipos `Page`, `PageQuery`, `Sort`, `SortDirection` e `DateRange`                                  |
 | `@matizze/prumo-core/mock`   | `wait`, `normalize`, `matchesSearch`, `sortBy`, `paginate`, `sum` e `addDays`, os utilitários dos repositórios mock |
 | `@matizze/prumo-core/query`  | `createQueryKeys` e o tipo `QueryKeys`: a fábrica das query keys de um domínio                                      |
+| `@matizze/prumo-core/auth`   | `AuthGuard`: guarda de rota que só mostra o conteúdo com sessão aberta e, sem ela, redireciona para o login         |

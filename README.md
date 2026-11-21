@@ -35,7 +35,7 @@ pnpm --filter @matizze/prumo-reference exec playwright install chromium   # uma 
 | Comando                 | O que faz                                                                               |
 | ----------------------- | --------------------------------------------------------------------------------------- |
 | `pnpm verify`           | verify dos pacotes e depois do app de referência; é o que a CI cobra                    |
-| `pnpm verify:packages`  | typecheck e testes de `packages/*`, um pacote por vez                                   |
+| `pnpm verify:packages`  | typecheck, lint e testes de `packages/*`, um pacote por vez                             |
 | `pnpm verify:reference` | o `pnpm verify` do app: typecheck, lint, testes, stories com axe nos dois temas e build |
 | `pnpm dev`              | o app de referência em modo dev                                                         |
 | `pnpm changeset`        | registra a mudança de um pacote para a próxima versão                                   |
@@ -56,11 +56,15 @@ Nas mensagens antigas, as referências a pull requests apontam para `matizze/tem
 
 Por enquanto, o app mantém a própria cópia dos componentes de UI (`src/components/ui`, `src/icons` e `src/styles`). A troca para o registry `@mads` fica para quando o MaDS estiver publicado.
 
+## Branches
+
+O trabalho acontece na `develop`, que é a branch padrão: todo pull request abre contra ela. A `main` recebe as versões.
+
 ## Pacotes, versões e CI
 
 - **Pacotes.** Cada pacote exporta o próprio código-fonte (`src/index.ts`) e está com `"private": true` até as decisões de distribuição (GitHub Packages ou npm) e de build (tsup), que vêm antes da Fase 1.
 - **Versões.** Todo pull request que muda um pacote traz um changeset (`pnpm changeset`). As regras estão em [.changeset/README.md](.changeset/README.md).
-- **CI.** O [.github/workflows/ci.yml](.github/workflows/ci.yml) roda os testes dos pacotes e o verify do app de referência a cada pull request e a cada push na `main`.
+- **CI.** O [.github/workflows/ci.yml](.github/workflows/ci.yml) roda os testes dos pacotes e o verify do app de referência a cada pull request e a cada push na `main` ou na `develop`.
 
 ## Convenções
 

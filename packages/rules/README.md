@@ -2,7 +2,15 @@
 
 Regras da arquitetura do Prumo: um plugin de ESLint, com aviso no editor, e a análise do projeto inteiro que o `prumo check` roda.
 
-**Situação:** o Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)), então as regras cobram só a estrutura (as camadas, as pastas e os textos), nunca a interface. Nada foi publicado: o pacote segue `"private": true`.
+O Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)), então as regras cobram só a estrutura (as camadas, as pastas e os textos), nunca a interface.
+
+## Instalação
+
+Um app criado com `pnpm dlx @matizze/prumo-cli new <nome>` já vem com o pacote e o plugin ligado no `eslint.config.js`. Num projeto existente:
+
+```sh
+pnpm add -D @matizze/prumo-rules
+```
 
 ## Plugin de ESLint
 

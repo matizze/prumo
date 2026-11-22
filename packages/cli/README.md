@@ -2,7 +2,21 @@
 
 O comando `prumo`: `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`, e a API para rodar os comandos em processo.
 
-**Situação:** o Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)): a CLI cria e confere o projeto, e não traz interface. Os comandos estão prontos. O pacote está pronto para o npm público (sem `private`, com `repository` e `publishConfig` público); o GitHub Packages foi uma etapa provisória. O `prumo new` não cria `.npmrc` (os pacotes `@matizze/prumo-*` vêm do registry padrão), e o `prumo doctor` avisa se o `.npmrc` ainda manda o escopo `@matizze` para o GitHub Packages.
+O Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)): a CLI cria e confere o projeto, e não traz interface.
+
+## Instalação
+
+Para criar um app, sem instalar nada antes:
+
+```sh
+pnpm dlx @matizze/prumo-cli new meu-app
+```
+
+O app criado já vem com a CLI (`pnpm exec prumo ...`). Num projeto existente:
+
+```sh
+pnpm add -D @matizze/prumo-cli
+```
 
 ## Comandos
 

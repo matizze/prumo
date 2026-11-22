@@ -1,5 +1,13 @@
 # @matizze/prumo-mcp
 
+## 0.1.3
+
+### Patch Changes
+
+- O README publicado no npm deixa de dizer que o pacote não foi publicado e ganha a seção Instalação.
+- Updated dependencies
+  - @matizze/prumo-cli@0.5.2
+
 ## 0.1.2
 
 ### Patch Changes

@@ -2,7 +2,15 @@
 
 Servidor MCP do Prumo: os comandos da CLI como ferramentas para agentes de IA.
 
-**Situação:** uma ferramenta por comando do `prumo`, por stdio, com o bin `prumo-mcp`. A CLI tem `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`, e o servidor expõe todos. Nada foi publicado: o pacote segue `"private": true`.
+Uma ferramenta por comando do `prumo`, por stdio, com o bin `prumo-mcp`. A CLI tem `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`, e o servidor expõe todos.
+
+## Instalação
+
+Um app criado com `pnpm dlx @matizze/prumo-cli new <nome>` já vem com o pacote e o `.mcp.json` com o servidor `prumo`. Num projeto existente:
+
+```sh
+pnpm add -D @matizze/prumo-mcp
+```
 
 ## Como ligar
 

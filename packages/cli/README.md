@@ -2,7 +2,7 @@
 
 O comando `prumo`: `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`, e a API para rodar os comandos em processo.
 
-**Situação:** o Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)). Na Fase A, a CLI ficou só com o que confere o projeto; os geradores simples voltam na Fase B, um por vez: já existem `make:domain`, `make:page` e `make:component`, e o `new`. Nada foi publicado: o pacote segue `"private": true`.
+**Situação:** o Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)): a CLI cria e confere o projeto, e não traz interface. Os comandos estão prontos. Nada foi publicado: o pacote segue `"private": true`.
 
 ## Comandos
 
@@ -27,7 +27,7 @@ O comando `prumo`: `new`, `make:page`, `make:domain`, `make:component`, `check` 
 - o eslint com o plugin do Prumo, o vitest com jsdom, o `AGENTS.md` (as camadas e os comandos, curto) e o `.mcp.json` com o servidor `prumo` (`pnpm exec prumo-mcp`);
 - os scripts `dev`, `build`, `typecheck`, `lint`, `check`, `test` e `verify` (typecheck, lint, check e test, sem navegador).
 
-As dependências são só as bibliotecas e versões do app de referência das fases anteriores, e os cinco pacotes do Prumo entram como `^<versão>` (a versão de cada um está em `src/new/versions.ts`, que o `versions.test.ts` confere contra os `package.json` de `packages/*`: ao subir uma versão, atualize o arquivo). Com `--packages <pasta>` (os tarballs do `pnpm pack:all`), o `package.json` ganha `pnpm.overrides` com `file:` para os tarballs, e o app instala sem registry. Roda `git init` (sem commit) e `pnpm install`, a não ser com `--no-install`; sob o servidor MCP (ou qualquer Runtime sem `inheritStdio`), a saída do `pnpm install` é capturada e volta pelo `runtime.out`/`runtime.err` (`process.ts`), nunca direto no stdout do processo.
+As bibliotecas de terceiros têm as versões fixadas nos modelos (`templates/app`), e os cinco pacotes do Prumo entram como `^<versão>` (a versão de cada um está em `src/new/versions.ts`, que o `versions.test.ts` confere contra os `package.json` de `packages/*`: ao subir uma versão, atualize o arquivo). Com `--packages <pasta>` (os tarballs do `pnpm pack:all`), o `package.json` ganha `pnpm.overrides` com `file:` para os tarballs, e o app instala sem registry. Roda `git init` (sem commit) e `pnpm install`, a não ser com `--no-install`; sob o servidor MCP (ou qualquer Runtime sem `inheritStdio`), a saída do `pnpm install` é capturada e volta pelo `runtime.out`/`runtime.err` (`process.ts`), nunca direto no stdout do processo.
 
 O app é montado numa pasta de rascunho e só vai ao destino se tudo deu certo. Valida antes de escrever (saída 2): o nome em kebab-case, o destino (não pode existir com conteúdo) e os tarballs (a pasta tem de ter os cinco). `--dry-run` lista os arquivos e não escreve nada.
 
@@ -97,7 +97,7 @@ Os geradores não copiam tela nem domínio de outro projeto: cada arquivo gerado
 - **Marcadores:** `{{plural.kebab}}`, `{{plural.pascal}}`, `{{plural.camel}}` e `{{plural.constant}}` (o mesmo para `singular`, `page`, `domain` e `component`; o `new` usa `{{app.kebab}}` e `{{app.title}}`): para `pedidos-recentes`, `pedidos-recentes`, `PedidosRecentes`, `pedidosRecentes` e `PEDIDOS_RECENTES`. O nome do marcador só tem letras, números e ponto, então um `{{` de JSX não é marcador. Marcador sem valor lança um erro: o gerador não escreve `undefined` no código de ninguém. `src/templates.ts` troca os marcadores (`renderTemplate`) e monta os valores de um nome (`nameVars`).
 - **Caminhos:** cada gerador (`src/generate/<nome>.ts`) lista os pares modelo e destino, o destino também com marcadores (`src/repositories/{{plural.kebab}}/index.ts`), e monta tudo num `ChangePlan` em memória, junto com as costuras.
 - **No tarball:** `templates/` está no `files` do `package.json`, e o caminho (`templates/`, um nível acima de `src/` e de `dist/`) vale no workspace e no pacote instalado. O `packaging.test.ts` confere que o tarball leva os mesmos arquivos e gera um domínio com o `prumo` empacotado.
-- **O código gerado compila e roda:** o `generate/page.compile.test.ts` monta um projeto como o do `prumo new` (App sem rota, índices vazios, i18n, provedores e `renderWithProviders`), gera um domínio, três telas (uma com `--domain`) e dois componentes, e roda nele o `tsc` (estrito), o Vitest e o `prumo check`. E o `generate/domain.compile.test.ts`: o `generate/domain.compile.test.ts` cria um projeto mínimo, gera três domínios (um com nome composto e entidade explícita), e roda nele o `tsc` (estrito) e o Vitest, com o contrato de cada mock e os hooks de verdade.
+- **O código gerado compila e roda:** o `generate/page.compile.test.ts` monta um projeto como o do `prumo new` (App sem rota, índices vazios, i18n, provedores e `renderWithProviders`), gera um domínio, três telas (uma com `--domain`) e dois componentes, e roda nele o `tsc` (estrito), o Vitest e o `prumo check`. O `generate/domain.compile.test.ts` cria um projeto mínimo, gera três domínios (um com nome composto e entidade explícita), e roda nele o `tsc` (estrito) e o Vitest, com o contrato de cada mock e os hooks de verdade.
 
 ## O codemod (interno)
 
@@ -105,7 +105,7 @@ Os geradores não copiam tela nem domínio de outro projeto: cada arquivo gerado
 
 - **`ChangePlan`** (`plan.ts`): o plano de mudanças em memória, sobre um `Project` do ts-morph sem tsconfig e sem checagem de tipos. Recebe arquivos novos e costuras, lista o que seria criado e alterado (`summary()`, o `--dry-run`) e só grava no `commit()`: um erro no meio do caminho não deixa o projeto pela metade.
 - **Nomes** (`names.ts`): valida o nome (kebab-case) e deriva Pascal, camel e, para domínios, singular e plural.
-- **Rota** (`add-route.ts`): registra a rota de uma tela no `src/App.tsx`, com o import na ordem dos de `@/pages`. `addRouteSnippet` recebe o `<Route>` pronto em JSX (o que o `make:page` usa, sem `App.tsx` de origem); `addRoute` clona o de um `App.tsx` de origem.
+- **Rota** (`add-route.ts`): registra a rota de uma tela no `src/App.tsx`, com o import na ordem dos de `@/pages`. `addRouteSnippet` recebe o `<Route>` pronto em JSX (o que o `make:page` usa, sem `App.tsx` de origem); `addRoute` copia o de um `App.tsx` de origem.
 - **Mensagens** (`register-messages.ts`, `messages.ts`): registra um namespace nos `index.ts` de cada idioma, em ordem alfabética, também num índice sem nenhum import (só o `export default {}`).
 - **Domínio** (`register-domain.ts`, `merge-barrel.ts`): os exports de `src/schemas/index.ts` e de `src/queries/index.ts` e o import, o `export *` e o mapa `factories` de `src/repositories/index.ts`, também num índice sem nenhum domínio; o `mergeBarrel` acrescenta ao barrel os exports de outro barrel que faltam.
 

@@ -63,7 +63,15 @@ export { mergeBarrel } from './merge-barrel.ts'
 export { referenceComponent, type ReferenceComponent } from './reference-component.ts'
 export { registerRoute } from './register-route.ts'
 export { idPrefix, NOT_FOUND_MESSAGE, renameDomain } from './rename-domain.ts'
-export { promoteComponent, type PromotePlan, type PromoteRequest } from './promote-component.ts'
+export {
+  promoteComponent,
+  promoteComponents,
+  type PromoteBatch,
+  type PromoteOptions,
+  type PromotedComponent,
+  type PromotePlan,
+  type PromoteRequest,
+} from './promote-component.ts'
 export { registerBlock, type BlockRequest } from './register-block.ts'
 export { moduleSpecifiers } from './specifiers.ts'
 export { renameComponent } from './rename-component.ts'

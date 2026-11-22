@@ -14,14 +14,14 @@ const GOOD_FILES: Record<string, string> = {
     packageManager: 'pnpm@10.0.0',
     engines: { node: '>=24' },
     dependencies: { '@matizze/prumo-core': 'workspace:*' },
-    devDependencies: { '@matizze/prumo-cli': '^0.2.0', '@matizze/prumo-rules': '^0.1.0' },
+    devDependencies: { '@matizze/prumo-cli': '^0.2.0', '@matizze/prumo-rules': '^0.2.0' },
   }),
   '.nvmrc': '24\n',
   '.mcp.json': JSON.stringify({
     mcpServers: { prumo: { command: 'pnpm', args: ['exec', 'prumo-mcp'] } },
   }),
   'node_modules/@matizze/prumo-core/package.json': '{ "version": "0.1.3" }',
-  'node_modules/@matizze/prumo-rules/package.json': '{ "version": "0.1.0" }',
+  'node_modules/@matizze/prumo-rules/package.json': '{ "version": "0.2.0" }',
   'node_modules/@matizze/prumo-cli/package.json': '{ "version": "0.2.1" }',
 }
 
@@ -177,10 +177,10 @@ describe('prumo doctor', () => {
 
     it('aviso para atualizar a CLI quando o pacote está à frente da faixa', async () => {
       const result = await doctor({
-        files: { 'node_modules/@matizze/prumo-rules/package.json': '{ "version": "0.2.0" }' },
+        files: { 'node_modules/@matizze/prumo-rules/package.json': '{ "version": "0.3.0" }' },
       })
       expect(line(result.stdout, '@matizze/prumo-rules')).toBe(
-        'aviso  @matizze/prumo-rules: 0.2.0 está à frente da faixa que esta CLI espera (>=0.1.0 <0.2.0): atualize a CLI (@matizze/prumo-cli).',
+        'aviso  @matizze/prumo-rules: 0.3.0 está à frente da faixa que esta CLI espera (>=0.2.0 <0.3.0): atualize a CLI (@matizze/prumo-cli).',
       )
     })
 
@@ -205,20 +205,25 @@ describe('prumo doctor', () => {
       )
     })
 
-    it('confere o @matizze/prumo-mcp contra a faixa dele, na 0.0.0 do workspace e na 0.1.x das versões', async () => {
+    it('confere o @matizze/prumo-mcp contra a faixa dele: a 0.1.x passa, a 0.0.x está atrás e a 0.2.0 à frente', async () => {
       const installed = (version: string) => ({
         'node_modules/@matizze/prumo-mcp/package.json': `{ "version": "${version}" }`,
       })
-      for (const version of ['0.0.0', '0.1.3']) {
+      for (const version of ['0.1.0', '0.1.3']) {
         const result = await doctor({ files: installed(version) })
         expect(line(result.stdout, '@matizze/prumo-mcp')).toBe(
-          `ok     @matizze/prumo-mcp: ${version} (esperado: >=0.0.0 <0.2.0).`,
+          `ok     @matizze/prumo-mcp: ${version} (esperado: >=0.1.0 <0.2.0).`,
         )
       }
+      const behind = await doctor({ files: installed('0.0.9') })
+      expect(behind.code).toBe(0)
+      expect(line(behind.stdout, '@matizze/prumo-mcp')).toBe(
+        'aviso  @matizze/prumo-mcp: 0.0.9 está atrás da faixa que esta CLI espera (>=0.1.0 <0.2.0): atualize o pacote.',
+      )
       const ahead = await doctor({ files: installed('0.2.0') })
       expect(ahead.code).toBe(0)
       expect(line(ahead.stdout, '@matizze/prumo-mcp')).toBe(
-        'aviso  @matizze/prumo-mcp: 0.2.0 está à frente da faixa que esta CLI espera (>=0.0.0 <0.2.0): atualize a CLI (@matizze/prumo-cli).',
+        'aviso  @matizze/prumo-mcp: 0.2.0 está à frente da faixa que esta CLI espera (>=0.1.0 <0.2.0): atualize a CLI (@matizze/prumo-cli).',
       )
     })
 

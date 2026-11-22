@@ -28,7 +28,12 @@ const GOOD_FILES: Record<string, string> = {
   }),
   '.nvmrc': '24\n',
   'components.json': MADS_COMPONENTS,
-  '.mcp.json': '{}',
+  '.mcp.json': JSON.stringify({
+    mcpServers: {
+      prumo: { command: 'pnpm', args: ['exec', 'prumo-mcp'] },
+      shadcn: { command: 'npx', args: ['shadcn@latest', 'mcp'] },
+    },
+  }),
   '.env.local': '',
   'node_modules/@matizze/prumo-core/package.json': '{ "version": "0.1.3" }',
   'node_modules/@matizze/prumo-rules/package.json': '{ "version": "0.1.0" }',
@@ -227,6 +232,37 @@ describe('prumo doctor', () => {
       )
     })
 
+    it('confere o @matizze/prumo-mcp contra a faixa dele, na 0.0.0 do workspace e na 0.1.x das versões', async () => {
+      const installed = (version: string) => ({
+        'node_modules/@matizze/prumo-mcp/package.json': `{ "version": "${version}" }`,
+      })
+      for (const version of ['0.0.0', '0.1.3']) {
+        const result = await doctor({ files: installed(version) })
+        expect(line(result.stdout, '@matizze/prumo-mcp')).toBe(
+          `ok     @matizze/prumo-mcp: ${version} (esperado: >=0.0.0 <0.2.0).`,
+        )
+      }
+      const ahead = await doctor({ files: installed('0.2.0') })
+      expect(ahead.code).toBe(0)
+      expect(line(ahead.stdout, '@matizze/prumo-mcp')).toBe(
+        'aviso  @matizze/prumo-mcp: 0.2.0 está à frente da faixa que esta CLI espera (>=0.0.0 <0.2.0): atualize a CLI (@matizze/prumo-cli).',
+      )
+    })
+
+    it('erro quando o mcp está no package.json e não está instalado', async () => {
+      const result = await doctor({
+        files: {
+          'package.json': JSON.stringify({
+            packageManager: 'pnpm@10.0.0',
+            devDependencies: { '@matizze/prumo-mcp': '^0.1.0' },
+          }),
+        },
+      })
+      expect(line(result.stdout, '@matizze/prumo-mcp')).toBe(
+        'erro   @matizze/prumo-mcp: está no package.json, mas não está instalado: rode "pnpm install".',
+      )
+    })
+
     it('não lista o pacote que o projeto não usa', async () => {
       const result = await doctor()
       expect(result.stdout).not.toContain('@matizze/prumo-testing')
@@ -407,6 +443,42 @@ describe('prumo doctor', () => {
   })
 
   describe('arquivos do projeto', () => {
+    it('ok no .mcp.json com o servidor prumo, e o do shadcn é livre', async () => {
+      const both = await doctor()
+      expect(line(both.stdout, '.mcp.json')).toBe('ok     .mcp.json: existe, com o servidor prumo.')
+
+      const onlyPrumo = await doctor({
+        files: { '.mcp.json': '{ "mcpServers": { "prumo": { "command": "pnpm" } } }' },
+      })
+      expect(onlyPrumo.code).toBe(0)
+      expect(line(onlyPrumo.stdout, '.mcp.json')).toMatch(/^ok {5}\.mcp\.json/)
+    })
+
+    it.each([
+      ['só com o servidor do shadcn', '{ "mcpServers": { "shadcn": { "command": "npx" } } }'],
+      ['sem mcpServers', '{}'],
+      ['com mcpServers que não é objeto', '{ "mcpServers": [] }'],
+      ['com o servidor prumo sem command', '{ "mcpServers": { "prumo": { "args": [] } } }'],
+      ['com o servidor prumo que não é objeto', '{ "mcpServers": { "prumo": "pnpm" } }'],
+    ])('aviso, com o trecho a acrescentar, no .mcp.json %s', async (_name, text) => {
+      const result = await doctor({ files: { '.mcp.json': text } })
+      expect(result.code).toBe(0)
+      const found = line(result.stdout, '.mcp.json')
+      expect(found).toMatch(/^aviso {2}\.mcp\.json: sem o servidor prumo \(com "command"\)/)
+      expect(found).toContain('"command": "pnpm", "args": ["exec", "prumo-mcp"]')
+      expect(found).toContain('@matizze/prumo-mcp como devDependency')
+    })
+
+    it('aviso quando o .mcp.json não é um JSON de objeto', async () => {
+      for (const text of ['{ quebrado', '[]', '"prumo"']) {
+        const result = await doctor({ files: { '.mcp.json': text } })
+        expect(result.code).toBe(0)
+        expect(line(result.stdout, '.mcp.json')).toBe(
+          'aviso  .mcp.json: não é um JSON de objeto válido.',
+        )
+      }
+    })
+
     it('aviso quando faltam o .mcp.json e o .env.local', async () => {
       const result = await doctor({ files: { '.mcp.json': null, '.env.local': null } })
       expect(result.code).toBe(0)

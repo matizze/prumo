@@ -14,6 +14,8 @@ export const PRUMO_PACKAGE_RANGES: Readonly<Record<string, string>> = {
   '@matizze/prumo-core': '>=0.1.0 <0.2.0',
   '@matizze/prumo-rules': '>=0.1.0 <0.2.0',
   '@matizze/prumo-testing': '>=0.1.0 <0.2.0',
+  // O mcp está na 0.0.0 até o pull request de versão da Fase 4, que aperta a faixa para `>=0.1.0 <0.2.0`
+  '@matizze/prumo-mcp': '>=0.0.0 <0.2.0',
 }
 
 export const CLI_PACKAGE_NAME = '@matizze/prumo-cli'
@@ -23,5 +25,6 @@ export const PRUMO_PACKAGES: readonly string[] = [
   '@matizze/prumo-core',
   '@matizze/prumo-rules',
   '@matizze/prumo-testing',
+  '@matizze/prumo-mcp',
   CLI_PACKAGE_NAME,
 ]

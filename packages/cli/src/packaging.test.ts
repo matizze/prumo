@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import {
   cpSync,
   existsSync,
@@ -20,7 +20,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 const REPO = path.resolve(import.meta.dirname, '../../..')
 const SCRIPT = path.join(REPO, 'scripts', 'pack-packages.sh')
 
-const PACKAGES = ['core', 'rules', 'testing', 'cli'] as const
+const PACKAGES = ['core', 'rules', 'testing', 'cli', 'mcp'] as const
 type PackageName = (typeof PACKAGES)[number]
 
 type Manifest = {
@@ -203,6 +203,34 @@ describe.each(PACKAGES)('tarball de @matizze/prumo-%s', (name) => {
   })
 })
 
+describe('@matizze/prumo-mcp empacotado', () => {
+  it('depende da versão exata que o pacote cli tem, e não do workspace', () => {
+    const packed = packedManifest('mcp')
+    expect(workspaceManifest('mcp').dependencies?.['@matizze/prumo-cli']).toBe('workspace:*')
+    expect(packed.dependencies?.['@matizze/prumo-cli']).toBe(workspaceManifest('cli').version)
+  })
+
+  it('tem o bin prumo-mcp em dist/bin.js, com o shebang e executável', () => {
+    const packed = packedManifest('mcp')
+    expect(packed.bin).toEqual({ 'prumo-mcp': './dist/bin.js' })
+    expect(workspaceManifest('mcp').bin).toEqual({ 'prumo-mcp': './src/bin.ts' })
+    const bin = path.join(extracted('mcp'), 'dist', 'bin.js')
+    expect(readFileSync(bin, 'utf8').startsWith('#!/usr/bin/env node\n')).toBe(true)
+    expect(statSync(bin).mode & 0o111).not.toBe(0)
+  })
+
+  it('exporta só a entrada principal, e o package-info lê o package.json que fica acima do dist/', () => {
+    const packed = packedManifest('mcp')
+    expect(Object.keys(packed.exports)).toEqual(['.'])
+    expect(packed.dependencies).toMatchObject({
+      '@modelcontextprotocol/server': expect.any(String),
+      zod: expect.any(String),
+    })
+    // O cliente do SDK é só dos testes: não vai para o produto
+    expect(packed.dependencies?.['@modelcontextprotocol/client']).toBeUndefined()
+  })
+})
+
 describe('@matizze/prumo-cli empacotado', () => {
   it('depende da versão que o pacote rules tem', () => {
     expect(packedManifest('cli').dependencies?.['@matizze/prumo-rules']).toBe(
@@ -222,6 +250,7 @@ describe('@matizze/prumo-cli empacotado', () => {
   describe('instalado como o gerenciador de pacotes instala (em node_modules, sem type stripping)', () => {
     let product: string
     let bin: string
+    let mcpBin: string
 
     beforeAll(() => {
       // Um produto vazio, fora do monorepo: o cli e o rules vêm dos tarballs, e as dependências de
@@ -232,16 +261,21 @@ describe('@matizze/prumo-cli empacotado', () => {
       writeFileSync(path.join(product, 'package.json'), '{ "name": "produto", "type": "module" }\n')
       cpSync(extracted('cli'), path.join(modules, '@matizze', 'prumo-cli'), { recursive: true })
       cpSync(extracted('rules'), path.join(modules, '@matizze', 'prumo-rules'), { recursive: true })
-      const cliDependencies = Object.keys(packedManifest('cli').dependencies ?? {})
-      for (const dependency of cliDependencies.filter((entry) => !entry.startsWith('@matizze/'))) {
-        const link = path.join(modules, dependency)
-        mkdirSync(path.dirname(link), { recursive: true })
-        symlinkSync(
-          realpathSync(path.join(REPO, 'packages', 'cli', 'node_modules', dependency)),
-          link,
-        )
+      cpSync(extracted('mcp'), path.join(modules, '@matizze', 'prumo-mcp'), { recursive: true })
+      for (const owner of ['cli', 'mcp'] as const) {
+        const dependencies = Object.keys(packedManifest(owner).dependencies ?? {})
+        for (const dependency of dependencies.filter((entry) => !entry.startsWith('@matizze/'))) {
+          const link = path.join(modules, dependency)
+          if (existsSync(link)) continue
+          mkdirSync(path.dirname(link), { recursive: true })
+          symlinkSync(
+            realpathSync(path.join(REPO, 'packages', owner, 'node_modules', dependency)),
+            link,
+          )
+        }
       }
       bin = path.join(modules, '@matizze', 'prumo-cli', 'dist', 'bin.js')
+      mcpBin = path.join(modules, '@matizze', 'prumo-mcp', 'dist', 'bin.js')
     })
 
     it('roda o --help com o node, a partir de uma pasta fora do monorepo', () => {
@@ -327,6 +361,63 @@ describe('@matizze/prumo-cli empacotado', () => {
       expect(data.code).toBe(2)
       expect(data.err).toContain('não tem src')
     })
+
+    it('o prumo-mcp roda o --help e o --version com o node, de uma pasta fora do monorepo', () => {
+      const help = spawnSync(process.execPath, [mcpBin, '--help'], {
+        cwd: product,
+        encoding: 'utf8',
+      })
+      expect(help.stderr).toBe('')
+      expect(help.status).toBe(0)
+      expect(help.stdout).toContain('Uso: prumo-mcp')
+
+      const version = spawnSync(process.execPath, [mcpBin, '--version'], {
+        cwd: product,
+        encoding: 'utf8',
+      })
+      expect(version.status).toBe(0)
+      expect(version.stdout).toBe(`${workspaceManifest('mcp').version}\n`)
+    })
+
+    it('o prumo-mcp responde ao initialize e lista as ferramentas por stdio, a partir de dist/', async () => {
+      // O servidor de verdade, o do tarball: o cliente é um JSON-RPC por linha, escrito à mão, para o
+      // teste não depender de como o SDK carrega (o do monorepo seria o src/, não o pacote)
+      const child = spawn(process.execPath, [mcpBin], { cwd: product })
+      let stdout = ''
+      let stderr = ''
+      child.stdout.on('data', (chunk: Buffer) => (stdout += String(chunk)))
+      child.stderr.on('data', (chunk: Buffer) => (stderr += String(chunk)))
+      const exited = new Promise<number | null>((resolve) => child.on('close', resolve))
+      const send = (message: object) => child.stdin.write(`${JSON.stringify(message)}\n`)
+      send({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2025-06-18',
+          capabilities: {},
+          clientInfo: { name: 'teste', version: '0.0.0' },
+        },
+      })
+      send({ jsonrpc: '2.0', method: 'notifications/initialized' })
+      send({ jsonrpc: '2.0', id: 2, method: 'tools/list' })
+      const deadline = Date.now() + 30_000
+      while (stdout.split('\n').filter(Boolean).length < 2 && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      child.stdin.end()
+      expect(await exited, stderr).toBe(0)
+
+      const [initialize, list] = stdout
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => JSON.parse(line) as { result: Record<string, unknown> })
+      expect(initialize?.result).toMatchObject({
+        serverInfo: { name: 'prumo', version: workspaceManifest('mcp').version },
+      })
+      const tools = (list?.result.tools as Array<{ name: string }>).map((tool) => tool.name)
+      expect(tools).toEqual(expect.arrayContaining(['make_page', 'check', 'patterns', 'catalog']))
+    }, 60_000)
 
     it('tem o dist do rules e do cli onde o exports aponta', () => {
       expect(

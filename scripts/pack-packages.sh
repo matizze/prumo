@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compila e empacota os quatro pacotes publicáveis do Prumo (core, rules, testing e cli) com o
+# Compila e empacota os cinco pacotes publicáveis do Prumo (core, rules, testing, cli e mcp) com o
 # `pnpm pack`, deixando os tarballs numa pasta. Nada é publicado: os tarballs servem para provar a
 # instalação fora do monorepo (`prumo new --packages <pasta>` e o portão do produto novo).
 #
@@ -11,7 +11,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PACKAGES=(core rules testing cli)
+# A ordem é a de publicação: o cli depende do rules, e o mcp depende do cli
+PACKAGES=(rules core testing cli mcp)
 
 if [ "$#" -gt 1 ]; then
   echo "uso: scripts/pack-packages.sh [pasta]" >&2

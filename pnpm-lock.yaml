@@ -156,6 +156,9 @@ importers:
       '@matizze/prumo-cli':
         specifier: workspace:*
         version: link:../../packages/cli
+      '@matizze/prumo-mcp':
+        specifier: workspace:*
+        version: link:../../packages/mcp
       '@matizze/prumo-rules':
         specifier: workspace:*
         version: link:../../packages/rules
@@ -567,6 +570,9 @@ importers:
       '@matizze/prumo-cli':
         specifier: workspace:*
         version: link:../packages/cli
+      '@matizze/prumo-mcp':
+        specifier: workspace:*
+        version: link:../packages/mcp
       '@matizze/prumo-rules':
         specifier: workspace:*
         version: link:../packages/rules

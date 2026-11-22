@@ -321,11 +321,8 @@ function checkMcpJson({ root, system }: DoctorInput): Finding {
 
 // .npmrc
 
-/** O registry do GitHub Packages, de onde vêm os pacotes @matizze/prumo-* enquanto não estão no npm público. */
+/** O registry do GitHub Packages, onde os pacotes @matizze/prumo-* ficaram numa etapa provisória. */
 export const GITHUB_PACKAGES_HOST = 'npm.pkg.github.com'
-
-/** A variável de ambiente que o `.npmrc` do app gerado lê para autenticar no GitHub Packages. */
-export const REGISTRY_TOKEN_VARIABLE = 'NODE_AUTH_TOKEN'
 
 /** O `.npmrc` manda o escopo `@matizze` para o GitHub Packages? (`@matizze:registry=https://npm.pkg.github.com`) */
 function routesScopeToGithubPackages(npmrc: string): boolean {
@@ -336,28 +333,18 @@ function routesScopeToGithubPackages(npmrc: string): boolean {
 }
 
 /**
- * O token do GitHub Packages: se o `.npmrc` do projeto manda o escopo `@matizze` para o
- * `npm.pkg.github.com` e a `NODE_AUTH_TOKEN` não está definida, o `pnpm install` não consegue baixar
- * os pacotes do Prumo. Sem `.npmrc` desse tipo, não há linha. Nunca mostra o valor da variável.
+ * O `.npmrc` antigo: os pacotes do Prumo agora estão no npm público, então a linha que manda o escopo
+ * `@matizze` para o GitHub Packages pode sair. Sem `.npmrc` desse tipo, não há linha. Não lê nem mostra
+ * token nenhum.
  */
 function checkRegistryToken({ root, system }: DoctorInput): Finding[] {
-  const label = '.npmrc'
   const npmrc = system.readText(path.join(root, '.npmrc'))
   if (npmrc === undefined || !routesScopeToGithubPackages(npmrc)) return []
-  if (system.env(REGISTRY_TOKEN_VARIABLE) === undefined) {
-    return [
-      {
-        status: 'warn',
-        label,
-        message: `o escopo @matizze vem do GitHub Packages (${GITHUB_PACKAGES_HOST}), mas ${REGISTRY_TOKEN_VARIABLE} não está definida: crie um token clássico do GitHub com read:packages e exporte-o em ${REGISTRY_TOKEN_VARIABLE} antes do pnpm install.`,
-      },
-    ]
-  }
   return [
     {
-      status: 'ok',
-      label,
-      message: `o escopo @matizze vem do GitHub Packages e ${REGISTRY_TOKEN_VARIABLE} está definida.`,
+      status: 'warn',
+      label: '.npmrc',
+      message: `o escopo @matizze aponta para o GitHub Packages (${GITHUB_PACKAGES_HOST}), mas os pacotes do Prumo agora estão no npm público: a linha pode sair do .npmrc, e o token também.`,
     },
   ]
 }

@@ -10,14 +10,19 @@ import {
 } from 'node:fs'
 import path from 'node:path'
 import { defineCommand } from 'citty'
+import { clientDesignSystem, clientProblem, MADS, type DesignSystem } from '../ds.ts'
 import { ExitError, UsageError } from '../errors.ts'
 import { copyFiles, listStarterFiles } from '../new/copy.ts'
 import {
   customizeAgents,
+  customizeAgentsDs,
+  customizeComponentsJson,
+  customizeEnv,
   customizeIndexHtml,
   customizeNodeTsconfig,
   customizePackageJson,
   customizeReadme,
+  customizeReadmeDs,
   MCP_JSON,
   NPMRC,
   type ProductContext,
@@ -26,15 +31,10 @@ import { productNameProblem, titleOf } from '../new/name.ts'
 import { assertTarballsCover, readOriginVersions, readTarballs } from '../new/packages.ts'
 import { obtainSource, STARTER_DIR } from '../new/source.ts'
 import type { Runtime } from '../runtime.ts'
-import { section, shellQuote } from './shared.ts'
+import { childEnv, section, shellQuote } from './shared.ts'
 
 /** O registry dos pacotes `@matizze/prumo-*` (o `.npmrc` do produto aponta para ele). */
 const REGISTRY = 'https://npm.pkg.github.com'
-
-/** O ambiente dos subprocessos: o do processo, com o do runtime por cima. */
-function envOf(runtime: Runtime): NodeJS.ProcessEnv {
-  return { ...process.env, ...runtime.env }
-}
 
 /**
  * Valida o destino: `<dir>/<nome>` não pode existir com conteúdo (uma pasta vazia serve), e o pai
@@ -94,6 +94,9 @@ ajusta o produto:
   - cria o .npmrc com o registry do escopo @matizze (GitHub Packages), sem o token: o pnpm install
     lê NODE_AUTH_TOKEN, que precisa estar definida (um token com read:packages);
   - cria o .env.local, a partir do .env.example (sem token), e o .mcp.json;
+  - com --ds <cliente>, troca o registry de UI do components.json (@mads por @<cliente>-ds), as
+    variáveis do .env.local (MADS_REGISTRY_* por <CLIENTE>_DS_REGISTRY_*, a URL em branco) e o que o
+    AGENTS.md e o README.md dizem sobre de onde vem a UI;
   - roda git init (sem commit) e pnpm install, a não ser com --no-install.
 
 Valida antes de escrever: o nome (kebab-case), a pasta de destino (não pode existir com conteúdo),
@@ -123,6 +126,12 @@ feito e não escreve nada. Os tarballs de --packages saem do pnpm pack:all, no m
         description:
           'Uma pasta com os tarballs dos pacotes @matizze/prumo-* (pnpm pack:all), instalados em vez do registry.',
       },
+      ds: {
+        type: 'string',
+        valueHint: 'cliente',
+        description:
+          'O design system do cliente (gekom): troca o registry de UI @mads por @<cliente>-ds no components.json.',
+      },
       install: {
         type: 'boolean',
         default: true,
@@ -141,6 +150,11 @@ feito e não escreve nada. Os tarballs de --packages saem do pnpm pack:all, no m
       // Tudo que dá para conferir sem a origem, antes de baixar ou escrever qualquer coisa
       const problem = productNameProblem(name)
       if (problem) throw new UsageError(problem)
+      if (args.ds !== undefined) {
+        const clientError = clientProblem(String(args.ds))
+        if (clientError) throw new UsageError(clientError)
+      }
+      const ds = args.ds === undefined ? MADS : clientDesignSystem(String(args.ds))
       const destination = resolveDestination(runtime, args.dir, name)
       const packagesDir =
         args.packages === undefined ? undefined : path.resolve(runtime.cwd, args.packages)
@@ -170,20 +184,30 @@ feito e não escreve nada. Os tarballs de --packages saem do pnpm pack:all, no m
             overrides: tarballs,
           }),
         )
+        // Cada troca parte do que as anteriores deixaram no mesmo arquivo
         const modify = (file: string, change: (text: string) => string) => {
-          if (files.includes(file)) contents.set(file, change(read(file)))
+          if (files.includes(file)) contents.set(file, change(contents.get(file) ?? read(file)))
         }
         modify('index.html', (text) => customizeIndexHtml(text, product))
         modify('AGENTS.md', (text) => customizeAgents(text, product))
         modify('README.md', (text) => customizeReadme(text, product))
         modify('tsconfig.node.json', customizeNodeTsconfig)
-        if (files.includes('.env.example')) contents.set('.env.local', read('.env.example'))
+        if (args.ds !== undefined) {
+          modify('components.json', (text) => customizeComponentsJson(text, ds))
+          modify('.env.example', (text) => customizeEnv(text, ds, String(args.ds)))
+          modify('AGENTS.md', (text) => customizeAgentsDs(text, ds))
+          modify('README.md', (text) => customizeReadmeDs(text, ds))
+        }
+        if (files.includes('.env.example')) {
+          contents.set('.env.local', contents.get('.env.example') ?? read('.env.example'))
+        }
         if (!files.includes('.mcp.json')) contents.set('.mcp.json', MCP_JSON)
         if (!tarballs) contents.set('.npmrc', NPMRC)
 
         const changed = [...contents.keys()].filter((file) => files.includes(file)).sort()
         const added = [...contents.keys()].filter((file) => !files.includes(file)).sort()
         const copied = files.length - changed.length
+        const uiLine = `Registry de UI: ${ds.namespace} (variáveis ${ds.urlVariable} e ${ds.tokenVariable}).`
         const packagesLine = packagesDir
           ? `Pacotes do Prumo: tarballs de ${packagesDir} (pnpm.overrides com file:), sem registry.`
           : `Pacotes do Prumo: do GitHub Packages (${REGISTRY}), com o token em NODE_AUTH_TOKEN.`
@@ -192,7 +216,7 @@ feito e não escreve nada. Os tarballs de --packages saem do pnpm pack:all, no m
           `${dryRun ? 'Seriam copiados' : 'Copiados'} ${copied} ${copied === 1 ? 'arquivo' : 'arquivos'} de ${STARTER_DIR}/ (sem node_modules, dist nem scripts/).\n`,
           section(dryRun ? 'Seriam alterados' : 'Alterados', changed),
           section(dryRun ? 'Seriam criados' : 'Criados', added),
-          `${packagesLine}\n`,
+          `${packagesLine}\n${uiLine}\n`,
         ]
           .filter(Boolean)
           .join('\n')
@@ -228,7 +252,7 @@ feito e não escreve nada. Os tarballs de --packages saem do pnpm pack:all, no m
 
       initGit(runtime, destination)
       if (install) installPackages(runtime, destination)
-      runtime.out(nextSteps(runtime, destination, install))
+      runtime.out(nextSteps(runtime, destination, install, ds))
     },
   })
 }
@@ -238,7 +262,7 @@ function initGit(runtime: Runtime, destination: string): void {
   const result = spawnSync('git', ['init', '--quiet'], {
     cwd: destination,
     encoding: 'utf8',
-    env: envOf(runtime),
+    env: childEnv(runtime),
   })
   if (result.error || result.status !== 0) {
     runtime.err(
@@ -253,7 +277,7 @@ function installPackages(runtime: Runtime, destination: string): void {
   const result = spawnSync('pnpm', ['install'], {
     cwd: destination,
     stdio: 'inherit',
-    env: envOf(runtime),
+    env: childEnv(runtime),
   })
   if (result.error || result.status !== 0) {
     throw new ExitError(
@@ -264,7 +288,12 @@ function installPackages(runtime: Runtime, destination: string): void {
 }
 
 /** O que fazer depois: entrar na pasta, instalar se faltou, subir o app e gerar a primeira tela. */
-function nextSteps(runtime: Runtime, destination: string, installed: boolean): string {
+function nextSteps(
+  runtime: Runtime,
+  destination: string,
+  installed: boolean,
+  ds: DesignSystem,
+): string {
   const relative = path.relative(runtime.cwd, destination)
   const folder = shellQuote(relative.startsWith('..') ? destination : relative)
   const steps = [
@@ -273,5 +302,5 @@ function nextSteps(runtime: Runtime, destination: string, installed: boolean): s
     'pnpm dev                                          # login de exemplo: admin@app.com / password',
     'pnpm exec prumo make:page <nome> --like <padrão>  # a primeira tela, a partir de um dos dez padrões',
   ]
-  return `\nPróximos passos:\n${steps.map((step) => `  ${step}`).join('\n')}\n\nPara instalar a UI do design system (prumo add @mads/<item>), preencha MADS_REGISTRY_TOKEN no .env.local.\n`
+  return `\nPróximos passos:\n${steps.map((step) => `  ${step}`).join('\n')}\n\nPara instalar a UI do design system (prumo add ${ds.namespace}/<item>), preencha ${ds.tokenVariable}${ds.urlVariable === MADS.urlVariable ? '' : ` e ${ds.urlVariable}`} no .env.local.\n`
 }

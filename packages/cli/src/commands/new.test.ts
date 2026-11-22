@@ -422,7 +422,7 @@ describe('prumo new --help', () => {
 
     expect(code).toBe(0)
     expect(runtime.stdout).toContain(
-      'Uso: prumo new <nome> [--dir <pasta>] [--from <pasta>] [--packages <pasta>] [--no-install] [--dry-run]',
+      'Uso: prumo new <nome> [--dir <pasta>] [--from <pasta>] [--packages <pasta>] [--ds <cliente>] [--no-install] [--dry-run]',
     )
     expect(runtime.stdout).toContain('--no-install')
     expect(runtime.stdout).not.toMatch(/--install\b/)
@@ -455,5 +455,135 @@ describe('prumo new com o starter de verdade', () => {
     expect(read(product, 'AGENTS.md')).toContain('`meu-produto`, produto React da Matizze')
     expect(read(product, 'README.md')).toMatch(/^# Meu Produto$/m)
     expect(read(product, 'tsconfig.node.json')).not.toContain('scripts/')
+  })
+})
+
+describe('prumo new --ds', () => {
+  const repo = path.resolve(import.meta.dirname, '../../../..')
+
+  it('com o starter de verdade, troca o registry de UI no components.json, no .env e nos textos', async () => {
+    const { code, stderr, stdout, cwd } = await run([
+      'meu-produto',
+      '--from',
+      repo,
+      '--ds',
+      'gekom',
+      '--no-install',
+    ])
+    const product = path.join(cwd, 'meu-produto')
+
+    expect({ code, stderr }).toEqual({ code: 0, stderr: '' })
+    const components = JSON.parse(read(product, 'components.json')) as {
+      registries: Record<string, { url: string; headers: Record<string, string> }>
+    }
+    expect(components.registries).toEqual({
+      '@gekom-ds': {
+        url: '${GEKOM_DS_REGISTRY_URL}/{name}.json',
+        headers: { Authorization: 'Bearer ${GEKOM_DS_REGISTRY_TOKEN}' },
+      },
+    })
+    // O .env.local nasce do .env.example do cliente: variáveis novas, a URL do MaDS fora
+    expect(read(product, '.env.local')).toBe(read(product, '.env.example'))
+    expect(read(product, '.env.local')).toMatch(/^GEKOM_DS_REGISTRY_URL=$/m)
+    expect(read(product, '.env.local')).toMatch(/^GEKOM_DS_REGISTRY_TOKEN=$/m)
+    for (const file of ['.env.local', 'components.json']) {
+      expect(read(product, file), file).not.toMatch(/MADS_REGISTRY|mads\.matizze|@mads/)
+    }
+    // O AGENTS.md diz de onde vem a UI
+    const agents = read(product, 'AGENTS.md')
+    expect(agents).toContain('o design system deste produto é o do cliente gekom')
+    expect(agents).toContain('`@gekom-ds`')
+    expect(agents).toContain('prumo add @gekom-ds/<item>')
+    expect(agents).toContain('`GEKOM_DS_REGISTRY_URL` e `GEKOM_DS_REGISTRY_TOKEN`')
+    expect(agents).not.toContain('MADS_REGISTRY')
+    expect(read(product, 'README.md')).toContain('registry `@gekom-ds`')
+    expect(stdout).toContain(
+      'Registry de UI: @gekom-ds (variáveis GEKOM_DS_REGISTRY_URL e GEKOM_DS_REGISTRY_TOKEN).',
+    )
+    expect(stdout).toContain(
+      'prumo add @gekom-ds/<item>), preencha GEKOM_DS_REGISTRY_TOKEN e GEKOM_DS_REGISTRY_URL no .env.local.',
+    )
+  })
+
+  it('sem --ds, o produto fica com o @mads do starter, e o resumo diz qual', async () => {
+    const { stdout, cwd } = await run(['meu-produto', '--from', repo, '--no-install'])
+    const product = path.join(cwd, 'meu-produto')
+
+    expect(read(product, 'components.json')).toBe(read(repo, 'starter/components.json'))
+    expect(read(product, '.env.local')).toBe(read(repo, 'starter/.env.example'))
+    expect(stdout).toContain(
+      'Registry de UI: @mads (variáveis MADS_REGISTRY_URL e MADS_REGISTRY_TOKEN).',
+    )
+    expect(stdout).toContain('prumo add @mads/<item>), preencha MADS_REGISTRY_TOKEN no .env.local.')
+  })
+
+  it('o produto com --ds passa no add do cliente: o registry do components.json é o que o add confere', async () => {
+    const { cwd } = await run(['meu-produto', '--from', repo, '--ds', 'acme-corp', '--no-install'])
+    const product = path.join(cwd, 'meu-produto')
+    const runtime = captureRuntime(product, { env: {} })
+    const code = await runCli(
+      createRoot(runtime),
+      ['add', '@acme-corp-ds/button', '--dry-run'],
+      runtime,
+    )
+
+    // Sem as variáveis o add recusa, e cita as do cliente: o components.json trocado é o que ele leu
+    expect(code).toBe(2)
+    expect(runtime.stderr).toContain(
+      "faltam as variáveis do registry '@acme-corp-ds': ACME_CORP_DS_REGISTRY_URL, ACME_CORP_DS_REGISTRY_TOKEN.",
+    )
+  })
+
+  it('--dry-run lista o components.json entre os alterados e não escreve nada', async () => {
+    const { code, stdout, cwd } = await run([
+      'meu-produto',
+      '--from',
+      repo,
+      '--ds',
+      'gekom',
+      '--dry-run',
+      '--no-install',
+    ])
+
+    expect(code).toBe(0)
+    expect(stdout).toMatch(/Seriam alterados \(\d+\):[\s\S]*\n {2}components\.json\n/)
+    expect(stdout).toContain('Registry de UI: @gekom-ds')
+    expect(existsSync(path.join(cwd, 'meu-produto'))).toBe(false)
+  })
+
+  it('recusa o nome de cliente inválido, com código 2 e sem escrever nada', async () => {
+    for (const client of ['Gekom', 'a_b', '1x']) {
+      const { code, stderr, cwd } = await run([
+        'meu-produto',
+        '--from',
+        makeStarterOrigin(),
+        '--ds',
+        client,
+        '--no-install',
+      ])
+
+      expect(code, client).toBe(2)
+      expect(stderr, client).toContain('é inválido em --ds')
+      expect(existsSync(path.join(cwd, 'meu-produto')), client).toBe(false)
+    }
+  })
+
+  it('recusa o starter sem registry @mads no components.json, sem deixar a pasta', async () => {
+    const from = makeStarterOrigin({
+      ...STARTER_FILES,
+      'components.json': '{ "registries": {} }\n',
+    })
+    const { code, stderr, cwd } = await run([
+      'meu-produto',
+      '--from',
+      from,
+      '--ds',
+      'gekom',
+      '--no-install',
+    ])
+
+    expect(code).toBe(1)
+    expect(stderr).toContain('não tem o registry @mads')
+    expect(existsSync(path.join(cwd, 'meu-produto'))).toBe(false)
   })
 })

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { PlanSummary } from '../codemod/index.ts'
 import type { Project } from '../project.ts'
+import type { Runtime } from '../runtime.ts'
 
 /** A lista de arquivos de um grupo, um por linha, com o título e a contagem. */
 export function section(title: string, files: string[]): string {
@@ -76,4 +77,9 @@ export function testCommandFor(
 ): string {
   const run = hasScript(project, script) ? `${script} ${target}` : `exec vitest run ${target}`
   return pnpmCommand(project, cwd, run)
+}
+
+/** O ambiente dos subprocessos: o do processo, com o do runtime por cima. */
+export function childEnv(runtime: Runtime): NodeJS.ProcessEnv {
+  return { ...process.env, ...runtime.env }
 }

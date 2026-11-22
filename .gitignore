@@ -1,8 +1,9 @@
 # Dependências
 node_modules
 
-# Saída de build e caches do TypeScript
+# Saída de build, tarballs do pnpm pack:all e caches do TypeScript
 dist
+.packs
 *.tsbuildinfo
 coverage
 

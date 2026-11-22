@@ -2,7 +2,11 @@
 
 Utilitários de teste do Prumo: renderWithProviders, rota de memória, teste de contrato contra o mock e a API real, e configuração das stories com axe nos dois temas.
 
-**Situação:** Fase 3, passo H2: o render com providers, a rota em memória, os repositórios de teste, o `createDeferred`, o `matchMedia` controlável e o setup do DOM (H1) e o teste de contrato e a configuração das stories nos dois temas (H2) vieram do app de referência (`apps/reference`), que agora importa deles. O pacote ainda é `private` e sem build: sai com o passo B. O plano está em [docs/fase-3.md](../../docs/fase-3.md).
+**Situação:** Fase 3, passo H2: o render com providers, a rota em memória, os repositórios de teste, o `createDeferred`, o `matchMedia` controlável e o setup do DOM (H1) e o teste de contrato e a configuração das stories nos dois temas (H2) vieram do app de referência (`apps/reference`), que agora importa deles. No passo B o pacote ganhou o build com o `tsc` e sai empacotado com `dist/`, pronto para a publicação (que ainda não aconteceu; o pacote continua `private`). O plano está em [docs/fase-3.md](../../docs/fase-3.md).
+
+## Build e empacotamento
+
+No workspace, o `exports` do pacote aponta para o código-fonte (`src/*.ts`). Fora do monorepo o Node não faz type stripping dentro de `node_modules`, então o pacote tem `tsconfig.build.json` e o script `build` (`pnpm --filter @matizze/prumo-testing run build`), que emite o `dist/` com `.js` e `.d.ts` (sem os testes, as fixtures e os arquivos de apoio deles). O `publishConfig` do `package.json` troca `exports` para o `dist/` e define o registry `https://npm.pkg.github.com` (acesso restrito); o `pnpm pack` aplica essa troca, e o tarball leva só o `dist/`, o `package.json` e o README. O pacote continua `"private": true`: nada é publicado até uma pessoa tirar o `private` e fazer a primeira publicação (o que falta está em [.changeset/README.md](../../.changeset/README.md#o-que-falta-para-publicar)). `pnpm pack:all`, na raiz, empacota os quatro pacotes numa pasta.
 
 ## Módulos
 

@@ -16,7 +16,9 @@
     "verify": "pnpm verify:packages && pnpm verify:reference && pnpm verify:starter",
     "starter:build": "pnpm --filter @matizze/prumo-starter run starter:build",
     "verify:generated": "scripts/verify-generated.sh",
-    "dev": "pnpm --filter @matizze/prumo-reference run dev"
+    "dev": "pnpm --filter @matizze/prumo-reference run dev",
+    "build": "pnpm --filter \"./packages/*\" run build",
+    "pack:all": "scripts/pack-packages.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",

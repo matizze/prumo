@@ -10,7 +10,25 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted",
+    "types": "./dist/index.d.ts",
+    "bin": {
+      "prumo": "./dist/bin.js"
+    },
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && node ../../scripts/rewrite-dts-imports.mjs dist",
     "typecheck": "tsc",
     "test": "vitest run"
   },

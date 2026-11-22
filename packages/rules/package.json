@@ -9,7 +9,30 @@
     "./eslint": "./src/eslint/index.ts",
     "./check": "./src/check/index.ts"
   },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./eslint": {
+        "types": "./dist/eslint/index.d.ts",
+        "default": "./dist/eslint/index.js"
+      },
+      "./check": {
+        "types": "./dist/check/index.d.ts",
+        "default": "./dist/check/index.js"
+      }
+    }
+  },
   "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && node ../../scripts/rewrite-dts-imports.mjs dist",
     "typecheck": "tsc",
     "test": "vitest run"
   },

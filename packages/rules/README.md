@@ -2,7 +2,7 @@
 
 Regras da arquitetura do Prumo: plugin de ESLint, com aviso no editor, e análise do projeto inteiro para o prumo check.
 
-**Situação:** Fase 1, extração concluída: o plugin de ESLint e a análise do projeto vieram do app de referência (`apps/reference`), que agora roda as duas. O plano está em [docs/fase-1.md](../../docs/fase-1.md). Fase 3 concluída: o pacote ganhou o build com o `tsc` e sai empacotado com `dist/`, pronto para a publicação (que ainda não aconteceu; veja [docs/publicacao.md](../../docs/publicacao.md)). O `prumo check` e o `prumo doctor` do cli usam as regras e a análise daqui, num produto novo também.
+**Situação:** Fase 1, extração concluída: o plugin de ESLint e a análise do projeto vieram do app de referência (`apps/reference`), que agora roda as duas. O plano está em [docs/fase-1.md](../../docs/fase-1.md). Fase 3 concluída: o pacote ganhou o build com o `tsc` e sai empacotado com `dist/`, pronto para a publicação (que ainda não aconteceu; veja [docs/publicacao.md](../../docs/publicacao.md)). O cli usa as regras e a análise daqui no `prumo check`, nos `make:*`, no `prumo add` e no `prumo promote` (que rodam a conferência ao terminar), num produto novo também; o `prumo doctor` não as usa (ele confere o ambiente: Node, pnpm, versões dos pacotes, registry de UI e variáveis).
 
 ## Build e empacotamento
 

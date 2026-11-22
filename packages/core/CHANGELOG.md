@@ -1,5 +1,11 @@
 # @matizze/prumo-core
 
+## 0.1.3
+
+### Patch Changes
+
+- 3e763de: Publicado no npm público (`registry.npmjs.org`, acesso público), sem token para instalar.
+
 ## 0.1.2
 
 ### Patch Changes

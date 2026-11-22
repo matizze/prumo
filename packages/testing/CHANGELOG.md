@@ -1,5 +1,11 @@
 # @matizze/prumo-testing
 
+## 0.2.1
+
+### Patch Changes
+
+- 3e763de: Publicado no npm público (`registry.npmjs.org`, acesso público), sem token para instalar.
+
 ## 0.2.0
 
 ### Minor Changes

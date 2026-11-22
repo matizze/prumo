@@ -12,7 +12,7 @@ Este plano substitui o anterior (Fases 0 a 4), que levou o Prumo para o lado de 
 
 - **A (PRs #66 e #67):** saíram o app de referência, o catálogo, o starter, os portões antigos e a CI de verificação; cada pacote perdeu o que era de interface. `pnpm verify` verde, sem Chromium.
 - **B (PRs #68 a #72):** `make:domain`, `make:page` e `make:component` por modelo (`templates/` do cli), `new` (app mínimo de 27 arquivos), o MCP com as mesmas ferramentas e o portão `pnpm verify:new`. Números do último verify da raiz: core 95 testes, rules 111, testing 43, cli 465, mcp 50, em cerca de 1 minuto. O portão, em 41 s (empacotar 9 s, criar o app 10 s, CLI 4 s, MCP 1 s, verify do app 14 s), com 19 testes no app gerado, sem navegador e sem GitHub.
-- **C (falta):** (1) a organização `matizze` no npmjs e quem guarda o token (`NPM_TOKEN`); (2) o workflow de publicação, só na `main`, com build e `changeset publish`, e tirar o `"private": true` dos pacotes; (3) o repositório público com histórico novo, a partir do estado limpo, arquivando o atual como privado. Ao subir versões, o mapa `packages/cli/src/new/versions.ts` acompanha. Pronta quando um projeto fora do monorepo instala os pacotes do npm e o `prumo new` funciona.
+- **C (em andamento):** decidido em 22/11/2026: os pacotes vão para o npm público (`publishConfig` público, `prumo new` sem `.npmrc`) e o repositório também fica público; o GitHub Packages foi etapa provisória, com a versão atual publicada lá. Falta (1) a organização `matizze` no npmjs e quem guarda o token (`NPM_TOKEN`); (2) o workflow de publicação, só na `main`; (3) o repositório público com histórico novo. Ao subir versões, o mapa `packages/cli/src/new/versions.ts` acompanha. Pronta quando um projeto fora do monorepo instala os pacotes do npm e o `prumo new` funciona.
 
 ## 1. O que é e o que não é
 
@@ -78,8 +78,8 @@ Os modelos de cada comando moram no `@matizze/prumo-cli`, como arquivos com marc
 
 ## 6. Publicação e repositório público
 
-- **Por enquanto, GitHub Packages privado:** os pacotes saem no `npm.pkg.github.com`, publicados à mão pelo orquestrador (nenhum workflow), com `repository` apontando para este repositório, de quem herdam a visibilidade privada. Quem instala usa um token clássico do GitHub com `read:packages` em `NODE_AUTH_TOKEN`; o `prumo new` cria o `.npmrc` do app com o escopo `@matizze` apontando para lá e o `prumo doctor` avisa quando o token falta.
-- **npm público continua sendo o destino**, no escopo `@matizze` do npmjs.
+- **npm público:** os pacotes vão para o `registry.npmjs.org`, no escopo `@matizze`, com acesso público: ninguém precisa de token para instalar. O `prumo new` não cria `.npmrc`, e o `prumo doctor` avisa se o `.npmrc` do projeto ainda manda o escopo para o GitHub Packages.
+- **GitHub Packages foi uma etapa provisória:** a versão atual (core 0.1.2, rules 0.2.0, testing 0.2.0, cli 0.4.0, mcp 0.1.0) está publicada lá, à mão; a próxima sai no npm público.
 - **CI só para publicar:** um workflow que, na `main`, roda o build e o `changeset publish`, com o token do npm num segredo do repositório. Nenhum job de verificação no GitHub; a verificação é local.
 - **Repositório público depois da separação.** O histórico atual tem o código e as imagens das telas portadas do TailAdmin Pro, que não podem ficar públicos. Recomendação: abrir o repositório público com um histórico novo, a partir do estado limpo, e arquivar o atual como privado.
 

@@ -172,8 +172,8 @@ describe.each(PACKAGES)('tarball de @matizze/prumo-%s', (name) => {
     const packed = packedManifest(name)
     expect(packed.types === undefined || packed.types.startsWith('./dist/')).toBe(true)
     expect(packed.publishConfig).toMatchObject({
-      registry: 'https://npm.pkg.github.com',
-      access: 'restricted',
+      registry: 'https://registry.npmjs.org',
+      access: 'public',
     })
   })
 
@@ -204,19 +204,19 @@ describe.each(PACKAGES)('tarball de @matizze/prumo-%s', (name) => {
     }
   })
 
-  it('está pronto para o GitHub Packages: sem private, com repository e publishConfig restrito', () => {
-    // A publicação em si é de uma pessoa (à mão, com token); aqui só se confere que o pacote pode sair.
+  it('está pronto para o npm público: sem private, com repository e publishConfig público', () => {
+    // A publicação em si é de uma pessoa (com o token do npm); aqui só se confere que o pacote pode sair.
     for (const manifest of [workspaceManifest(name), packedManifest(name)]) {
       expect(manifest.private, 'um pacote private não publica').toBeUndefined()
-      // O repository liga o pacote ao repositório privado, de quem ele herda a visibilidade
+      // O repository liga o pacote ao repositório
       expect(manifest.repository).toEqual({
         type: 'git',
         url: 'git+https://github.com/matizze/prumo.git',
         directory: `packages/${name}`,
       })
       expect(manifest.publishConfig).toMatchObject({
-        registry: 'https://npm.pkg.github.com',
-        access: 'restricted',
+        registry: 'https://registry.npmjs.org',
+        access: 'public',
       })
     }
   })

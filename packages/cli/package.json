@@ -1,6 +1,6 @@
 {
   "name": "@matizze/prumo-cli",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "O comando prumo: make:domain, check e doctor, e a API para rodar comandos em processo.",
   "repository": {
     "type": "git",
@@ -20,8 +20,8 @@
     "templates"
   ],
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com",
-    "access": "restricted",
+    "registry": "https://registry.npmjs.org",
+    "access": "public",
     "types": "./dist/index.d.ts",
     "bin": {
       "prumo": "./dist/bin.js"

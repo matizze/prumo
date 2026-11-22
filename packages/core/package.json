@@ -1,6 +1,6 @@
 {
   "name": "@matizze/prumo-core",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Infraestrutura comum dos produtos do Prumo: container de repositórios, query keys, tipo Page, utilitários de mock, i18n, erros com código, guarda de login e provedor de query.",
   "repository": {
     "type": "git",
@@ -22,8 +22,8 @@
     "dist"
   ],
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com",
-    "access": "restricted",
+    "registry": "https://registry.npmjs.org",
+    "access": "public",
     "types": "./dist/index.d.ts",
     "exports": {
       ".": {

@@ -329,26 +329,19 @@ describe('prumo doctor', () => {
       expect(other.stdout).not.toContain('.npmrc')
     })
 
-    it('aviso, sem falhar, quando o escopo vem do GitHub Packages e NODE_AUTH_TOKEN falta', async () => {
+    it('aviso, sem falhar, quando o escopo ainda aponta para o GitHub Packages', async () => {
       const result = await doctor({ files: { '.npmrc': NPMRC } })
       expect(result.code).toBe(0)
       expect(line(result.stdout, '.npmrc')).toMatch(
-        /^aviso {2}\.npmrc: o escopo @matizze vem do GitHub Packages .*NODE_AUTH_TOKEN não está definida.*read:packages/,
+        /^aviso {2}\.npmrc: o escopo @matizze aponta para o GitHub Packages .*npm público.*pode sair/,
       )
       expect(result.stdout).toContain('prumo doctor: 1 aviso.')
     })
 
-    it('a variável vazia conta como ausente', async () => {
-      const result = await doctor({ files: { '.npmrc': NPMRC }, env: { NODE_AUTH_TOKEN: '' } })
-      expect(line(result.stdout, '.npmrc')).toMatch(/^aviso/)
-    })
-
-    it('ok quando a variável está definida, e nunca imprime o valor', async () => {
+    it('o aviso é o mesmo com ou sem a variável, e nunca imprime o valor', async () => {
       const secret = 'ghp_segredo_de_teste_123'
       const result = await doctor({ files: { '.npmrc': NPMRC }, env: { NODE_AUTH_TOKEN: secret } })
-      expect(line(result.stdout, '.npmrc')).toMatch(
-        /^ok {5}\.npmrc: .*NODE_AUTH_TOKEN está definida/,
-      )
+      expect(line(result.stdout, '.npmrc')).toMatch(/^aviso {2}\.npmrc: /)
       expect(result.stdout).not.toContain(secret)
       expect(result.stderr).not.toContain(secret)
     })

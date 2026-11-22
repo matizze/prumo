@@ -63,7 +63,6 @@ describe('prumo new', () => {
       [
         '.gitignore',
         '.mcp.json',
-        '.npmrc',
         'AGENTS.md',
         'README.md',
         'eslint.config.js',
@@ -93,7 +92,7 @@ describe('prumo new', () => {
       ].sort(),
     )
     expect(result.stdout).toContain(`Destino: ${root}`)
-    expect(result.stdout).toContain('Criados (29):')
+    expect(result.stdout).toContain('Criados (28):')
     expect(result.stdout).toContain('pnpm exec prumo make:domain clientes')
     expect(result.stdout).toContain('  pnpm install\n')
     // O app tem git, sem commit
@@ -113,20 +112,16 @@ describe('prumo new', () => {
     }
   })
 
-  it('grava o .npmrc do GitHub Packages, lendo o token da variável e nunca o escrevendo', async () => {
+  it('não grava .npmrc nem fala de token: os pacotes vêm do npm público', async () => {
     const cwd = makeDir()
     await run(['new', 'app-npmrc', '--no-install'], cwd)
     const root = path.join(cwd, 'app-npmrc')
-    const npmrc = read(root, '.npmrc')
-    const lines = npmrc.split('\n').filter((line) => line !== '' && !line.startsWith('#'))
 
-    expect(lines).toEqual([
-      '@matizze:registry=https://npm.pkg.github.com',
-      '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN:-sem-token}',
-    ])
-    expect(read(root, 'AGENTS.md')).toMatch(/GitHub Packages[^]*read:packages[^]*NODE_AUTH_TOKEN/)
-    expect(read(root, 'README.md')).toMatch(/GitHub Packages[^]*read:packages[^]*NODE_AUTH_TOKEN/)
-    expect(read(root, '.gitignore')).not.toContain('.npmrc')
+    expect(listFiles(root)).not.toContain('.npmrc')
+    for (const file of ['AGENTS.md', 'README.md']) {
+      expect(read(root, file), file).not.toMatch(/GitHub Packages|NODE_AUTH_TOKEN|read:packages/)
+      expect(read(root, file), file).toContain('npm público')
+    }
   })
 
   it('grava os scripts e as dependências: os pacotes do Prumo por ^versão, sem pacote de interface', async () => {
@@ -248,7 +243,7 @@ export default function App() {
 
     expect(result.code, result.stderr).toBe(0)
     expect(result.stdout).toContain('prumo new: app-seco (simulação).')
-    expect(result.stdout).toContain('Seriam criados (29):')
+    expect(result.stdout).toContain('Seriam criados (28):')
     expect(result.stdout).toContain('  src/pages/home/view.tsx\n')
     expect(result.stdout).toContain('Depois: git init e pnpm install.')
     expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')

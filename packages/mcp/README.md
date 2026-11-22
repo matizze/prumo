@@ -2,7 +2,7 @@
 
 Servidor MCP do Prumo: os comandos da CLI e o índice de padrões, como ferramentas para agentes de IA.
 
-**Situação:** o servidor está pronto e empacotado como os outros pacotes (Fase 4, passos I4 e I5): uma ferramenta por comando do `prumo`, por stdio, com o bin `prumo-mcp`. O starter o tem como `devDependency` e o `.mcp.json` do produto registra o servidor `prumo`; o portão `pnpm verify:product` o exercita no passo seguinte ([docs/fase-4.md](../../docs/fase-4.md)). A visão geral está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md). Nada foi publicado: o pacote segue `"private": true`.
+**Situação:** o servidor está pronto e empacotado como os outros pacotes (Fase 4, passos I4 e I5): uma ferramenta por comando do `prumo`, por stdio, com o bin `prumo-mcp`. O starter o tem como `devDependency` e o `.mcp.json` do produto registra o servidor `prumo`; o portão `pnpm verify:product` o exercita na etapa `mcp` (veja "O portão do produto", abaixo; [docs/fase-4.md](../../docs/fase-4.md)). A visão geral está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md). Nada foi publicado: o pacote segue `"private": true`.
 
 ## Como ligar
 
@@ -65,6 +65,18 @@ Os testes usam o cliente do SDK (`@modelcontextprotocol/client`, só de teste) c
 - **O esquema:** cada tipo de argumento aceita o que a CLI aceita e recusa o que ela recusa.
 - **As chamadas** (transporte em memória): `make_page` com `like` e `dry-run`, `check` com e sem violação, erro de uso, `patterns` e `catalog`, isolamento entre chamadas, a fila, e o `root` e o `dir` fora da pasta.
 - **O stdout é o protocolo** (o bin por stdio): cada linha do stdout é JSON-RPC, e a saída dos comandos e dos subprocessos (`add` com um `shadcn` de mentira, `new --dry-run`) está nas respostas, nunca solta.
+
+## O portão do produto
+
+A etapa `mcp` do `pnpm verify:product` (`scripts/verify-product.sh`) roda o `scripts/product-gate.ts` deste pacote, um cliente do SDK (`@modelcontextprotocol/client`, por isso o script mora aqui, fora do `dist/` e do tarball). Ele sobe por stdio o `prumo-mcp` instalado no produto novo (o dos tarballs, de `dist/`, pelo mesmo comando do `.mcp.json`: `pnpm exec prumo-mcp`, com o `cwd` no produto) e, só por ferramentas:
+
+1. lista as ferramentas e confere que são exatamente os comandos de `pnpm exec prumo --help` (o oráculo é a CLI instalada no produto, a única chamada de processo do script, só de leitura);
+2. chama `patterns` (busca `kanban`) e confere o caminho `prumo make:page <nome> --like kanban`, e `catalog` (busca `metric`) e confere o `metric-card`, os dois com `from` a origem extraída do HEAD;
+3. gera uma tela de um padrão diferente do da etapa `generate`: `make_page` com `portao-mcp-kanban`, `like` `kanban` e `menu` `ecommerce` (o `detalhe` não serve: o `--menu` recusa uma rota com parâmetro);
+4. gera um domínio com `make_domain` (`portao-mcp-itens`) e roda o `check`;
+5. faz um uso errado (`make_page` com nome inválido), que volta `isError` e `[saída 2]`, e confere que o `check` seguinte continua limpo.
+
+Cada chamada tem limite de 5 minutos, e o script sai com 1 e a lista do que falhou (mais o stderr do servidor). Não escreve nada no produto: quem escreve é o servidor, a pedido das ferramentas, e o `pnpm verify` do produto, na etapa `run` seguinte, prova que o gerado passa. As funções puras do script (ler a ajuda do `prumo`, comparar os nomes, conferir um resultado) estão em `scripts/product-gate-lib.ts`, com testes que não sobem produto nenhum.
 
 ## Dependências
 

@@ -4,5 +4,6 @@
     // Código de Node: o servidor MCP
     "types": ["node"]
   },
-  "include": ["src"]
+  // O script do portão do produto (scripts/) é conferido nos tipos, mas fica fora do dist/
+  "include": ["src", "scripts"]
 }

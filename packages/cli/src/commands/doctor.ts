@@ -84,8 +84,10 @@ export function createDoctorCommand(runtime: Runtime, injected?: DoctorSystem) {
 Cada item sai numa linha com ok, aviso ou erro: o Node (mínimo 24, e o .nvmrc do projeto), o pnpm
 (contra o packageManager), a versão de cada @matizze/prumo-* instalado contra a faixa que esta CLI
 espera, o registry de UI do components.json (@mads ou @<cliente>-ds) com as variáveis dele, lidas
-do ambiente e do .env.local, e a presença do .mcp.json e do .env.local. A URL do registry aparece;
-o token nunca: só "definido" ou "ausente".
+do ambiente e dos arquivos .env que o shadcn lê (.env.local, .env.development.local,
+.env.development e .env, nessa ordem, como o prumo add), e a presença do .mcp.json e do .env.local.
+A URL do registry aparece, sem usuário, senha, query nem fragmento; o token nunca: só "definido" ou
+"ausente".
 
 Sai com 0 sem erro (avisos não falham), com 1 com erro e com 2 se a pasta não é um projeto. Não
 escreve nada e não usa a rede.`,

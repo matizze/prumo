@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { MADS, UI_REGISTRY_NAMESPACE } from '../ds.ts'
-import { parseEnvFile, variablesIn } from './env-file.ts'
+import { lookupVariable, variablesIn } from './env-file.ts'
 import { CLI_PACKAGE_NAME, PRUMO_PACKAGES, PRUMO_PACKAGE_RANGES } from './ranges.ts'
 import {
   caretRange,
@@ -343,12 +343,9 @@ function checkRegistry(input: DoctorInput): Finding[] {
     })
   }
 
-  const fileValues = parseEnvFile(input.system.readText(path.join(input.root, '.env.local')) ?? '')
-  const lookup = (variable: string) => {
-    if (input.env[variable]) return { value: input.env[variable], source: 'no ambiente' }
-    if (fileValues[variable]) return { value: fileValues[variable], source: 'no .env.local' }
-    return undefined
-  }
+  // Os mesmos arquivos, na mesma ordem, que o `prumo add` confere antes de instalar UI
+  const lookup = (variable: string) =>
+    lookupVariable(variable, input.env, input.system.readText, input.root)
 
   if (registry?.fixedUrl) {
     findings.push({
@@ -392,9 +389,14 @@ function unique<T>(values: T[]): T[] {
   return [...new Set(values)]
 }
 
-/** Esconde usuário e senha de uma URL (`https://user:senha@host` vira `https://***@host`). */
+/**
+ * Esconde o que numa URL pode ser segredo: usuário e senha (`https://user:senha@host` vira
+ * `https://***@host`) e o que vem depois do `?` ou do `#` (`/r?token=x` vira `/r?***`).
+ */
 function maskUrl(value: string): string {
-  return value.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/@\s]+@/i, '$1***@')
+  const masked = value.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/@\s]+@/i, '$1***@')
+  const cut = masked.search(/[?#]/)
+  return cut === -1 ? masked : `${masked.slice(0, cut + 1)}***`
 }
 
 // Arquivos do projeto

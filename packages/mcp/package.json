@@ -4,6 +4,9 @@
   "description": "Servidor MCP do Prumo: os comandos da CLI e o índice de padrões, como ferramentas para agentes de IA.",
   "private": true,
   "type": "module",
+  "bin": {
+    "prumo-mcp": "./src/bin.ts"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
@@ -11,7 +14,14 @@
     "typecheck": "tsc",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@matizze/prumo-cli": "workspace:*",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "zod": "^4.6.7"
+  },
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@types/node": "^24.19.2",
     "typescript": "~6.0.3",
     "vitest": "^5.1.0"
   }

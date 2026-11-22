@@ -2,7 +2,15 @@
 
 Infraestrutura comum dos produtos do Prumo: container de repositórios, query keys, tipo Page, utilitários de mock, i18n, erros com código, guarda de login e provedor de query.
 
-**Situação:** o Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)), então o core não tem componente visual, CSS nem ícone: só o que um produto precisa por baixo da interface. O `AuthGuard` e o `QueryProvider` renderizam apenas os `children` (e o `fallback` que o produto passa). Nada foi publicado: o pacote segue `"private": true`.
+O Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)), então o core não tem componente visual, CSS nem ícone: só o que um produto precisa por baixo da interface. O `AuthGuard` e o `QueryProvider` renderizam apenas os `children` (e o `fallback` que o produto passa).
+
+## Instalação
+
+Um app criado com `pnpm dlx @matizze/prumo-cli new <nome>` já vem com o pacote. Num projeto existente:
+
+```sh
+pnpm add @matizze/prumo-core
+```
 
 ## Build e empacotamento
 

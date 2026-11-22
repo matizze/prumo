@@ -7,6 +7,7 @@ import { ExitError, UsageError } from '../errors.ts'
 import { generateApp } from '../generate/app.ts'
 import { appNameProblem } from '../new/name.ts'
 import { readTarballs } from '../new/packages.ts'
+import { detectPnpmVersion } from '../pnpm.ts'
 import { childEnv, runChild } from '../process.ts'
 import type { Runtime } from '../runtime.ts'
 import { shellQuote } from './shared.ts'
@@ -40,7 +41,7 @@ function resolveDestination(runtime: Runtime, dir: string | undefined, name: str
  * leva para `<dir>/<nome>`: um erro não deixa pasta pela metade. Depois roda `git init` (sem commit)
  * e `pnpm install`, a não ser com `--no-install`.
  */
-export function createNewCommand(runtime: Runtime) {
+export function createNewCommand(runtime: Runtime, askPnpm?: () => string | undefined) {
   return defineCommand({
     meta: {
       name: 'new',
@@ -52,6 +53,10 @@ Cria <dir>/<nome> com Vite, React 19, TypeScript, wouter, TanStack Query, zod e 
 provedores (query, i18n e repositórios), uma tela inicial (a mesma que o prumo make:page gera, na
 rota /), o eslint com o plugin do Prumo, o vitest com jsdom, o AGENTS.md e o .mcp.json com o servidor
 prumo, que dá a um agente os comandos da CLI.
+
+O package.json do app fixa o pnpm em packageManager (pnpm@<versão>): a versão vem do pnpm que
+rodou o comando (npm_config_user_agent) ou, na falta dela, de pnpm --version; sem nenhuma das duas,
+o campo fica de fora. Assim o prumo doctor do app não avisa que falta o packageManager.
 
 Os scripts do app são dev, build, typecheck, lint, check, test e verify (typecheck, lint, check e
 test, sem navegador). Os pacotes do Prumo entram como ^<versão>; com --packages, o app instala os
@@ -109,7 +114,7 @@ escreve nada. Os tarballs de --packages saem do pnpm pack:all, no monorepo do Pr
       let files: string[]
       try {
         const root = path.join(scratch, name)
-        files = generateApp(root, { name, overrides })
+        files = generateApp(root, { name, overrides, pnpm: detectPnpmVersion(runtime, askPnpm) })
         if (!dryRun) {
           mkdirSync(path.dirname(destination), { recursive: true })
           const createdFolder = !existsSync(destination)

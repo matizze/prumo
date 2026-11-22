@@ -90,10 +90,12 @@ export interface AppRequest {
   name: string
   /** Os tarballs do Prumo (nome do pacote -> `file:<caminho>`), que viram `pnpm.overrides`. */
   overrides?: Readonly<Record<string, string>> | undefined
+  /** A versão do pnpm (x.y.z) que vira `packageManager`. Ausente, o campo fica de fora. */
+  pnpm?: string | undefined
 }
 
 /** O `package.json` do app: os scripts, as dependências e, com tarballs, os `pnpm.overrides`. */
-export function appPackageJson({ name, overrides }: AppRequest): string {
+export function appPackageJson({ name, overrides, pnpm }: AppRequest): string {
   const prumo = Object.entries(PRUMO_VERSIONS).map(
     ([pkg, version]) => [pkg, `^${version}`] as const,
   )
@@ -104,6 +106,7 @@ export function appPackageJson({ name, overrides }: AppRequest): string {
     private: true,
     version: '0.0.0',
     type: 'module',
+    ...(pnpm ? { packageManager: `pnpm@${pnpm}` } : {}),
     engines: { node: '>=24' },
     scripts: {
       dev: 'vite',

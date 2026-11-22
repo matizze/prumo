@@ -11,11 +11,13 @@ import {
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { check } from '@matizze/prumo-rules/check'
+import { defineCommand } from 'citty'
 import { describe, expect, it } from 'vitest'
 import { APP_FILES, listFiles } from '../generate/app.ts'
 import { PRUMO_VERSIONS } from '../new/versions.ts'
 import { createRoot } from '../root.ts'
 import { runCli } from '../run.ts'
+import { createNewCommand } from './new.ts'
 import { captureRuntime, makeDir } from '../test-support.ts'
 
 async function run(args: string[], cwd: string) {
@@ -356,4 +358,76 @@ describe('os arquivos do app', () => {
     const targets = APP_FILES.map((file) => file.to)
     expect(new Set(targets).size).toBe(targets.length)
   })
+})
+
+describe('prumo new: packageManager', () => {
+  /** Roda o `new --no-install` com o ambiente e a resposta do `pnpm --version` simulados. */
+  async function packageManagerOf(
+    env: Record<string, string | undefined>,
+    asked: string | undefined,
+  ): Promise<{ manifest: Record<string, unknown>; askedCount: number }> {
+    const cwd = makeDir()
+    const runtime = captureRuntime(cwd, env)
+    let askedCount = 0
+    const root = defineCommand({
+      meta: { name: 'prumo' },
+      subCommands: {
+        new: createNewCommand(runtime, () => {
+          askedCount += 1
+          return asked
+        }),
+      },
+    })
+    const code = await runCli(root, ['new', 'meu-app', '--no-install'], runtime)
+    expect(code, runtime.stderr).toBe(0)
+    const manifest = JSON.parse(readFileSync(path.join(cwd, 'meu-app', 'package.json'), 'utf8'))
+    return { manifest, askedCount }
+  }
+
+  it('grava a versão do pnpm do user agent, sem perguntar ao pnpm', async () => {
+    const { manifest, askedCount } = await packageManagerOf(
+      { npm_config_user_agent: 'pnpm/10.5.2 npm/? node/v24.1.0 darwin arm64' },
+      '9.0.0',
+    )
+    expect(manifest.packageManager).toBe('pnpm@10.5.2')
+    expect(askedCount).toBe(0)
+    // Perto do topo: depois de name, private, version e type
+    expect(Object.keys(manifest).slice(0, 5)).toEqual([
+      'name',
+      'private',
+      'version',
+      'type',
+      'packageManager',
+    ])
+  })
+
+  it('aceita pré-lançamento no user agent', async () => {
+    const { manifest } = await packageManagerOf(
+      { npm_config_user_agent: 'pnpm/11.0.0-rc.1 node/v24' },
+      undefined,
+    )
+    expect(manifest.packageManager).toBe('pnpm@11.0.0-rc.1')
+  })
+
+  it.each([
+    ['outro gerenciador', { npm_config_user_agent: 'npm/10.0.0 node/v24.1.0 darwin arm64' }],
+    ['user agent ausente', {}],
+    ['user agent do pnpm com versão inválida', { npm_config_user_agent: 'pnpm/latest node/v24' }],
+  ])('cai no pnpm --version com %s', async (_label, env) => {
+    const { manifest, askedCount } = await packageManagerOf(env, '10.7.0\n')
+    expect(manifest.packageManager).toBe('pnpm@10.7.0')
+    expect(askedCount).toBe(1)
+  })
+
+  it.each([
+    ['sem resposta', undefined],
+    ['com resposta inválida', '10.0.0; rm -rf /'],
+    ['com resposta vazia', ''],
+  ])(
+    'deixa o campo de fora quando o pnpm --version vem %s e o user agent não ajuda',
+    async (_label, asked) => {
+      const { manifest } = await packageManagerOf({ npm_config_user_agent: 'yarn/4.0.0' }, asked)
+      expect(manifest).not.toHaveProperty('packageManager')
+    },
+  )
 })

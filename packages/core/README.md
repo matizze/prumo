@@ -1,55 +1,64 @@
 # @matizze/prumo-core
 
-Infraestrutura comum dos produtos do Prumo: container de repositórios, query keys, tipo Page, utilitários de mock, i18n, erros com código, guarda de login e provedor de query.
+Infraestrutura sem interface para apps React do [Prumo](https://github.com/matizze/prumo): container de repositórios, query keys, i18n tipado, erros com código, utilitários de mock e guarda de rota.
 
-O Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)), então o core não tem componente visual, CSS nem ícone: só o que um produto precisa por baixo da interface. O `AuthGuard` e o `QueryProvider` renderizam apenas os `children` (e o `fallback` que o produto passa).
+**[Documentação](https://github.com/matizze/prumo/blob/main/docs/README.md)** · **[Referência deste pacote](https://github.com/matizze/prumo/blob/main/docs/reference/core.md)** · **[Changelog](https://github.com/matizze/prumo/blob/main/packages/core/CHANGELOG.md)**
 
 ## Instalação
 
-Um app criado com `pnpm dlx @matizze/prumo-cli new <nome>` já vem com o pacote. Num projeto existente:
+Um app criado pelo `prumo new` já tem o pacote. Num projeto existente:
 
-```sh
+```bash
 pnpm add @matizze/prumo-core
 ```
 
-## Build e empacotamento
-
-No workspace, o `exports` do pacote aponta para o código-fonte (`src/*.ts`). Fora do monorepo o Node não faz type stripping dentro de `node_modules`, então o pacote tem `tsconfig.build.json` e o script `build` (`pnpm --filter @matizze/prumo-core run build`), que emite o `dist/` com `.js` e `.d.ts`, sem os testes, as fixtures e os arquivos de apoio. O `publishConfig` troca `exports` para o `dist/`, e o tarball leva só o `dist/`, o `package.json` e o README. `pnpm pack:all`, na raiz, empacota os cinco pacotes.
+As dependências que os módulos usam são *peer dependencies*: `react` 19, `@tanstack/react-query` 5, `zod` 4, `i18next` 26, `react-i18next`, `i18next-icu`, `i18next-browser-languagedetector` e `wouter` 3. Instale as dos módulos que usar.
 
 ## Módulos
 
-Cada módulo tem um subcaminho próprio, para que importar um deles não traga as dependências dos outros.
+Cada módulo tem um subcaminho próprio: importar um não traz as dependências dos outros. Nenhum renderiza elemento visual.
 
-| Subcaminho                         | O que tem                                                                                                                                                                                                                                               |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@matizze/prumo-core/errors`       | `UIError`: erro com código estável, que a interface traduz por `errors.<CODE>`, e `createErrorMessage`, que cria o `getErrorMessage` do produto a partir da instância i18next                                                                           |
-| `@matizze/prumo-core/data`         | `pageSchema` e os tipos `Page`, `PageQuery`, `Sort`, `SortDirection` e `DateRange`                                                                                                                                                                      |
-| `@matizze/prumo-core/mock`         | `wait`, `normalize`, `matchesSearch`, `sortBy`, `paginate`, `sum` e `addDays`, os utilitários dos repositórios mock                                                                                                                                     |
-| `@matizze/prumo-core/query`        | `createQueryKeys` (e o tipo `QueryKeys`), a fábrica das query keys de um domínio; `createQueryClient`, o `QueryClient` com os padrões de cache e o aviso global de erro (`notify` injetado, `meta: { silent, errorMessage }` tipado); e `QueryProvider` |
-| `@matizze/prumo-core/auth`         | `AuthGuard`: guarda de rota que só mostra o conteúdo com sessão aberta e, sem ela, redireciona para o login                                                                                                                                             |
-| `@matizze/prumo-core/repositories` | `createRepositoryContainer`, `resolveDataSource` e `createRepositoryContext`: o container de repositórios e o provedor                                                                                                                                  |
-| `@matizze/prumo-core/i18n`         | `defineI18n`, a fábrica que liga o i18n ao produto (instância, provedor e hooks tipados pelas mensagens), e `createFormat`, `resolveLocale` e os tipos genéricos                                                                                        |
+| Subcaminho                         | O que tem                                                                                         |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `@matizze/prumo-core/repositories` | `createRepositoryContainer`, `resolveDataSource` e `createRepositoryContext`: o container de repositórios por domínio e o provedor |
+| `@matizze/prumo-core/query`        | `createQueryKeys`, `createQueryClient` (cache e notificação global de erro), `QueryProvider` e o tipo `ErrorMeta` |
+| `@matizze/prumo-core/i18n`         | `defineI18n` (instância, provedor e hooks tipados pelas mensagens, com ICU), `createFormat` e `resolveLocale` |
+| `@matizze/prumo-core/errors`       | `UIError` (erro com código estável) e `createErrorMessage` (o texto do erro no idioma ativo)     |
+| `@matizze/prumo-core/data`         | `pageSchema` e os tipos `Page`, `PageQuery`, `Sort`, `SortDirection` e `DateRange`           |
+| `@matizze/prumo-core/mock`         | `wait`, `normalize`, `matchesSearch`, `sortBy`, `paginate`, `sum` e `addDays`, para repositórios em memória |
+| `@matizze/prumo-core/auth`         | `AuthGuard`, a guarda de rota que redireciona sem sessão                                         |
 
-## Notas por módulo
-
-### `errors`: a chave de reserva
-
-`createErrorMessage(i18n)` confere, na criação, que a chave de reserva (`errors.generic`, ou a de `fallbackKey`) existe nas mensagens da instância, e lança um `Error` em português se não existir. Sem a conferência, o i18next devolveria a própria chave e a tela mostraria `errors.generic`. A instância precisa estar inicializada: a do `defineI18n` já está, porque ele inicializa de forma síncrona.
-
-### `query`: acrescentar campos ao `meta`
-
-O `meta` de query e de mutation tem os campos de `ErrorMeta` (`silent` e `errorMessage`). O TanStack só aceita uma declaração de `Register` por projeto, e o core já a faz, então o produto não declara outra: ele acrescenta campos ao `ErrorMeta`, que é uma `interface` exportada, por declaration merging, num arquivo `.d.ts` ou `.ts` do próprio projeto.
+## Exemplo
 
 ```ts
-// src/query-meta.d.ts
-import '@matizze/prumo-core/query'
+import { defineI18n } from '@matizze/prumo-core/i18n'
+import { createQueryKeys } from '@matizze/prumo-core/query'
+import { createRepositoryContainer, type RepositoryContainerOf } from '@matizze/prumo-core/repositories'
 
-declare module '@matizze/prumo-core/query' {
-  interface ErrorMeta {
-    /** Texto do botão "tentar de novo" na notificação. */
-    retryLabel?: string
-  }
-}
+// i18n tipado pelas mensagens do idioma padrão
+export const { I18nProvider, useTranslations, useFormat } = defineI18n({
+  messages: { 'pt-BR': ptBR, en },
+  defaultLocale: 'pt-BR',
+  languages: {
+    'pt-BR': { name: 'Português (Brasil)', shortName: 'PT' },
+    en: { name: 'English', shortName: 'EN' },
+  },
+})
+
+// query keys de um domínio: clienteKeys.all invalida tudo de clientes
+export const clienteKeys = createQueryKeys('clientes', {
+  list: (query: ClienteListQuery = {}) => ['list', query] as const,
+  detail: (id: string) => ['detail', id] as const,
+})
+
+// container de repositórios: o tipo sai do mapa de fábricas
+const factories = { clientes: createClientesRepository }
+export type RepositoryContainer = RepositoryContainerOf<typeof factories>
+export const repositories = createRepositoryContainer(factories, { dataSource: 'memory' })
 ```
 
-Depois disso, `useQuery({ ..., meta: { retryLabel: 'Tentar de novo' } })` aceita o campo novo, com o tipo declarado, e continua recusando campo que ninguém declarou. A declaração é feita no módulo público (`@matizze/prumo-core/query`), não em um arquivo interno do pacote. Usar o campo novo, por exemplo num `QueryCache` próprio, é com o produto: o `createQueryClient` do core só lê `silent` e `errorMessage`.
+A referência de cada função, com as opções e os tipos, está em [docs/reference/core.md](https://github.com/matizze/prumo/blob/main/docs/reference/core.md).
+
+## Suporte
+
+Mantido pela [Matizze](https://github.com/matizze). Problemas e sugestões em [issues](https://github.com/matizze/prumo/issues).

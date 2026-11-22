@@ -1,7 +1,7 @@
 {
   "name": "@matizze/prumo-cli",
   "version": "0.5.2",
-  "description": "O comando prumo: make:domain, check e doctor, e a API para rodar comandos em processo.",
+  "description": "O comando prumo: cria apps React organizados em camadas, gera telas, domínios e componentes por modelos e confere a arquitetura.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/matizze/prumo.git",

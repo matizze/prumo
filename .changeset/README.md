@@ -14,14 +14,14 @@ A descrição do changeset vai para o CHANGELOG do pacote, então escreva em por
 
 ## Versão
 
-Na hora de lançar uma versão, um pull request no branch `changeset-release/develop` roda `pnpm changeset version`: sobe as versões, escreve os CHANGELOGs e apaga os changesets. Depois, um pull request leva a `develop` para a `main`.
+Na hora de lançar uma versão, um pull request para a `develop` roda `pnpm changeset version`: sobe as versões, escreve os CHANGELOGs e apaga os changesets. Ao subir a versão de um pacote, o mapa `packages/cli/src/new/versions.ts` acompanha (um teste confere). Depois, um pull request leva a `develop` para a `main`, e o workflow de publicação publica as versões novas (veja Publicação).
 
 ## Decisões desta configuração
 
-- **Pacotes privados por enquanto.** Os pacotes estão com `"private": true` até a primeira publicação. Por isso `privatePackages.version` está ligado: os pacotes ganham versão e changelog, mas não são publicados nem recebem tag.
+- **Acesso público.** O `access` é `public`, como o `publishConfig` de cada pacote: os pacotes vão para o npm público, no escopo `@matizze`.
 - **Sem formatação automática.** O `format` está desligado porque o Prettier não é dependência da raiz.
 - **Changelog padrão.** Quando o repositório estiver no GitHub, dá para trocar pelo `@changesets/changelog-github`, que liga cada linha ao pull request. É outro pacote, então precisa de aprovação antes.
 
 ## Publicação
 
-Nada foi publicado. A publicação será no npm público, com a CI do GitHub existindo só para publicar (seção 6 do [plano](../docs/plano.md)). Até lá, não rode `changeset publish`.
+Os pacotes estão no npm público. Quem publica é o workflow `.github/workflows/release.yml`, a cada push na `main`: ele roda o `scripts/publish-npm.sh`, que pergunta ao npm quais versões faltam e publica só essas, autenticado pelo Trusted Publishing do npm (sem token no repositório). Não rode `changeset publish` nem `pnpm publish` à mão. Para conferir o que sairia sem publicar: `scripts/publish-npm.sh --dry-run`.

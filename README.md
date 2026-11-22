@@ -10,18 +10,18 @@ O plano completo está em [docs/plano-prumo.md](docs/plano-prumo.md).
 
 ## Estrutura
 
-| Pasta              | Conteúdo                                                                                 |
-| ------------------ | ---------------------------------------------------------------------------------------- |
-| `packages/core`    | `@matizze/prumo-core`: infraestrutura comum dos produtos (Fase 1)                        |
-| `packages/rules`   | `@matizze/prumo-rules`: regras da arquitetura, plugin de ESLint e `prumo check` (Fase 1) |
-| `packages/testing` | `@matizze/prumo-testing`: utilitários de teste (Fase 3)                                  |
-| `packages/cli`     | `@matizze/prumo-cli`: o comando `prumo` (Fases 1 e 2)                                    |
-| `packages/mcp`     | `@matizze/prumo-mcp`: servidor MCP para agentes (Fase 4)                                 |
-| `apps/reference`   | o app de referência: as 65 telas portadas, fonte do `--like` e alvo do verify            |
-| `catalog`          | `@matizze/prumo-catalog`: o índice dos blocos e telas que o `prumo add` instala (Fase 3) |
-| `starter`          | o que o `prumo new` copia (Fase 3)                                                       |
-| `docs`             | planos do Prumo e do MaDS, e os planos das Fases 1 e 2                                   |
-| `.changeset`       | versões e changelog por pacote                                                           |
+| Pasta              | Conteúdo                                                                                  |
+| ------------------ | ----------------------------------------------------------------------------------------- |
+| `packages/core`    | `@matizze/prumo-core`: infraestrutura comum dos produtos (Fase 1)                         |
+| `packages/rules`   | `@matizze/prumo-rules`: regras da arquitetura, plugin de ESLint e `prumo check` (Fase 1)  |
+| `packages/testing` | `@matizze/prumo-testing`: utilitários de teste (Fase 3)                                   |
+| `packages/cli`     | `@matizze/prumo-cli`: o comando `prumo` (Fases 1 e 2)                                     |
+| `packages/mcp`     | `@matizze/prumo-mcp`: servidor MCP para agentes (Fase 4)                                  |
+| `apps/reference`   | o app de referência: as 65 telas portadas, fonte do `--like` e alvo do verify             |
+| `catalog`          | `@matizze/prumo-catalog`: o índice dos blocos e telas que o `prumo add` instala (Fase 3)  |
+| `starter`          | `@matizze/prumo-starter`: o que o `prumo new` copia, gerado do app de referência (Fase 3) |
+| `docs`             | planos do Prumo e do MaDS, e os planos das Fases 1 e 2                                    |
+| `.changeset`       | versões e changelog por pacote                                                            |
 
 ## Comandos
 
@@ -32,16 +32,18 @@ pnpm install
 pnpm --filter @matizze/prumo-reference exec playwright install chromium   # uma vez por máquina, para as stories
 ```
 
-| Comando                                        | O que faz                                                                                                                                    |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm verify`                                  | verify dos pacotes e depois do app de referência; é o que a CI cobra                                                                         |
-| `pnpm verify:packages`                         | typecheck, lint e testes de `packages/*` e do `catalog`, um pacote por vez                                                                   |
-| `pnpm verify:reference`                        | o `pnpm verify` do app: typecheck, lint, prumo check, testes, stories com axe e build                                                        |
-| `pnpm verify:generated`                        | o portão da geração: gera com a CLI uma tela de cada padrão, um domínio e um componente numa worktree temporária e roda o `pnpm verify` nela |
-| `pnpm dev`                                     | o app de referência em modo dev                                                                                                              |
-| `pnpm --filter @matizze/prumo-reference check` | o `prumo check` no app de referência (também roda dentro do verify)                                                                          |
-| `pnpm --filter @matizze/prumo-catalog build`   | regera o `catalog/index.json` a partir do `registry.json` do app (rode depois de mudar o registry; o teste do catálogo acusa o índice velho) |
-| `pnpm changeset`                               | registra a mudança de um pacote para a próxima versão                                                                                        |
+| Comando                                        | O que faz                                                                                                                                                      |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm verify`                                  | verify dos pacotes, do app de referência e do starter, um depois do outro; é o que a CI cobra                                                                  |
+| `pnpm verify:packages`                         | typecheck, lint e testes de `packages/*` e do `catalog`, um pacote por vez                                                                                     |
+| `pnpm verify:reference`                        | o `pnpm verify` do app: typecheck, lint, prumo check, testes, stories com axe e build                                                                          |
+| `pnpm verify:starter`                          | o `pnpm verify` do starter: typecheck, lint, prumo check, testes, stories com axe e build                                                                      |
+| `pnpm starter:build`                           | monta o `starter/` a partir do app de referência e do catálogo (rode e faça o commit quando o app mudar; o teste do cli acusa o starter velho)                 |
+| `pnpm verify:generated`                        | o portão da geração: gera com a CLI uma tela de cada padrão, um domínio e um componente numa worktree temporária, regera o starter e roda o `pnpm verify` nela |
+| `pnpm dev`                                     | o app de referência em modo dev                                                                                                                                |
+| `pnpm --filter @matizze/prumo-reference check` | o `prumo check` no app de referência (também roda dentro do verify)                                                                                            |
+| `pnpm --filter @matizze/prumo-catalog build`   | regera o `catalog/index.json` a partir do `registry.json` do app (rode depois de mudar o registry; o teste do catálogo acusa o índice velho)                   |
+| `pnpm changeset`                               | registra a mudança de um pacote para a próxima versão                                                                                                          |
 
 Os outros scripts do app (Storybook, registry, paridade visual) rodam dentro de `apps/reference` ou com `pnpm --filter @matizze/prumo-reference <script>`. Eles estão descritos em [apps/reference/README.md](apps/reference/README.md).
 
@@ -49,7 +51,9 @@ O `prumo check` é o comando do `@matizze/prumo-cli`: no app de referência, `pn
 
 Os comandos que geram código rodam no app de referência com `pnpm exec prumo <comando>`, dentro de `apps/reference`: `make:page <nome> --like <padrão>`, `make:domain <nome>` e `make:component <nome> --page <tela>`. Eles geram no app. Para só testar, use o `--dry-run` (lista o que seria feito, sem escrever) ou gere numa cópia do app com `--root` (`rsync -a --exclude node_modules apps/reference/ /tmp/copia/`, e `prumo make:page ... --root /tmp/copia`). Desfazer com `git checkout -- apps/reference && git clean -fd apps/reference` apaga também o trabalho não commitado do app: só vale com a árvore limpa antes de gerar. Com trabalho em andamento, desfaça só os arquivos que o comando listou. Nunca faça commit de tela, domínio ou componente gerado no app de referência. O `pnpm verify:generated` faz essa prova sem sujar a árvore, numa worktree temporária; rode as etapas dele (`prepare`, `run` e `clean`) uma por vez, e não junto com outro verify.
 
-O verify do app é pesado: as stories rodam no Chromium e o processo chega a uns 2 GB de memória. Rode um verify por vez.
+O starter não é escrito à mão: o `pnpm starter:build` o monta (copia a casca e a UI do app, roda o `prumo add` das dez telas dos padrões e move para a tela o bloco que só ela usa). O jeito de montar e de mexer está em [starter/scripts/README.md](starter/scripts/README.md).
+
+O verify do app e o do starter são pesados: as stories rodam no Chromium e o processo chega a uns 2 GB de memória. Rode um verify por vez.
 
 ## O app de referência
 
@@ -71,7 +75,7 @@ O trabalho acontece na `develop`, que é a branch padrão: todo pull request abr
 
 - **Pacotes.** Cada pacote exporta o próprio código-fonte em TypeScript, sem build, e está com `"private": true` até a decisão de distribuição (GitHub Packages ou npm). Os pacotes com código usam exports por subcaminho, um por módulo (`@matizze/prumo-core/query`, `@matizze/prumo-rules/eslint`), para que importar um módulo não traga as dependências dos outros. O build (tsup) entra só na primeira publicação, como decidido em [docs/fase-1.md](docs/fase-1.md).
 - **Versões.** Todo pull request que muda um pacote traz um changeset (`pnpm changeset`). As regras estão em [.changeset/README.md](.changeset/README.md).
-- **CI.** O [.github/workflows/ci.yml](.github/workflows/ci.yml) roda os testes dos pacotes, o verify do app de referência e o job "Geração" (o portão da Fase 2: gera com a CLI uma tela de cada padrão, um domínio e um componente e roda o verify) a cada pull request e a cada push na `main` ou na `develop`.
+- **CI.** O [.github/workflows/ci.yml](.github/workflows/ci.yml) roda os testes dos pacotes, o verify do app de referência, o verify do starter e o job "Geração" (o portão da Fase 2: gera com a CLI uma tela de cada padrão, um domínio e um componente e roda o verify) a cada pull request e a cada push na `main` ou na `develop`.
 
 ## Convenções
 

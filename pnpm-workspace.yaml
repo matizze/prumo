@@ -1,5 +1,5 @@
-# starter/ vira pacote do workspace na Fase 3, quando ganhar package.json.
 packages:
   - packages/*
   - apps/*
   - catalog
+  - starter

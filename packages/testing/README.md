@@ -2,7 +2,7 @@
 
 Utilitários de teste do Prumo: renderWithProviders, rota de memória, teste de contrato contra o mock e a API real, e configuração das stories com axe nos dois temas.
 
-**Situação:** Fase 3, passo H2: o render com providers, a rota em memória, os repositórios de teste, o `createDeferred`, o `matchMedia` controlável e o setup do DOM (H1) e o teste de contrato e a configuração das stories nos dois temas (H2) vieram do app de referência (`apps/reference`), que agora importa deles. No passo B o pacote ganhou o build com o `tsc` e sai empacotado com `dist/`, pronto para a publicação (que ainda não aconteceu; o pacote continua `private`). O plano está em [docs/fase-3.md](../../docs/fase-3.md).
+**Situação:** Fase 3 concluída. O render com providers, a rota em memória, os repositórios de teste, o `createDeferred`, o `matchMedia` controlável e o setup do DOM (H1) e o teste de contrato e a configuração das stories nos dois temas (H2) vieram do app de referência (`apps/reference`), que agora importa deles, e o starter e todo produto novo usam o pacote pela mesma ligação (`src/test/`). O pacote tem o build com o `tsc` e sai empacotado com `dist/`, pronto para a publicação (que ainda não aconteceu; o pacote continua `private`, e o passo a passo está em [docs/publicacao.md](../../docs/publicacao.md)). O plano e o resultado estão em [docs/fase-3.md](../../docs/fase-3.md).
 
 ## Build e empacotamento
 

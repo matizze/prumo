@@ -6,9 +6,11 @@ Guia para agentes de IA neste monorepo. Dentro de `apps/reference`, vale também
 
 O Prumo é o framework da Matizze para produtos React: pacotes versionados (core, rules, testing, cli e mcp), um app de referência com as telas portadas, um catálogo e um starter. Visão geral e comandos no [README.md](README.md); o plano completo em [docs/plano-prumo.md](docs/plano-prumo.md).
 
+As Fases 1 a 3 estão concluídas (o resultado de cada uma, em [docs/fase-1.md](docs/fase-1.md), [docs/fase-2.md](docs/fase-2.md) e [docs/fase-3.md](docs/fase-3.md)): a CLI cria um produto (`prumo new`), gera telas, domínios e componentes (`make:*`), traz itens do catálogo (`add`), move componentes para o `shared` (`promote`) e confere o ambiente (`doctor`). Os pacotes saem empacotados com `dist/`, mas **nada foi publicado**: a primeira publicação no GitHub Packages espera uma pessoa e um token ([docs/publicacao.md](docs/publicacao.md)), e os pacotes seguem `"private": true`. Não tire o `private` nem publique por conta própria. O `@matizze/prumo-mcp` é a Fase 4.
+
 ## Regras
 
-1. **O Prumo depende do MaDS; o MaDS nunca depende do Prumo.** Componentes de UI, tokens, tema e ícones são do MaDS. Até o MaDS ser publicado, o app de referência mantém a própria cópia deles.
+1. **O Prumo depende do MaDS; o MaDS nunca depende do Prumo.** Componentes de UI, tokens, tema e ícones são do MaDS. O MaDS já publica o registry `@mads`, mas o app de referência (e o starter, gerado dele) mantém a própria cópia da UI até o MaDS ser a fonte dela; o produto novo instala itens novos pelo registry (`prumo add @mads/<item>`).
 2. **O app de referência é a fonte de verdade.** Uma mudança num pacote não pode quebrar o verify do app.
 3. **Extração do app para um pacote: um módulo por pull request.** O app passa a importar do pacote no mesmo pull request, com o verify verde. A ordem e os arquivos estão em [docs/fase-1.md](docs/fase-1.md).
 4. **Pull request abre contra a `develop`**, e o que muda `packages/*` traz changeset (`pnpm changeset`). A CI cobra. A `main` recebe as versões.

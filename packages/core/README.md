@@ -2,7 +2,7 @@
 
 Infraestrutura comum dos produtos do Prumo: container de repositórios, query keys, tipo Page, utilitários de mock, i18n, erros com código, guarda de login e provedor de query.
 
-**Situação:** Fase 1, extração concluída: os sete módulos abaixo vieram do app de referência (`apps/reference`), que agora importa deles. O plano está em [docs/fase-1.md](../../docs/fase-1.md). Fase 3, passo B: o pacote ganhou o build com o `tsc` e sai empacotado com `dist/`, pronto para a publicação (que ainda não aconteceu).
+**Situação:** Fase 1, extração concluída: os sete módulos abaixo vieram do app de referência (`apps/reference`), que agora importa deles. O plano está em [docs/fase-1.md](../../docs/fase-1.md). Fase 3 concluída: o pacote ganhou o build com o `tsc` e sai empacotado com `dist/`, pronto para a publicação (que ainda não aconteceu; veja [docs/publicacao.md](../../docs/publicacao.md)). O `core` é a base que o starter e todo produto novo usam.
 
 ## Build e empacotamento
 

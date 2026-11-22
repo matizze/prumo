@@ -6,6 +6,8 @@ import { checkSharedUsage } from './shared-usage.ts'
 import type { CheckOptions, Violation } from './types.ts'
 
 export type { CheckOptions, CheckRule, Violation } from './types.ts'
+export { findSections, replaceSection, SectionError } from './sections.ts'
+export type { FoundSections, Section, SectionProblem, SectionProblemKind } from './sections.ts'
 
 /**
  * Analisa o projeto inteiro e devolve as violações das regras que o ESLint não vê, porque

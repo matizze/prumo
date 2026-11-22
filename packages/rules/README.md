@@ -81,9 +81,35 @@ As opções, todas com padrão, exceto a raiz:
 | `messagesDir`          | A pasta das mensagens, com uma subpasta por idioma    | `'src/messages'`                        |
 | `locales`              | Os idiomas do produto, o primeiro é a referência      | `['pt-BR', 'en']`                       |
 
+## Seções geradas (marcadores)
+
+`@matizze/prumo-rules/check` também exporta o código que acha e troca as seções geradas de um texto (um `AGENTS.md`, um `docs/patterns.md`). Um gerador escreve entre dois marcadores, cada um numa linha só e com o nome em kebab-case:
+
+```md
+<!-- prumo:patterns-table -->
+
+...texto do gerador...
+<!-- /prumo:patterns-table -->
+```
+
+O que está entre as duas linhas é do gerador e se perde na próxima geração; o que está fora é do autor e nunca é tocado. Marcador dentro de um bloco de código cercado (` ``` ` ou `~~~`) é exemplo e não conta.
+
+```ts
+import { findSections, replaceSection } from '@matizze/prumo-rules/check'
+
+const { sections, problems } = findSections(text)
+// sections: [{ name, body, openLine, closeLine }]; problems: marcador sem par ou nome repetido
+const updated = replaceSection(text, 'patterns-table', '\n| ... |\n\n')
+```
+
+- `findSections(text)` devolve as seções bem formadas, na ordem do texto, e os problemas: um marcador que abre e não fecha (`unclosed`), que fecha sem ter aberto ou fecha outra seção (`unopened`) e um nome que forma mais de uma seção (`repeated`, e nenhuma delas é devolvida). O `body` é o texto entre os marcadores, com cada linha terminada em `\n`.
+- `replaceSection(text, name, body)` troca só o corpo da seção, byte a byte no resto. O `body` entra como está (linhas em branco nas pontas ficam: o gerador põe as que o formatador do arquivo pede, e passar o `body` que o `findSections` achou deixa o texto igual); vazio esvazia a seção. Lança `SectionError` se o texto não tem a seção (a mensagem diz como acrescentar os marcadores) ou se o marcador dela está errado.
+
+Quem usa hoje: o gerador do [catálogo](../../catalog/README.md), para o índice de padrões. A análise do `prumo check` que confere as seções entra na Fase 4 ([docs/fase-4.md](../../docs/fase-4.md)).
+
 ## Código-fonte
 
 - `src/eslint/`: o plugin e as regras, cada uma com o teste ao lado (`RuleTester` do ESLint).
-- `src/check/`: a análise do projeto, uma verificação por arquivo, com o teste nos projetos de `__fixtures__` (um sem violação e um com uma violação plantada por verificação) e no próprio app de referência. O `gate.test.ts` prova que a análise acusa tudo o que o `architecture.test.ts` e o `messages.test.ts` do app acusavam, com uma violação equivalente a cada verificação deles.
+- `src/check/`: a análise do projeto, uma verificação por arquivo (e o `sections.ts`, das seções geradas), com o teste nos projetos de `__fixtures__` (um sem violação e um com uma violação plantada por verificação) e no próprio app de referência. O `gate.test.ts` prova que a análise acusa tudo o que o `architecture.test.ts` e o `messages.test.ts` do app acusavam, com uma violação equivalente a cada verificação deles.
 
 **Origem no app de referência:** `src/architecture.test.ts`, `src/i18n/messages.test.ts` e as regras de import do `eslint.config.js`. Os dois testes foram removidos do app quando o `prumo check` entrou no verify dele (R6): o histórico fica em `git log --follow -- apps/reference/src/architecture.test.ts`.

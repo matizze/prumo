@@ -139,6 +139,20 @@ describe.each(PACKAGES)('tarball de @matizze/prumo-%s', (name) => {
       /(\.test\.|test-support|rule-tester|__fixtures__|tsconfig|\.tsbuildinfo)/.test(file),
     )
     expect(unwanted).toEqual([])
+    // Código de teste não vai: um .js só importa o vitest se o pacote o declara (o testing, que é
+    // feito para ele). Do contrário, é um helper de teste que escapou para o tarball.
+    const manifest = packedManifest(name)
+    const declaresVitest = Boolean(
+      manifest.dependencies?.vitest ?? manifest.peerDependencies?.vitest,
+    )
+    const importsVitest = files.filter(
+      (file) =>
+        file.endsWith('.js') &&
+        /(from\s*|import\s*\(?\s*)(['"])(vitest|@vitest\/[^'"]*)\2/.test(
+          readFileSync(path.join(extracted(name), file), 'utf8'),
+        ),
+    )
+    expect(declaresVitest ? [] : importsVitest).toEqual([])
     // O .ts do código-fonte não vai, só o .d.ts
     expect(files.filter((file) => /\.tsx?$/.test(file) && !file.endsWith('.d.ts'))).toEqual([])
   })

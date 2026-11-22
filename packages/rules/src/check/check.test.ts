@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { check } from './index.ts'
-import { makeProject } from './project.ts'
+import { makeProject } from './test-support.ts'
 
 const fixtures = path.join(import.meta.dirname, '__fixtures__')
 const reference = path.resolve(import.meta.dirname, '../../../../apps/reference')

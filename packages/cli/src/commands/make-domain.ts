@@ -1,13 +1,10 @@
 import { defineCommand } from 'citty'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import { check } from '@matizze/prumo-rules/check'
-import { ExitError } from '../errors.ts'
 import { generateDomain } from '../generate/domain.ts'
 import { findProject } from '../project.ts'
 import type { Runtime } from '../runtime.ts'
-import { formatViolation } from './check.ts'
-import { formatSummary, testCommandFor } from './shared.ts'
+import { finishWithCheck, formatSummary, testCommandFor } from './shared.ts'
 
 /**
  * `prumo make:domain <nome> [--entity <singular>]`: gera um domínio de dados a partir dos modelos
@@ -91,17 +88,7 @@ já existe, índice que falta.`,
         : `As queries importam useRepositories de @/providers/repository, e o projeto não tem src/providers/repository: crie-o com createRepositoryContext, de @matizze/prumo-core/repositories.\n`
       const next = `Edite o schema (${schema}) e as fixtures (${fixtures}); o teste de contrato acompanha.\n${provider}\nPara rodar os testes do domínio novo:\n  ${testCommandFor(project, runtime.cwd, `src/repositories/${names.plural.kebab}`)}\n`
 
-      const violations = check({ root: project.root })
-      if (violations.length === 0) {
-        runtime.out(`prumo check: nenhuma violação.\n\n${next}`)
-        return
-      }
-      const total = violations.length === 1 ? '1 violação' : `${violations.length} violações`
-      runtime.err(
-        `prumo check: ${total} (o domínio foi gerado, e os arquivos ficaram no projeto):\n${violations.map(formatViolation).join('\n')}\n`,
-      )
-      runtime.out(`\n${next}`)
-      throw new ExitError(1)
+      finishWithCheck(runtime, project, { generated: 'o domínio foi gerado', next })
     },
   })
 }

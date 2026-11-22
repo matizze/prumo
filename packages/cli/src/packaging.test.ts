@@ -423,7 +423,7 @@ describe('@matizze/prumo-cli empacotado', () => {
       // teste lê vem do stderr só porque é o que o script escolheu para devolver os dados
       expect(result.stdout).toBe('')
       const data = JSON.parse(result.stderr) as { names: string[]; code: number; err: string }
-      expect(data.names).toEqual(['check', 'doctor', 'make_domain'])
+      expect(data.names).toEqual(['check', 'doctor', 'make_component', 'make_domain', 'make_page'])
       // O produto vazio não tem src: o check recusa com 2, e a mensagem veio pelo resultado
       expect(data.code).toBe(2)
       expect(data.err).toContain('não tem src')
@@ -483,7 +483,7 @@ describe('@matizze/prumo-cli empacotado', () => {
         serverInfo: { name: 'prumo', version: workspaceManifest('mcp').version },
       })
       const tools = (list?.result.tools as Array<{ name: string }>).map((tool) => tool.name)
-      expect(tools).toEqual(['check', 'doctor', 'make_domain'])
+      expect(tools).toEqual(['check', 'doctor', 'make_component', 'make_domain', 'make_page'])
     }, 60_000)
 
     it('tem o dist do rules e do cli onde o exports aponta', () => {

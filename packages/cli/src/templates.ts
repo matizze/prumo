@@ -40,14 +40,17 @@ export function renderTemplateFile(name: string, vars: TemplateVars): string {
 
 /**
  * Os marcadores de um nome: `<prefixo>.kebab` (`clientes`), `.pascal` (`Clientes`), `.camel`
- * (`clientes`) e `.constant` (`CLIENTES`, para constantes e códigos de erro; `pedidos-recentes`
- * vira `PEDIDOS_RECENTES`).
+ * (`clientes`), `.constant` (`CLIENTES`, para constantes e códigos de erro; `pedidos-recentes`
+ * vira `PEDIDOS_RECENTES`) e `.title` (`Pedidos recentes`, o nome como texto para a pessoa ler:
+ * hífen vira espaço e a primeira letra sobe).
  */
 export function nameVars(prefix: string, names: Names): Record<string, string> {
+  const words = names.kebab.replaceAll('-', ' ')
   return {
     [`${prefix}.kebab`]: names.kebab,
     [`${prefix}.pascal`]: names.pascal,
     [`${prefix}.camel`]: names.camel,
     [`${prefix}.constant`]: names.kebab.replaceAll('-', '_').toUpperCase(),
+    [`${prefix}.title`]: words.charAt(0).toUpperCase() + words.slice(1),
   }
 }

@@ -149,6 +149,46 @@ export default {
     )
   })
 
+  it('registra o primeiro namespace num índice vazio (o de um projeto novo), com o comentário no alto', () => {
+    const empty = '// Mensagens, um arquivo por namespace.\nexport default {}\n'
+    const root = makeProject({
+      'src/messages/pt-BR/index.ts': empty,
+      'src/messages/en/index.ts': empty,
+    })
+    const plan = new ChangePlan(findProject(root))
+
+    registerMessageNamespace(plan, 'clientes', 'clientes')
+
+    for (const language of ['pt-BR', 'en']) {
+      expect(indexOf(plan, language)).toBe(`// Mensagens, um arquivo por namespace.
+import clientes from './clientes.json'
+
+export default {
+  clientes,
+}
+`)
+    }
+    // O segundo entra na ordem alfabética, agora com um import para guiar as aspas
+    registerMessageNamespace(plan, 'pedidos-recentes', 'pedidosRecentes')
+    expect(indexOf(plan, 'en')).toBe(`// Mensagens, um arquivo por namespace.
+import clientes from './clientes.json'
+import pedidosRecentes from './pedidos-recentes.json'
+
+export default {
+  clientes,
+  pedidosRecentes,
+}
+`)
+  })
+
+  it('recusa o índice sem import e sem export default', () => {
+    const root = makeProject({ 'src/messages/en/index.ts': 'export const a = 1\n' })
+    const plan = new ChangePlan(findProject(root))
+    expect(() => registerMessageNamespace(plan, 'b', 'b')).toThrow(
+      "não tem um 'export default { ... }' com os namespaces",
+    )
+  })
+
   it('recusa um projeto sem idiomas', () => {
     const root = makeProject({}, ['src/messages'])
     const plan = new ChangePlan(findProject(root))

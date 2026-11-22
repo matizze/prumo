@@ -231,6 +231,6 @@ Para rodar os testes do domínio novo:
     const { root } = fixtureProject()
     const help = await run(['--help'], root)
 
-    expect(help.stdout).toMatch(/\n {2}make:domain {2}Gera um domínio de dados novo/)
+    expect(help.stdout).toMatch(/\n {2}make:domain {2,5}Gera um domínio de dados novo/)
   })
 })

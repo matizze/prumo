@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Guia para agentes de IA neste monorepo. Dentro de `apps/reference`, vale também o guia do próprio app, [apps/reference/AGENTS.md](apps/reference/AGENTS.md), com a arquitetura das telas, os repositórios e o índice de padrões.
+Guia para agentes de IA neste monorepo. Dentro de `apps/reference`, vale também o guia do próprio app, [apps/reference/AGENTS.md](apps/reference/AGENTS.md), com a arquitetura das telas, os repositórios e o índice de padrões. O starter (`starter/`) tem o `AGENTS.md` do produto, e o jeito de montá-lo está em [starter/scripts/README.md](starter/scripts/README.md).
 
 ## O que é
 
@@ -14,11 +14,13 @@ O Prumo é o framework da Matizze para produtos React: pacotes versionados (core
 4. **Pull request abre contra a `develop`**, e o que muda `packages/*` traz changeset (`pnpm changeset`). A CI cobra. A `main` recebe as versões.
 5. **Idioma.** Comentários, documentação e commits em português; nomes de função, variável e arquivo em inglês.
 6. **Dependência nova só com aprovação de uma pessoa**, mesmo que seja pequena.
-7. **Um verify por vez.** O do app roda as stories no Chromium e chega a uns 2 GB de memória.
+7. **Um verify por vez.** O do app e o do starter rodam as stories no Chromium e chegam a uns 2 GB de memória.
+8. **O starter é gerado do app, não editado.** O `starter/` sai de `pnpm starter:build` (copia do app, roda o `prumo add` e localiza os blocos). Mudou o app de referência numa pasta que o starter copia (a UI, a casca, as telas dos padrões), o catálogo ou o `starter/scripts`: rode o `starter:build` e faça o commit do que mudou. O teste do cli (`starter.test.ts`) acusa o starter fora de dia.
 
 ## Verificação
 
 - Mudança só em `packages/*` ou em `catalog/`: `pnpm verify:packages` (typecheck, lint e testes dos pacotes e do catálogo).
 - Mudança no `apps/reference/registry.json` ou no `catalog/seams.json`: regere o índice com `pnpm --filter @matizze/prumo-catalog build` e faça o commit do `catalog/index.json`; o teste do catálogo acusa o índice velho.
-- Antes de abrir o pull request: `pnpm verify`, que roda os pacotes e o app de referência.
-- Mudança no codemod, nos comandos `make:*` ou numa tela de referência: também `pnpm verify:generated`, o portão da Fase 2, que gera uma tela de cada padrão, um domínio e um componente numa worktree temporária e roda o `pnpm verify` nela (etapas `prepare`, `run` e `clean`, cada uma com menos de 10 minutos; um verify por vez). Veja `scripts/verify-generated.sh`.
+- Mudança no starter (`starter/`): `pnpm verify:starter` (typecheck, lint, `prumo check`, testes, stories nos dois temas e build do starter). Os arquivos do starter saem do `pnpm starter:build`; não os edite à mão (veja a regra 8).
+- Antes de abrir o pull request: `pnpm verify`, que roda os pacotes, o app de referência e o starter, um depois do outro.
+- Mudança no codemod, nos comandos `make:*` ou numa tela de referência: também `pnpm verify:generated`, o portão da Fase 2, que gera uma tela de cada padrão, um domínio e um componente numa worktree temporária, regera o starter e roda nela o verify dos pacotes, o do app e o do starter (etapas `prepare`, `run`, `run-starter` e `clean`, cada uma com menos de 10 minutos; um verify por vez). Veja `scripts/verify-generated.sh`.

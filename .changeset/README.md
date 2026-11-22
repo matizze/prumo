@@ -25,6 +25,8 @@ Na hora de lançar uma versão, um pull request no branch `changeset-release/dev
 
 ## O que falta para publicar
 
+O passo a passo completo, com o token, a ordem, o fluxo da CI e a primeira publicação à mão, está em [docs/publicacao.md](../docs/publicacao.md). O resumo:
+
 A distribuição está decidida (GitHub Packages, privado, escopo `@matizze`) e os pacotes já saem prontos: `core`, `rules`, `testing` e `cli` têm o build com o `tsc` (`pnpm build`), o `publishConfig` com o registry `https://npm.pkg.github.com` e acesso restrito, e o `pnpm pack:all` gera os tarballs, conferidos pelo `packaging.test.ts` do cli. **Nada foi publicado.** A primeira publicação fica para uma pessoa, em três passos que ninguém fez ainda:
 
 1. **Tirar o `"private": true`** do `package.json` dos quatro pacotes (o `mcp` fica de fora, que ainda é esqueleto). Sem isso o `pnpm publish` recusa. O `packaging.test.ts` confere que eles continuam privados, então o pull request que os abre muda esse teste junto. Com o `private` fora, o `privatePackages` do `config.json` deixa de importar para esses pacotes, e dá para ligar `privatePackages.tag` (e o `tag` por pacote) se a versão ganhar tag no git.

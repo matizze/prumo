@@ -2,7 +2,7 @@
 
 O comando prumo: new, make, add, promote, check e doctor.
 
-**Situação:** Fase 3, passo H5: o `prumo add` e o `prumo promote` estão prontos, além do que a Fase 2 entregou. O `prumo` é uma árvore de comandos ([citty](https://github.com/unjs/citty)) com o `prumo check` e os três comandos que geram código: `prumo make:page` (os dez padrões de tela e a escolha no terminal, por [@clack/prompts](https://github.com/bombshell-dev/clack)), `prumo make:domain` e `prumo make:component`. Os três renomeiam pela estrutura do código ([ts-morph](https://ts-morph.com), em `src/codemod/`), nunca por busca e troca de texto, e fazem as costuras que eram manuais. O portão da fase está cumprido: uma tela de cada padrão, um domínio e um componente gerados pela CLI passam no `pnpm verify` (`pnpm verify:generated`, na raiz do monorepo; o resultado está em [docs/fase-2.md](../../docs/fase-2.md#resultado)). O `prumo add` instala blocos, telas e domínios do catálogo num projeto, e o `prumo promote` move um componente de uma tela para o `shared` (veja abaixo). Faltam o `new` e o `doctor` (Fase 3), a troca de domínio da tela gerada (`--domain`) e o arquivo de configuração do `check`. O plano está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md).
+**Situação:** Fase 3, passo H6: o `prumo add`, o `prumo promote` e o `prumo doctor` estão prontos, além do que a Fase 2 entregou. O `prumo` é uma árvore de comandos ([citty](https://github.com/unjs/citty)) com o `prumo check` e os três comandos que geram código: `prumo make:page` (os dez padrões de tela e a escolha no terminal, por [@clack/prompts](https://github.com/bombshell-dev/clack)), `prumo make:domain` e `prumo make:component`. Os três renomeiam pela estrutura do código ([ts-morph](https://ts-morph.com), em `src/codemod/`), nunca por busca e troca de texto, e fazem as costuras que eram manuais. O portão da fase está cumprido: uma tela de cada padrão, um domínio e um componente gerados pela CLI passam no `pnpm verify` (`pnpm verify:generated`, na raiz do monorepo; o resultado está em [docs/fase-2.md](../../docs/fase-2.md#resultado)). O `prumo add` instala blocos, telas e domínios do catálogo num projeto, o `prumo promote` move um componente de uma tela para o `shared` e o `prumo doctor` confere o ambiente e o projeto (veja abaixo). Falta o `new` (Fase 3), a troca de domínio da tela gerada (`--domain`) e o arquivo de configuração do `check`. O plano está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md).
 
 ## Comandos
 
@@ -14,6 +14,7 @@ O comando prumo: new, make, add, promote, check e doctor.
 | `prumo add <item>...`                              | Instala itens do catálogo (blocos, telas, domínios de dados e a camada de app) no projeto, com os itens de que eles dependem: copia os arquivos de uma origem (um checkout do `matizze/prumo` ou o clone em cache) e faz as costuras (mensagens, `<Route>`, índices do domínio e barrel de schemas). Valida tudo antes de escrever, com `--diff`, `--dry-run` e `--overwrite` |
 | `prumo check`                                      | Analisa o projeto inteiro e lista as violações da arquitetura: as pastas de `src/components`, o uso de `components/shared` pelas telas, a estrutura de cada tela e os textos completos nos idiomas                                                                                                                                                                            |
 | `prumo promote <componente> --from <tela>`         | Move um componente de `src/pages/<tela>/components` para `src/components/shared` (com a story e o teste), quando uma segunda tela passa a usá-lo, e ajusta os imports de quem o usa, o título da story e o `registry.json`. Recusa se só uma tela o usa                                                                                                                       |
+| `prumo doctor [--root <pasta>]`                    | Confere o ambiente e o projeto, uma linha por item com ok, aviso ou erro: o Node, o pnpm, a versão de cada `@matizze/prumo-*` instalado contra a faixa que esta CLI espera, o registry de UI do `components.json` e as variáveis dele, e os arquivos `.mcp.json` e `.env.local`. O token do registry nunca é impresso                                                         |
 
 Os três comandos `make:*` geram a partir do próprio projeto (no app de referência, fonte e destino são o mesmo) e fazem sozinhos as costuras:
 
@@ -235,6 +236,23 @@ Ao terminar, roda a análise do `prumo check` e imprime o comando do teste da st
 prumo promote resumo-do-pedido --from orders            # move para src/components/shared
 prumo promote resumo-do-pedido --from orders --dry-run  # o que seria feito
 ```
+
+### prumo doctor
+
+```sh
+prumo doctor [--root <pasta>]
+```
+
+- `--root <pasta>`: a pasta do projeto, a que tem o `package.json`. Padrão: a pasta atual.
+- Uma linha por item, `ok`, `aviso` ou `erro`, e no fim a contagem. O comando não escreve nada e não usa a rede (o `pnpm --version` roda fora do projeto, com o download de versões desligado).
+- **Node:** erro abaixo do Node 24 (o mínimo do Prumo, porque os comandos rodam `.ts` direto). Aviso se o `.nvmrc` do projeto (ou o de uma pasta acima, num monorepo) ou o `engines.node` (`>=N`) pedem outra versão.
+- **pnpm:** erro se o pnpm não existe. Aviso se o `package.json` (ou o de uma pasta acima) não tem `packageManager`, se ele não é pnpm, ou se o pnpm instalado é de outra major ou mais antigo que o `packageManager`.
+- **Pacotes do Prumo:** a versão instalada em `node_modules` de `@matizze/prumo-core`, `-rules`, `-testing` e `-cli` contra uma faixa compatível (`>=0.1.0 <0.2.0`), não contra a igualdade, porque os pacotes versionam separados. Atrás da faixa: aviso para atualizar o pacote. À frente: aviso para atualizar a CLI. A faixa do `@matizze/prumo-cli` é a da versão que está rodando. Só entram os pacotes que o projeto declara ou tem instalados; declarado e não instalado é erro (`pnpm install`).
+- **Registry de UI:** o `components.json` precisa existir e ser JSON (erro se não); o registry de UI é o `@mads` ou o `@<cliente>-ds` (aviso se não há nenhum). As variáveis vêm das `${VARIAVEL}` da URL e dos headers do registry (`MADS_REGISTRY_URL` e `MADS_REGISTRY_TOKEN` no `@mads`, e as do cliente no `@<cliente>-ds`) e são lidas do ambiente e do `.env.local` (o ambiente vence). Variável ausente é aviso. **O token nunca aparece:** só "definido" ou "ausente", e a URL sai sem usuário e senha.
+- **Projeto:** `.mcp.json` e `.env.local` ausentes são aviso.
+- Código de saída: 0 sem erro (avisos não falham), 1 com erro, 2 para uso errado (opção desconhecida, pasta sem `package.json`).
+
+As faixas dos pacotes estão em `src/doctor/ranges.ts`. O Changesets não mantém um campo próprio do `package.json`, então a tabela é do código, e o `ranges.test.ts` a compara com o `package.json` de cada pacote do workspace: quando um pacote sai da faixa, o teste falha e a faixa é revista junto com a versão.
 
 ### Núcleo do codemod (interno)
 

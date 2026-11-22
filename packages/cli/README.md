@@ -1,16 +1,18 @@
 # @matizze/prumo-cli
 
-O comando `prumo`: `make:domain`, `check` e `doctor`, e a API para rodar os comandos em processo.
+O comando `prumo`: `make:page`, `make:domain`, `make:component`, `check` e `doctor`, e a API para rodar os comandos em processo.
 
-**Situação:** o Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)). Na Fase A, a CLI ficou só com o que confere o projeto; os geradores simples voltam na Fase B, um por vez, e o `make:domain` é o primeiro. Faltam `make:page`, `make:component` e `new`. Nada foi publicado: o pacote segue `"private": true`.
+**Situação:** o Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)). Na Fase A, a CLI ficou só com o que confere o projeto; os geradores simples voltam na Fase B, um por vez: já existem `make:domain`, `make:page` e `make:component`, e falta o `new`. Nada foi publicado: o pacote segue `"private": true`.
 
 ## Comandos
 
-| Comando                                                                       | O que faz                                                                                                                                                         |
-| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prumo make:domain <nome> [--entity <singular>] [--root <pasta>] [--dry-run]` | Gera um domínio de dados (schema, repositório com mock e contrato, queries com hooks e o teste de contrato) e o registra nos índices e no container. Veja abaixo. |
-| `prumo check [--root <pasta>]`                                                | Analisa o projeto (a análise do [`@matizze/prumo-rules`](../rules/README.md)) e escreve uma linha por violação, com o arquivo e a regra.                          |
-| `prumo doctor [--root <pasta>]`                                               | Confere o ambiente e o projeto, uma linha por item com ok, aviso ou erro. Não escreve nada e não usa a rede.                                                      |
+| Comando                                                                                | O que faz                                                                                                                                                             |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prumo make:page <nome> [--domain <domínio>] [--root <pasta>] [--dry-run]`             | Gera uma tela (`index`, `model`, `view` e o teste), as mensagens nos idiomas do projeto, o namespace nos índices de mensagens e a rota no `src/App.tsx`. Veja abaixo. |
+| `prumo make:component <nome> (--page <tela> \| --shared) [--root <pasta>] [--dry-run]` | Gera um componente (só HTML) e o teste dele, na pasta da tela ou em `src/components/shared`. Veja abaixo.                                                             |
+| `prumo make:domain <nome> [--entity <singular>] [--root <pasta>] [--dry-run]`          | Gera um domínio de dados (schema, repositório com mock e contrato, queries com hooks e o teste de contrato) e o registra nos índices e no container. Veja abaixo.     |
+| `prumo check [--root <pasta>]`                                                         | Analisa o projeto (a análise do [`@matizze/prumo-rules`](../rules/README.md)) e escreve uma linha por violação, com o arquivo e a regra.                              |
+| `prumo doctor [--root <pasta>]`                                                        | Confere o ambiente e o projeto, uma linha por item com ok, aviso ou erro. Não escreve nada e não usa a rede.                                                          |
 
 `--root` é a pasta do projeto (a que tem o `package.json` e o `src`); o padrão é a pasta atual. Códigos de saída: 0 sem erro, 1 com violação (`check`) ou erro (`doctor`), 2 para uso errado (comando ou opção desconhecidos, pasta que não é um projeto). `prumo --help` e `prumo <comando> --help` mostram a ajuda, em português.
 
@@ -34,6 +36,23 @@ O domínio é registrado em `src/schemas/index.ts`, em `src/repositories/index.t
 - **Valida antes de escrever** (nome kebab-case e que não é palavra reservada nem nome global, singular suspeito, índice que falta, domínio ou arquivo que já existe): erro de uso sai com 2 e não deixa o projeto pela metade. Nunca sobrescreve.
 - **`--dry-run`** lista o que seria criado e alterado e não escreve nada.
 - **No fim**, roda o `prumo check`: com violação (do projeto, não necessariamente do domínio) sai com 1, já com o domínio gerado. Mostra também o comando dos testes do domínio novo.
+
+### prumo make:page
+
+`prumo make:page clientes` (kebab-case) cria, a partir dos modelos, `src/pages/clientes/` com:
+
+- `index.tsx`: liga o model à view (`const model = useClientesModel(); return <ClientesView {...model} />`);
+- `model.ts`: o título e os textos, por `useTranslations('clientes')`, sem JSX;
+- `view.tsx`: só elementos HTML semânticos, sem classe e sem componente de design system, e recebe tudo por props;
+- `index.test.tsx`: renderiza com o `renderWithProviders` do projeto (`@/test/render`) e confere o título.
+
+Cria `src/messages/<idioma>/clientes.json` em cada idioma do projeto (os `pt` com o texto em português; os outros, em inglês, para a pessoa traduzir), registra o namespace nos índices de mensagens e a rota `/clientes` no `src/App.tsx` (depois da última rota, com o import na ordem dos de `@/pages`; um `<Switch>` sem rota recebe a primeira).
+
+Com `--domain clientes`, o model lê a lista do domínio (`useClientesList()`, de `@/queries/clientes`, o que o `make:domain` gera) e devolve `{ title, items, loading, failed }` mais os textos de carregando e de erro, e a view mostra o carregando, o erro e a lista (`<ul>` com `<li key={i.id}>{i.name}</li>`). O comando confere que o domínio existe e tem o hook antes de escrever. Valida o nome, recusa sobrescrever, aceita `--dry-run` e `--root`, roda o `prumo check` no fim (violação sai com 1, já com a tela gerada) e mostra o comando dos testes da tela.
+
+### prumo make:component
+
+`prumo make:component resumo --page clientes` gera `src/pages/clientes/components/resumo.tsx` (só HTML, com `ResumoProps`) e `resumo.test.tsx`; `--shared` gera em `src/components/shared/`. É um dos dois: sem nenhum, ou com os dois, o comando recusa (saída 2), e a tela de `--page` precisa existir. O `prumo check` cobra que o que está em `shared` seja usado por duas telas ou mais: um componente `--shared` recém-gerado aparece nessa violação (`shared-usage`), que o comando mostra e explica, e sai com 0. Qualquer outra violação sai com 1.
 
 ### prumo doctor
 
@@ -63,16 +82,16 @@ Os geradores não copiam tela nem domínio de outro projeto: cada arquivo gerado
 - **Marcadores:** `{{plural.kebab}}`, `{{plural.pascal}}`, `{{plural.camel}}` e `{{plural.constant}}` (o mesmo para `singular`): para `pedidos-recentes`, `pedidos-recentes`, `PedidosRecentes`, `pedidosRecentes` e `PEDIDOS_RECENTES`. O nome do marcador só tem letras, números e ponto, então um `{{` de JSX não é marcador. Marcador sem valor lança um erro: o gerador não escreve `undefined` no código de ninguém. `src/templates.ts` troca os marcadores (`renderTemplate`) e monta os valores de um nome (`nameVars`).
 - **Caminhos:** cada gerador (`src/generate/<nome>.ts`) lista os pares modelo e destino, o destino também com marcadores (`src/repositories/{{plural.kebab}}/index.ts`), e monta tudo num `ChangePlan` em memória, junto com as costuras.
 - **No tarball:** `templates/` está no `files` do `package.json`, e o caminho (`templates/`, um nível acima de `src/` e de `dist/`) vale no workspace e no pacote instalado. O `packaging.test.ts` confere que o tarball leva os mesmos arquivos e gera um domínio com o `prumo` empacotado.
-- **O código gerado compila e roda:** o `generate/domain.compile.test.ts` cria um projeto mínimo, gera três domínios (um com nome composto e entidade explícita), e roda nele o `tsc` (estrito) e o Vitest, com o contrato de cada mock e os hooks de verdade.
+- **O código gerado compila e roda:** o `generate/page.compile.test.ts` monta um projeto como o do `prumo new` (App sem rota, índices vazios, i18n, provedores e `renderWithProviders`), gera um domínio, três telas (uma com `--domain`) e dois componentes, e roda nele o `tsc` (estrito), o Vitest e o `prumo check`. E o `generate/domain.compile.test.ts`: o `generate/domain.compile.test.ts` cria um projeto mínimo, gera três domínios (um com nome composto e entidade explícita), e roda nele o `tsc` (estrito) e o Vitest, com o contrato de cada mock e os hooks de verdade.
 
 ## O codemod (interno)
 
-`src/codemod/` guarda as costuras dos geradores: o `make:domain` usa as dos índices do domínio, e as outras esperam `make:page`.
+`src/codemod/` guarda as costuras dos geradores: o `make:domain` usa as dos índices do domínio, e o `make:page` as das mensagens e da rota.
 
 - **`ChangePlan`** (`plan.ts`): o plano de mudanças em memória, sobre um `Project` do ts-morph sem tsconfig e sem checagem de tipos. Recebe arquivos novos e costuras, lista o que seria criado e alterado (`summary()`, o `--dry-run`) e só grava no `commit()`: um erro no meio do caminho não deixa o projeto pela metade.
 - **Nomes** (`names.ts`): valida o nome (kebab-case) e deriva Pascal, camel e, para domínios, singular e plural.
-- **Rota** (`add-route.ts`): registra a rota de uma tela no `src/App.tsx`, clonando o `<Route>` de um `App.tsx` de origem, com o import na ordem dos de `@/pages`.
-- **Mensagens** (`register-messages.ts`, `messages.ts`): registra um namespace nos `index.ts` de cada idioma, em ordem alfabética.
+- **Rota** (`add-route.ts`): registra a rota de uma tela no `src/App.tsx`, com o import na ordem dos de `@/pages`. `addRouteSnippet` recebe o `<Route>` pronto em JSX (o que o `make:page` usa, sem `App.tsx` de origem); `addRoute` clona o de um `App.tsx` de origem.
+- **Mensagens** (`register-messages.ts`, `messages.ts`): registra um namespace nos `index.ts` de cada idioma, em ordem alfabética, também num índice sem nenhum import (só o `export default {}`).
 - **Domínio** (`register-domain.ts`, `merge-barrel.ts`): os exports de `src/schemas/index.ts` e de `src/queries/index.ts` e o import, o `export *` e o mapa `factories` de `src/repositories/index.ts`, também num índice sem nenhum domínio; o `mergeBarrel` acrescenta ao barrel os exports de outro barrel que faltam.
 
 Os testes montam um projeto pequeno numa pasta temporária (`src/codemod/test-support.ts`) e não leem nada fora do pacote.

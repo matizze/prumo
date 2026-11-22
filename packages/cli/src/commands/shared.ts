@@ -1,7 +1,11 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { check, type Violation } from '@matizze/prumo-rules/check'
 import type { PlanSummary } from '../codemod/index.ts'
+import { ExitError } from '../errors.ts'
 import type { Project } from '../project.ts'
+import type { Runtime } from '../runtime.ts'
+import { formatViolation } from './check.ts'
 
 /** A lista de arquivos de um grupo, um por linha, com o título e a contagem. */
 function section(title: string, files: string[]): string {
@@ -57,4 +61,44 @@ export function pnpmCommand(project: Project, cwd: string, command: string): str
 export function testCommandFor(project: Project, cwd: string, target: string): string {
   const run = hasScript(project, 'test') ? `test ${target}` : `exec vitest run ${target}`
   return pnpmCommand(project, cwd, run)
+}
+
+/** Uma violação que o comando já espera do que gerou: ela é mostrada, mas não faz o comando falhar. */
+export interface ExpectedViolation {
+  matches: (violation: Violation) => boolean
+  /** A frase que abre a lista, depois de `prumo check:` (`só a violação esperada ...:`). */
+  intro: string
+  /** O que a pessoa precisa saber sobre ela, depois da lista. */
+  note: string
+}
+
+/**
+ * O fim de um comando `make:*`: roda o `prumo check` no projeto e escreve o resultado, seguido do
+ * `next` (o que fazer agora). Sem violação, sai normalmente. Com violação, escreve cada uma no
+ * stderr e sai com 1, já com os arquivos gerados (`generated`: `a tela foi gerada`). As violações
+ * que `expected` reconhece não contam como falha: o comando as mostra e explica.
+ */
+export function finishWithCheck(
+  runtime: Runtime,
+  project: Project,
+  { generated, next, expected }: { generated: string; next: string; expected?: ExpectedViolation },
+): void {
+  const violations = check({ root: project.root })
+  const known = expected ? violations.filter(expected.matches) : []
+  const found = violations.filter((violation) => !known.includes(violation))
+
+  if (found.length === 0) {
+    if (expected && known.length > 0) {
+      runtime.out(
+        `prumo check: ${expected.intro}\n${known.map(formatViolation).join('\n')}\n${expected.note}\n\n${next}`,
+      )
+    } else runtime.out(`prumo check: nenhuma violação.\n\n${next}`)
+    return
+  }
+  const total = found.length === 1 ? '1 violação' : `${found.length} violações`
+  runtime.err(
+    `prumo check: ${total} (${generated}, e os arquivos ficaram no projeto):\n${found.map(formatViolation).join('\n')}\n`,
+  )
+  runtime.out(`\n${next}`)
+  throw new ExitError(1)
 }

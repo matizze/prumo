@@ -1,4 +1,10 @@
-export { addRoute, openOriginApp, type RouteSpec } from './add-route.ts'
+export {
+  addRoute,
+  addRouteSnippet,
+  openOriginApp,
+  type RouteSnippet,
+  type RouteSpec,
+} from './add-route.ts'
 export { applyEdits, spliceText, type TextEdit } from './edit.ts'
 export { mergeBarrel } from './merge-barrel.ts'
 export { messageKeys } from './messages.ts'

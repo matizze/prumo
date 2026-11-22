@@ -15,11 +15,27 @@ function importedFile(declaration: ImportDeclaration): string {
   return path.basename(declaration.getModuleSpecifierValue(), '.json')
 }
 
-/** A edição que acrescenta o import do JSON na posição alfabética, pelo nome do arquivo. */
+/**
+ * A edição que acrescenta o import do JSON na posição alfabética, pelo nome do arquivo. Num índice
+ * sem nenhum import (o de um projeto novo, só com o `export default {}`), o primeiro import entra
+ * logo antes do `export default`, e um comentário que o preceda continua no alto do arquivo.
+ */
 function importEdit(index: SourceFile, file: string, camel: string): TextEdit {
   const imports = index.getImportDeclarations()
   const last = imports[imports.length - 1]
-  if (!last) throw new UsageError(`'${index.getFilePath()}' não tem imports de mensagens.`)
+  if (!last) {
+    const exported = index.getExportAssignment((assignment) => !assignment.isExportEquals())
+    if (!exported) {
+      throw new UsageError(
+        `'${index.getFilePath()}' não tem um 'export default { ... }' com os namespaces.`,
+      )
+    }
+    return {
+      pos: exported.getStart(),
+      end: exported.getStart(),
+      text: `import ${camel} from './${file}.json'\n\n`,
+    }
+  }
 
   const quote = last.getModuleSpecifier().getText().charAt(0)
   const semicolon = last.getText().endsWith(';') ? ';' : ''

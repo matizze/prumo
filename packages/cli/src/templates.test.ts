@@ -2,7 +2,14 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { domainNames } from './codemod/index.ts'
+import { COMPONENT_FILES } from './generate/component.ts'
 import { DOMAIN_FILES } from './generate/domain.ts'
+import {
+  PAGE_DOMAIN_FILES,
+  PAGE_FILES,
+  messagesTemplate,
+  MESSAGE_LANGUAGES,
+} from './generate/page.ts'
 import {
   nameVars,
   readTemplate,
@@ -44,6 +51,7 @@ describe('nameVars', () => {
       'plural.pascal': 'PedidosRecentes',
       'plural.camel': 'pedidosRecentes',
       'plural.constant': 'PEDIDOS_RECENTES',
+      'plural.title': 'Pedidos recentes',
     })
   })
 
@@ -54,6 +62,20 @@ describe('nameVars', () => {
     })
   })
 })
+
+/** Cada modelo de cada gerador, com o caminho de destino (que também tem marcadores). */
+const GENERATED: { template: string; to: string }[] = [
+  ...DOMAIN_FILES,
+  ...PAGE_FILES,
+  ...PAGE_DOMAIN_FILES,
+  ...COMPONENT_FILES.map(({ template, name }) => ({ template, to: name })),
+  ...MESSAGE_LANGUAGES.flatMap((language) =>
+    [false, true].map((domain) => ({
+      template: messagesTemplate(language, domain),
+      to: `${language}.json`,
+    })),
+  ),
+]
 
 describe('os modelos', () => {
   const files = (dir: string): string[] =>
@@ -73,7 +95,7 @@ describe('os modelos', () => {
   })
 
   it('todo arquivo de templates/ é usado por um gerador, e todo modelo de um gerador existe', () => {
-    const used = DOMAIN_FILES.map((file) => file.template)
+    const used = [...new Set(GENERATED.map((file) => file.template))]
     for (const template of used) expect(existsSync(path.join(TEMPLATES_DIR, template))).toBe(true)
     expect(files(TEMPLATES_DIR).sort()).toEqual([...used].sort())
   })
@@ -84,19 +106,27 @@ describe('os modelos', () => {
 
   it('os marcadores dos modelos e dos caminhos são todos de nome (kebab, pascal, camel ou constant)', () => {
     const markers = new Set<string>()
-    for (const { template, to } of DOMAIN_FILES) {
+    for (const { template, to } of GENERATED) {
       for (const text of [readTemplate(template), to]) {
         for (const match of text.matchAll(/\{\{([^}]*)\}\}/g)) markers.add(match[1] ?? '')
       }
     }
     for (const marker of markers)
-      expect(marker).toMatch(/^(plural|singular)\.(kebab|pascal|camel|constant)$/)
+      expect(marker).toMatch(
+        /^(plural|singular|page|domain|component)\.(kebab|pascal|camel|constant|title)$/,
+      )
   })
 
   it('renderizam sem sobrar marcador', () => {
     const names = domainNames('clientes')
-    const vars = { ...nameVars('plural', names.plural), ...nameVars('singular', names.singular) }
-    for (const { template } of DOMAIN_FILES) {
+    const vars = {
+      ...nameVars('plural', names.plural),
+      ...nameVars('singular', names.singular),
+      ...nameVars('page', names.plural),
+      ...nameVars('domain', names.plural),
+      ...nameVars('component', names.plural),
+    }
+    for (const { template } of GENERATED) {
       const text = renderTemplateFile(template, vars)
       expect(text, template).not.toMatch(/\{\{|undefined/)
     }

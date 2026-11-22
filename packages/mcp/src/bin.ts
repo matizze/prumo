@@ -6,7 +6,7 @@ import { createServer } from './server.ts'
 const HELP = `Uso: prumo-mcp
 
 O servidor MCP do Prumo (${PACKAGE_NAME} ${PACKAGE_VERSION}): uma ferramenta por comando do
-prumo (check, doctor e make:domain), por stdio. O servidor roda na pasta do projeto, e o stdout é o protocolo:
+prumo (check, doctor e os make:*), por stdio. O servidor roda na pasta do projeto, e o stdout é o protocolo:
 ligue-o ao agente pelo .mcp.json do projeto, não o rode à mão.
 
   { "mcpServers": { "prumo": { "command": "pnpm", "args": ["exec", "prumo-mcp"] } } }

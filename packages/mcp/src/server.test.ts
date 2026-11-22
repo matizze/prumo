@@ -20,7 +20,13 @@ describe('o servidor MCP', () => {
     const client = await connect({ cwd: makeProject() })
     const { tools } = await client.listTools()
 
-    expect(tools.map((tool) => tool.name).sort()).toEqual(['check', 'doctor', 'make_domain'])
+    expect(tools.map((tool) => tool.name).sort()).toEqual([
+      'check',
+      'doctor',
+      'make_component',
+      'make_domain',
+      'make_page',
+    ])
     const check = tools.find((tool) => tool.name === 'check')
     expect(check?.description).toContain('Analisa o projeto')
     expect(check?.inputSchema).toMatchObject({

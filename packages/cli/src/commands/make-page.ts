@@ -1,6 +1,6 @@
 import { defineCommand } from 'citty'
-import { check } from '@matizze/prumo-rules/check'
 import path from 'node:path'
+import { checkProject } from '../agents/check.ts'
 import { generatePage, pageFolder, usableNames } from '../codemod/index.ts'
 import { ExitError } from '../errors.ts'
 import {
@@ -10,6 +10,7 @@ import {
   referenceOfChoice,
   resolveReference,
 } from '../patterns.ts'
+import type { CommandTree } from '../help.ts'
 import { findProject, type Project } from '../project.ts'
 import type { Choice, Runtime } from '../runtime.ts'
 import { formatViolation } from './check.ts'
@@ -66,7 +67,7 @@ export function patternChoices(): Choice[] {
  * terminar, roda a análise do `prumo check` e mostra o comando dos testes da tela nova; o
  * `check` com violação sai com 1, já com a tela gerada.
  */
-export function createMakePageCommand(runtime: Runtime) {
+export function createMakePageCommand(runtime: Runtime, tree: CommandTree) {
   return defineCommand({
     meta: {
       name: 'make:page',
@@ -145,7 +146,7 @@ Switch), --menu com um grupo que não existe e --menu numa tela com parâmetro n
       const summary = plan.commit()
       runtime.out(`${heading}\n\n${formatSummary(summary, false)}\n`)
 
-      const violations = check({ root: project.root })
+      const violations = await checkProject(project.root, tree)
       const tests = `Para rodar os testes da tela nova:\n  ${testCommand(project, runtime.cwd, to.kebab)}\n`
       if (violations.length === 0) {
         runtime.out(`prumo check: nenhuma violação.\n\n${tests}`)

@@ -4,6 +4,12 @@ import type { ArgDef, ArgsDef, CommandDef, Resolvable } from 'citty'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyCommand = CommandDef<any>
 
+/**
+ * A raiz da árvore de comandos, dada por função: um comando que precisa da árvore (o `check` e o
+ * `agents`, que fazem parte dela) a lê só quando roda, e não há import circular.
+ */
+export type CommandTree = () => AnyCommand
+
 /** Resolve o que o citty aceita como valor, função ou promessa. */
 export async function resolveValue<T>(value: Resolvable<T>): Promise<T> {
   return typeof value === 'function' ? await (value as () => T | Promise<T>)() : await value

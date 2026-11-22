@@ -35,6 +35,7 @@ describe('describeCommands: a árvore real do prumo', () => {
 
     expect(commands.map((command) => command.name)).toEqual([
       'add',
+      'agents',
       'catalog',
       'check',
       'doctor',
@@ -47,6 +48,7 @@ describe('describeCommands: a árvore real do prumo', () => {
     ])
     expect(commands.map((command) => command.toolName)).toEqual([
       'add',
+      'agents',
       'catalog',
       'check',
       'doctor',

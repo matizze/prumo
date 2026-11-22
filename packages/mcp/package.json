@@ -1,6 +1,6 @@
 {
   "name": "@matizze/prumo-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Servidor MCP do Prumo: os comandos da CLI como ferramentas para agentes de IA.",
   "repository": {
     "type": "git",

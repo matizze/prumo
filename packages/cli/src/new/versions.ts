@@ -8,6 +8,6 @@ export const PRUMO_VERSIONS: Readonly<Record<string, string>> = {
   '@matizze/prumo-rules': '0.2.1',
   '@matizze/prumo-core': '0.1.3',
   '@matizze/prumo-testing': '0.2.1',
-  '@matizze/prumo-cli': '0.5.0',
-  '@matizze/prumo-mcp': '0.1.1',
+  '@matizze/prumo-cli': '0.5.1',
+  '@matizze/prumo-mcp': '0.1.2',
 }

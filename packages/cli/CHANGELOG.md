@@ -1,5 +1,11 @@
 # @matizze/prumo-cli
 
+## 0.5.1
+
+### Patch Changes
+
+- bf849f4: O app criado pelo `prumo new` fixa a versão do pnpm em `packageManager` no `package.json`, e o `prumo doctor` não avisa mais que falta o campo.
+
 ## 0.5.0
 
 ### Minor Changes

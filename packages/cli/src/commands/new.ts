@@ -29,7 +29,7 @@ import {
 } from '../new/customize.ts'
 import { productNameProblem, titleOf } from '../new/name.ts'
 import { assertTarballsCover, readOriginVersions, readTarballs } from '../new/packages.ts'
-import { obtainSource, STARTER_DIR } from '../new/source.ts'
+import { gitStarterFiles, obtainSource, STARTER_DIR } from '../new/source.ts'
 import type { Runtime } from '../runtime.ts'
 import { childEnv, section, shellQuote } from './shared.ts'
 
@@ -87,7 +87,14 @@ export function createNewCommand(runtime: Runtime) {
 Baixa o starter (git clone --depth 1 de PRUMO_REPOSITORY, que por padrão é
 https://github.com/matizze/prumo, com as credenciais do git de quem roda) ou usa um checkout do
 prumo (--from), copia a pasta starter/ para <dir>/<nome> sem node_modules, dist e scripts/, e
-ajusta o produto:
+ajusta o produto.
+
+O clone lê a ref que --ref ou PRUMO_REF dizem (uma branch ou uma tag) e, sem elas, a main, onde
+entram as versões publicadas (a develop está à frente delas). Com --from, vão só os arquivos que o
+git do checkout conhece (rastreados, ou novos e não ignorados): o .env com token, o public/r e o
+dist-ds de quem roda ficam para trás; fora de um repositório git, um filtro equivalente faz o mesmo.
+
+O ajuste do produto:
   - troca o nome do app no package.json, no título do index.html, no AGENTS.md e no README.md;
   - troca o workspace:* dos pacotes @matizze/prumo-* pela faixa da versão que a origem tem (com
     --packages, grava pnpm.overrides com file: para os tarballs da pasta e não cria registry);
@@ -120,6 +127,12 @@ feito e não escreve nada. Os tarballs de --packages saem do pnpm pack:all, no m
         description:
           'Um checkout do matizze/prumo, de onde sai o starter. Padrão: o clone raso do repositório.',
       },
+      ref: {
+        type: 'string',
+        valueHint: 'ref',
+        description:
+          'A branch ou a tag do repositório que o clone lê (padrão: PRUMO_REF, ou main). Não vale com --from.',
+      },
       packages: {
         type: 'string',
         valueHint: 'pasta',
@@ -135,7 +148,8 @@ feito e não escreve nada. Os tarballs de --packages saem do pnpm pack:all, no m
       install: {
         type: 'boolean',
         default: true,
-        description: 'Roda o pnpm install no produto novo. Com --no-install, só cria os arquivos.',
+        description:
+          'Com --no-install, não roda o pnpm install: só cria os arquivos. Sem a opção, instala.',
       },
       'dry-run': {
         type: 'boolean',
@@ -165,10 +179,10 @@ feito e não escreve nada. Os tarballs de --packages saem do pnpm pack:all, no m
         )
       }
 
-      const source = obtainSource(runtime, args.from)
+      const source = obtainSource(runtime, args.from, args.ref)
       try {
         const starterDir = path.join(source.root, STARTER_DIR)
-        const files = listStarterFiles(starterDir)
+        const files = listStarterFiles(starterDir, gitStarterFiles(runtime, source.root))
         const read = (file: string) => readFileSync(path.join(starterDir, file), 'utf8')
         const product: ProductContext = { name, title: titleOf(name) }
 
@@ -211,7 +225,7 @@ feito e não escreve nada. Os tarballs de --packages saem do pnpm pack:all, no m
         const packagesLine = packagesDir
           ? `Pacotes do Prumo: tarballs de ${packagesDir} (pnpm.overrides com file:), sem registry.`
           : `Pacotes do Prumo: do GitHub Packages (${REGISTRY}), com o token em NODE_AUTH_TOKEN.`
-        const heading = `prumo new: ${name}${dryRun ? ' (simulação)' : ''}.\nOrigem: ${source.root}\nDestino: ${destination}\n`
+        const heading = `prumo new: ${name}${dryRun ? ' (simulação)' : ''}.\nOrigem: ${source.label}\nDestino: ${destination}\n`
         const summary = [
           `${dryRun ? 'Seriam copiados' : 'Copiados'} ${copied} ${copied === 1 ? 'arquivo' : 'arquivos'} de ${STARTER_DIR}/ (sem node_modules, dist nem scripts/).\n`,
           section(dryRun ? 'Seriam alterados' : 'Alterados', changed),

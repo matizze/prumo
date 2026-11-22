@@ -282,6 +282,35 @@ describe('prumo doctor', () => {
       )
     })
 
+    it('lê os mesmos arquivos .env do prumo add, na mesma ordem: o primeiro com valor vence', async () => {
+      const only = (file: string) => ({
+        env: {},
+        files: { [file]: `MADS_REGISTRY_URL=https://${file}/r\nMADS_REGISTRY_TOKEN=${TOKEN}\n` },
+      })
+      for (const file of ['.env.local', '.env.development.local', '.env.development', '.env']) {
+        const result = await doctor(only(file))
+        expect(line(result.stdout, 'MADS_REGISTRY_URL'), file).toBe(
+          `ok     MADS_REGISTRY_URL: https://${file}/r (no ${file}).`,
+        )
+        expect(line(result.stdout, 'MADS_REGISTRY_TOKEN'), file).toBe(
+          `ok     MADS_REGISTRY_TOKEN: definido (no ${file}).`,
+        )
+      }
+
+      const result = await doctor({
+        env: {},
+        files: {
+          '.env.local': 'MADS_REGISTRY_URL=\n',
+          '.env.development': 'MADS_REGISTRY_URL=https://development.example/r\n',
+          '.env': `MADS_REGISTRY_URL=https://env.example/r\nMADS_REGISTRY_TOKEN=${TOKEN}\n`,
+        },
+      })
+      expect(line(result.stdout, 'MADS_REGISTRY_URL')).toContain(
+        'https://development.example/r (no .env.development)',
+      )
+      expect(line(result.stdout, 'MADS_REGISTRY_TOKEN')).toContain('(no .env)')
+    })
+
     it('trata variável vazia como ausente', async () => {
       const result = await doctor({
         env: { MADS_REGISTRY_URL: '', MADS_REGISTRY_TOKEN: '' },
@@ -328,6 +357,26 @@ describe('prumo doctor', () => {
       })
       expect(line(result.stdout, 'MADS_REGISTRY_URL')).toContain('https://***@h.example/r')
       expect(result.stdout).not.toContain('p4ss')
+    })
+
+    it('esconde também a query e o fragmento da URL, onde um token pode estar', async () => {
+      const fromVariable = await doctor({
+        env: { ...GOOD_ENV, MADS_REGISTRY_URL: 'https://h.example/r?token=ABCSECRET#frag-secreto' },
+      })
+      expect(line(fromVariable.stdout, 'MADS_REGISTRY_URL')).toBe(
+        'ok     MADS_REGISTRY_URL: https://h.example/r?*** (no ambiente).',
+      )
+
+      const components = JSON.stringify({
+        registries: { '@mads': 'https://u:PASSW0RD@host.example/r/{name}.json?token=QTOKEN' },
+      })
+      const fixed = await doctor({ files: { 'components.json': components } })
+      expect(line(fixed.stdout, '@mads')).toBe(
+        'ok     @mads: URL fixa: https://***@host.example/r/{name}.json?***.',
+      )
+      for (const secret of ['ABCSECRET', 'frag-secreto', 'PASSW0RD', 'QTOKEN']) {
+        expect(fromVariable.stdout + fixed.stdout).not.toContain(secret)
+      }
     })
 
     it('aviso quando o components.json não tem registry de UI, e confere as variáveis do MaDS mesmo assim', async () => {

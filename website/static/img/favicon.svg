@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Um prumo: o fio e o peso que conferem a vertical -->
+  <line x1="16" y1="2" x2="16" y2="13" stroke="#2f5fd0" stroke-width="2" stroke-linecap="round"/>
+  <path d="M10 13h12l-6 17z" fill="#2f5fd0"/>
+</svg>

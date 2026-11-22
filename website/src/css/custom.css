@@ -1,0 +1,29 @@
+/* Cores do site da documentação (Infima, o CSS do Docusaurus). */
+:root {
+  --ifm-color-primary: #2f5fd0;
+  --ifm-color-primary-dark: #2a56bb;
+  --ifm-color-primary-darker: #2851b1;
+  --ifm-color-primary-darkest: #214392;
+  --ifm-color-primary-light: #4570d6;
+  --ifm-color-primary-lighter: #5079d8;
+  --ifm-color-primary-lightest: #7092e0;
+  --ifm-code-font-size: 92%;
+  --docusaurus-highlighted-code-line-bg: rgb(0 0 0 / 0.08);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #7d9eff;
+  --ifm-color-primary-dark: #5e86ff;
+  --ifm-color-primary-darker: #4e7aff;
+  --ifm-color-primary-darkest: #1f56ff;
+  --ifm-color-primary-light: #9cb6ff;
+  --ifm-color-primary-lighter: #acc2ff;
+  --ifm-color-primary-lightest: #dbe5ff;
+  --docusaurus-highlighted-code-line-bg: rgb(255 255 255 / 0.1);
+}
+
+/* Tabelas largas da referência rolam na horizontal em vez de espremer as colunas */
+.markdown table {
+  display: block;
+  overflow-x: auto;
+}

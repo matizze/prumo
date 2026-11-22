@@ -12,7 +12,7 @@ As **Fases A e B terminaram**: não há interface no repositório, e `new`, `mak
 
 1. **Critério para qualquer decisão:** se uma peça só faz sentido com uma interface específica, ela não é do Prumo.
 2. **Pull request abre contra a `develop`**, e o que muda `packages/*` traz changeset (`pnpm changeset`). A `main` recebe as versões.
-3. **O único workflow do GitHub é o de publicação** (`.github/workflows/release.yml`): a cada push na `main`, publica no npm as versões que faltam (veja `.changeset/README.md`). Não há CI de verificação (custo): a verificação é local, com `pnpm verify`. Não crie nem mude workflow sem aprovação de uma pessoa.
+3. **Os únicos workflows do GitHub são os de publicação**: o `.github/workflows/release.yml`, que a cada push na `main` publica no npm as versões que faltam (veja `.changeset/README.md`), e o `.github/workflows/docs.yml`, que a cada push na `main` que muda `docs/` ou `website/` gera a imagem do site da documentação (`docs.prumo.matizze.com.br`) e pede ao Portainer para atualizá-lo. Não há CI de verificação (custo): a verificação é local, com `pnpm verify`. Não crie nem mude workflow sem aprovação de uma pessoa.
 4. **Idioma.** Comentários, documentação e commits em português; nomes de função, variável, arquivo e pasta em inglês, inclusive os da documentação (`docs/guides/test.md`, não `docs/guias/testes.md`). Ao mudar um comportamento visível, atualize a referência e os guias em `docs/`.
 5. **Dependência nova só com aprovação de uma pessoa**, mesmo que seja pequena.
 6. **Um verify por vez.** A máquina de desenvolvimento tem pouca memória.

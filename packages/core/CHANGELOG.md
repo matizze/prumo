@@ -1,5 +1,11 @@
 # @matizze/prumo-core
 
+## 0.1.1
+
+### Patch Changes
+
+- 7a58c82: O pacote passa a sair com `dist/` (`.js` e `.d.ts`), compilado com o `tsc`, pronto para a publicação: o `pnpm pack` troca o `exports` para o `dist/`, e o tarball não leva código-fonte nem testes. No workspace nada muda.
+
 ## 0.1.0
 
 ### Minor Changes

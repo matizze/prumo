@@ -1,5 +1,12 @@
 # @matizze/prumo-rules
 
+## 0.1.1
+
+### Patch Changes
+
+- 7a58c82: O pacote passa a sair com `dist/` (`.js` e `.d.ts`), compilado com o `tsc`, pronto para a publicação: o `pnpm pack` troca o `exports` para o `dist/`, e o tarball não leva código-fonte nem testes. No workspace nada muda.
+- 7a7db36: O tarball deixa de levar `dist/check/project.js`, um helper de teste que importava o `vitest` (que o pacote não declara): o arquivo virou `src/check/test-support.ts`, que o build já exclui.
+
 ## 0.1.0
 
 ### Minor Changes

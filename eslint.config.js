@@ -11,7 +11,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   globalIgnores(['apps/**', 'starter/**', '**/dist', '**/node_modules', '**/__fixtures__']),
   {
-    files: ['packages/*/src/**/*.{ts,tsx}', 'catalog/src/**/*.ts'],
+    files: ['packages/*/src/**/*.{ts,tsx}', 'packages/mcp/scripts/**/*.ts', 'catalog/src/**/*.ts'],
     extends: [js.configs.recommended, tseslint.configs.recommended],
   },
   {
@@ -22,7 +22,11 @@ export default defineConfig([
   },
   {
     // Código de Node: plugin de ESLint, análise do projeto, CLI, servidor MCP e gerador do catálogo
-    files: ['packages/{rules,cli,mcp}/src/**/*.ts', 'catalog/src/**/*.ts'],
+    files: [
+      'packages/{rules,cli,mcp}/src/**/*.ts',
+      'packages/mcp/scripts/**/*.ts',
+      'catalog/src/**/*.ts',
+    ],
     languageOptions: { globals: globals.node },
   },
 ])

@@ -9,6 +9,8 @@
     // Os imports internos terminam em .ts (o workspace roda o código-fonte): no dist viram .js
     "rewriteRelativeImportExtensions": true
   },
+  // Só o código do servidor: o script do portão (scripts/) não vai para o dist/
+  "include": ["src"],
   // Fora do pacote publicado: os testes e os arquivos de apoio deles
   "exclude": ["src/**/*.test.ts", "src/**/*test-support.ts"]
 }

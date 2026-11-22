@@ -22,7 +22,7 @@ As Fases 1 a 3 estão concluídas (o resultado de cada uma, em [docs/fase-1.md](
 ## Verificação
 
 - Mudança só em `packages/*` ou em `catalog/`: `pnpm verify:packages` (typecheck, lint e testes dos pacotes e do catálogo).
-- Mudança no `apps/reference/registry.json` ou no `catalog/seams.json`: regere o índice com `pnpm --filter @matizze/prumo-catalog build` e faça o commit do `catalog/index.json`; o teste do catálogo acusa o índice velho.
+- Mudança no `apps/reference/registry.json`, no `catalog/seams.json` ou no `catalog/patterns.json` (o índice de padrões): regere o índice com `pnpm --filter @matizze/prumo-catalog build` e faça o commit do `catalog/index.json` e do que o comando reescreve em `apps/reference/docs/patterns.md` e `apps/reference/AGENTS.md` (as seções entre `<!-- prumo:... -->`); o teste do catálogo acusa o índice e o texto velhos. Uma rota, pasta, story ou item novo no `patterns.json` tem de existir no app.
 - Mudança no starter (`starter/`): `pnpm verify:starter` (typecheck, lint, `prumo check`, testes, stories nos dois temas e build do starter). Os arquivos do starter saem do `pnpm starter:build`; não os edite à mão (veja a regra 8).
 - Mudança no build dos pacotes (`tsconfig.build.json`, `publishConfig`, `scripts/pack-packages.sh`): o `packaging.test.ts` do cli (já dentro do `pnpm verify:packages`) compila e empacota os quatro pacotes e confere os tarballs; `pnpm pack:all [pasta]` gera os tarballs à mão, e `pnpm build` só compila.
 - Antes de abrir o pull request: `pnpm verify`, que roda os pacotes, o app de referência e o starter, um depois do outro.

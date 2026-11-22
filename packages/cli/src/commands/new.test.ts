@@ -313,26 +313,29 @@ describe('prumo new --dry-run', () => {
   })
 })
 
+/** Roda o git numa pasta, com identidade de teste, e devolve a saída. */
+function git(cwd: string, ...args: string[]): string {
+  const result = spawnSync(
+    'git',
+    ['-c', 'user.name=t', '-c', 'user.email=t@example.com', '-c', 'commit.gpgsign=false', ...args],
+    { cwd, encoding: 'utf8' },
+  )
+  expect(result.status, result.stderr).toBe(0)
+  return result.stdout
+}
+
+/** Um repositório git com a origem de fixture commitada na `main`. */
+function makeRepository(files?: Record<string, string>) {
+  const origin = makeStarterOrigin(files)
+  git(origin, 'init', '--quiet', '-b', 'main')
+  git(origin, 'add', '.')
+  git(origin, 'commit', '--quiet', '-m', 'origem')
+  return origin
+}
+
 describe('prumo new: o clone do repositório', () => {
-  it('sem --from, baixa o starter de PRUMO_REPOSITORY e apaga o clone temporário', async () => {
-    const origin = makeStarterOrigin()
-    const git = (...args: string[]) =>
-      spawnSync(
-        'git',
-        [
-          '-c',
-          'user.name=t',
-          '-c',
-          'user.email=t@example.com',
-          '-c',
-          'commit.gpgsign=false',
-          ...args,
-        ],
-        { cwd: origin, encoding: 'utf8' },
-      )
-    git('init', '--quiet')
-    git('add', '.')
-    git('commit', '--quiet', '-m', 'origem')
+  it('sem --from, baixa o starter de PRUMO_REPOSITORY e mostra o repositório e a ref', async () => {
+    const origin = makeRepository()
 
     const { code, stdout, stderr, cwd } = await run(['meu-produto', '--no-install'], {
       env: { PRUMO_REPOSITORY: `file://${origin}` },
@@ -343,9 +346,50 @@ describe('prumo new: o clone do repositório', () => {
     expect(json(product, 'package.json').name).toBe('meu-produto')
     // O clone vem do git, e o git não traz o que o .gitignore deixou de fora: o produto sai igual
     expect(existsSync(path.join(product, 'src/main.tsx'))).toBe(true)
-    const cloneDir = stdout.match(/Origem: (.*)/)?.[1] ?? ''
-    expect(cloneDir).toContain('prumo-new-')
-    expect(existsSync(cloneDir)).toBe(false)
+    expect(stdout).toContain(`Origem: file://${origin} (ref main)`)
+  })
+
+  it('lê a main por padrão e a --ref (ou PRUMO_REF) troca, sem a develop vazar para o produto', async () => {
+    const origin = makeRepository()
+    git(origin, 'checkout', '--quiet', '-b', 'develop')
+    writeFileSync(path.join(origin, 'starter/so-na-develop.txt'), 'develop\n')
+    git(origin, 'add', '.')
+    git(origin, 'commit', '--quiet', '-m', 'develop')
+    const env = { PRUMO_REPOSITORY: `file://${origin}` }
+    const hasDevelop = (cwd: string) => existsSync(path.join(cwd, 'meu-produto/so-na-develop.txt'))
+
+    const byDefault = await run(['meu-produto', '--no-install'], { env })
+    expect({ code: byDefault.code, develop: hasDevelop(byDefault.cwd) }).toEqual({
+      code: 0,
+      develop: false,
+    })
+
+    const byOption = await run(['meu-produto', '--ref', 'develop', '--no-install'], { env })
+    expect({ code: byOption.code, develop: hasDevelop(byOption.cwd) }).toEqual({
+      code: 0,
+      develop: true,
+    })
+    expect(byOption.stdout).toContain('(ref develop)')
+
+    const byVariable = await run(['meu-produto', '--no-install'], {
+      env: { ...env, PRUMO_REF: 'develop' },
+    })
+    expect(hasDevelop(byVariable.cwd)).toBe(true)
+  })
+
+  it('recusa --ref com --from, com código 2 e sem escrever nada', async () => {
+    const { code, stderr, cwd } = await run([
+      'meu-produto',
+      '--from',
+      makeStarterOrigin(),
+      '--ref',
+      'develop',
+      '--no-install',
+    ])
+
+    expect(code).toBe(2)
+    expect(stderr).toContain('--ref não vale com --from')
+    expect(readdirSync(cwd)).toEqual([])
   })
 
   it('diz o que conferir quando o clone falha, e não cria nada', async () => {
@@ -357,6 +401,63 @@ describe('prumo new: o clone do repositório', () => {
     expect(stderr).toContain('não consegui baixar o starter')
     expect(stderr).toContain('Confira as credenciais do git')
     expect(readdirSync(cwd)).toEqual([])
+  })
+})
+
+describe('prumo new --from, com um checkout de trabalho', () => {
+  /** O que o .gitignore do starter ignora e que um checkout de trabalho tem: token, registry, editor. */
+  const IGNORED: Record<string, string> = {
+    '.env': 'MADS_REGISTRY_TOKEN=ghp_REALSECRET\n',
+    '.env.development': 'MADS_REGISTRY_TOKEN=ghp_REALSECRET\n',
+    'public/r/button.json': '{}\n',
+    'dist-ds/r/button.json': '{}\n',
+    '.vscode/settings.json': '{}\n',
+    'debug.log': 'log\n',
+  }
+  const GITIGNORE =
+    'node_modules\ndist\n.env\n.env.*\n!.env.example\npublic/r\ndist-ds\n.vscode\n*.log\n'
+
+  /** Um produto sai do checkout e nenhum arquivo dele leva o token ou as pastas ignoradas. */
+  function expectNoLeak(product: string) {
+    const files = tree(product).filter((file) => !file.startsWith('.git/'))
+    for (const leak of [
+      '.env',
+      '.env.development',
+      'public/r/button.json',
+      'dist-ds/r/button.json',
+    ]) {
+      expect(files, leak).not.toContain(leak)
+    }
+    expect(files).not.toContain('.vscode/settings.json')
+    expect(files).not.toContain('debug.log')
+    for (const file of files) expect(read(product, file), file).not.toContain('ghp_REALSECRET')
+  }
+
+  it('num repositório git, não leva o .env com token, o public/r e o resto do que o git ignora', async () => {
+    const origin = makeRepository({ ...STARTER_FILES, '.gitignore': GITIGNORE })
+    for (const [file, text] of Object.entries(IGNORED)) {
+      mkdirSync(path.dirname(path.join(origin, 'starter', file)), { recursive: true })
+      writeFileSync(path.join(origin, 'starter', file), text)
+    }
+    // Um arquivo novo e não ignorado do checkout (ainda sem commit) vai junto
+    writeFileSync(path.join(origin, 'starter/src/novo.ts'), 'export {}\n')
+
+    const { code, stderr, cwd } = await run(['meu-produto', '--from', origin, '--no-install'])
+    const product = path.join(cwd, 'meu-produto')
+
+    expect({ code, stderr }).toEqual({ code: 0, stderr: '' })
+    expectNoLeak(product)
+    expect(existsSync(path.join(product, 'src/novo.ts'))).toBe(true)
+    expect(existsSync(path.join(product, 'src/main.tsx'))).toBe(true)
+  })
+
+  it('numa pasta fora do git, o filtro também deixa o token e o registry para trás', async () => {
+    const origin = makeStarterOrigin({ ...STARTER_FILES, ...IGNORED })
+
+    const { code, cwd } = await run(['meu-produto', '--from', origin, '--no-install'])
+
+    expect(code).toBe(0)
+    expectNoLeak(path.join(cwd, 'meu-produto'))
   })
 })
 
@@ -422,10 +523,20 @@ describe('prumo new --help', () => {
 
     expect(code).toBe(0)
     expect(runtime.stdout).toContain(
-      'Uso: prumo new <nome> [--dir <pasta>] [--from <pasta>] [--packages <pasta>] [--ds <cliente>] [--no-install] [--dry-run]',
+      'Uso: prumo new <nome> [--dir <pasta>] [--from <pasta>] [--ref <ref>] [--packages <pasta>] [--ds <cliente>] [--no-install] [--dry-run]',
     )
     expect(runtime.stdout).toContain('--no-install')
     expect(runtime.stdout).not.toMatch(/--install\b/)
+    expect(runtime.stdout).toContain('[--ref <ref>]')
+  })
+
+  it('a ajuda do --no-install descreve o --no-install, e não o padrão', async () => {
+    const runtime = captureRuntime(makeDir())
+    await runCli(createRoot(runtime), ['new', '--help'], runtime)
+
+    const line = runtime.stdout.split('\n').find((text) => text.includes('--no-install  ')) ?? ''
+    expect(line).toContain('Com --no-install, não roda o pnpm install')
+    expect(line).not.toMatch(/--no-install\s+Roda/)
   })
 })
 
@@ -566,6 +677,21 @@ describe('prumo new --ds', () => {
       expect(stderr, client).toContain('é inválido em --ds')
       expect(existsSync(path.join(cwd, 'meu-produto')), client).toBe(false)
     }
+  })
+
+  it('recusa o cliente que já termina em -ds, com código 2 e sem escrever nada', async () => {
+    const { code, stderr, cwd } = await run([
+      'meu-produto',
+      '--from',
+      makeStarterOrigin(),
+      '--ds',
+      'gekom-ds',
+      '--no-install',
+    ])
+
+    expect(code).toBe(2)
+    expect(stderr).toContain("--ds recebe só o nome do cliente, sem o sufixo -ds: use '--ds gekom'")
+    expect(existsSync(path.join(cwd, 'meu-produto'))).toBe(false)
   })
 
   it('recusa o starter sem registry @mads no components.json, sem deixar a pasta', async () => {

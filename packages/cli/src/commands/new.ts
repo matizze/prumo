@@ -14,8 +14,10 @@ import { clientDesignSystem, clientProblem, MADS, type DesignSystem } from '../d
 import { ExitError, UsageError } from '../errors.ts'
 import { copyFiles, listStarterFiles } from '../new/copy.ts'
 import {
+  APP_CONFIG_FILE,
   customizeAgents,
   customizeAgentsDs,
+  customizeAppConfig,
   customizeComponentsJson,
   customizeEnv,
   customizeIndexHtml,
@@ -74,7 +76,7 @@ function rollback(destination: string, createdFolder: boolean): void {
  * `prumo new <nome>`: cria um produto novo a partir do starter. Baixa o starter do repositório do
  * Prumo (`git clone --depth 1`, com as credenciais do git de quem roda) ou usa um checkout local
  * (`--from`), copia `starter/` para `<dir>/<nome>` sem `node_modules`, `dist` e `scripts/`, troca o
- * nome do app, troca o `workspace:*` dos pacotes do Prumo pela versão deles (ou, com `--packages`,
+ * nome do app (`package.json`, `index.html`, `src/config/app.ts`, `AGENTS.md`, `README.md`), troca o `workspace:*` dos pacotes do Prumo pela versão deles (ou, com `--packages`,
  * por `pnpm.overrides` com `file:` para tarballs locais), cria o `.npmrc`, o `.env.local` e o
  * `.mcp.json`, roda `git init` (sem commit) e `pnpm install`. Valida tudo antes de escrever.
  */
@@ -95,7 +97,8 @@ git do checkout conhece (rastreados, ou novos e não ignorados): o .env com toke
 dist-ds de quem roda ficam para trás; fora de um repositório git, um filtro equivalente faz o mesmo.
 
 O ajuste do produto:
-  - troca o nome do app no package.json, no título do index.html, no AGENTS.md e no README.md;
+  - troca o nome do app no package.json, no título do index.html, em src/config/app.ts (o título
+    das páginas, o logo e o rodapé), no AGENTS.md e no README.md;
   - troca o workspace:* dos pacotes @matizze/prumo-* pela faixa da versão que a origem tem (com
     --packages, grava pnpm.overrides com file: para os tarballs da pasta e não cria registry);
   - cria o .npmrc com o registry do escopo @matizze (GitHub Packages), sem o token: o pnpm install
@@ -203,6 +206,7 @@ feito e não escreve nada. Os tarballs de --packages saem do pnpm pack:all, no m
           if (files.includes(file)) contents.set(file, change(contents.get(file) ?? read(file)))
         }
         modify('index.html', (text) => customizeIndexHtml(text, product))
+        modify(APP_CONFIG_FILE, (text) => customizeAppConfig(text, product))
         modify('AGENTS.md', (text) => customizeAgents(text, product))
         modify('README.md', (text) => customizeReadme(text, product))
         modify('tsconfig.node.json', customizeNodeTsconfig)

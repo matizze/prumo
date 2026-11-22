@@ -43,6 +43,16 @@ function insertSorted<T extends ImportDeclaration | ExportDeclaration>(
   return { pos: last.getEnd(), end: last.getEnd(), text: `\n${line}` }
 }
 
+/**
+ * A edição que acrescenta `line` no fim do arquivo, em linha própria. É o caso do índice que ainda
+ * não tem nenhum export (o de um projeto novo, sem domínios): um arquivo vazio ou só com comentários.
+ */
+function appendLine(file: SourceFile, line: string): TextEdit {
+  const text = file.getFullText()
+  const end = text.length
+  return { pos: end, end, text: `${text === '' || text.endsWith('\n') ? '' : '\n'}${line}\n` }
+}
+
 /** As aspas e o ponto e vírgula do estilo do arquivo, copiados de uma declaração com módulo. */
 function styleOf(declaration: ImportDeclaration | ExportDeclaration | undefined): {
   quote: string
@@ -57,7 +67,8 @@ function styleOf(declaration: ImportDeclaration | ExportDeclaration | undefined)
 
 /**
  * O `export * from './entities/<entidade>'` no fim de `src/schemas/index.ts`. A ordem do arquivo
- * é a em que as entidades chegaram, e não a alfabética: o export novo vai depois do último.
+ * é a em que as entidades chegaram, e não a alfabética: o export novo vai depois do último (ou no
+ * fim do arquivo, se ele ainda não tem nenhum).
  */
 export function registerSchema(plan: ChangePlan, to: DomainNames): void {
   const file = path.join(plan.project.src, 'schemas', 'index.ts')
@@ -69,14 +80,11 @@ export function registerSchema(plan: ChangePlan, to: DomainNames): void {
     throw new UsageError(`${where} já exporta '${specifier}'.`)
   }
   const last = exports[exports.length - 1]
-  if (!last) throw new UsageError(`${where} não tem nenhum export: não sei onde acrescentar.`)
   const { quote, semicolon } = styleOf(last)
+  const line = `export * from ${quote}${specifier}${quote}${semicolon}`
+  // Sem nenhum export (o índice de um projeto novo), o primeiro vai no fim do arquivo
   applyEdits(index, [
-    {
-      pos: last.getEnd(),
-      end: last.getEnd(),
-      text: `\nexport * from ${quote}${specifier}${quote}${semicolon}`,
-    },
+    last ? { pos: last.getEnd(), end: last.getEnd(), text: `\n${line}` } : appendLine(index, line),
   ])
 }
 
@@ -175,10 +183,33 @@ export function registerRepositoryEntry(plan: ChangePlan, entry: RepositoryEntry
     factoryEdit = { pos: open, end: open, text: `\n${indent}${mapEntry},\n` }
   }
 
+  // Sem nenhum `export *` (o índice de um projeto novo, sem domínios), o primeiro vai antes do
+  // primeiro `export ... from` que o arquivo já tem, ou, se não houver, depois do último import
+  const firstExport = index.getExportDeclarations().find((item) => item.hasModuleSpecifier())
+  const lastImport = imports[imports.length - 1]
+  let exportEdit: TextEdit
+  if (reExports.length > 0) {
+    exportEdit = insertSorted(reExports, specifier, exportLine, undefined, where)
+  } else if (firstExport) {
+    exportEdit = {
+      pos: firstExport.getStart(),
+      end: firstExport.getStart(),
+      text: `${exportLine}\n`,
+    }
+  } else if (lastImport) {
+    exportEdit = { pos: lastImport.getEnd(), end: lastImport.getEnd(), text: `\n\n${exportLine}` }
+  } else {
+    throw new UsageError(`não achei onde acrescentar '${specifier}' em ${where}.`)
+  }
+
+  const importEdit = insertSorted(relativeImports, specifier, importLine, lastImport, where)
+  // Duas inserções na mesma posição (as duas depois do último import) viram uma só, na ordem
+  const sameSpot = importEdit.pos === exportEdit.pos
   // As posições vêm da árvore de antes de qualquer edição
   applyEdits(index, [
-    insertSorted(relativeImports, specifier, importLine, imports[imports.length - 1], where),
-    insertSorted(reExports, specifier, exportLine, undefined, where),
+    ...(sameSpot
+      ? [{ ...importEdit, text: importEdit.text + exportEdit.text }]
+      : [importEdit, exportEdit]),
     factoryEdit,
   ])
 }
@@ -228,7 +259,12 @@ export function registerQueriesEntry(plan: ChangePlan, entry: QueriesEntry): voi
   }
   const { quote, semicolon } = styleOf(exports[0])
   const line = `export { ${entry.exports.join(', ')} } from ${quote}${specifier}${quote}${semicolon}`
-  applyEdits(index, [insertSorted(exports, specifier, line, undefined, where)])
+  // Sem nenhum export (o índice de um projeto novo), o primeiro vai no fim do arquivo
+  applyEdits(index, [
+    exports.length > 0
+      ? insertSorted(exports, specifier, line, undefined, where)
+      : appendLine(index, line),
+  ])
 }
 
 /**

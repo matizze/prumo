@@ -1,4 +1,4 @@
-import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import pkg from '../package.json' with { type: 'json' }
@@ -20,7 +20,7 @@ describe('o servidor MCP', () => {
     const client = await connect({ cwd: makeProject() })
     const { tools } = await client.listTools()
 
-    expect(tools.map((tool) => tool.name).sort()).toEqual(['check', 'doctor'])
+    expect(tools.map((tool) => tool.name).sort()).toEqual(['check', 'doctor', 'make_domain'])
     const check = tools.find((tool) => tool.name === 'check')
     expect(check?.description).toContain('Analisa o projeto')
     expect(check?.inputSchema).toMatchObject({
@@ -57,6 +57,86 @@ describe('as chamadas', () => {
     const result = await client.callTool({ name: 'doctor', arguments: {} })
 
     expect(textOf(result as never)).toMatch(/Node: .*\nprumo doctor: /s)
+  })
+
+  describe('make_domain, a ferramenta que vem da árvore da CLI', () => {
+    /** Um projeto com os três índices de um app novo, sem domínios. */
+    function appProject(inside: string): string {
+      const root = makeProject({ inside })
+      const write = (file: string, content: string) => {
+        mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
+        writeFileSync(path.join(root, file), content)
+      }
+      write('src/schemas/index.ts', "export * from '@matizze/prumo-core/data'\n")
+      write('src/queries/index.ts', '// Queries, uma por domínio.\n')
+      write(
+        'src/repositories/index.ts',
+        "import { createRepositoryContainer } from '@matizze/prumo-core/repositories'\nconst factories = {}\nexport const container = createRepositoryContainer(factories, { dataSource: 'memory' })\n",
+      )
+      return root
+    }
+
+    it('tem o esquema do comando: o nome obrigatório, a entidade, o root e o dry-run', async () => {
+      const client = await connect({ cwd: makeProject() })
+      const { tools } = await client.listTools()
+      const tool = tools.find((candidate) => candidate.name === 'make_domain')
+
+      expect(tool?.description).toContain('Gera um domínio de dados novo')
+      expect(tool?.inputSchema).toMatchObject({
+        type: 'object',
+        required: ['nome'],
+        properties: {
+          nome: { type: 'string' },
+          entity: { type: 'string' },
+          root: { type: 'string' },
+          'dry-run': { type: 'boolean' },
+        },
+      })
+    })
+
+    it('gera o domínio no projeto e devolve o texto da CLI', async () => {
+      const parent = makeDir()
+      const root = appProject(parent)
+      const client = await connect({ cwd: parent })
+
+      const dry = await client.callTool({
+        name: 'make_domain',
+        arguments: { nome: 'clientes', root, 'dry-run': true },
+      })
+      expect(dry.isError).toBeFalsy()
+      expect(textOf(dry as never)).toContain('Seriam criados (7):')
+      expect(existsSync(path.join(root, 'src/repositories/clientes'))).toBe(false)
+
+      const result = await client.callTool({
+        name: 'make_domain',
+        arguments: { nome: 'clientes', root },
+      })
+      expect(result.isError).toBeFalsy()
+      expect(textOf(result as never)).toContain('prumo check: nenhuma violação.')
+      expect(existsSync(path.join(root, 'src/repositories/clientes/repository.mock.ts'))).toBe(true)
+
+      const again = await client.callTool({
+        name: 'make_domain',
+        arguments: { nome: 'clientes', root },
+      })
+      expect(again.isError).toBe(true)
+      expect(textOf(again as never)).toContain("o domínio 'clientes' já existe")
+      expect(textOf(again as never).endsWith('[saída 2]')).toBe(true)
+    })
+
+    it('recusa a pasta fora da pasta do servidor, e não escreve', async () => {
+      const parent = makeDir()
+      const outside = appProject(makeDir())
+      const client = await connect({ cwd: parent })
+
+      const result = await client.callTool({
+        name: 'make_domain',
+        arguments: { nome: 'clientes', root: outside },
+      })
+
+      expect(result.isError).toBe(true)
+      expect(existsSync(path.join(outside, 'src/repositories/clientes'))).toBe(false)
+    })
   })
 
   it('uso errado do comando vira isError com a mensagem da CLI e [saída 2]', async () => {

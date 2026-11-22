@@ -2,7 +2,7 @@
 
 Servidor MCP do Prumo: os comandos da CLI como ferramentas para agentes de IA.
 
-**Situação:** uma ferramenta por comando do `prumo`, por stdio, com o bin `prumo-mcp`. Hoje a CLI tem `check` e `doctor`, e o servidor expõe só esses; as ferramentas dos geradores voltam com eles, na Fase B ([docs/plano.md](../../docs/plano.md)). Nada foi publicado: o pacote segue `"private": true`.
+**Situação:** uma ferramenta por comando do `prumo`, por stdio, com o bin `prumo-mcp`. Hoje a CLI tem `make:domain`, `check` e `doctor`, e o servidor expõe esses; as ferramentas dos outros geradores chegam com eles, na Fase B ([docs/plano.md](../../docs/plano.md)). Nada foi publicado: o pacote segue `"private": true`.
 
 ## Como ligar
 
@@ -22,10 +22,11 @@ O `prumo-mcp` é o bin deste pacote, que o projeto tem como `devDependency`. Nã
 
 Uma ferramenta por comando, com o nome do comando com `:` trocado por `_`. Não há ferramenta escrita à mão: o nome, a descrição e o esquema de entrada saem da árvore de comandos da CLI (`describeCommands`), então um comando novo vira ferramenta sem mudar o servidor.
 
-| Ferramenta | Comando        | Campos |
-| ---------- | -------------- | ------ |
-| `check`    | `prumo check`  | `root` |
-| `doctor`   | `prumo doctor` | `root` |
+| Ferramenta    | Comando             | Campos                               |
+| ------------- | ------------------- | ------------------------------------ |
+| `check`       | `prumo check`       | `root`                               |
+| `doctor`      | `prumo doctor`      | `root`                               |
+| `make_domain` | `prumo make:domain` | `nome`, `entity`, `root` e `dry-run` |
 
 - **O nome do campo é o do argumento na CLI, sem tradução.** `toArgv`, da CLI, faz o mapa de campo para linha de comando. O esquema é derivado dos argumentos, e um campo que o comando não tem é recusado.
 - **A saída é o texto da CLI, sem moldura:** o stdout e, depois, o stderr do comando, e, quando o código de saída não é 0, uma última linha `[saída <código>]`. `isError` é verdadeiro quando o código não é 0: o `check` com violação (saída 1) e o uso errado (saída 2) são erro da ferramenta, como no terminal.

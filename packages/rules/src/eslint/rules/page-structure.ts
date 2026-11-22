@@ -15,7 +15,7 @@ const DEFAULTS = { pagesDir: 'src/pages', requiredFiles: DEFAULT_PAGE_FILES }
 /**
  * Estrutura da página: o `index.tsx` de `src/pages/<tela>/` tem ao lado o `model.ts` e a
  * `view.tsx`, a separação entre dados e visual. A regra olha a pasta pelo sistema de arquivos,
- * então avisa no editor quando a tela fica sem um deles. O `skeleton.tsx` não é cobrado.
+ * então avisa no editor quando a tela fica sem um deles.
  */
 export const pageStructure: Rule.RuleModule = {
   meta: {

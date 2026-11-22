@@ -36,12 +36,6 @@ export function locateInside(filename: string, dir: string): Placement | null {
   return { root: file.slice(0, index), inner: file.slice(index + marker.length) }
 }
 
-/** O caminho é a própria pasta ou está dentro dela (também casa `pasta.ts` e `pasta.tsx`). */
-export function isInside(target: string, base: string, { extension = false } = {}): boolean {
-  if (target === base || target.startsWith(`${base}/`)) return true
-  return extension && target.startsWith(`${base}.`)
-}
-
 /**
  * Resolve o especificador de um import para um caminho no projeto: pelo alias (`@/x`) ou
  * relativo ao arquivo (`./x`, `../x`). Devolve null para pacote npm. `aliasRoot` é a pasta
@@ -65,11 +59,6 @@ export function resolveSpecifier(
     return { target: target.replace(/\/+$/, ''), relative: true }
   }
   return null
-}
-
-/** O especificador é o pacote (ou um subcaminho dele). */
-export function matchesPackage(specifier: string, name: string): boolean {
-  return specifier === name || specifier.startsWith(`${name}/`)
 }
 
 /**

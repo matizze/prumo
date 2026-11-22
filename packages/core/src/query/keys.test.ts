@@ -3,7 +3,7 @@ import { createQueryKeys, type QueryKeys } from './index.ts'
 
 type ProductListQuery = { search?: string; page?: number }
 
-const catalogKeys = createQueryKeys('catalog', {
+const productKeys = createQueryKeys('products', {
   lists: ['list'],
   list: (query: ProductListQuery = {}) => ['list', query] as const,
   detail: (id: string) => ['detail', id] as const,
@@ -12,22 +12,22 @@ const catalogKeys = createQueryKeys('catalog', {
 
 describe('createQueryKeys', () => {
   it('põe o domínio na frente de cada tupla fixa e expõe o prefixo em all', () => {
-    expect(catalogKeys.all).toEqual(['catalog'])
-    expect(catalogKeys.lists).toEqual(['catalog', 'list'])
-    expect(catalogKeys.categories).toEqual(['catalog', 'categories'])
+    expect(productKeys.all).toEqual(['products'])
+    expect(productKeys.lists).toEqual(['products', 'list'])
+    expect(productKeys.categories).toEqual(['products', 'categories'])
   })
 
   it('põe o domínio na frente do que a função devolve', () => {
-    expect(catalogKeys.detail('42')).toEqual(['catalog', 'detail', '42'])
-    expect(catalogKeys.list({ search: 'cadeira' })).toEqual([
-      'catalog',
+    expect(productKeys.detail('42')).toEqual(['products', 'detail', '42'])
+    expect(productKeys.list({ search: 'cadeira' })).toEqual([
+      'products',
       'list',
       { search: 'cadeira' },
     ])
   })
 
   it('respeita o valor padrão dos parâmetros da função', () => {
-    expect(catalogKeys.list()).toEqual(['catalog', 'list', {}])
+    expect(productKeys.list()).toEqual(['products', 'list', {}])
   })
 
   it('repassa vários parâmetros na ordem e aceita retorno com tamanho variável', () => {
@@ -43,8 +43,8 @@ describe('createQueryKeys', () => {
   })
 
   it('gera chaves iguais a cada chamada, para o cache reconhecer a mesma consulta', () => {
-    expect(catalogKeys.detail('1')).toEqual(catalogKeys.detail('1'))
-    expect(catalogKeys.detail('1')).not.toEqual(catalogKeys.detail('2'))
+    expect(productKeys.detail('1')).toEqual(productKeys.detail('1'))
+    expect(productKeys.detail('1')).not.toEqual(productKeys.detail('2'))
   })
 
   it('gera as chaves de um domínio sem definições: só o prefixo', () => {
@@ -53,9 +53,9 @@ describe('createQueryKeys', () => {
   })
 
   it('a chave de lista começa pela chave de prefixo, para a invalidação por prefixo funcionar', () => {
-    const prefix = catalogKeys.lists
-    expect(catalogKeys.list({ page: 2 }).slice(0, prefix.length)).toEqual(prefix)
-    expect(prefix.slice(0, catalogKeys.all.length)).toEqual(catalogKeys.all)
+    const prefix = productKeys.lists
+    expect(productKeys.list({ page: 2 }).slice(0, prefix.length)).toEqual(prefix)
+    expect(prefix.slice(0, productKeys.all.length)).toEqual(productKeys.all)
   })
 
   it('não compartilha estado entre domínios', () => {
@@ -68,17 +68,19 @@ describe('createQueryKeys', () => {
 
 describe('createQueryKeys: tipos', () => {
   it('preserva os literais do domínio e das tuplas fixas', () => {
-    expectTypeOf(catalogKeys.all).toEqualTypeOf<readonly ['catalog']>()
-    expectTypeOf(catalogKeys.lists).toEqualTypeOf<readonly ['catalog', 'list']>()
-    expectTypeOf(catalogKeys.categories).toEqualTypeOf<readonly ['catalog', 'categories']>()
+    expectTypeOf(productKeys.all).toEqualTypeOf<readonly ['products']>()
+    expectTypeOf(productKeys.lists).toEqualTypeOf<readonly ['products', 'list']>()
+    expectTypeOf(productKeys.categories).toEqualTypeOf<readonly ['products', 'categories']>()
   })
 
   it('preserva os parâmetros e os literais do retorno das funções', () => {
-    expectTypeOf(catalogKeys.detail).parameters.toEqualTypeOf<[id: string]>()
-    expectTypeOf(catalogKeys.detail).returns.toEqualTypeOf<readonly ['catalog', 'detail', string]>()
-    expectTypeOf(catalogKeys.list).parameters.toEqualTypeOf<[query?: ProductListQuery]>()
-    expectTypeOf(catalogKeys.list).returns.toEqualTypeOf<
-      readonly ['catalog', 'list', ProductListQuery]
+    expectTypeOf(productKeys.detail).parameters.toEqualTypeOf<[id: string]>()
+    expectTypeOf(productKeys.detail).returns.toEqualTypeOf<
+      readonly ['products', 'detail', string]
+    >()
+    expectTypeOf(productKeys.list).parameters.toEqualTypeOf<[query?: ProductListQuery]>()
+    expectTypeOf(productKeys.list).returns.toEqualTypeOf<
+      readonly ['products', 'list', ProductListQuery]
     >()
   })
 
@@ -89,14 +91,14 @@ describe('createQueryKeys: tipos', () => {
 
   it('recusa chamar a função com parâmetro do tipo errado', () => {
     // @ts-expect-error o id é string
-    catalogKeys.detail(42)
+    productKeys.detail(42)
     // @ts-expect-error falta o id
-    catalogKeys.detail()
+    productKeys.detail()
   })
 
   it('recusa chave que não existe', () => {
     // @ts-expect-error não há definição `missing`
-    void catalogKeys.missing
+    void productKeys.missing
   })
 
   it('recusa definição que não é tupla nem função que devolve tupla', () => {

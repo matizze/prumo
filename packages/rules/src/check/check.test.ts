@@ -101,12 +101,11 @@ describe('shared-usage', () => {
     expect(sharedFiles(check({ root }))).toEqual([])
   })
 
-  it('teste e story não contam como uso', () => {
+  it('teste não conta como uso', () => {
     const root = files({
       'src/components/shared/table.tsx': 'export const t = 1',
       ...page('a', "import { t } from '@/components/shared/table'"),
       'src/pages/b/view.test.tsx': "import { t } from '@/components/shared/table'",
-      'src/pages/c/view.stories.tsx': "import { t } from '@/components/shared/table'",
     })
     const violations = check({ root }).filter((v) => v.rule === 'shared-usage')
     expect(violations).toHaveLength(1)
@@ -161,7 +160,7 @@ describe('page-structure', () => {
       'src/pages/ok/index.tsx': '',
       'src/pages/ok/model.ts': '',
       'src/pages/ok/view.tsx': '',
-      'src/pages/ghost/skeleton.tsx': '',
+      'src/pages/ghost/helpers.ts': '',
       'src/pages/only-view/view.tsx': '',
     })
     expect(check({ root }).map((v) => [v.rule, v.file])).toEqual([
@@ -173,15 +172,15 @@ describe('page-structure', () => {
     ])
   })
 
-  it('o skeleton não é cobrado, e a lista de arquivos é opção', () => {
+  it('só os arquivos da lista são cobrados, e a lista é opção', () => {
     const root = makeProject({
       'src/pages/a/index.tsx': '',
       'src/pages/a/model.ts': '',
       'src/pages/a/view.tsx': '',
     })
     expect(check({ root })).toEqual([])
-    const violations = check({ root, requiredPageFiles: ['index.tsx', 'skeleton.tsx'] })
-    expect(violations.map((v) => v.file)).toEqual(['src/pages/a/skeleton.tsx'])
+    const violations = check({ root, requiredPageFiles: ['index.tsx', 'helpers.ts'] })
+    expect(violations.map((v) => v.file)).toEqual(['src/pages/a/helpers.ts'])
   })
 
   it('arquivo solto em pages não é uma tela', () => {

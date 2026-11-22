@@ -328,7 +328,7 @@ describe('@matizze/prumo-cli empacotado', () => {
         { cwd: product, encoding: 'utf8' },
       )
       expect(result.stderr).toBe('')
-      expect(result.stdout.trim()).toBe('@matizze/prumo-rules 5')
+      expect(result.stdout.trim()).toBe('@matizze/prumo-rules 2')
     })
 
     it('exporta a API em processo em @matizze/prumo-cli/api, e roda um comando sem escrever no stdout', () => {

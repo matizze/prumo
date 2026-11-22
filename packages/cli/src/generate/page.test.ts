@@ -36,6 +36,17 @@ describe('generatePage', () => {
     })
   })
 
+  it('com route, registra a rota dada e não a /<nome> (a tela inicial de um app novo)', () => {
+    const project = fixtureProject()
+    const { plan, route } = generatePage(project, { name: 'home', route: '/' })
+    plan.commit()
+
+    expect(route).toBe('/')
+    const app = readFileSync(project.app, 'utf8')
+    expect(app).toContain('<Route path="/">')
+    expect(app).not.toContain('/home"')
+  })
+
   it('não escreve nada: só o commit grava', () => {
     const project = fixtureProject()
     const before = readFileSync(project.app, 'utf8')

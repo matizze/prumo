@@ -7,6 +7,7 @@ const runtime = {
   err: (text: string) => process.stderr.write(text),
   cwd: process.cwd(),
   env: process.env,
+  inheritStdio: true,
 }
 
 process.exitCode = await runCli(createRoot(runtime), process.argv.slice(2), runtime)

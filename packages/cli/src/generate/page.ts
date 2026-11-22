@@ -68,6 +68,8 @@ export interface PageRequest {
   name: string
   /** O domínio cuja lista a tela mostra (o nome dele, no plural), criado por `make:domain`. */
   domain?: string | undefined
+  /** A rota da tela. Padrão: `/<nome>`. A tela inicial de um app novo usa `/`. */
+  route?: string | undefined
 }
 
 export interface PageResult {
@@ -111,7 +113,7 @@ function assertDomain(project: Project, domain: Names): void {
  * chamador mostra o `summary()` ou faz o `commit()`. Valida os nomes e confere o projeto antes de
  * montar qualquer coisa, e todo erro de uso é um `UsageError` (saída 2).
  */
-export function generatePage(project: Project, { name, domain }: PageRequest): PageResult {
+export function generatePage(project: Project, { name, domain, route }: PageRequest): PageResult {
   const names = usableNames(name, 'o nome da tela')
   let domainNames: Names | undefined
   if (domain !== undefined) {
@@ -144,13 +146,13 @@ export function generatePage(project: Project, { name, domain }: PageRequest): P
     )
   }
 
-  const route = `/${names.kebab}`
+  const pagePath = route ?? `/${names.kebab}`
   registerMessageNamespace(plan, names.kebab, names.camel)
   addRouteSnippet(plan, {
     component: `${names.pascal}Page`,
     importPath: `@/pages/${names.kebab}`,
-    path: route,
-    element: routeElement(names, route),
+    path: pagePath,
+    element: routeElement(names, pagePath),
   })
-  return { plan, names, route, ...(domainNames ? { domain: domainNames } : {}) }
+  return { plan, names, route: pagePath, ...(domainNames ? { domain: domainNames } : {}) }
 }

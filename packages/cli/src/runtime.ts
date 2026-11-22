@@ -9,4 +9,11 @@ export interface Runtime {
   cwd: string
   /** As variáveis de ambiente dos comandos. Os testes passam um mapa vazio. */
   env: Readonly<Record<string, string | undefined>>
+  /**
+   * O processo é o `prumo` do terminal: um subprocesso (o `pnpm install` do `new`) pode herdar o
+   * stdout, o stderr e o stdin e mostrar o progresso direto. Ausente ou falso, o stdout e o stderr
+   * do processo não são do comando (num servidor MCP, o stdout é o protocolo): a saída do filho é
+   * capturada e repassada a `out` e `err`, e o stdin dele é ignorado. Só o `bin.ts` o liga.
+   */
+  inheritStdio?: boolean
 }

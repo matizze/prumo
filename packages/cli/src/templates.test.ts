@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { domainNames } from './codemod/index.ts'
+import { APP_FILES } from './generate/app.ts'
 import { COMPONENT_FILES } from './generate/component.ts'
 import { DOMAIN_FILES } from './generate/domain.ts'
 import {
@@ -65,6 +66,7 @@ describe('nameVars', () => {
 
 /** Cada modelo de cada gerador, com o caminho de destino (que também tem marcadores). */
 const GENERATED: { template: string; to: string }[] = [
+  ...APP_FILES,
   ...DOMAIN_FILES,
   ...PAGE_FILES,
   ...PAGE_DOMAIN_FILES,
@@ -113,7 +115,7 @@ describe('os modelos', () => {
     }
     for (const marker of markers)
       expect(marker).toMatch(
-        /^(plural|singular|page|domain|component)\.(kebab|pascal|camel|constant|title)$/,
+        /^(plural|singular|page|domain|component|app)\.(kebab|pascal|camel|constant|title)$/,
       )
   })
 
@@ -125,10 +127,13 @@ describe('os modelos', () => {
       ...nameVars('page', names.plural),
       ...nameVars('domain', names.plural),
       ...nameVars('component', names.plural),
+      ...nameVars('app', names.plural),
+      'app.title': 'Clientes',
     }
     for (const { template } of GENERATED) {
       const text = renderTemplateFile(template, vars)
-      expect(text, template).not.toMatch(/\{\{|undefined/)
+      // O app tem `undefined` de verdade no código (resolveDataSource(undefined, ...))
+      expect(text, template).not.toMatch(template.startsWith('app/') ? /\{\{/ : /\{\{|undefined/)
     }
   })
 })

@@ -16,6 +16,7 @@
     "verify": "pnpm verify:packages && pnpm verify:reference && pnpm verify:starter",
     "starter:build": "pnpm --filter @matizze/prumo-starter run starter:build",
     "verify:generated": "scripts/verify-generated.sh",
+    "verify:product": "scripts/verify-product.sh",
     "dev": "pnpm --filter @matizze/prumo-reference run dev",
     "build": "pnpm --filter \"./packages/*\" run build",
     "pack:all": "scripts/pack-packages.sh"

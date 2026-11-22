@@ -13,6 +13,7 @@ const DEFAULTS = {
   layoutDir: 'src/components/layout',
   messagesDir: 'src/messages',
   locales: ['pt-BR', 'en'],
+  referenceFiles: ['AGENTS.md', 'docs/patterns.md'],
 }
 
 /** Aplica os padrões e normaliza os caminhos: a raiz fica absoluta e as pastas, sem barras nas pontas. */

@@ -1,10 +1,11 @@
 import { defineCommand } from 'citty'
-import { check } from '@matizze/prumo-rules/check'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
+import { checkProject } from '../agents/check.ts'
 import { generateDomain, NOT_FOUND_MESSAGE, REFERENCE_DOMAIN } from '../codemod/index.ts'
 import { ExitError } from '../errors.ts'
 import { findProject } from '../project.ts'
+import type { CommandTree } from '../help.ts'
 import type { Runtime } from '../runtime.ts'
 import { formatViolation } from './check.ts'
 import { formatSummary, testCommandFor } from './shared.ts'
@@ -21,7 +22,7 @@ const TESTING_PACKAGE = '@matizze/prumo-testing'
  * só lista o que seria feito. Ao terminar, roda a análise do `prumo check` e mostra o comando dos
  * testes do domínio novo; o `check` com violação sai com 1, já com o domínio gerado.
  */
-export function createMakeDomainCommand(runtime: Runtime) {
+export function createMakeDomainCommand(runtime: Runtime, tree: CommandTree) {
   return defineCommand({
     meta: {
       name: 'make:domain',
@@ -82,7 +83,7 @@ que um índice já exporta (TS2308), referência incompleta, índice que falta.`
         description: 'Só lista o que seria criado e alterado, sem escrever nada.',
       },
     },
-    run({ args }) {
+    async run({ args }) {
       const project = findProject(path.resolve(runtime.cwd, args.root ?? '.'))
       const dryRun = Boolean(args['dry-run'])
       const { plan, from, to } = generateDomain(project, { name: args.nome, entity: args.entity })
@@ -98,7 +99,7 @@ que um índice já exporta (TS2308), referência incompleta, índice que falta.`
       const summary = plan.commit()
       runtime.out(`${heading}\n\n${formatSummary(summary, false)}\n`)
 
-      const violations = check({ root: project.root })
+      const violations = await checkProject(project.root, tree)
       const schema = `src/schemas/entities/${to.singular.kebab}.ts`
       const fixtures = `src/repositories/${to.plural.kebab}/fixtures.ts`
       const keysTest = existsSync(path.join(project.src, 'queries', 'keys.test.ts'))

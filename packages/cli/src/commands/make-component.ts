@@ -1,9 +1,10 @@
 import { defineCommand } from 'citty'
-import { check } from '@matizze/prumo-rules/check'
 import path from 'node:path'
+import { checkProject } from '../agents/check.ts'
 import { generateComponent, REFERENCE_COMPONENT } from '../codemod/index.ts'
 import { ExitError } from '../errors.ts'
 import { findProject } from '../project.ts'
+import type { CommandTree } from '../help.ts'
 import type { Runtime } from '../runtime.ts'
 import { formatViolation } from './check.ts'
 import { formatSummary, testCommandFor } from './shared.ts'
@@ -16,7 +17,7 @@ import { formatSummary, testCommandFor } from './shared.ts'
  * Ao terminar, roda a análise do `prumo check` e mostra o comando do teste da story; o `check`
  * com violação sai com 1, já com os arquivos gerados.
  */
-export function createMakeComponentCommand(runtime: Runtime) {
+export function createMakeComponentCommand(runtime: Runtime, tree: CommandTree) {
   return defineCommand({
     meta: {
       name: 'make:component',
@@ -60,7 +61,7 @@ existe.`,
         description: 'Só lista o que seria criado e alterado, sem escrever nada.',
       },
     },
-    run({ args }) {
+    async run({ args }) {
       const project = findProject(path.resolve(runtime.cwd, args.root ?? '.'))
       const dryRun = Boolean(args['dry-run'])
       const { plan, from, to, page, storyTitle, story } = generateComponent(project, {
@@ -79,7 +80,7 @@ existe.`,
       const summary = plan.commit()
       runtime.out(`${heading}\n\n${formatSummary(summary, false)}\n`)
 
-      const violations = check({ root: project.root })
+      const violations = await checkProject(project.root, tree)
       const next = `A story é '${storyTitle}'. As props, o visual e os textos são os de ${from.pascal}: edite o componente e a story.\n\nPara rodar o teste da story (play function e axe):\n  ${testCommandFor(project, runtime.cwd, story, 'test:storybook')}\n`
       if (violations.length === 0) {
         runtime.out(`prumo check: nenhuma violação.\n\n${next}`)

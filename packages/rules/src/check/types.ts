@@ -1,5 +1,6 @@
 /** As verificações do `prumo check`, pelo nome que aparece em cada violação. */
-export type CheckRule = 'components-folders' | 'shared-usage' | 'page-structure' | 'messages'
+export type CheckRule =
+  'components-folders' | 'shared-usage' | 'page-structure' | 'messages' | 'references'
 
 /** Uma violação achada no projeto. */
 export interface Violation {
@@ -34,6 +35,11 @@ export interface CheckOptions {
   messagesDir?: string
   /** Idiomas do produto, o primeiro é a referência das comparações. Padrão: `['pt-BR', 'en']`. */
   locales?: string[]
+  /**
+   * Os arquivos de texto cujas citações entre crases a análise `references` confere, relativos à
+   * raiz. O que não existe é pulado. Padrão: `['AGENTS.md', 'docs/patterns.md']`.
+   */
+  referenceFiles?: string[]
 }
 
 /** As opções com todos os padrões aplicados e os caminhos de pasta sem barras nas pontas. */

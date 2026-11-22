@@ -317,3 +317,42 @@ describe('messages.test.ts: "cada index.ts registra todos os namespaces do idiom
     expect(check({ root })).toEqual([])
   })
 })
+
+// O `src/patterns-index.test.ts` do app (o índice de padrões não cita o que não existe) também foi
+// removido: a análise `references` confere os mesmos quatro tipos de citação, no `AGENTS.md` e no
+// `docs/patterns.md`. A conferência "cita toda página do registry" é do catálogo (`patterns.test.ts`).
+describe('patterns-index.test.ts: o índice só cita o que existe', () => {
+  const app = [
+    '<Route path="/sales" component={Sales} />',
+    '<Route path="/ai-chat" nest><Route path="/text" component={Text} /></Route>',
+  ].join('\n')
+  const files = {
+    'src/App.tsx': app,
+    'src/pages/sales/index.tsx': '',
+    'src/components/ui/card.stories.tsx': "export default {\n  title: 'Components/Card',\n}\n",
+    'docs/registry.md': '',
+    'registry.json': json({ items: [{ name: 'card' }] }),
+  }
+  const index = (text: string) =>
+    where(check({ root: makeProject({ ...files, 'docs/patterns.md': text }) })).filter(
+      ([rule]) => rule === 'references',
+    )
+
+  it('o índice com tudo o que cita existindo passa', () => {
+    expect(
+      index(
+        'Veja `src/pages/sales`, `/sales`, `/ai-chat/text`, `Components/Card`, `@matizze/card` e `docs/registry.md`.',
+      ),
+    ).toEqual([])
+  })
+
+  it.each([
+    ['caminho', '`src/pages/gone`'],
+    ['rota', '`/gone`'],
+    ['story', '`Components/Gone`'],
+    ['item do registry', '`@matizze/gone`'],
+    ['documento apontado', '`docs/porting/README.md`'],
+  ])('acusa o que cita de %s e não existe', (_kind, cited) => {
+    expect(index(`Veja ${cited}.`)).toEqual([['references', 'docs/patterns.md']])
+  })
+})

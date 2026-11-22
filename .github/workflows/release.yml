@@ -1,0 +1,41 @@
+# Publicação no npm público, a cada push na `main` (o merge da develop com as versões novas).
+#
+# É o único workflow do Prumo: a verificação é local (`pnpm verify`), sem CI. O job pergunta ao npm
+# quais versões faltam e, se nenhuma falta, termina em segundos, sem instalar nada
+# (scripts/publish-npm.sh). A autenticação é pelo Trusted Publishing do npm (OIDC, `id-token: write`):
+# nenhum token fica guardado no repositório.
+name: Publicação
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publicar no npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      - name: Publica as versões que faltam
+        run: scripts/publish-npm.sh

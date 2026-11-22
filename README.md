@@ -6,7 +6,17 @@ O plano está em [docs/plano.md](docs/plano.md).
 
 ## Situação
 
-**Fases A e B do plano concluídas.** O Prumo não traz frontend, e os geradores simples estão prontos: a CLI tem `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`, os modelos moram no `@matizze/prumo-cli`, e o servidor MCP expõe as mesmas ferramentas. O portão local, `pnpm verify:new`, cria um app numa pasta temporária, gera tela, domínio e componente pela CLI e pelo MCP e roda a verificação nele, em menos de um minuto e sem navegador. A Fase C, a publicação, vai para o npm público (`@matizze`, sem token para instalar): o código já está preparado (`publishConfig` público, `prumo new` sem `.npmrc`); o GitHub Packages foi uma etapa provisória, com a versão atual publicada lá, e a publicação no npmjs depende de uma pessoa (a organização `matizze` e um token).
+**Fases A e B do plano concluídas.** O Prumo não traz frontend, e os geradores simples estão prontos: a CLI tem `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`, os modelos moram no `@matizze/prumo-cli`, e o servidor MCP expõe as mesmas ferramentas. O portão local, `pnpm verify:new`, cria um app numa pasta temporária, gera tela, domínio e componente pela CLI e pelo MCP e roda a verificação nele, em menos de um minuto e sem navegador. Da Fase C, os pacotes já estão no npm público (`@matizze`, sem token para instalar); faltam o workflow de publicação e o repositório público.
+
+## Uso
+
+```bash
+pnpm dlx @matizze/prumo-cli new meu-app   # cria o app e instala as dependências
+cd meu-app
+pnpm exec prumo make:domain clientes
+pnpm exec prumo make:page clientes --domain clientes
+pnpm verify                                # typecheck, lint, prumo check e testes
+```
 
 ## Pacotes
 

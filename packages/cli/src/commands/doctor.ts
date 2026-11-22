@@ -1,10 +1,9 @@
 import { defineCommand } from 'citty'
-import { spawnSync } from 'node:child_process'
 import { readFileSync, statSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { runChecks, type DoctorSystem, type Finding, type Status } from '../doctor/checks.ts'
 import { ExitError, UsageError } from '../errors.ts'
+import { pnpmVersion } from '../pnpm.ts'
 import type { Runtime } from '../runtime.ts'
 
 const STATUS_TEXT: Record<Status, string> = { ok: 'ok   ', warn: 'aviso', error: 'erro ' }
@@ -25,23 +24,6 @@ export function formatSummary(findings: readonly Finding[]): string {
     warnings > 0 ? (warnings === 1 ? '1 aviso' : `${warnings} avisos`) : '',
   ].filter(Boolean)
   return `prumo doctor: ${parts.join(' e ')}.`
-}
-
-/** O pnpm que a pessoa usa. Roda fora do projeto e sem baixar versões, porque o doctor não usa a rede. */
-function pnpmVersion(): string | undefined {
-  const result = spawnSync('pnpm', ['--version'], {
-    cwd: tmpdir(),
-    encoding: 'utf8',
-    timeout: 20_000,
-    env: {
-      ...process.env,
-      COREPACK_ENABLE_NETWORK: '0',
-      COREPACK_ENABLE_AUTO_PIN: '0',
-      npm_config_manage_package_manager_versions: 'false',
-    },
-  })
-  const version = result.stdout?.trim()
-  return result.status === 0 && version ? version : undefined
 }
 
 function readText(file: string): string | undefined {

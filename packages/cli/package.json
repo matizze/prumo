@@ -1,14 +1,15 @@
 {
   "name": "@matizze/prumo-cli",
   "version": "0.3.0",
-  "description": "O comando prumo: new, make, add, promote, check e doctor.",
+  "description": "O comando prumo: new, make, add, catalog, patterns, promote, check e doctor, e a API para rodar comandos em processo.",
   "private": true,
   "type": "module",
   "bin": {
     "prumo": "./src/bin.ts"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./api": "./src/api.ts"
   },
   "files": [
     "dist"
@@ -24,6 +25,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./api": {
+        "types": "./dist/api.d.ts",
+        "default": "./dist/api.js"
       }
     }
   },

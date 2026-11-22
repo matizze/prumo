@@ -10,6 +10,8 @@ const runtime = {
   env: process.env,
   // As perguntas precisam de um terminal nos dois lados: com a saída redirecionada, a lista sumiria
   interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY),
+  // O processo é o prumo do terminal: o pnpm install e o shadcn mostram o progresso direto
+  inheritStdio: true,
   // O @clack/prompts só carrega quando há pergunta: o `check` e os demais comandos não pagam por ele
   choose: async (message: string, options: readonly Choice[]) =>
     (await import('./prompt.ts')).chooseInTerminal(message, options),

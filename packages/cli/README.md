@@ -61,15 +61,16 @@ prumo check [--root <pasta>]
 ### prumo new
 
 ```sh
-prumo new <nome> [--dir <pasta>] [--from <pasta>] [--packages <pasta>] [--ds <cliente>] [--no-install] [--dry-run]
+prumo new <nome> [--dir <pasta>] [--from <pasta>] [--ref <ref>] [--packages <pasta>] [--ds <cliente>] [--no-install] [--dry-run]
 ```
 
 - `<nome>`: o nome do produto, em kebab-case, começando com letra (`meu-produto`, `loja2`). Vira a pasta e o `name` do `package.json`.
 - `--dir <pasta>`: a pasta onde criar `<nome>`. Padrão: a pasta atual. O destino (`<dir>/<nome>`) não pode existir com conteúdo (uma pasta vazia serve).
-- `--from <pasta>`: um checkout do `matizze/prumo` de onde sai o starter (o próprio monorepo serve). Sem a opção, o comando clona o repositório (`git clone --depth 1`, com as credenciais do git de quem roda) numa pasta temporária, que apaga no fim. O repositório vem de `PRUMO_REPOSITORY` (padrão: `https://github.com/matizze/prumo.git`).
+- `--from <pasta>`: um checkout do `matizze/prumo` de onde sai o starter (o próprio monorepo serve). Sem a opção, o comando clona o repositório (`git clone --depth 1 --branch <ref>`, com as credenciais do git de quem roda) numa pasta temporária, que apaga no fim. O repositório vem de `PRUMO_REPOSITORY` (padrão: `https://github.com/matizze/prumo.git`) e a ref, de `--ref` (veja "A origem do `new` e do `add`", abaixo). Com `--from`, vão só os arquivos que o git do checkout conhece: o `.env` com token, o `public/r` e o `dist-ds` de quem roda ficam para trás.
+- `--ref <ref>`: a branch ou a tag que o clone lê. Padrão: `PRUMO_REF`, ou `main`. Não vale com `--from`.
 - `--packages <pasta>`: uma pasta com os tarballs `@matizze/prumo-*` (o `pnpm pack:all`, na raiz do monorepo, os gera). O `package.json` do produto ganha `pnpm.overrides` com `file:` para cada tarball, e não há `.npmrc`. É o que prova a instalação fora do monorepo antes da publicação.
-- `--ds <cliente>`: o design system do cliente em vez do MaDS: `--ds gekom` troca o registry de UI `@mads` por `@gekom-ds` (veja abaixo). O nome é kebab-case, em minúsculas.
-- `--no-install`: só cria os arquivos, sem o `pnpm install`.
+- `--ds <cliente>`: o design system do cliente em vez do MaDS: `--ds gekom` troca o registry de UI `@mads` por `@gekom-ds` (veja abaixo). O nome é kebab-case, em minúsculas, e é só o nome do cliente: `--ds gekom-ds` é recusado (código 2), porque viraria `@gekom-ds-ds`.
+- `--no-install`: não roda o `pnpm install`, só cria os arquivos. Sem a opção, o comando instala.
 - `--dry-run`: lista o que seria copiado, alterado e criado, sem escrever nada.
 
 O que o comando faz, nesta ordem:
@@ -98,6 +99,16 @@ prumo new meu-produto --from ~/Code/matizze/prumo --packages .packs   # de tarba
 | `AGENTS.md` e `README.md`     | dizem que a UI é uma cópia do MaDS e de onde vêm os itens novos | dizem o mesmo com o registry e as variáveis do cliente |
 
 O resto do produto não muda: a cópia do MaDS fica como base, e os itens novos vêm do registry do cliente (`prumo add @gekom-ds/<item>`). Um registry de cliente publica os itens com o namespace dele, inclusive nas `registryDependencies` (`@gekom-ds/utils`), como o MaDS faz com `@mads/utils`.
+
+#### A origem do `new` e do `add`
+
+O `new` e o `add`, sem `--from`, leem o repositório do Prumo por git. O que vale para os dois:
+
+- **A ref é a `main`.** O clone usa `git clone --depth 1 --branch <ref>`, e a ref padrão é a `main`, onde entram as versões publicadas: a `develop` (a branch padrão do repositório) está sempre à frente delas, e ler a `develop` poderia gravar no produto uma versão que o GitHub Packages ainda não tem. `--ref <ref>` (no `new` e no `add`) ou a variável `PRUMO_REF` trocam a ref por uma branch ou por uma tag (`--ref develop`, `--ref v0.3.0`); a opção vale mais que a variável. `--ref` com `--from` é erro de uso: a origem é o que está na pasta.
+- **`Origem:`** mostra o repositório e a ref (`file:///...repo (ref main), cache em <pasta>` no `add`), e não só a pasta.
+- **O cache do `add` é do prumo.** O clone fica em `PRUMO_CACHE_DIR` ou em `<cache do usuário>/prumo/source` (`XDG_CACHE_HOME` ou `~/.cache`; variável vazia ou relativa conta como ausente, e o caminho é sempre absoluto). O prumo grava no `.git` do clone uma sentinela, `.git/prumo-cache.json`, com o repositório e a ref. Uma pasta que existe, não está vazia e não tem a sentinela é recusada com código 2, sem ser tocada (nada de `reset --hard` num repositório de trabalho que `PRUMO_CACHE_DIR` apontou por engano): apague-a ou aponte `PRUMO_CACHE_DIR` para outra. Sentinela de outro repositório ou de outra ref: o cache troca o `remote` e busca a ref pedida (e, se a busca falha, o comando falha, em vez de ler o cache do repositório antigo).
+- **Cache com problema.** Sem rede para atualizar, vale a cópia que está em cache, depois de restaurar os arquivos dela, com um aviso. Se o git não lê o clone (um `.git` quebrado), ou não consegue restaurar os arquivos, ou o `catalog/index.json` da cópia não é um JSON legível, o prumo apaga o cache (a sentinela prova que é dele) e baixa de novo, avisando. Se o índice continua ilegível com a cópia nova, o erro (código 1) diz a pasta que apagar e que o repositório pode estar com o índice quebrado.
+- **O `new --from` não leva o que o git ignora.** Quando a origem é a raiz de um repositório git, a lista de arquivos do `starter/` vem de `git ls-files --cached --others --exclude-standard`: o que é rastreado ou novo e não ignorado. O `.env` com token, o `public/r`, o `dist-ds` e o `.vscode` de um checkout de trabalho não vão parar em todo produto novo. Fora de um repositório git (um `git archive` extraído), vale só o filtro, que também deixa de fora `.env` e `.env.*` (menos o `.env.example`), `public/r`, `dist-ds`, `.vscode` (menos o `extensions.json`), `.idea`, `*.log`, `.DS_Store`, `.eslintcache` e `.nyc_output`, além do que já ficava (`node_modules`, `dist`, `scripts/`, `*.local` na raiz...).
 
 ### prumo make:page
 
@@ -257,7 +268,7 @@ prumo doctor [--root <pasta>]
 - **Node:** erro abaixo do Node 24 (o mínimo do Prumo, porque os comandos rodam `.ts` direto). Aviso se o `.nvmrc` do projeto (ou o de uma pasta acima, num monorepo) ou o `engines.node` (`>=N`) pedem outra versão.
 - **pnpm:** erro se o pnpm não existe. Aviso se o `package.json` (ou o de uma pasta acima) não tem `packageManager`, se ele não é pnpm, ou se o pnpm instalado é de outra major ou mais antigo que o `packageManager`.
 - **Pacotes do Prumo:** a versão instalada em `node_modules` de `@matizze/prumo-core`, `-rules`, `-testing` e `-cli` contra uma faixa compatível (`>=0.1.0 <0.2.0`), não contra a igualdade, porque os pacotes versionam separados. Atrás da faixa: aviso para atualizar o pacote. À frente: aviso para atualizar a CLI. A faixa do `@matizze/prumo-cli` é a da versão que está rodando. Só entram os pacotes que o projeto declara ou tem instalados; declarado e não instalado é erro (`pnpm install`).
-- **Registry de UI:** o `components.json` precisa existir e ser JSON (erro se não); o registry de UI é o `@mads` ou o `@<cliente>-ds` (aviso se não há nenhum). As variáveis vêm das `${VARIAVEL}` da URL e dos headers do registry (`MADS_REGISTRY_URL` e `MADS_REGISTRY_TOKEN` no `@mads`, e as do cliente no `@<cliente>-ds`) e são lidas do ambiente e do `.env.local` (o ambiente vence). Variável ausente é aviso. **O token nunca aparece:** só "definido" ou "ausente", e a URL sai sem usuário e senha.
+- **Registry de UI:** o `components.json` precisa existir e ser JSON (erro se não); o registry de UI é o `@mads` ou o `@<cliente>-ds` (aviso se não há nenhum). As variáveis vêm das `${VARIAVEL}` da URL e dos headers do registry (`MADS_REGISTRY_URL` e `MADS_REGISTRY_TOKEN` no `@mads`, e as do cliente no `@<cliente>-ds`) e são lidas do ambiente e dos mesmos arquivos `.env` que o `prumo add` confere e o shadcn lê (`.env.local`, `.env.development.local`, `.env.development` e `.env`, nessa ordem: o ambiente vence, e depois o primeiro arquivo em que a variável tem valor; a lista está em `ENV_FILES`, em `doctor/env-file.ts`, e os dois comandos a usam). Variável ausente é aviso. **O token nunca aparece:** só "definido" ou "ausente", e a URL sai sem usuário e senha e sem query nem fragmento (`https://host/r?token=x` vira `https://host/r?***`).
 - **Projeto:** `.mcp.json` e `.env.local` ausentes são aviso.
 - Código de saída: 0 sem erro (avisos não falham), 1 com erro, 2 para uso errado (opção desconhecida, pasta sem `package.json`).
 

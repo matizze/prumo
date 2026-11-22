@@ -34,12 +34,12 @@ createRuleTester().run('no-cross-page-import', noCrossPageImport, {
     { filename: view, code: "import { pages } from '@/pages'" },
     { filename: view, code: "import { x } from '../'" },
     { filename: view, code: "import { x } from '@/other/pages/billing'" },
-    // Fora de pages/ não é uma tela: a regra deixa passar (quem cuida disso é a ui-boundary)
+    // Fora de pages/ não é uma tela: a regra deixa passar
     {
       filename: inProject('src/components/ui/x.tsx'),
       code: "import { x } from '../../pages/billing/model'",
     },
-    // Testes e stories de uma tela também ficam na própria pasta
+    // Os testes de uma tela também ficam na própria pasta
     {
       filename: inProject('src/pages/dashboard/index.test.tsx'),
       code: "import { Page } from './index'",
@@ -108,7 +108,7 @@ createRuleTester().run('no-cross-page-import', noCrossPageImport, {
       code: "type Row = import('@/pages/billing/model').InvoiceRow",
       errors: [cross('dashboard', 'billing', '@/pages/billing/model')],
     },
-    // Testes e stories de uma tela também não olham outra
+    // Os testes de uma tela também não olham outra
     {
       filename: inProject('src/pages/dashboard/index.test.tsx'),
       code: "import { fixture } from '@/pages/billing/index.test'",

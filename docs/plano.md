@@ -39,13 +39,13 @@ A `view` gerada usa só React e elementos HTML semânticos, sem classes de nenhu
 
 ## 3. Pacotes
 
-| Pacote                   | Fica com                                                                                                                 | Sai                                                                                                                               |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `@matizze/prumo-core`    | container de repositórios, query keys, tipo `Page`, utilitários de mock, i18n, erros, guarda de login, provedor de query | nada (rever só o que depender de interface)                                                                                       |
-| `@matizze/prumo-rules`   | `page-structure`, `no-cross-page-import`, as análises `messages`, `page-structure` e `shared-usage` do `check`           | `ui-boundary`, `icons-from-alias`, `no-inline-svg`, `components-folders` (se só servir à UI), `references`                        |
-| `@matizze/prumo-testing` | `renderWithProviders`, `setupDom`, `createDeferred`, o teste de contrato                                                 | `storybook`, `storybook/preview`, os peers de Storybook e Playwright                                                              |
-| `@matizze/prumo-cli`     | `new`, `make:page`, `make:domain`, `make:component`, `check`, `doctor`                                                   | `add`, `promote`, `catalog`, `patterns`, `agents`, o `--like` e os dez padrões, `--menu`, a escolha interativa (`@clack/prompts`) |
-| `@matizze/prumo-mcp`     | o servidor com as mesmas ferramentas da CLI                                                                              | o que vier dos comandos que saem                                                                                                  |
+| Pacote                   | Fica com                                                                                                                             | Sai                                                                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `@matizze/prumo-core`    | container de repositórios, query keys, tipo `Page`, utilitários de mock, i18n, erros, guarda de login, provedor de query             | nada (rever só o que depender de interface)                                                                                       |
+| `@matizze/prumo-rules`   | `page-structure`, `no-cross-page-import`, as análises `components-folders`, `messages`, `page-structure` e `shared-usage` do `check` | `ui-boundary`, `icons-from-alias`, `no-inline-svg`, `references` e as seções geradas do `AGENTS.md`                               |
+| `@matizze/prumo-testing` | `renderWithProviders` (com a rota em memória), `setupDom`, `matchMedia` controlável, `createDeferred`, o teste de contrato           | `storybook`, `storybook/preview`, os peers de Storybook e Playwright                                                              |
+| `@matizze/prumo-cli`     | `new`, `make:page`, `make:domain`, `make:component`, `check`, `doctor`                                                               | `add`, `promote`, `catalog`, `patterns`, `agents`, o `--like` e os dez padrões, `--menu`, a escolha interativa (`@clack/prompts`) |
+| `@matizze/prumo-mcp`     | o servidor com as mesmas ferramentas da CLI                                                                                          | o que vier dos comandos que saem                                                                                                  |
 
 ## 4. O que sai do repositório
 
@@ -84,7 +84,7 @@ Os modelos de cada comando moram no `@matizze/prumo-cli`, como arquivos com marc
 
 ## 8. Decisões para confirmar
 
-1. **`promote` sai?** Ele move um componente de uma tela para `shared`, mas depende de stories e do `registry.json`. A recomendação é tirar e, se fizer falta, refazer simples depois.
-2. **`skeleton.tsx`:** hoje é opcional na estrutura da tela. A recomendação é não gerar (é interface).
+1. **`promote` sai?** Decidido: sai (Fase A). Ele dependia de stories e do `registry.json`; se fizer falta, volta simples depois.
+2. **`skeleton.tsx`:** Decidido: não é cobrado nem gerado (é interface). A regra e a análise `page-structure` só olham os arquivos da lista (`index.tsx`, `model.ts` e `view.tsx`).
 3. **Versões:** os pacotes nunca foram publicados. A recomendação é recomeçar o histórico no repositório público, mantendo a versão atual de cada pacote.
 4. **Escopo no npm:** confirmar que a organização `matizze` existe no npmjs e quem guarda o token.

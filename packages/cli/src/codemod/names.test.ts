@@ -78,7 +78,7 @@ describe('singularOf', () => {
   })
 
   it('não adivinha o que não termina em s e pede o singular explícito', () => {
-    expect(() => singularOf('catalog')).toThrow(/--entity/)
+    expect(() => singularOf('inventory')).toThrow(/--entity/)
     expect(() => singularOf('s')).toThrow(UsageError)
   })
 
@@ -122,7 +122,7 @@ describe('domainNames', () => {
 
   it('aceita um singular explícito para o que a regra erra', () => {
     expect(domainNames('categories', 'category').singular.pascal).toBe('Category')
-    expect(domainNames('catalog', 'product').singular.camel).toBe('product')
+    expect(domainNames('inventory', 'product').singular.camel).toBe('product')
   })
 
   it('recusa singular inválido ou igual ao plural', () => {

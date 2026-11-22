@@ -28,7 +28,7 @@ declare module '@tanstack/react-query' {
 
 /** Opções de `createQueryClient`. */
 export interface QueryClientOptions {
-  /** Mostra o erro ao usuário (hoje o `toast.error` do sonner). O core não conhece o toaster. */
+  /** Mostra o erro ao usuário (uma notificação, por exemplo). O core não conhece a interface. */
   notify: (message: string) => void
   /** Texto do erro, no idioma ativo (hoje o `getErrorMessage` criado por `createErrorMessage`). */
   getErrorMessage: (error: unknown) => string

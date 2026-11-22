@@ -5,9 +5,8 @@ import path from 'node:path'
 export const DEFAULT_PAGE_FILES = ['model.ts', 'view.tsx']
 
 /**
- * Arquivos obrigatórios que faltam numa pasta de tela. O `skeleton.tsx` não entra: só as
- * telas publicadas no catálogo o têm, e quem cobra é o registry. As telas estáticas, sem
- * nenhuma query, não precisam dele.
+ * Arquivos obrigatórios que faltam numa pasta de tela. Só entram os da lista: qualquer outro
+ * arquivo ao lado do `index.tsx` é livre.
  */
 export function missingPageFiles(
   pageDir: string,

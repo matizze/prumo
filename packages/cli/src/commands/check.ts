@@ -22,8 +22,7 @@ export function createCheckCommand(runtime: Runtime) {
       description: `Analisa o projeto e lista as violações da arquitetura.
 
 Confere as pastas de src/components, o uso de components/shared pelas telas, a estrutura de cada
-tela, os textos completos nos idiomas e o que o AGENTS.md (e o docs/patterns.md) cita entre crases
-(caminho, rota, story e item do registry que não existe).
+tela e os textos completos nos idiomas.
 
 Sai com código 1 quando há violação, e com 2 quando o uso está errado ou a pasta do projeto não
 existe ou não tem package.json e src.`,

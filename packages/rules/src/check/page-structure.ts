@@ -6,8 +6,7 @@ import type { ResolvedOptions, Violation } from './types.ts'
 /**
  * Toda pasta de `src/pages` é uma tela e tem os arquivos obrigatórios (por padrão `index.tsx`,
  * `model.ts` e `view.tsx`). É a mesma regra do `prumo/page-structure` do ESLint, que só vê a
- * tela que já tem `index.tsx`; aqui a falta do próprio `index.tsx` também acusa. O
- * `skeleton.tsx` não é cobrado.
+ * tela que já tem `index.tsx`; aqui a falta do próprio `index.tsx` também acusa.
  */
 export function checkPageStructure(options: ResolvedOptions): Violation[] {
   const pagesPath = path.join(options.root, options.pagesDir)

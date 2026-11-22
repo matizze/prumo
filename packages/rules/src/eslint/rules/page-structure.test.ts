@@ -22,8 +22,8 @@ const missing = (page: string, file: string, pagesDir = 'src/pages') => ({
 })
 
 const complete = page('complete', ['index.tsx', 'model.ts', 'view.tsx'])
-// O skeleton não é cobrado, mesmo nas telas que o têm
-const withSkeleton = page('with-skeleton', ['index.tsx', 'model.ts', 'view.tsx', 'skeleton.tsx'])
+// Arquivo a mais ao lado do index.tsx não é cobrado nem acusado
+const withExtra = page('with-extra', ['index.tsx', 'model.ts', 'view.tsx', 'helpers.ts'])
 const noModel = page('no-model', ['index.tsx', 'view.tsx'])
 const noView = page('no-view', ['index.tsx', 'model.ts'])
 const onlyIndex = page('only-index', ['index.tsx'])
@@ -33,7 +33,7 @@ const customMissing = page('custom-missing', ['index.tsx', 'model.ts'], 'app/scr
 createRuleTester().run('page-structure', pageStructure, {
   valid: [
     { filename: complete, code: 'export default 1' },
-    { filename: withSkeleton, code: 'export default 1' },
+    { filename: withExtra, code: 'export default 1' },
     // Só o index.tsx da tela é verificado: os outros arquivos da pasta não repetem o aviso
     { filename: path.join(path.dirname(noModel), 'view.tsx'), code: 'export default 1' },
     { filename: path.join(path.dirname(noModel), 'index.test.tsx'), code: 'export default 1' },
@@ -66,8 +66,8 @@ createRuleTester().run('page-structure', pageStructure, {
     {
       filename: noView,
       code: '',
-      options: [{ requiredFiles: ['model.ts', 'view.tsx', 'skeleton.tsx'] }],
-      errors: [missing('no-view', 'view.tsx'), missing('no-view', 'skeleton.tsx')],
+      options: [{ requiredFiles: ['model.ts', 'view.tsx', 'helpers.ts'] }],
+      errors: [missing('no-view', 'view.tsx'), missing('no-view', 'helpers.ts')],
     },
   ],
 })

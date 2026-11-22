@@ -6,15 +6,15 @@ O plano está em [docs/plano.md](docs/plano.md).
 
 ## Situação
 
-**Fase A do plano em andamento.** O app de referência, o catálogo e o starter das fases anteriores saíram, e a CLI tem só `check` e `doctor` até a Fase B (os geradores simples). Falta tirar do `rules` e do `testing` o que sobrou de interface. Nada foi publicado.
+**Fase A do plano concluída (o extermínio).** O app de referência, o catálogo e o starter das fases anteriores saíram, e cada pacote perdeu o que era de interface: o `rules` cobra só a estrutura do projeto, o `testing` não tem Storybook nem navegador, e o `core` não depende de interface. A CLI tem só `check` e `doctor`, e o servidor MCP expõe só esses. **A Fase B (os geradores simples: `new`, `make:page`, `make:domain` e `make:component`, a partir de modelos) vem a seguir.** Nada foi publicado.
 
 ## Pacotes
 
 | Pacote                                       | O que entrega                                                                                                             |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | [`@matizze/prumo-core`](packages/core)       | Container de repositórios, query keys, tipo `Page`, utilitários de mock, i18n, erros, guarda de login e provedor de query |
-| [`@matizze/prumo-rules`](packages/rules)     | Regras da arquitetura: plugin de ESLint e a análise do `prumo check`                                                      |
-| [`@matizze/prumo-testing`](packages/testing) | Render com provedores e teste de contrato                                                                                 |
+| [`@matizze/prumo-rules`](packages/rules)     | Regras da arquitetura: plugin de ESLint (`page-structure`, `no-cross-page-import`) e a análise do `prumo check`           |
+| [`@matizze/prumo-testing`](packages/testing) | Render com provedores, setup do DOM e teste de contrato de repositório, sem interface                                     |
 | [`@matizze/prumo-cli`](packages/cli)         | O comando `prumo` (`check` e `doctor`)                                                                                    |
 | [`@matizze/prumo-mcp`](packages/mcp)         | Servidor MCP com os comandos da CLI, para agentes                                                                         |
 

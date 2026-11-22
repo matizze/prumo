@@ -6,7 +6,7 @@ Guia para agentes de IA neste monorepo.
 
 O Prumo é uma **ferramenta** da Matizze para criar e manter aplicações React organizadas em camadas (telas com `index`, `model` e `view`, domínios com schema, repositório e queries, textos em dois idiomas) e conferir a arquitetura. **Não tem frontend:** nenhum componente de interface, ícone, tema, CSS, Storybook, tela pronta, catálogo de blocos ou padrão de tela. A interface é do produto. Visão geral e comandos no [README.md](README.md); o plano e as fases, em [docs/plano.md](docs/plano.md).
 
-São cinco pacotes em `packages/`: `core`, `rules`, `testing`, `cli` (os comandos `check` e `doctor`) e `mcp` (o servidor com as mesmas ferramentas). Nada foi publicado: os pacotes seguem `"private": true`, e a primeira publicação (npm público, Fase C do plano) espera uma pessoa e um token. Não tire o `private` nem publique por conta própria.
+A **Fase A (o extermínio) terminou**: não há mais nada de interface no repositório, e a **Fase B (os geradores simples) vem a seguir**. São cinco pacotes em `packages/`: `core`, `rules`, `testing`, `cli` (os comandos `check` e `doctor`) e `mcp` (o servidor com as mesmas ferramentas). Nada foi publicado: os pacotes seguem `"private": true`, e a primeira publicação (npm público, Fase C do plano) espera uma pessoa e um token. Não tire o `private` nem publique por conta própria.
 
 ## Regras
 

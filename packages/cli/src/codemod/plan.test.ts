@@ -133,4 +133,81 @@ describe('ChangePlan', () => {
     expect(edits[0]?.after.startsWith('// alterado\n')).toBe(true)
     expect(edits[0]?.before.startsWith('// alterado')).toBe(false)
   })
+
+  describe('moveFile', () => {
+    it('cria o arquivo no destino com o texto editado, lista como movido e apaga a origem no commit', () => {
+      const plan = fixturePlan()
+      const { root } = plan.project
+      const code = at(root, 'src/pages/file-manager/components/storage-card.tsx')
+      const doc = at(root, 'src/pages/products-list/README.md')
+      const original = readFileSync(code, 'utf8')
+
+      const moved = plan.moveFile(code, at(root, 'src/components/shared/storage-card.tsx'))
+      expect(moved?.getFullText()).toBe(original)
+      expect(plan.moveFile(doc, at(root, 'src/components/shared/README.md'))).toBeUndefined()
+      applyEdits(moved!, [{ pos: 0, end: 0, text: '// movido\n' }])
+
+      expect(plan.summary()).toEqual({
+        created: [],
+        modified: [],
+        moved: [
+          {
+            from: 'src/pages/file-manager/components/storage-card.tsx',
+            to: 'src/components/shared/storage-card.tsx',
+          },
+          {
+            from: 'src/pages/products-list/README.md',
+            to: 'src/components/shared/README.md',
+          },
+        ],
+      })
+      expect(existsSync(code)).toBe(true)
+      expect(existsSync(at(root, 'src/components/shared'))).toBe(false)
+
+      plan.commit()
+      expect(existsSync(code)).toBe(false)
+      expect(existsSync(doc)).toBe(false)
+      expect(readFileSync(at(root, 'src/components/shared/storage-card.tsx'), 'utf8')).toBe(
+        `// movido\n${original}`,
+      )
+      expect(readFileSync(at(root, 'src/components/shared/README.md'), 'utf8')).toBe(
+        'Notas da tela de lista.\n',
+      )
+    })
+
+    it('apaga a pasta que ficou vazia e deixa a que ainda tem arquivos', () => {
+      const plan = fixturePlan()
+      const { root } = plan.project
+      plan.moveFile(
+        at(root, 'src/pages/file-manager/components/storage-card.stories.tsx'),
+        at(root, 'src/components/shared/storage-card.stories.tsx'),
+      )
+      plan.moveFile(
+        at(root, 'src/pages/file-manager/components/storage-card.tsx'),
+        at(root, 'src/components/shared/storage-card.tsx'),
+      )
+      plan.commit()
+      expect(existsSync(at(root, 'src/pages/file-manager/components'))).toBe(false)
+      expect(existsSync(at(root, 'src/pages/file-manager/model.ts'))).toBe(true)
+    })
+
+    it('recusa origem que não existe, destino que existe e arquivo já movido ou alterado', () => {
+      const plan = fixturePlan()
+      const { root } = plan.project
+      const from = at(root, 'src/pages/blank/model.ts')
+
+      expect(() => plan.moveFile(at(root, 'src/nada.ts'), at(root, 'src/novo.ts'))).toThrow(
+        "'src/nada.ts' não existe no projeto.",
+      )
+      expect(() => plan.moveFile(from, at(root, 'src/pages/blank/view.tsx'))).toThrow(
+        "'src/pages/blank/view.tsx' já existe.",
+      )
+      plan.source(at(root, 'src/pages/blank/view.tsx'))
+      expect(() =>
+        plan.moveFile(at(root, 'src/pages/blank/view.tsx'), at(root, 'src/x.tsx')),
+      ).toThrow('o plano já alterou')
+      plan.moveFile(from, at(root, 'src/model.ts'))
+      expect(() => plan.moveFile(from, at(root, 'src/outro.ts'))).toThrow('o plano já moveu')
+    })
+  })
 })

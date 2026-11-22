@@ -1,4 +1,14 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmdirSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import path from 'node:path'
 import { IndentationText, Project as MorphProject, QuoteKind, ts, type SourceFile } from 'ts-morph'
 import { UsageError } from '../errors.ts'
@@ -8,6 +18,8 @@ import type { Project } from '../project.ts'
 export interface PlanSummary {
   created: string[]
   modified: string[]
+  /** Os arquivos que o plano move (origem e destino). Só aparece quando o plano move algum. */
+  moved?: { from: string; to: string }[]
 }
 
 type TextEntry = { kind: 'text'; content: string }
@@ -38,6 +50,8 @@ export class ChangePlan {
   readonly #createdFiles = new Map<string, TextEntry | CopyEntry>()
   readonly #editedTexts = new Map<string, { original: string; content: string }>()
   readonly #overwrites = new Map<string, string>()
+  /** Os arquivos movidos: destino para origem. O destino também está em `#createdSources` ou `#createdFiles`. */
+  readonly #moves = new Map<string, string>()
 
   constructor(project: Project) {
     this.project = project
@@ -100,6 +114,35 @@ export class ChangePlan {
       throw new UsageError(`'${this.#display(file)}' não existe no projeto.`)
     }
     this.#overwrites.set(file, from)
+  }
+
+  /**
+   * Move um arquivo que existe no projeto: o plano o cria em `to` (com o texto de agora, que o
+   * chamador edita em seguida por `createdSources()`) e o `commit()` apaga o original. Um arquivo
+   * de código devolve o `SourceFile` do destino; os demais são copiados como estão. `to` não
+   * pode existir, e `from` não pode já ter sido aberto como costura nem movido antes.
+   */
+  moveFile(from: string, to: string): SourceFile | undefined {
+    if (!this.hasFile(from) || this.#createdSources.has(from) || this.#createdFiles.has(from)) {
+      throw new UsageError(`'${this.#display(from)}' não existe no projeto.`)
+    }
+    if (
+      this.#loadedSources.has(from) ||
+      this.#editedTexts.has(from) ||
+      this.#overwrites.has(from)
+    ) {
+      throw new Error(`o plano já alterou ${from}: não dá para movê-lo`)
+    }
+    if ([...this.#moves.values()].includes(from)) throw new Error(`o plano já moveu ${from}`)
+    this.#assertNew(to)
+    this.#moves.set(to, from)
+    if (!isCodeFile(to)) {
+      this.#createdFiles.set(to, { kind: 'copy', from })
+      return undefined
+    }
+    const source = this.morph.createSourceFile(to, readFileSync(from, 'utf8'))
+    this.#createdSources.set(to, source)
+    return source
   }
 
   /**
@@ -176,7 +219,9 @@ export class ChangePlan {
   summary(): PlanSummary {
     const relative = (file: string) =>
       path.relative(this.project.root, file).split(path.sep).join('/')
-    const created = [...this.#createdSources.keys(), ...this.#createdFiles.keys()].map(relative)
+    const created = [...this.#createdSources.keys(), ...this.#createdFiles.keys()]
+      .filter((file) => !this.#moves.has(file))
+      .map(relative)
     const modified = [
       ...[...this.#loadedSources]
         .filter(([, s]) => s.file.getFullText() !== s.original)
@@ -184,12 +229,20 @@ export class ChangePlan {
       ...[...this.#editedTexts].filter(([, t]) => t.content !== t.original).map(([f]) => f),
       ...this.#overwrites.keys(),
     ].map(relative)
-    return { created: created.sort(), modified: modified.sort() }
+    const moved = [...this.#moves]
+      .map(([to, from]) => ({ from: relative(from), to: relative(to) }))
+      .sort((a, b) => a.from.localeCompare(b.from))
+    return {
+      created: created.sort(),
+      modified: modified.sort(),
+      ...(moved.length > 0 ? { moved } : {}),
+    }
   }
 
   /**
    * Grava o plano no disco. Antes de escrever, confere de novo que nenhum arquivo novo apareceu
-   * no caminho de um que o plano ia criar. Os arquivos novos saem primeiro e os alterados depois.
+   * no caminho de um que o plano ia criar. Os arquivos novos saem primeiro e os alterados depois;
+   * os originais dos arquivos movidos são apagados por último, e a pasta que ficou vazia some.
    */
   commit(): PlanSummary {
     const summary = this.summary()
@@ -212,6 +265,11 @@ export class ChangePlan {
       if (content !== original) write(file, content)
     }
     for (const [file, from] of this.#overwrites) copyFileSync(from, file)
+    for (const from of this.#moves.values()) {
+      unlinkSync(from)
+      const dir = path.dirname(from)
+      if (readdirSync(dir).length === 0) rmdirSync(dir)
+    }
     return summary
   }
 

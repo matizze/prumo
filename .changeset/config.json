@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@4.0.1/schema.json",
   "baseBranch": "develop",
-  "access": "restricted",
+  "access": "public",
   "format": false,
   "changelog": "@changesets/cli/changelog",
   "commit": false,

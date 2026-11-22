@@ -2,7 +2,7 @@
 
 O comando `prumo`: `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`, e a API para rodar os comandos em processo.
 
-**Situação:** o Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)): a CLI cria e confere o projeto, e não traz interface. Os comandos estão prontos. O pacote está pronto para o GitHub Packages privado (sem `private`, com `repository`), publicado à mão por enquanto; o npm público continua sendo o destino. O `prumo new` cria o `.npmrc` do app com o escopo `@matizze` no `npm.pkg.github.com` e o token lido de `NODE_AUTH_TOKEN` (token clássico com `read:packages`), e o `prumo doctor` avisa quando essa variável falta.
+**Situação:** o Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)): a CLI cria e confere o projeto, e não traz interface. Os comandos estão prontos. O pacote está pronto para o npm público (sem `private`, com `repository` e `publishConfig` público); o GitHub Packages foi uma etapa provisória. O `prumo new` não cria `.npmrc` (os pacotes `@matizze/prumo-*` vêm do registry padrão), e o `prumo doctor` avisa se o `.npmrc` ainda manda o escopo `@matizze` para o GitHub Packages.
 
 ## Comandos
 
@@ -74,7 +74,7 @@ Com `--domain clientes`, o model lê a lista do domínio (`useClientesList()`, d
 - **Node:** erro abaixo do Node 24, o mínimo do Prumo. Aviso se o `.nvmrc` (do projeto ou de uma pasta acima) ou o `engines.node` pedem outra versão.
 - **pnpm:** erro se não existe. Aviso se o `package.json` não tem `packageManager`, se ele não é pnpm, ou se o pnpm instalado é de outra major ou mais antigo.
 - **Pacotes do Prumo:** a versão instalada de cada `@matizze/prumo-*` contra uma faixa compatível (`>=0.1.0 <0.2.0`), não contra a igualdade, porque os pacotes versionam separados. As faixas estão em `src/doctor/ranges.ts`, e o `ranges.test.ts` as compara com o `package.json` de cada pacote do workspace.
-- **`.npmrc`:** só quando ele manda o escopo `@matizze` para o `npm.pkg.github.com`: aviso (nunca falha) se a `NODE_AUTH_TOKEN` não está definida, ok se está; o valor nunca é impresso.
+- **`.npmrc`:** só quando ele manda o escopo `@matizze` para o `npm.pkg.github.com`: aviso (nunca falha) de que os pacotes agora estão no npm público e a linha pode sair; sem esse `.npmrc`, nenhuma linha. Nunca lê nem imprime token.
 - **`.mcp.json`:** aviso se não existe, se não é um JSON de objeto ou se não tem o servidor `prumo` (o `prumo-mcp`), com o trecho a acrescentar.
 
 ## A API em processo

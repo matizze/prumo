@@ -20,8 +20,8 @@
     "templates"
   ],
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com",
-    "access": "restricted",
+    "registry": "https://registry.npmjs.org",
+    "access": "public",
     "types": "./dist/index.d.ts",
     "bin": {
       "prumo": "./dist/bin.js"

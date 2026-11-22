@@ -47,4 +47,4 @@ Scripts do projeto: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pn
 
 ## Instalação
 
-Os pacotes `@matizze/prumo-*` vêm do GitHub Packages (privado, por enquanto), pelo `.npmrc` do projeto. Quem instala precisa de um token clássico do GitHub com `read:packages`, exportado em `NODE_AUTH_TOKEN` antes do `pnpm install`; o token nunca vai para o `.npmrc` nem para o git. O `pnpm exec prumo doctor` avisa quando a variável falta.
+Os pacotes `@matizze/prumo-*` vêm do npm público: o `pnpm install` basta, sem token.

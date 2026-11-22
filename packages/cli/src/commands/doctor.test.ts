@@ -31,6 +31,7 @@ interface Scenario {
   node?: string
   pnpm?: string | undefined
   cli?: string
+  env?: Record<string, string>
 }
 
 function system(scenario: Scenario): DoctorSystem {
@@ -40,6 +41,7 @@ function system(scenario: Scenario): DoctorSystem {
     cliVersion: scenario.cli ?? '0.2.0',
     pnpmVersion: () => ('pnpm' in scenario ? scenario.pnpm : '10.5.0'),
     readText: (file) => merged[path.relative(ROOT, file)] ?? undefined,
+    env: (name) => scenario.env?.[name] || undefined,
   }
 }
 
@@ -305,6 +307,45 @@ describe('prumo doctor', () => {
       const result = await doctor({ files: { '.mcp.json': null } })
       expect(result.code).toBe(0)
       expect(line(result.stdout, '.mcp.json')).toMatch(/^aviso {2}\.mcp\.json: não existe/)
+    })
+  })
+
+  describe('.npmrc (GitHub Packages)', () => {
+    const NPMRC = [
+      '@matizze:registry=https://npm.pkg.github.com',
+      '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN:-sem-token}',
+      '',
+    ].join('\n')
+
+    it('sem .npmrc do GitHub Packages, não há linha', async () => {
+      const result = await doctor()
+      expect(result.stdout).not.toContain('.npmrc')
+      const other = await doctor({ files: { '.npmrc': 'registry=https://registry.npmjs.org\n' } })
+      expect(other.stdout).not.toContain('.npmrc')
+    })
+
+    it('aviso, sem falhar, quando o escopo vem do GitHub Packages e NODE_AUTH_TOKEN falta', async () => {
+      const result = await doctor({ files: { '.npmrc': NPMRC } })
+      expect(result.code).toBe(0)
+      expect(line(result.stdout, '.npmrc')).toMatch(
+        /^aviso {2}\.npmrc: o escopo @matizze vem do GitHub Packages .*NODE_AUTH_TOKEN não está definida.*read:packages/,
+      )
+      expect(result.stdout).toContain('prumo doctor: 1 aviso.')
+    })
+
+    it('a variável vazia conta como ausente', async () => {
+      const result = await doctor({ files: { '.npmrc': NPMRC }, env: { NODE_AUTH_TOKEN: '' } })
+      expect(line(result.stdout, '.npmrc')).toMatch(/^aviso/)
+    })
+
+    it('ok quando a variável está definida, e nunca imprime o valor', async () => {
+      const secret = 'ghp_segredo_de_teste_123'
+      const result = await doctor({ files: { '.npmrc': NPMRC }, env: { NODE_AUTH_TOKEN: secret } })
+      expect(line(result.stdout, '.npmrc')).toMatch(
+        /^ok {5}\.npmrc: .*NODE_AUTH_TOKEN está definida/,
+      )
+      expect(result.stdout).not.toContain(secret)
+      expect(result.stderr).not.toContain(secret)
     })
   })
 

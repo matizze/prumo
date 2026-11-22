@@ -67,6 +67,7 @@ export function realSystem(): DoctorSystem {
     cliVersion: readCliVersion(),
     pnpmVersion,
     readText,
+    env: (name) => process.env[name] || undefined,
   }
 }
 
@@ -84,6 +85,8 @@ export function createDoctorCommand(runtime: Runtime, injected?: DoctorSystem) {
 Cada item sai numa linha com ok, aviso ou erro: o Node (mínimo 24, e o .nvmrc do projeto), o pnpm
 (contra o packageManager), a versão de cada @matizze/prumo-* instalado contra a faixa que esta CLI
 espera e o .mcp.json (com o servidor prumo, o prumo-mcp, que dá ao agente as ferramentas do Prumo).
+Se o .npmrc manda o escopo @matizze para o GitHub Packages, confere que a NODE_AUTH_TOKEN está
+definida (só avisa; nunca mostra o valor).
 
 Sai com 0 sem erro (avisos não falham), com 1 com erro e com 2 se a pasta não é um projeto. Não
 escreve nada e não usa a rede.`,

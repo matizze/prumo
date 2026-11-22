@@ -107,9 +107,19 @@ export function runContractSuite<R extends object>(
   })
 }
 
+/** Um método de um repositório, de qualquer assinatura. */
+type AnyMethod = (...args: unknown[]) => unknown
+
 /**
- * Uma referência fixa para a instância do teste em andamento. Os métodos saem presos à instância
- * (`this` do repositório, não do proxy), para campos privados e métodos soltos funcionarem.
+ * Uma referência fixa para a instância do teste em andamento: um proxy que repassa tudo para ela,
+ * então o `repo` se usa como uma variável comum (`vi.spyOn(repo, 'list')`, atribuição,
+ * `Object.keys`, `instanceof`). O estado que o teste grava fica na instância, e o teste seguinte,
+ * com instância nova, não o vê.
+ *
+ * Os métodos saem presos à instância (`this` do repositório, não do proxy), para campos privados e
+ * métodos soltos funcionarem; a função presa é sempre a mesma enquanto a instância é a mesma
+ * (`repo.list === repo.list`). Um spy de `vi.spyOn(repo, ...)` é o que o `spyOn` devolve, e não o
+ * que se lê de `repo.<método>` depois.
  */
 function currentInstance<R extends object>(get: () => R | undefined, outsideMessage: string): R {
   const instance = (): R => {
@@ -117,12 +127,45 @@ function currentInstance<R extends object>(get: () => R | undefined, outsideMess
     if (value === undefined) throw new Error(outsideMessage)
     return value
   }
+  // Uma função presa por instância e por função original, para a identidade ser estável
+  const bound = new WeakMap<object, WeakMap<AnyMethod, AnyMethod>>()
+  const boundTo = (target: R, method: AnyMethod): AnyMethod => {
+    const methods = bound.get(target) ?? new WeakMap<AnyMethod, AnyMethod>()
+    bound.set(target, methods)
+    const existing = methods.get(method)
+    if (existing) return existing
+    const created = method.bind(target)
+    methods.set(method, created)
+    return created
+  }
+
   return new Proxy({} as R, {
     get(_target, property) {
       const target = instance()
       const value: unknown = Reflect.get(target, property, target)
-      return typeof value === 'function' ? value.bind(target) : value
+      return typeof value === 'function' ? boundTo(target, value as AnyMethod) : value
     },
-    has: (_target, property) => property in instance(),
+    set(_target, property, value) {
+      const target = instance()
+      return Reflect.set(target, property, value, target)
+    },
+    has: (_target, property) => Reflect.has(instance(), property),
+    deleteProperty: (_target, property) => Reflect.deleteProperty(instance(), property),
+    defineProperty(_target, property, descriptor) {
+      // O alvo do proxy é um objeto vazio e fixo: ele só aceita propriedade que continua configurável
+      if (descriptor.configurable === false) {
+        throw new TypeError(
+          `${outsideMessage.split(':')[0]}: a propriedade '${String(property)}' não pode ser não configurável, porque o repo é uma referência para a instância de cada teste.`,
+        )
+      }
+      return Reflect.defineProperty(instance(), property, descriptor)
+    },
+    getOwnPropertyDescriptor(_target, property) {
+      const descriptor = Reflect.getOwnPropertyDescriptor(instance(), property)
+      // O proxy não pode relatar uma propriedade fixa que o alvo vazio dele não tem
+      return descriptor && { ...descriptor, configurable: true }
+    },
+    ownKeys: () => Reflect.ownKeys(instance()),
+    getPrototypeOf: () => Reflect.getPrototypeOf(instance()),
   })
 }

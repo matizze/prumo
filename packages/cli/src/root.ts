@@ -1,6 +1,7 @@
 import { defineCommand } from 'citty'
 import { createAddCommand } from './commands/add.ts'
 import { createCheckCommand } from './commands/check.ts'
+import { createDoctorCommand } from './commands/doctor.ts'
 import { createMakeComponentCommand } from './commands/make-component.ts'
 import { createMakeDomainCommand } from './commands/make-domain.ts'
 import { createMakePageCommand } from './commands/make-page.ts'
@@ -18,6 +19,7 @@ export function createRoot(runtime: Runtime) {
     subCommands: {
       add: createAddCommand(runtime),
       check: createCheckCommand(runtime),
+      doctor: createDoctorCommand(runtime),
       'make:component': createMakeComponentCommand(runtime),
       'make:domain': createMakeDomainCommand(runtime),
       'make:page': createMakePageCommand(runtime),

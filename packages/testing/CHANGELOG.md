@@ -1,5 +1,15 @@
 # @matizze/prumo-testing
 
+## 0.2.0
+
+### Minor Changes
+
+- e19be78: O `@matizze/prumo-testing` fica só com o que testa lógica e camadas, sem navegador. Saem os subcaminhos `@matizze/prumo-testing/storybook` e `@matizze/prumo-testing/storybook/preview` (`storybookProjects`, `storybookProject`, `a11yParameters`, `storyThemes` e `defaultStoryTheme`) e os peers `@storybook/addon-vitest` e `@vitest/browser-playwright`. Ficam `createRenderWithProviders` (com a rota em memória), `createTestRepositories`, `createTestQueryClient`, `createDeferred`, o `setupDom` e o `matchMedia` controlável (`/dom`) e o teste de contrato (`/contract`).
+
+### Patch Changes
+
+- c422a51: Pronto para publicar no GitHub Packages: sem `"private": true` e com `repository` apontando para o repositório.
+
 ## 0.1.0
 
 ### Minor Changes

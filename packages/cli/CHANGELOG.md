@@ -1,5 +1,22 @@
 # @matizze/prumo-cli
 
+## 0.4.0
+
+### Minor Changes
+
+- O Prumo passa a ser uma ferramenta sem frontend. Saem os comandos `add`, `promote`, `catalog`, `patterns` e `agents`, o `--like`, os dez padrões de tela e o `--menu`, e os geradores deixam de copiar telas: passam a usar os modelos do próprio pacote (`templates/`).
+- `prumo new <nome> [--dir <pasta>] [--packages <pasta>] [--no-install] [--dry-run]`: cria um app React mínimo, sem CSS e sem design system (Vite, React 19, TypeScript, wouter, TanStack Query, zod e i18next), com os pacotes do Prumo, a estrutura de pastas, a tela inicial `home`, o `AGENTS.md`, o `README.md`, o `.mcp.json` com o servidor `prumo` e o `.npmrc` que aponta o escopo `@matizze` para o GitHub Packages (o token vem de `NODE_AUTH_TOKEN` e nunca é escrito no arquivo).
+- `prumo make:page <nome> [--domain <domínio>]`: gera `index`, `model`, `view` (só com HTML), o teste, as mensagens nos dois idiomas e a rota. Com `--domain`, o model lê a lista do domínio e a view mostra o carregando, o erro e a lista.
+- `prumo make:domain <nome> [--entity <singular>]`: gera o schema zod, o contrato do repositório, o mock com fixtures, o teste de contrato e as queries, registrados nos índices.
+- `prumo make:component <nome> (--page <tela> | --shared)`: gera o componente, só com HTML, e o teste dele.
+- Os geradores validam o nome, recusam sobrescrever, têm `--root` e `--dry-run` e rodam o `prumo check` no fim.
+- `prumo doctor` avisa quando o `.npmrc` do projeto aponta o escopo `@matizze` para o GitHub Packages e falta `NODE_AUTH_TOKEN`, sem nunca mostrar o valor. Sai a conferência do registry de UI.
+
+### Patch Changes
+
+- Updated dependencies
+  - @matizze/prumo-rules@0.2.0
+
 ## 0.3.0
 
 ### Minor Changes

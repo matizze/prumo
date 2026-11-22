@@ -1,5 +1,12 @@
 # @matizze/prumo-core
 
+## 0.1.2
+
+### Patch Changes
+
+- c422a51: Pronto para publicar no GitHub Packages: sem `"private": true` e com `repository` apontando para o repositório.
+- e19be78: O `@matizze/prumo-core` foi conferido e não depende de interface: nenhum componente visual, CSS nem ícone, e o `AuthGuard` e o `QueryProvider` só repassam os `children` (e o `fallback` que o produto passa). Só os comentários e a documentação deixaram de citar biblioteca de notificação e Storybook; o código não muda.
+
 ## 0.1.1
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @matizze/prumo-core
 
+## 0.1.4
+
+### Patch Changes
+
+- O README publicado no npm deixa de dizer que o pacote não foi publicado e ganha a seção Instalação.
+
 ## 0.1.3
 
 ### Patch Changes

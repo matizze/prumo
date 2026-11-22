@@ -2,7 +2,15 @@
 
 Utilitários de teste do Prumo, sem interface: `renderWithProviders` com rota em memória, setup do DOM, `matchMedia` controlável, `createDeferred` e o teste de contrato de um repositório.
 
-**Situação:** o Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)), então o pacote só tem o que testa a lógica e as camadas de um produto no Vitest com jsdom; testar a interface é do produto. Nada foi publicado: o pacote segue `"private": true`.
+O Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)), então o pacote só tem o que testa a lógica e as camadas de um produto no Vitest com jsdom; testar a interface é do produto.
+
+## Instalação
+
+Um app criado com `pnpm dlx @matizze/prumo-cli new <nome>` já vem com o pacote. Num projeto existente:
+
+```sh
+pnpm add -D @matizze/prumo-testing
+```
 
 ## Build e empacotamento
 

@@ -14,14 +14,12 @@ async function toolsOfProject() {
 }
 
 describe('toolsOf', () => {
-  it('um valor que o toArgv recusa vira isError com a mensagem e [saída 2], sem rodar nada', async () => {
+  it('um valor de outro tipo, que o toArgv recusa, vira isError com a mensagem e [saída 2], sem rodar nada', async () => {
     const { tool } = await toolsOfProject()
-    const result = await tool('make_page').call({ nome: '-x' })
+    const result = await tool('check').call({ root: 1 })
 
     expect(result.isError).toBe(true)
-    expect(textOf(result)).toBe(
-      "'nome' não pode começar com '-' ('-x'): o comando o leria como opção.\n[saída 2]",
-    )
+    expect(textOf(result)).toBe("'root' precisa ser um texto.\n[saída 2]")
   })
 
   it('um campo que o comando não tem é recusado com a lista dos que ele tem', async () => {
@@ -39,19 +37,20 @@ describe('toolsOf', () => {
     expect(ok.isError).toBe(false)
     expect(textOf(ok)).toBe('prumo check: nenhuma violação.\n')
 
-    const bad = await tool('make_page').call({ nome: 'Inválido' })
+    const bad = await tool('check').call({ root: 'nao-existe' })
     expect(bad.isError).toBe(true)
+    expect(textOf(bad)).toMatch(/^prumo check: a pasta .* não existe\./)
     expect(textOf(bad)).toMatch(/\[saída 2\]$/)
   })
 
   it('o nome, a descrição e o esquema vêm do comando', async () => {
     const { tool } = await toolsOfProject()
-    const makePage = tool('make_page')
+    const check = tool('check')
 
-    expect(makePage.name).toBe(makePage.command.toolName)
-    expect(makePage.description).toBe(makePage.command.description)
-    expect(Object.keys(makePage.inputSchema.shape)).toEqual(
-      makePage.command.options.map((option) => option.name),
+    expect(check.name).toBe(check.command.toolName)
+    expect(check.description).toBe(check.command.description)
+    expect(Object.keys(check.inputSchema.shape)).toEqual(
+      check.command.options.map((option) => option.name),
     )
   })
 })

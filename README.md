@@ -6,7 +6,7 @@ O plano está em [docs/plano.md](docs/plano.md).
 
 ## Situação
 
-**Em transição (22/11/2026).** O repositório ainda tem o app de referência, o catálogo e o starter das fases anteriores, que levaram o Prumo para o lado de um frontend completo. Eles saem na Fase A do plano, e os geradores voltam simples na Fase B. Nada foi publicado.
+**Fase A do plano em andamento.** O app de referência, o catálogo e o starter das fases anteriores saíram, e a CLI tem só `check` e `doctor` até a Fase B (os geradores simples). Falta tirar do `rules` e do `testing` o que sobrou de interface. Nada foi publicado.
 
 ## Pacotes
 
@@ -15,14 +15,14 @@ O plano está em [docs/plano.md](docs/plano.md).
 | [`@matizze/prumo-core`](packages/core)       | Container de repositórios, query keys, tipo `Page`, utilitários de mock, i18n, erros, guarda de login e provedor de query |
 | [`@matizze/prumo-rules`](packages/rules)     | Regras da arquitetura: plugin de ESLint e a análise do `prumo check`                                                      |
 | [`@matizze/prumo-testing`](packages/testing) | Render com provedores e teste de contrato                                                                                 |
-| [`@matizze/prumo-cli`](packages/cli)         | O comando `prumo`                                                                                                         |
+| [`@matizze/prumo-cli`](packages/cli)         | O comando `prumo` (`check` e `doctor`)                                                                                    |
 | [`@matizze/prumo-mcp`](packages/mcp)         | Servidor MCP com os comandos da CLI, para agentes                                                                         |
 
 ## Comandos do monorepo
 
 ```bash
 pnpm install
-pnpm verify:packages   # typecheck, lint e testes dos pacotes
+pnpm verify            # typecheck, lint e testes dos pacotes
 ```
 
 Requisitos: Node 24 e pnpm 10.

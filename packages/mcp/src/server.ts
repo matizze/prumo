@@ -18,9 +18,7 @@ async function prumoCommands(): Promise<CommandInfo[]> {
   const unused = () => {
     throw new Error('descrever os comandos não os roda')
   }
-  return describeCommands(
-    createRoot({ out: unused, err: unused, cwd: '/', env: {}, interactive: false, choose: unused }),
-  )
+  return describeCommands(createRoot({ out: unused, err: unused, cwd: '/', env: {} }))
 }
 
 /** O servidor e as ferramentas que ele registrou. */

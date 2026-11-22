@@ -8,7 +8,7 @@ import { inputSchemaOf } from './schema.ts'
 export interface ToolsOptions {
   /** A pasta do servidor: o cwd dos comandos, e o limite do `root` e do `dir`. */
   cwd: string
-  /** As variáveis de ambiente dos comandos (`PATH` para o `pnpm`, `HOME`, `PRUMO_REPOSITORY`). */
+  /** As variáveis de ambiente dos comandos (`PATH` para o `pnpm`, `HOME`). */
   env?: Readonly<Record<string, string | undefined>>
 }
 
@@ -26,7 +26,10 @@ export interface PrumoTool {
   call: (input: Readonly<Record<string, unknown>>) => Promise<CallToolResult>
 }
 
-/** Os campos que dizem uma pasta onde o comando escreve: ficam dentro da pasta do servidor. */
+/**
+ * Os campos que dizem uma pasta onde o comando escreve: ficam dentro da pasta do servidor. O `dir`
+ * é o do `new`, que volta com os geradores: a regra vale para qualquer comando que o tenha.
+ */
 const FOLDER_FIELDS = ['root', 'dir']
 
 /** Resolve os links simbólicos da parte do caminho que já existe, para o `..` e o link não escaparem. */

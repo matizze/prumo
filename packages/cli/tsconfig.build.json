@@ -9,11 +9,6 @@
     // Os imports internos terminam em .ts (o workspace roda o código-fonte): no dist viram .js
     "rewriteRelativeImportExtensions": true
   },
-  // Fora do pacote publicado: os testes, os arquivos de apoio deles e os projetos de fixture
-  "exclude": [
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx",
-    "src/**/*test-support.ts",
-    "src/**/__fixtures__"
-  ]
+  // Fora do pacote publicado: os testes e os arquivos de apoio deles
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*test-support.ts"]
 }

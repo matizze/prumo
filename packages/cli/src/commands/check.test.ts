@@ -167,9 +167,7 @@ describe('bin prumo', () => {
       expect(result.stdout).toMatch(
         /check\s+Analisa o projeto e lista as violações da arquitetura\./,
       )
-      expect(result.stdout).toMatch(
-        /make:page\s+Gera uma tela nova a partir de um padrão ou de uma tela de referência/,
-      )
+      expect(result.stdout).toMatch(/doctor\s+Confere o ambiente e o projeto/)
     }
   })
 

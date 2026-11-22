@@ -69,10 +69,7 @@ describe('paridade das ferramentas com a ajuda do prumo', async () => {
   const { tools } = await createServer({ cwd })
 
   it('a ajuda lista os comandos que o teste espera (o oráculo não está vazio por engano)', () => {
-    expect(documented).toEqual(
-      expect.arrayContaining(['add', 'check', 'make:page', 'new', 'patterns', 'catalog']),
-    )
-    expect(documented.length).toBeGreaterThanOrEqual(10)
+    expect(documented).toEqual(['check', 'doctor'])
   })
 
   it('o conjunto de ferramentas é o de comandos da ajuda, nem mais nem menos', () => {

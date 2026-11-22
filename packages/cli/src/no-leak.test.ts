@@ -3,19 +3,18 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 /**
- * A regra da decisão 3 da Fase 4: nada do cli escreve no stdout ou no stderr do processo fora do
+ * A regra do servidor MCP: nada do cli escreve no stdout ou no stderr do processo fora do
  * `Runtime`. Num servidor MCP o stdout é o protocolo, e uma linha solta o corrompe. Os dois lugares
- * que podem tocar no terminal são o `bin.ts` (que monta o Runtime com ele) e o `process.ts` (que
- * roda os subprocessos com a saída e, no terminal, os deixa herdar o stdio).
+ * que pode tocar no terminal é o `bin.ts`, que monta o Runtime com ele.
  */
 const SRC = import.meta.dirname
-const ALLOWED = new Set(['bin.ts', 'process.ts'])
+const ALLOWED = new Set(['bin.ts'])
 
-/** Os arquivos de código do cli: tudo em `src`, menos testes, apoio de teste e fixtures. */
+/** Os arquivos de código do cli: tudo em `src`, menos testes e apoio de teste. */
 function sourceFiles(dir = SRC): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const file = path.join(dir, entry.name)
-    if (entry.isDirectory()) return entry.name === '__fixtures__' ? [] : sourceFiles(file)
+    if (entry.isDirectory()) return sourceFiles(file)
     const isCode = entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')
     const isTest = /\.test\.tsx?$/.test(entry.name) || /test-support\.ts$/.test(entry.name)
     return isCode && !isTest ? [file] : []
@@ -44,12 +43,12 @@ describe('o cli não escreve fora do Runtime', () => {
 
   it('o teste enxerga o código do cli (a lista de arquivos não está vazia por engano)', () => {
     const names = files.map(relative)
-    expect(names).toEqual(expect.arrayContaining(['bin.ts', 'process.ts', 'commands/new.ts']))
+    expect(names).toEqual(expect.arrayContaining(['bin.ts', 'commands/check.ts', 'run.ts']))
     expect(names.filter((name) => name.endsWith('.test.ts'))).toEqual([])
-    expect(files.length).toBeGreaterThan(40)
+    expect(files.length).toBeGreaterThan(15)
   })
 
-  it.each(FORBIDDEN)('nenhum arquivo, fora do bin e do process, usa %s', (label, pattern) => {
+  it.each(FORBIDDEN)('nenhum arquivo, fora do bin, usa %s', (label, pattern) => {
     const found = files
       .filter((file) => !ALLOWED.has(relative(file)))
       .flatMap((file) =>
@@ -61,11 +60,10 @@ describe('o cli não escreve fora do Runtime', () => {
     expect(found, found.join('\n')).toEqual([])
   })
 
-  it('o process.ts e o bin.ts são os únicos que tocam no terminal, e o bin só liga o inheritStdio', () => {
+  it('o bin é o único que toca no terminal: a escrita dele é o que os comandos chamam', () => {
     const bin = readFileSync(path.join(SRC, 'bin.ts'), 'utf8')
-    expect(bin).toContain('inheritStdio: true')
-    // O runtime do bin é o único com o terminal: a escrita dele é o que os comandos chamam
     expect(bin).toContain('out: (text: string) => process.stdout.write(text)')
+    expect(bin).toContain('err: (text: string) => process.stderr.write(text)')
   })
 
   it('o detector acusa o que a regra proíbe (guarda contra uma regex que não casa nada)', () => {
@@ -85,11 +83,5 @@ describe('o cli não escreve fora do Runtime', () => {
     expect(codeLines('// process.stdout.write\n * console.log\nconst a = 1')).toEqual([
       [3, 'const a = 1'],
     ])
-  })
-
-  it('os subprocessos com saída passam pelo runChild: o new e o add o usam', () => {
-    const uses = (file: string) => readFileSync(path.join(SRC, file), 'utf8').includes('runChild(')
-    expect(uses('commands/new.ts')).toBe(true)
-    expect(uses('add/ui.ts')).toBe(true)
   })
 })

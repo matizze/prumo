@@ -107,8 +107,7 @@ async function collect(
 /**
  * A árvore de comandos como dado, das mesmas definições do citty que a ajuda lê (o texto não é
  * duplicado). Só os comandos folha, sem os `hidden`, na ordem de declaração. Recebe a raiz (o
- * resultado de `createRoot`) em vez de importá-la: o `prumo agents` e o `check`, que fazem parte da
- * árvore, a recebem por função e não criam um import circular.
+ * resultado de `createRoot`) em vez de importá-la, e assim não cria um import circular.
  */
 export async function describeCommands(root: AnyCommand): Promise<CommandInfo[]> {
   const rootName = (await resolveValue(root.meta ?? {})).name ?? 'prumo'

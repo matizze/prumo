@@ -285,8 +285,8 @@ describe('@matizze/prumo-cli empacotado', () => {
       })
       expect(result.stderr).toBe('')
       expect(result.status).toBe(0)
-      expect(result.stdout).toContain('make:page')
       expect(result.stdout).toContain('check')
+      expect(result.stdout).toContain('doctor')
     })
 
     it('roda o check num projeto, com a análise do rules empacotado', () => {
@@ -340,7 +340,7 @@ describe('@matizze/prumo-cli empacotado', () => {
       })
       const script = `
         const { describeCommands, createRoot, runInProcess, toArgv } = await import('@matizze/prumo-cli/api')
-        const root = createRoot({ out() {}, err() {}, cwd: '.', env: {}, interactive: false, choose: async () => undefined })
+        const root = createRoot({ out() {}, err() {}, cwd: '.', env: {} })
         const commands = await describeCommands(root)
         const check = commands.find((c) => c.name === 'check')
         const result = await runInProcess([...check.path, ...toArgv(check, { root: process.cwd() })], { cwd: process.cwd() })
@@ -354,9 +354,7 @@ describe('@matizze/prumo-cli empacotado', () => {
       // teste lê vem do stderr só porque é o que o script escolheu para devolver os dados
       expect(result.stdout).toBe('')
       const data = JSON.parse(result.stderr) as { names: string[]; code: number; err: string }
-      expect(data.names).toEqual(
-        expect.arrayContaining(['make_page', 'check', 'patterns', 'catalog']),
-      )
+      expect(data.names).toEqual(['check', 'doctor'])
       // O produto vazio não tem src: o check recusa com 2, e a mensagem veio pelo resultado
       expect(data.code).toBe(2)
       expect(data.err).toContain('não tem src')
@@ -416,7 +414,7 @@ describe('@matizze/prumo-cli empacotado', () => {
         serverInfo: { name: 'prumo', version: workspaceManifest('mcp').version },
       })
       const tools = (list?.result.tools as Array<{ name: string }>).map((tool) => tool.name)
-      expect(tools).toEqual(expect.arrayContaining(['make_page', 'check', 'patterns', 'catalog']))
+      expect(tools).toEqual(['check', 'doctor'])
     }, 60_000)
 
     it('tem o dist do rules e do cli onde o exports aponta', () => {

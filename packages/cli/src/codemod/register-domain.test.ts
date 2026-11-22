@@ -277,8 +277,8 @@ describe('registerDomain', () => {
   })
 })
 
-describe('registerRepositoryEntry e registerQueriesEntry (o que o prumo add usa)', () => {
-  it('registram o repositório e as queries com os nomes do catálogo, sem derivar nada', () => {
+describe('registerRepositoryEntry e registerQueriesEntry (nomes dados, sem derivar nada)', () => {
+  it('registram o repositório e as queries com os nomes que recebem', () => {
     const plan = fixturePlan()
 
     registerRepositoryEntry(plan, {

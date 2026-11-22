@@ -1,7 +1,6 @@
 /**
  * Ponto de entrada do @matizze/prumo-mcp: o servidor MCP do Prumo, uma ferramenta por comando da
- * CLI. O bin `prumo-mcp` (`bin.ts`) liga o servidor ao stdio; aqui estão as peças, para os testes e
- * o portão do produto.
+ * CLI. O bin `prumo-mcp` (`bin.ts`) liga o servidor ao stdio; aqui estão as peças, para os testes.
  */
 export { PACKAGE_NAME, PACKAGE_VERSION } from './package-info.ts'
 export { inputSchemaOf } from './schema.ts'

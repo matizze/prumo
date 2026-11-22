@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { check } from './index.ts'
-import { makeProject } from './project.ts'
+import { makeProject } from './test-support.ts'
 import type { Violation } from './types.ts'
 
 // Equivalência com os testes que o app de referência tinha antes do portão (R6). O

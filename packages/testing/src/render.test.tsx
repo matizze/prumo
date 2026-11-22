@@ -1,0 +1,217 @@
+// @vitest-environment jsdom
+import { QueryClient, useQuery, useQueryClient, type DefaultOptions } from '@tanstack/react-query'
+import { act, cleanup, screen } from '@testing-library/react'
+import { createContext, useContext, useEffect, type ReactNode } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useLocation } from 'wouter'
+import {
+  createRenderWithProviders,
+  createTestQueryClient,
+  createTestRepositories,
+} from './render.tsx'
+
+afterEach(() => {
+  cleanup()
+})
+
+// Providers de mentira: o que o produto liga (tema e repositórios), sem conhecer o produto
+interface FakeContainer {
+  tasks: { list: () => string[] }
+  users: { name: () => string }
+}
+
+const RepositoryContext = createContext<FakeContainer | null>(null)
+const ThemeContext = createContext('claro')
+
+function useFakeRepositories() {
+  const container = useContext(RepositoryContext)
+  if (!container) throw new Error('sem RepositoryContext')
+  return container
+}
+
+function FakeProviders({
+  children,
+  repositories,
+}: {
+  children: ReactNode
+  repositories: FakeContainer
+}) {
+  return (
+    <ThemeContext.Provider value="escuro">
+      <RepositoryContext.Provider value={repositories}>{children}</RepositoryContext.Provider>
+    </ThemeContext.Provider>
+  )
+}
+
+const createInMemory = (): FakeContainer => ({
+  tasks: { list: () => ['em memória'] },
+  users: { name: () => 'Ana' },
+})
+
+const createRepositories = vi.fn((overrides: Partial<FakeContainer> = {}) =>
+  createTestRepositories(createInMemory, overrides),
+)
+const createQueryClient = vi.fn(() =>
+  createTestQueryClient((options) => new QueryClient({ defaultOptions: options })),
+)
+
+const renderWithProviders = createRenderWithProviders({
+  Providers: FakeProviders,
+  createRepositories,
+  createQueryClient,
+})
+
+function Probe() {
+  const [location] = useLocation()
+  const theme = useContext(ThemeContext)
+  const repositories = useFakeRepositories()
+  return (
+    <p>
+      {`${location}|${theme}|${repositories.tasks.list().join(',')}|${repositories.users.name()}`}
+    </p>
+  )
+}
+
+describe('createTestQueryClient', () => {
+  it('entrega à fábrica do produto os defaultOptions sem retry', () => {
+    const factory = vi.fn((options: DefaultOptions) => new QueryClient({ defaultOptions: options }))
+
+    const client = createTestQueryClient(factory)
+
+    expect(factory).toHaveBeenCalledWith({
+      queries: { retry: false },
+      mutations: { retry: false },
+    })
+    expect(client.getDefaultOptions().queries?.retry).toBe(false)
+    expect(client.getDefaultOptions().mutations?.retry).toBe(false)
+  })
+})
+
+describe('createTestRepositories', () => {
+  it('parte do container em memória e troca só o que o teste pede', () => {
+    const container = createTestRepositories(createInMemory, {
+      users: { name: () => 'Bia' },
+    })
+
+    expect(container.users.name()).toBe('Bia')
+    expect(container.tasks.list()).toEqual(['em memória'])
+  })
+
+  it('cria um container novo a cada chamada', () => {
+    const create = vi.fn(createInMemory)
+
+    const first = createTestRepositories(create)
+    const second = createTestRepositories(create)
+
+    expect(create).toHaveBeenCalledTimes(2)
+    expect(first).not.toBe(second)
+  })
+})
+
+describe('renderWithProviders', () => {
+  it('renderiza dentro dos providers do produto, com a rota inicial e os repositórios', () => {
+    renderWithProviders(<Probe />, { path: '/tarefas' })
+
+    expect(screen.getByText('/tarefas|escuro|em memória|Ana')).toBeTruthy()
+  })
+
+  it('usa "/" como rota inicial', () => {
+    const { currentPath, history } = renderWithProviders(<Probe />)
+
+    expect(screen.getByText('/|escuro|em memória|Ana')).toBeTruthy()
+    expect(history).toEqual(['/'])
+    expect(currentPath()).toBe('/')
+  })
+
+  it('troca só os repositórios de overrides', () => {
+    const { repositories } = renderWithProviders(<Probe />, {
+      repositories: { tasks: { list: () => ['a', 'b'] } },
+    })
+
+    expect(screen.getByText('/|escuro|a,b|Ana')).toBeTruthy()
+    expect(repositories.tasks.list()).toEqual(['a', 'b'])
+    expect(createRepositories).toHaveBeenLastCalledWith({ tasks: expect.any(Object) })
+  })
+
+  it('devolve o mesmo container que os componentes recebem', () => {
+    const seen: FakeContainer[] = []
+    function Spy() {
+      const container = useFakeRepositories()
+      useEffect(() => {
+        seen.push(container)
+      })
+      return null
+    }
+
+    const { repositories } = renderWithProviders(<Spy />)
+
+    expect(seen[0]).toBe(repositories)
+  })
+
+  it('põe o QueryClientProvider com o client da fábrica de teste', async () => {
+    const seen: QueryClient[] = []
+    function Spy() {
+      const client = useQueryClient()
+      useEffect(() => {
+        seen.push(client)
+      })
+      const { data } = useQuery({ queryKey: ['x'], queryFn: () => 'carregado' })
+      return <p>{data ?? 'carregando'}</p>
+    }
+
+    const { queryClient } = renderWithProviders(<Spy />)
+
+    expect(seen[0]).toBe(queryClient)
+    expect(createQueryClient).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText('carregado')).toBeTruthy()
+  })
+
+  it('aceita um queryClient do teste e não chama a fábrica', () => {
+    const own = new QueryClient()
+
+    const { queryClient } = renderWithProviders(<Probe />, { queryClient: own })
+
+    expect(queryClient).toBe(own)
+    expect(createQueryClient).not.toHaveBeenCalled()
+  })
+
+  it('navigate muda a rota e acrescenta à history', () => {
+    const { navigate, history, currentPath } = renderWithProviders(<Probe />, { path: '/a' })
+
+    act(() => navigate('/b'))
+    act(() => navigate('/c'))
+
+    expect(screen.getByText('/c|escuro|em memória|Ana')).toBeTruthy()
+    expect(history).toEqual(['/a', '/b', '/c'])
+    expect(currentPath()).toBe('/c')
+  })
+
+  it('navigate com replace substitui a última entrada', () => {
+    const { navigate, history, currentPath } = renderWithProviders(<Probe />, { path: '/a' })
+
+    act(() => navigate('/b'))
+    act(() => navigate('/c', { replace: true }))
+
+    expect(history).toEqual(['/a', '/c'])
+    expect(currentPath()).toBe('/c')
+  })
+
+  it('repassa as opções do render ao Testing Library', () => {
+    const container = document.body.appendChild(document.createElement('section'))
+
+    const { container: used } = renderWithProviders(<Probe />, { container })
+
+    expect(used).toBe(container)
+    container.remove()
+  })
+
+  it('isola uma renderização da outra: cada uma tem a própria rota e o próprio container', () => {
+    const first = renderWithProviders(<Probe />, { path: '/um' })
+    const second = renderWithProviders(<Probe />, { path: '/dois' })
+
+    expect(first.history).toEqual(['/um'])
+    expect(second.history).toEqual(['/dois'])
+    expect(first.repositories).not.toBe(second.repositories)
+    expect(first.queryClient).not.toBe(second.queryClient)
+  })
+})

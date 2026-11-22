@@ -41,11 +41,11 @@ const recommended: Linter.Config = {
  * export default [prumo.configs.recommended]
  * ```
  */
-const plugin = {
+const plugin: ESLint.Plugin & { rules: typeof rules; configs: { recommended: Linter.Config } } = {
   meta: { name: pkg.name, version: pkg.version },
   rules,
   configs: { recommended },
-} satisfies ESLint.Plugin
+}
 
 // A config nomeia o plugin que a contém, por isso o plugin existe antes de a config o receber.
 recommended.plugins = { prumo: plugin }

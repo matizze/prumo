@@ -7,14 +7,19 @@
     "node": ">=24"
   },
   "scripts": {
-    "typecheck": "pnpm --filter \"./packages/*\" --workspace-concurrency=1 run typecheck",
-    "lint": "eslint packages",
-    "test": "pnpm --filter \"./packages/*\" --workspace-concurrency=1 run test",
+    "typecheck": "pnpm --filter \"./packages/*\" --filter ./catalog --workspace-concurrency=1 run typecheck",
+    "lint": "eslint packages catalog",
+    "test": "pnpm --filter \"./packages/*\" --filter ./catalog --workspace-concurrency=1 run test",
     "verify:packages": "pnpm typecheck && pnpm lint && pnpm test",
     "verify:reference": "pnpm --filter @matizze/prumo-reference run verify",
-    "verify": "pnpm verify:packages && pnpm verify:reference",
+    "verify:starter": "pnpm --filter @matizze/prumo-starter run verify",
+    "verify": "pnpm verify:packages && pnpm verify:reference && pnpm verify:starter",
+    "starter:build": "pnpm --filter @matizze/prumo-starter run starter:build",
     "verify:generated": "scripts/verify-generated.sh",
-    "dev": "pnpm --filter @matizze/prumo-reference run dev"
+    "verify:product": "scripts/verify-product.sh",
+    "dev": "pnpm --filter @matizze/prumo-reference run dev",
+    "build": "pnpm --filter \"./packages/*\" run build",
+    "pack:all": "scripts/pack-packages.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",

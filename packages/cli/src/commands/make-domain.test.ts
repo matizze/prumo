@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemod/test-support.ts'
@@ -70,6 +70,24 @@ Para rodar os testes do domínio novo:
       '  suppliers: createSuppliersRepository,\n  support: createSupportRepository,',
     )
     expect(read(root, 'src/schemas/index.ts')).toContain("export * from './entities/supplier'\n")
+  })
+
+  it('avisa quando o projeto não tem o src/test/contract.ts que o teste de contrato importa', async () => {
+    const { root } = fixtureProject()
+    rmSync(path.join(root, 'src/test/contract.ts'))
+    const result = await run(['make:domain', 'suppliers'], root)
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).toContain(
+      'O teste de contrato importa src/test/contract.ts (a ligação com @matizze/prumo-testing), e o projeto não tem o arquivo: crie-o reexportando defineContractSuite e runContractSuite de @matizze/prumo-testing/contract.\n',
+    )
+  })
+
+  it('não avisa do contrato quando o projeto tem o src/test/contract.ts', async () => {
+    const { root } = fixtureProject()
+    const result = await run(['make:domain', 'suppliers'], root)
+
+    expect(result.stdout).not.toContain('src/test/contract.ts')
   })
 
   it('a mensagem de erro do domínio gerado é a que a saída diz, e não a de customers', async () => {

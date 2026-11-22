@@ -7,6 +7,7 @@ const runtime = {
   out: (text: string) => process.stdout.write(text),
   err: (text: string) => process.stderr.write(text),
   cwd: process.cwd(),
+  env: process.env,
   // As perguntas precisam de um terminal nos dois lados: com a saída redirecionada, a lista sumiria
   interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY),
   // O @clack/prompts só carrega quando há pergunta: o `check` e os demais comandos não pagam por ele

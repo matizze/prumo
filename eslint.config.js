@@ -5,13 +5,13 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 /**
- * Lint dos pacotes (`pnpm lint` na raiz). O app de referência tem a própria config, em
+ * Lint dos pacotes e do catálogo (`pnpm lint` na raiz). O app de referência tem a própria config, em
  * apps/reference/eslint.config.js, e roda o lint dele no `pnpm verify:reference`.
  */
 export default defineConfig([
-  globalIgnores(['apps/**', '**/dist', '**/node_modules', '**/__fixtures__']),
+  globalIgnores(['apps/**', 'starter/**', '**/dist', '**/node_modules', '**/__fixtures__']),
   {
-    files: ['packages/*/src/**/*.{ts,tsx}'],
+    files: ['packages/*/src/**/*.{ts,tsx}', 'catalog/src/**/*.ts'],
     extends: [js.configs.recommended, tseslint.configs.recommended],
   },
   {
@@ -21,8 +21,8 @@ export default defineConfig([
     languageOptions: { globals: globals.browser },
   },
   {
-    // Código de Node: plugin de ESLint, análise do projeto, CLI e servidor MCP
-    files: ['packages/{rules,cli,mcp}/src/**/*.ts'],
+    // Código de Node: plugin de ESLint, análise do projeto, CLI, servidor MCP e gerador do catálogo
+    files: ['packages/{rules,cli,mcp}/src/**/*.ts', 'catalog/src/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
 ])

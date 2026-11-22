@@ -2,7 +2,11 @@
 
 Infraestrutura comum dos produtos do Prumo: container de repositórios, query keys, tipo Page, utilitários de mock, i18n, erros com código, guarda de login e provedor de query.
 
-**Situação:** Fase 1, extração concluída: os sete módulos abaixo vieram do app de referência (`apps/reference`), que agora importa deles. O plano está em [docs/fase-1.md](../../docs/fase-1.md).
+**Situação:** Fase 1, extração concluída: os sete módulos abaixo vieram do app de referência (`apps/reference`), que agora importa deles. O plano está em [docs/fase-1.md](../../docs/fase-1.md). Fase 3 concluída: o pacote ganhou o build com o `tsc` e sai empacotado com `dist/`, pronto para a publicação (que ainda não aconteceu; veja [docs/publicacao.md](../../docs/publicacao.md)). O `core` é a base que o starter e todo produto novo usam.
+
+## Build e empacotamento
+
+No workspace, o `exports` do pacote aponta para o código-fonte (`src/*.ts`). Fora do monorepo o Node não faz type stripping dentro de `node_modules`, então o pacote tem `tsconfig.build.json` e o script `build` (`pnpm --filter @matizze/prumo-core run build`), que emite o `dist/` com `.js` e `.d.ts` (sem os testes, as fixtures e os arquivos de apoio deles). O `publishConfig` do `package.json` troca `exports` para o `dist/` e define o registry `https://npm.pkg.github.com` (acesso restrito); o `pnpm pack` aplica essa troca, e o tarball leva só o `dist/`, o `package.json` e o README. O pacote continua `"private": true`: nada é publicado até uma pessoa tirar o `private` e fazer a primeira publicação (o que falta está em [.changeset/README.md](../../.changeset/README.md#o-que-falta-para-publicar)). `pnpm pack:all`, na raiz, empacota os quatro pacotes numa pasta.
 
 ## Módulos
 

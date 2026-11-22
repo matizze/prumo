@@ -1,5 +1,6 @@
 import path from 'node:path'
-import { parseEnvFile } from './env-file.ts'
+import { MADS, UI_REGISTRY_NAMESPACE } from '../ds.ts'
+import { parseEnvFile, variablesIn } from './env-file.ts'
 import { CLI_PACKAGE_NAME, PRUMO_PACKAGES, PRUMO_PACKAGE_RANGES } from './ranges.ts'
 import {
   caretRange,
@@ -49,8 +50,8 @@ export interface DoctorInput {
 
 type Json = Record<string, unknown>
 
-const DEFAULT_URL_VARIABLE = 'MADS_REGISTRY_URL'
-const DEFAULT_TOKEN_VARIABLE = 'MADS_REGISTRY_TOKEN'
+const DEFAULT_URL_VARIABLE = MADS.urlVariable
+const DEFAULT_TOKEN_VARIABLE = MADS.tokenVariable
 
 /** Roda todas as conferências e devolve as linhas, na ordem do relatório. Não escreve nada. */
 export function runChecks(input: DoctorInput): Finding[] {
@@ -284,9 +285,6 @@ function checkPackage(input: DoctorInput, name: string, versionText: string | un
 
 // Registry de UI
 
-/** O registry de UI do design system: `@mads` ou o do cliente, `@<cliente>-ds`. */
-const UI_REGISTRY = /^@(?:mads|[a-z0-9][a-z0-9-]*-ds)$/
-
 interface UiRegistry {
   name: string
   urlVariables: string[]
@@ -295,17 +293,11 @@ interface UiRegistry {
   fixedUrl?: string
 }
 
-function variablesIn(value: unknown): string[] {
-  return [...JSON.stringify(value ?? '').matchAll(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g)].map(
-    (match) => match[1] ?? '',
-  )
-}
-
 function findUiRegistry(registries: unknown): UiRegistry | undefined {
   if (typeof registries !== 'object' || registries === null) return undefined
-  const names = Object.keys(registries).filter((name) => UI_REGISTRY.test(name))
+  const names = Object.keys(registries).filter((name) => UI_REGISTRY_NAMESPACE.test(name))
   // `--ds <cliente>` troca o @mads pelo do cliente: se os dois estão lá, o do cliente é o que vale
-  const name = names.find((candidate) => candidate !== '@mads') ?? names[0]
+  const name = names.find((candidate) => candidate !== MADS.namespace) ?? names[0]
   if (name === undefined) return undefined
   const config = (registries as Json)[name]
   const url = typeof config === 'string' ? config : asString((config as Json | null)?.url)

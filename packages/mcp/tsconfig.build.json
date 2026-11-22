@@ -1,0 +1,14 @@
+{
+  // Emite dist/ (.js e .d.ts) para a publicação. O tsconfig.json do pacote só confere os tipos.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    // Os imports internos terminam em .ts (o workspace roda o código-fonte): no dist viram .js
+    "rewriteRelativeImportExtensions": true
+  },
+  // Fora do pacote publicado: os testes e os arquivos de apoio deles
+  "exclude": ["src/**/*.test.ts", "src/**/*test-support.ts"]
+}

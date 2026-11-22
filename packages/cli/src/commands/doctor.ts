@@ -85,7 +85,7 @@ Cada item sai numa linha com ok, aviso ou erro: o Node (mínimo 24, e o .nvmrc d
 (contra o packageManager), a versão de cada @matizze/prumo-* instalado contra a faixa que esta CLI
 espera, o registry de UI do components.json (@mads ou @<cliente>-ds) com as variáveis dele, lidas
 do ambiente e dos arquivos .env que o shadcn lê (.env.local, .env.development.local,
-.env.development e .env, nessa ordem, como o prumo add), e a presença do .mcp.json e do .env.local.
+.env.development e .env, nessa ordem, como o prumo add), e a presença do .env.local e do .mcp.json (com o servidor prumo, o prumo-mcp).
 A URL do registry aparece, sem usuário, senha, query nem fragmento; o token nunca: só "definido" ou
 "ausente".
 

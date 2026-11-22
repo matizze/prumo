@@ -104,7 +104,8 @@ O ajuste do produto:
     --packages, grava pnpm.overrides com file: para os tarballs da pasta e não cria registry);
   - cria o .npmrc com o registry do escopo @matizze (GitHub Packages), sem o token: o pnpm install
     lê NODE_AUTH_TOKEN, que precisa estar definida (um token com read:packages);
-  - cria o .env.local, a partir do .env.example (sem token), e o .mcp.json;
+  - cria o .env.local, a partir do .env.example (sem token), e o .mcp.json (o do starter, ou o
+    padrão, com o servidor prumo, que dá a um agente os comandos da CLI, e o do shadcn);
   - com --ds <cliente>, troca o registry de UI do components.json (@mads por @<cliente>-ds), as
     variáveis do .env.local (MADS_REGISTRY_* por <CLIENTE>_DS_REGISTRY_*, a URL em branco) e o que o
     AGENTS.md e o README.md dizem sobre de onde vem a UI;
@@ -317,5 +318,7 @@ function nextSteps(
     'pnpm dev                                          # login de exemplo: admin@app.com / password',
     'pnpm exec prumo make:page <nome> --like <padrão>  # a primeira tela, a partir de um dos dez padrões',
   ]
-  return `\nPróximos passos:\n${steps.map((step) => `  ${step}`).join('\n')}\n\nPara instalar a UI do design system (prumo add ${ds.namespace}/<item>), preencha ${ds.tokenVariable}${ds.urlVariable === MADS.urlVariable ? '' : ` e ${ds.urlVariable}`} no .env.local.\n`
+  const agent =
+    'Um agente de IA (o Claude Code, por exemplo) lê o .mcp.json deste produto e ganha o servidor prumo: cada comando da CLI vira uma ferramenta (mcp__prumo__make_page, mcp__prumo__check...).'
+  return `\nPróximos passos:\n${steps.map((step) => `  ${step}`).join('\n')}\n\n${agent}\n\nPara instalar a UI do design system (prumo add ${ds.namespace}/<item>), preencha ${ds.tokenVariable}${ds.urlVariable === MADS.urlVariable ? '' : ` e ${ds.urlVariable}`} no .env.local.\n`
 }

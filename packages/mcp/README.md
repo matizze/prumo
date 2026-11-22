@@ -2,7 +2,7 @@
 
 Servidor MCP do Prumo: os comandos da CLI e o índice de padrões, como ferramentas para agentes de IA.
 
-**Situação:** o servidor está pronto no workspace (Fase 4, passo I4): uma ferramenta por comando do `prumo`, por stdio, com o bin `prumo-mcp`. O build e o empacotamento (`dist/`, `publishConfig`), o servidor no starter e no `.mcp.json` do produto e o portão `pnpm verify:product` vêm nos próximos passos ([docs/fase-4.md](../../docs/fase-4.md)); a visão geral está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md). Nada foi publicado: o pacote segue `"private": true`.
+**Situação:** o servidor está pronto e empacotado como os outros pacotes (Fase 4, passos I4 e I5): uma ferramenta por comando do `prumo`, por stdio, com o bin `prumo-mcp`. O starter o tem como `devDependency` e o `.mcp.json` do produto registra o servidor `prumo`; o portão `pnpm verify:product` o exercita no passo seguinte ([docs/fase-4.md](../../docs/fase-4.md)). A visão geral está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md). Nada foi publicado: o pacote segue `"private": true`.
 
 ## Como ligar
 
@@ -17,6 +17,10 @@ O servidor roda na máquina de quem usa o agente, na pasta do projeto, e fala po
 ```
 
 O `prumo-mcp` é o bin deste pacote, que o projeto tem como `devDependency`. Dentro do monorepo, `node packages/mcp/src/bin.ts` (a partir da pasta do projeto) faz o mesmo. Não o rode à mão: o stdout é o protocolo. `prumo-mcp --help` e `--version` escrevem a ajuda e a versão e saem.
+
+## Build e empacotamento
+
+No workspace, o `exports` e o `bin` apontam para o código-fonte (`src/*.ts`). Fora do monorepo o Node não faz type stripping dentro de `node_modules`, então o pacote tem `tsconfig.build.json` e o script `build` (`pnpm --filter @matizze/prumo-mcp run build`), que emite o `dist/` com `.js` e `.d.ts` (sem os testes e os arquivos de apoio deles). O `publishConfig` troca `exports` e `bin` (`prumo-mcp`, em `dist/bin.js`) para o `dist/` e define o registry `https://npm.pkg.github.com` (acesso restrito); o `pnpm pack` aplica a troca, e o tarball leva só o `dist/`, o `package.json` e o README. O `@matizze/prumo-cli` (`workspace:*`) vira a versão exata dele no tarball. `pnpm pack:all`, na raiz, empacota os cinco pacotes numa pasta, na ordem de publicação (rules, core, testing, cli, mcp), e o `packaging.test.ts` do cli confere o tarball do mcp e sobe o `prumo-mcp` empacotado, com o `node` comum, para um `initialize` e um `tools/list` por stdio. O pacote continua `"private": true`: nada é publicado até uma pessoa fazer a primeira publicação ([docs/publicacao.md](../../docs/publicacao.md)).
 
 ## As ferramentas
 

@@ -402,16 +402,54 @@ function maskUrl(value: string): string {
 // Arquivos do projeto
 
 function checkProjectFiles({ root, system }: DoctorInput): Finding[] {
-  const findings: Finding[] = []
-  for (const [name, hint] of [
-    ['.mcp.json', 'a configuração do servidor MCP do shadcn'],
-    ['.env.local', 'copie o .env.example e preencha o registry'],
-  ] as const) {
-    findings.push(
-      system.readText(path.join(root, name)) === undefined
-        ? { status: 'warn', label: name, message: `não existe (${hint}).` }
-        : { status: 'ok', label: name, message: 'existe.' },
-    )
-  }
+  const findings: Finding[] = [checkMcpJson(root, system)]
+  findings.push(
+    system.readText(path.join(root, '.env.local')) === undefined
+      ? {
+          status: 'warn',
+          label: '.env.local',
+          message: 'não existe (copie o .env.example e preencha o registry).',
+        }
+      : { status: 'ok', label: '.env.local', message: 'existe.' },
+  )
   return findings
+}
+
+/** O nome do servidor do Prumo no `mcpServers` do `.mcp.json` (o `prumo new` e o starter o criam com ele). */
+export const PRUMO_MCP_SERVER = 'prumo'
+
+/**
+ * O `.mcp.json`: existe, é um JSON de objeto e tem o servidor `prumo` (o `prumo-mcp`, com que o agente
+ * faz pelo MCP o que a pessoa faz pela CLI). Sem ele, aviso: o projeto funciona, só o agente não
+ * enxerga as ferramentas do Prumo.
+ */
+function checkMcpJson(root: string, system: DoctorSystem): Finding {
+  const label = '.mcp.json'
+  const file = path.join(root, label)
+  if (system.readText(file) === undefined) {
+    return {
+      status: 'warn',
+      label,
+      message: 'não existe (a configuração dos servidores MCP, o do shadcn e o do prumo).',
+    }
+  }
+  const manifest = readJson(system, file)
+  if (!manifest) return { status: 'warn', label, message: 'não é um JSON de objeto válido.' }
+  const servers = manifest.mcpServers
+  const server =
+    typeof servers === 'object' && servers !== null
+      ? (servers as Record<string, unknown>)[PRUMO_MCP_SERVER]
+      : undefined
+  const command =
+    typeof server === 'object' && server !== null
+      ? (server as Record<string, unknown>).command
+      : undefined
+  if (typeof command !== 'string' || command === '') {
+    return {
+      status: 'warn',
+      label,
+      message: `sem o servidor ${PRUMO_MCP_SERVER} (com "command") em "mcpServers": o agente não vê as ferramentas do Prumo. Acrescente "${PRUMO_MCP_SERVER}": { "command": "pnpm", "args": ["exec", "prumo-mcp"] } e o @matizze/prumo-mcp como devDependency.`,
+    }
+  }
+  return { status: 'ok', label, message: `existe, com o servidor ${PRUMO_MCP_SERVER}.` }
 }

@@ -68,6 +68,8 @@ describe('prumo new', () => {
     expect(stdout).toContain(`Destino: ${product}`)
     expect(stdout).toContain('Próximos passos:')
     expect(stdout).toContain('cd meu-produto\n  pnpm install\n  pnpm dev')
+    expect(stdout).toContain('servidor prumo')
+    expect(stdout).toContain('mcp__prumo__make_page')
   })
 
   it('troca o nome nos cinco lugares: package.json, index.html, src/config/app.ts, AGENTS.md e README.md', async () => {
@@ -125,7 +127,17 @@ describe('prumo new', () => {
     delete files['.mcp.json']
     const { cwd } = await run(['meu-produto', '--from', makeStarterOrigin(files), '--no-install'])
 
-    expect(json(path.join(cwd, 'meu-produto'), '.mcp.json').mcpServers?.shadcn?.command).toBe('npx')
+    const servers = json(path.join(cwd, 'meu-produto'), '.mcp.json').mcpServers
+    expect(servers?.shadcn?.command).toBe('npx')
+    expect(servers?.prumo).toEqual({ command: 'pnpm', args: ['exec', 'prumo-mcp'] })
+  })
+
+  it('troca o workspace:* do mcp pela versão da origem, como o dos outros pacotes', async () => {
+    const { cwd } = await run(['meu-produto', '--from', makeStarterOrigin(), '--no-install'])
+
+    expect(
+      json(path.join(cwd, 'meu-produto'), 'package.json').devDependencies['@matizze/prumo-mcp'],
+    ).toBe('^0.0.0')
   })
 
   it('roda git init no produto, sem fazer commit', async () => {
@@ -178,6 +190,7 @@ describe('prumo new --packages', () => {
     expect(json(product, 'package.json').pnpm?.overrides).toEqual({
       '@matizze/prumo-cli': `file:${path.join(packages, 'matizze-prumo-cli-0.2.0.tgz')}`,
       '@matizze/prumo-core': `file:${path.join(packages, 'matizze-prumo-core-0.1.0.tgz')}`,
+      '@matizze/prumo-mcp': `file:${path.join(packages, 'matizze-prumo-mcp-0.0.0.tgz')}`,
       '@matizze/prumo-rules': `file:${path.join(packages, 'matizze-prumo-rules-0.1.0.tgz')}`,
     })
     expect(json(product, 'package.json').dependencies['@matizze/prumo-core']).toBe('^0.1.0')
@@ -241,7 +254,28 @@ describe('prumo new: o que valida antes de escrever (saída 2)', () => {
     ])
 
     expect(code).toBe(2)
-    expect(stderr).toContain('@matizze/prumo-cli, @matizze/prumo-rules')
+    expect(stderr).toContain('@matizze/prumo-cli, @matizze/prumo-mcp, @matizze/prumo-rules')
+    expect(readdirSync(cwd)).toEqual([])
+  })
+
+  it('recusa --packages sem o tarball do mcp, que o starter tem como devDependency, e manda rodar o pnpm pack:all', async () => {
+    const packages = makeTarballs({
+      '@matizze/prumo-core': '0.1.0',
+      '@matizze/prumo-rules': '0.1.0',
+      '@matizze/prumo-cli': '0.2.0',
+    })
+    const { code, stderr, cwd } = await run([
+      'loja',
+      '--from',
+      from(),
+      '--packages',
+      packages,
+      '--no-install',
+    ])
+
+    expect(code).toBe(2)
+    expect(stderr).toContain('não tem o tarball de @matizze/prumo-mcp')
+    expect(stderr).toContain('pnpm pack:all')
     expect(readdirSync(cwd)).toEqual([])
   })
 

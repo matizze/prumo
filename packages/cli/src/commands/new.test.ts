@@ -60,6 +60,7 @@ describe('prumo new', () => {
       'README.md',
       'index.html',
       'package.json',
+      'src/config/app.ts',
       'src/main.tsx',
       'src/pages/blank/index.tsx',
       'tsconfig.node.json',
@@ -69,12 +70,13 @@ describe('prumo new', () => {
     expect(stdout).toContain('cd meu-produto\n  pnpm install\n  pnpm dev')
   })
 
-  it('troca o nome nos quatro lugares: package.json, index.html, AGENTS.md e README.md', async () => {
+  it('troca o nome nos cinco lugares: package.json, index.html, src/config/app.ts, AGENTS.md e README.md', async () => {
     const { cwd } = await run(['meu-produto', '--from', makeStarterOrigin(), '--no-install'])
     const product = path.join(cwd, 'meu-produto')
 
     expect(json(product, 'package.json').name).toBe('meu-produto')
     expect(read(product, 'index.html')).toContain('<title>Meu Produto</title>')
+    expect(read(product, 'src/config/app.ts')).toContain("export const APP_NAME = 'Meu Produto'")
     expect(read(product, 'AGENTS.md')).toContain('# Instruções para agentes: meu-produto')
     expect(read(product, 'AGENTS.md')).toContain('`meu-produto`, produto React da Matizze')
     expect(read(product, 'README.md')).toMatch(/^# Meu Produto$/m)
@@ -298,7 +300,7 @@ describe('prumo new --dry-run', () => {
     expect(readdirSync(cwd)).toEqual([])
     expect(stdout).toContain('prumo new: meu-produto (simulação).')
     expect(stdout).toContain('Seriam copiados 6 arquivos de starter/')
-    expect(stdout).toContain('Seriam alterados (5):')
+    expect(stdout).toContain('Seriam alterados (6):')
     expect(stdout).toContain('Seriam criados (2):\n  .env.local\n  .npmrc')
     expect(stdout).toContain('Simulação (--dry-run): nada foi escrito.')
   })
@@ -566,6 +568,10 @@ describe('prumo new com o starter de verdade', () => {
     expect(read(product, 'AGENTS.md')).toContain('`meu-produto`, produto React da Matizze')
     expect(read(product, 'README.md')).toMatch(/^# Meu Produto$/m)
     expect(read(product, 'tsconfig.node.json')).not.toContain('scripts/')
+    // O nome de exibição fica num lugar só, e o resto do código o lê dali
+    expect(read(product, 'src/config/app.ts')).toContain("export const APP_NAME = 'Meu Produto'")
+    expect(read(product, 'src/components/shared/page-meta.tsx')).not.toContain('Matizze')
+    expect(read(product, 'src/components/layout/logo.tsx')).not.toContain('Matizze')
   })
 })
 

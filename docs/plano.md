@@ -6,6 +6,14 @@ O Prumo é uma **ferramenta** para criar e manter aplicações React organizadas
 
 Este plano substitui o anterior (Fases 0 a 4), que levou o Prumo para o lado de um app de referência com 65 telas, um catálogo de blocos e um starter com a interface inteira. Tudo isso sai.
 
+## Situação
+
+**Fases A e B concluídas** (22/11/2026). A Fase C espera uma pessoa.
+
+- **A (PRs #66 e #67):** saíram o app de referência, o catálogo, o starter, os portões antigos e a CI de verificação; cada pacote perdeu o que era de interface. `pnpm verify` verde, sem Chromium.
+- **B (PRs #68 a #72):** `make:domain`, `make:page` e `make:component` por modelo (`templates/` do cli), `new` (app mínimo de 27 arquivos), o MCP com as mesmas ferramentas e o portão `pnpm verify:new`. Números do último verify da raiz: core 95 testes, rules 111, testing 43, cli 465, mcp 50, em cerca de 1 minuto. O portão, em 41 s (empacotar 9 s, criar o app 10 s, CLI 4 s, MCP 1 s, verify do app 14 s), com 19 testes no app gerado, sem navegador e sem GitHub.
+- **C (falta):** (1) a organização `matizze` no npmjs e quem guarda o token (`NPM_TOKEN`); (2) o workflow de publicação, só na `main`, com build e `changeset publish`, e tirar o `"private": true` dos pacotes; (3) o repositório público com histórico novo, a partir do estado limpo, arquivando o atual como privado. Ao subir versões, o mapa `packages/cli/src/new/versions.ts` acompanha. Pronta quando um projeto fora do monorepo instala os pacotes do npm e o `prumo new` funciona.
+
 ## 1. O que é e o que não é
 
 | É do Prumo                                                                                        | Não é do Prumo                                                       |

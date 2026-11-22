@@ -2,7 +2,7 @@
 
 Servidor MCP do Prumo: os comandos da CLI como ferramentas para agentes de IA.
 
-**Situação:** uma ferramenta por comando do `prumo`, por stdio, com o bin `prumo-mcp`. Hoje a CLI tem `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`, e o servidor expõe todos ([docs/plano.md](../../docs/plano.md)). Nada foi publicado: o pacote segue `"private": true`.
+**Situação:** uma ferramenta por comando do `prumo`, por stdio, com o bin `prumo-mcp`. A CLI tem `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`, e o servidor expõe todos. Nada foi publicado: o pacote segue `"private": true`.
 
 ## Como ligar
 

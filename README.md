@@ -6,7 +6,7 @@ O plano está em [docs/plano.md](docs/plano.md).
 
 ## Situação
 
-**Fase A do plano concluída (o extermínio).** O app de referência, o catálogo e o starter das fases anteriores saíram, e cada pacote perdeu o que era de interface: o `rules` cobra só a estrutura do projeto, o `testing` não tem Storybook nem navegador, e o `core` não depende de interface. A Fase B (os geradores simples, a partir de modelos que moram no `@matizze/prumo-cli`) está em andamento: a CLI tem `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`, e o servidor MCP expõe as mesmas ferramentas. O portão local da fase, `pnpm verify:new`, cria um app numa pasta temporária, gera tela, domínio e componente pela CLI e pelo MCP e roda a verificação nele, em cerca de um minuto e sem navegador. Nada foi publicado.
+**Fases A e B do plano concluídas.** O Prumo não traz frontend, e os geradores simples estão prontos: a CLI tem `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`, os modelos moram no `@matizze/prumo-cli`, e o servidor MCP expõe as mesmas ferramentas. O portão local, `pnpm verify:new`, cria um app numa pasta temporária, gera tela, domínio e componente pela CLI e pelo MCP e roda a verificação nele, em menos de um minuto e sem navegador. A Fase C, a publicação no npm público, depende de uma pessoa (a organização `matizze` no npmjs e um token). Nada foi publicado.
 
 ## Pacotes
 

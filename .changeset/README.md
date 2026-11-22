@@ -19,7 +19,7 @@ Na hora de lançar uma versão, um pull request no branch `changeset-release/dev
 ## Decisões desta configuração
 
 - **Pacotes privados por enquanto.** Os pacotes estão com `"private": true` até a primeira publicação (GitHub Packages, seção 10 do plano; veja o que falta abaixo). Por isso `privatePackages.version` está ligado: os pacotes ganham versão e changelog, mas não são publicados nem recebem tag.
-- **App de referência e catálogo fora das versões.** O `@matizze/prumo-reference` e o `@matizze/prumo-catalog` ficam em `ignore`, porque não são publicados.
+- **App de referência, catálogo e starter fora das versões.** O `@matizze/prumo-reference`, o `@matizze/prumo-catalog` e o `@matizze/prumo-starter` ficam em `ignore`, porque não são publicados: o starter é gerado do app (`pnpm starter:build`) e chega ao produto pelo `prumo new`, e não por um pacote.
 - **Sem formatação automática.** O `format` está desligado porque o Prettier não é dependência da raiz.
 - **Changelog padrão.** Quando o repositório estiver no GitHub, dá para trocar pelo `@changesets/changelog-github`, que liga cada linha ao pull request. É outro pacote, então precisa de aprovação antes.
 

@@ -6,7 +6,7 @@ O plano completo está em [docs/plano-prumo.md](docs/plano-prumo.md).
 
 ## Situação
 
-**Fase 3 concluída.** Um produto novo chega à primeira tela sem editar nenhuma costura à mão. Depois da Fase 1 (o `@matizze/prumo-core` e o `@matizze/prumo-rules`, extraídos do app de referência, em [docs/fase-1.md](docs/fase-1.md)) e da Fase 2 (o `prumo make:page`, o `make:domain` e o `make:component`, que geram código a partir das telas e dos domínios reais do app, em [docs/fase-2.md](docs/fase-2.md)), a Fase 3 ([docs/fase-3.md](docs/fase-3.md)) integrou o que faltava:
+**Fase 4 concluída.** Um agente cria uma tela só pelo MCP, e ela passa no verify. Depois da Fase 1 (o `@matizze/prumo-core` e o `@matizze/prumo-rules`, extraídos do app de referência, em [docs/fase-1.md](docs/fase-1.md)), da Fase 2 (o `prumo make:page`, o `make:domain` e o `make:component`, que geram código a partir das telas e dos domínios reais do app, em [docs/fase-2.md](docs/fase-2.md)) e da Fase 3 (um produto novo chega à primeira tela sem editar nenhuma costura à mão, em [docs/fase-3.md](docs/fase-3.md)), a Fase 4 ([docs/fase-4.md](docs/fase-4.md)) fez dos agentes de IA usuários de primeira classe. A Fase 3 integrou o que faltava para o produto novo:
 
 - **`@matizze/prumo-testing`:** o render com providers, o teste de contrato dos repositórios e a configuração das stories nos dois temas, extraídos do app, que agora importa deles.
 - **O catálogo e o `prumo add`:** um índice (`catalog/index.json`) dos blocos, telas e domínios do app de referência, e o comando que os instala num projeto com as costuras. Um item `@mads/<item>` vai para o `shadcn` do projeto.
@@ -14,7 +14,16 @@ O plano completo está em [docs/plano-prumo.md](docs/plano-prumo.md).
 - **O `prumo promote` e o `prumo doctor`:** mover um componente de uma tela para o `shared` quando a segunda tela o usa, e conferir o ambiente e o projeto.
 - **Build e empacotamento:** os cinco pacotes publicáveis saem com `dist/`, e o `pnpm pack:all` gera os tarballs.
 
-O portão da fase está cumprido: `pnpm verify:product` cria um produto fora do monorepo com os pacotes empacotados, gera uma tela, um domínio e um componente com a CLI, instala um bloco do catálogo e roda o `pnpm verify` do produto. **Nada foi publicado:** os pacotes continuam `"private": true`, e a primeira publicação no GitHub Packages precisa de um token e de uma pessoa ([docs/publicacao.md](docs/publicacao.md)). O produto piloto também espera uma pessoa. O `@matizze/prumo-mcp` (Fase 4, em andamento) é o servidor MCP, uma ferramenta por comando da CLI: sai empacotado, o produto novo o recebe, com o servidor `prumo` no `.mcp.json`, e o portão o exercita: a etapa `mcp` do `verify:product` sobe o servidor do produto e, só por ferramentas, gera uma tela e um domínio que o `pnpm verify` do produto confere.
+O portão da Fase 3 está cumprido: `pnpm verify:product` cria um produto fora do monorepo com os pacotes empacotados, gera uma tela, um domínio e um componente com a CLI, instala um bloco do catálogo e roda o `pnpm verify` do produto.
+
+A Fase 4 entregou a parte dos agentes:
+
+- **`@matizze/prumo-mcp`:** o servidor MCP, uma ferramenta por comando do `prumo` (o nome do comando com `:` trocado por `_`), por stdio, com o bin `prumo-mcp`. Não tem lógica de comando própria: o nome, a descrição e o esquema de cada ferramenta saem da árvore de comandos da CLI, que roda em processo. O produto novo o recebe, e o `.mcp.json` dele já registra o servidor `prumo`.
+- **O índice de padrões como dado:** `catalog/patterns.json` é a fonte do que estava à mão em `docs/patterns.md`, validado contra o app e publicado no `catalog/index.json`. O `prumo patterns [busca]` e o `prumo catalog [busca]` o expõem para pessoas e agentes (com `--json`).
+- **`AGENTS.md` gerado e conferido:** o `prumo check` acusa o que o `AGENTS.md` cita (caminho, rota, story, item do registry) e não existe, e o `prumo agents` reescreve as seções geradas (`commands`, `patterns` e `mcp`, entre marcadores) a partir da CLI e do projeto.
+- **A CLI em processo:** nenhum comando escreve no stdout fora do `Runtime`, nem por subprocesso (no stdio do MCP o stdout é o protocolo), e `@matizze/prumo-cli/api` roda e descreve comandos como dado.
+
+O portão da Fase 4 também está cumprido, em duas partes: a etapa `mcp` do `verify:product` sobe o servidor do produto novo (o dos tarballs) e, só por ferramentas, consulta o índice, gera uma tela e um domínio e roda o `check`, e o `pnpm verify` do produto confere o que o MCP gerou; e uma rodada com um agente de verdade (`claude -p`, sem ferramenta de edição) criou o domínio e a tela de fornecedores com menu, e o verify do produto passou (veja o [Resultado](docs/fase-4.md#resultado)). **Nada foi publicado:** os pacotes continuam `"private": true`, e a primeira publicação no GitHub Packages precisa de um token e de uma pessoa ([docs/publicacao.md](docs/publicacao.md)); as versões da Fase 4 também esperam o pull request de versão. O produto piloto também espera uma pessoa.
 
 ## Estrutura
 
@@ -28,7 +37,7 @@ O portão da fase está cumprido: `pnpm verify:product` cria um produto fora do 
 | `apps/reference`   | o app de referência: as 65 telas portadas, fonte do `--like` e alvo do verify             |
 | `catalog`          | `@matizze/prumo-catalog`: o índice dos blocos e telas que o `prumo add` instala (Fase 3)  |
 | `starter`          | `@matizze/prumo-starter`: o que o `prumo new` copia, gerado do app de referência (Fase 3) |
-| `docs`             | planos do Prumo e do MaDS, as Fases 1 a 3 e a publicação                                  |
+| `docs`             | planos do Prumo e do MaDS, as Fases 1 a 4 e a publicação                                  |
 | `.changeset`       | versões e changelog por pacote                                                            |
 
 ## Comandos
@@ -95,6 +104,8 @@ Depois da publicação, o `prumo new meu-produto` baixa o starter do repositóri
 
 Um produto de cliente com design system próprio nasce com `--ds <cliente>`, que troca o registry `@mads` por `@<cliente>-ds`. Todas as opções estão em [packages/cli/README.md](packages/cli/README.md), e a receita do produto, no `AGENTS.md` do [starter](starter/README.md).
 
+Um agente de IA faz o mesmo pelo servidor MCP: o `.mcp.json` do produto registra o servidor `prumo` (`pnpm exec prumo-mcp`), e cada comando da tabela é uma ferramenta, com o nome do comando e `:` trocado por `_` (no Claude Code, `mcp__prumo__make_page`). As ferramentas rodam a mesma CLI em processo e devolvem o texto dela, com erro quando o código de saída não é 0; veja [packages/mcp/README.md](packages/mcp/README.md).
+
 ## O app de referência
 
 Ele veio da branch `develop` do `template-react-vite-app` com `git filter-repo --to-subdirectory-filter apps/reference`, então o histórico de cada arquivo continua disponível:
@@ -115,7 +126,7 @@ O trabalho acontece na `develop`, que é a branch padrão: todo pull request abr
 
 - **Pacotes.** No workspace, cada pacote exporta o próprio código-fonte em TypeScript (`src/*.ts`), e está com `"private": true` até a primeira publicação (o registry é o GitHub Packages, escopo `@matizze`). Os cinco pacotes publicáveis (core, rules, testing, cli e mcp) têm `tsconfig.build.json` e o script `build` (`tsc`, que emite o `dist/` com `.js` e `.d.ts`), e o `publishConfig` troca `exports`, `types` e `bin` para o `dist/` no `pnpm pack` e no `publish`: fora do monorepo o Node não faz type stripping dentro de `node_modules`. O `pnpm pack:all` gera os tarballs, e o `packaging.test.ts` do cli confere o conteúdo deles. Os pacotes com código usam exports por subcaminho, um por módulo (`@matizze/prumo-core/query`, `@matizze/prumo-rules/eslint`), para que importar um módulo não traga as dependências dos outros. O build é com o `tsc`, sem `tsup` (decisão 2 de [docs/fase-3.md](docs/fase-3.md)). O que falta para publicar (token, remoção do `private`, ordem e o workflow do Changesets) está em [docs/publicacao.md](docs/publicacao.md).
 - **Versões.** Todo pull request que muda um pacote traz um changeset (`pnpm changeset`). As regras estão em [.changeset/README.md](.changeset/README.md).
-- **CI.** O [.github/workflows/ci.yml](.github/workflows/ci.yml) roda os testes dos pacotes, o verify do app de referência, o verify do starter, o job "Geração" (o portão da Fase 2: gera com a CLI uma tela de cada padrão, um domínio e um componente e roda o verify) e o job "Produto novo" (o portão da Fase 3: `pnpm verify:product`, que empacota os pacotes, cria um produto fora do monorepo com o `prumo new`, gera telas pela CLI e pelo servidor MCP e roda o verify dele) a cada pull request e a cada push na `main` ou na `develop`.
+- **CI.** O [.github/workflows/ci.yml](.github/workflows/ci.yml) roda os testes dos pacotes, o verify do app de referência, o verify do starter, o job "Geração" (o portão da Fase 2: gera com a CLI uma tela de cada padrão, um domínio e um componente e roda o verify) e o job "Produto novo" (os portões das Fases 3 e 4: `pnpm verify:product`, que empacota os pacotes, cria um produto fora do monorepo com o `prumo new`, gera telas pela CLI e pelo servidor MCP e roda o verify dele) a cada pull request e a cada push na `main` ou na `develop`.
 
 ## Convenções
 

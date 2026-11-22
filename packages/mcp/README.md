@@ -2,7 +2,7 @@
 
 Servidor MCP do Prumo: os comandos da CLI e o índice de padrões, como ferramentas para agentes de IA.
 
-**Situação:** o servidor está pronto e empacotado como os outros pacotes (Fase 4, passos I4 e I5): uma ferramenta por comando do `prumo`, por stdio, com o bin `prumo-mcp`. O starter o tem como `devDependency` e o `.mcp.json` do produto registra o servidor `prumo`; o portão `pnpm verify:product` o exercita na etapa `mcp` (veja "O portão do produto", abaixo; [docs/fase-4.md](../../docs/fase-4.md)). A visão geral está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md). Nada foi publicado: o pacote segue `"private": true`.
+**Situação:** Fase 4 concluída. O servidor está pronto e empacotado como os outros pacotes: uma ferramenta por comando do `prumo`, por stdio, com o bin `prumo-mcp`. O starter o tem como `devDependency` e o `.mcp.json` do produto registra o servidor `prumo`; o portão `pnpm verify:product` o exercita na etapa `mcp` (veja "O portão do produto", abaixo), e uma rodada com um agente de verdade ("A rodada com um agente de verdade", abaixo) criou uma tela e um domínio só por ele. O plano e o resultado estão em [docs/fase-4.md](../../docs/fase-4.md#resultado), e a visão geral, na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md). Nada foi publicado: o pacote segue `"private": true` e está na 0.0.0 até o pull request de versão da Fase 4 (0.1.0).
 
 ## Como ligar
 
@@ -59,7 +59,7 @@ O `@matizze/prumo-mcp` exporta as peças, para os testes e o portão do produto:
 
 ## Testes
 
-Os testes usam o cliente do SDK (`@modelcontextprotocol/client`, só de teste) contra o app em miniatura do codemod do cli:
+Os testes (63 no total, com os das funções do portão) usam o cliente do SDK (`@modelcontextprotocol/client`, só de teste) contra o app em miniatura do codemod do cli:
 
 - **Paridade, com a ajuda do `prumo` como oráculo** (e não o `describeCommands`, de que o servidor se serve): o conjunto de ferramentas é o conjunto de comandos de "Comandos:", e os campos e a obrigatoriedade de cada esquema são os de "Argumentos:", "Opções:" e da linha "Uso:".
 - **O esquema:** cada tipo de argumento aceita o que a CLI aceita e recusa o que ela recusa.
@@ -77,6 +77,14 @@ A etapa `mcp` do `pnpm verify:product` (`scripts/verify-product.sh`) roda o `scr
 5. faz um uso errado (`make_page` com nome inválido), que volta `isError` e `[saída 2]`, e confere que o `check` seguinte continua limpo.
 
 Cada chamada tem limite de 5 minutos, e o script sai com 1 e a lista do que falhou (mais o stderr do servidor). Não escreve nada no produto: quem escreve é o servidor, a pedido das ferramentas, e o `pnpm verify` do produto, na etapa `run` seguinte, prova que o gerado passa. As funções puras do script (ler a ajuda do `prumo`, comparar os nomes, conferir um resultado) estão em `scripts/product-gate-lib.ts`, com testes que não sobem produto nenhum.
+
+## A rodada com um agente de verdade
+
+O portão acima usa um cliente de teste. Uma vez, no fim da Fase 4, um agente de verdade (Claude Code, `claude -p`) trabalhou num produto novo só por este servidor: `--mcp-config` com o servidor `prumo` e `--strict-mcp-config`, e, entre as ferramentas do Claude Code, só `Read`, `Glob` e `Grep` (sem `Edit`, `Write` nem `Bash`). Pedido: uma tela de lista de fornecedores com menu e o domínio de dados deles. Ele leu o `AGENTS.md`, chamou `patterns` (a primeira linha trazia `prumo make:page <nome> --like lista`), `make_domain`, `make_page` (`like` `lista`, `menu` `ecommerce`) e `check` (nenhuma violação), em 7 turnos e 18 s, sem chamada com erro, e o `pnpm verify` do produto passou. O registro completo, com o que ficou estranho (a tela continua no domínio de produtos, o grupo de menu não aparece nas descrições, a mensagem de "não encontrado" é genérica), está no [Resultado da fase](../../docs/fase-4.md#a-rodada-com-um-agente-de-verdade-r).
+
+## Fora do escopo
+
+Só ferramentas e só stdio: sem resources, sem prompts e sem transporte HTTP. Se um agente remoto ou um cliente sem stdio pedir, é uma fase própria ([docs/fase-4.md](../../docs/fase-4.md#pendências-fora-da-fase)).
 
 ## Dependências
 

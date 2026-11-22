@@ -118,6 +118,24 @@ describe('ChangePlan', () => {
     )
   })
 
+  it('touchedText devolve o texto que o plano deixará no arquivo, e nada se o plano não o tocou', () => {
+    const plan = fixturePlan()
+    const { root } = plan.project
+    const untouched = at(root, 'src/pages/blank/model.ts')
+    const created = at(root, 'src/pages/novo/index.tsx')
+    const opened = plan.project.app
+    const edited = at(root, 'src/messages/en/common.json')
+
+    plan.createSource(created, 'export const novo = 1\n')
+    applyEdits(plan.source(opened), [{ pos: 0, end: 0, text: '// alterado\n' }])
+    plan.editText(edited, '{}\n')
+
+    expect(plan.touchedText(untouched)).toBeUndefined()
+    expect(plan.touchedText(created)).toBe('export const novo = 1\n')
+    expect(plan.touchedText(opened)?.startsWith('// alterado\n')).toBe(true)
+    expect(plan.touchedText(edited)).toBe('{}\n')
+  })
+
   it('edits lista o antes e o depois das costuras, em ordem, sem as que ficaram iguais', () => {
     const plan = fixturePlan()
     const { root } = plan.project

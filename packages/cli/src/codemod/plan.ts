@@ -182,6 +182,18 @@ export class ChangePlan {
     return sourceFile
   }
 
+  /**
+   * O texto de um arquivo de que o plano já cuida (criado, movido, aberto como costura ou editado),
+   * como ele ficará depois do `commit()`; `undefined` se o plano não o tocou, e então vale o disco.
+   */
+  touchedText(file: string): string | undefined {
+    return (
+      this.#createdSources.get(file)?.getFullText() ??
+      this.#loadedSources.get(file)?.file.getFullText() ??
+      this.#editedTexts.get(file)?.content
+    )
+  }
+
   /** O texto atual de um arquivo existente, com as edições do plano. */
   readText(file: string): string {
     return this.#editedTexts.get(file)?.content ?? this.#readExisting(file)

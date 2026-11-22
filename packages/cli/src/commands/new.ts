@@ -33,7 +33,8 @@ import { productNameProblem, titleOf } from '../new/name.ts'
 import { assertTarballsCover, readOriginVersions, readTarballs } from '../new/packages.ts'
 import { gitStarterFiles, obtainSource, STARTER_DIR } from '../new/source.ts'
 import type { Runtime } from '../runtime.ts'
-import { childEnv, section, shellQuote } from './shared.ts'
+import { childEnv, runChild } from '../process.ts'
+import { section, shellQuote } from './shared.ts'
 
 /** O registry dos pacotes `@matizze/prumo-*` (o `.npmrc` do produto aponta para ele). */
 const REGISTRY = 'https://npm.pkg.github.com'
@@ -289,14 +290,10 @@ function initGit(runtime: Runtime, destination: string): void {
   }
 }
 
-/** `pnpm install` no produto, com a saída no terminal. Falhar deixa o produto criado e diz como seguir. */
+/** `pnpm install` no produto, com a saída no terminal (ou em `runtime.out` e `runtime.err`, fora dele). Falhar deixa o produto criado e diz como seguir. */
 function installPackages(runtime: Runtime, destination: string): void {
   runtime.out('\nInstalando as dependências (pnpm install)...\n')
-  const result = spawnSync('pnpm', ['install'], {
-    cwd: destination,
-    stdio: 'inherit',
-    env: childEnv(runtime),
-  })
+  const result = runChild(runtime, 'pnpm', ['install'], { cwd: destination })
   if (result.error || result.status !== 0) {
     throw new ExitError(
       1,

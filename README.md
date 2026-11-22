@@ -83,13 +83,14 @@ pnpm verify
 
 Depois da publicação, o `prumo new meu-produto` baixa o starter do repositório (`git clone --depth 1`, com as credenciais do git de quem roda) e instala os pacotes do GitHub Packages, com `NODE_AUTH_TOKEN` (um token `read:packages`) no ambiente. Dentro do produto, a CLI cobre o dia a dia:
 
-| Comando                                            | Para quê                                                                                                 |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `prumo make:page`, `make:domain`, `make:component` | gerar uma tela de um dos dez padrões, um domínio de dados e um componente de tela                        |
-| `prumo add <item>`                                 | trazer do catálogo um bloco, uma tela ou um domínio que o produto não tem (`--diff` e `--dry-run` antes) |
-| `prumo add @mads/<item>`                           | instalar um item de UI do design system pelo `shadcn` do projeto                                         |
-| `prumo promote <componente> --from <tela>`         | mover um componente para `src/components/shared` quando a segunda tela o usa                             |
-| `prumo check` e `prumo doctor`                     | cobrar a arquitetura e conferir o ambiente, os pacotes do Prumo e o registry de UI                       |
+| Comando                                            | Para quê                                                                                                     |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `prumo make:page`, `make:domain`, `make:component` | gerar uma tela de um dos dez padrões, um domínio de dados e um componente de tela                            |
+| `prumo add <item>`                                 | trazer do catálogo um bloco, uma tela ou um domínio que o produto não tem (`--diff` e `--dry-run` antes)     |
+| `prumo patterns [busca]`, `prumo catalog [busca]`  | consultar o índice de padrões (com como chegar a cada um) e os itens do catálogo (`--json` para um programa) |
+| `prumo add @mads/<item>`                           | instalar um item de UI do design system pelo `shadcn` do projeto                                             |
+| `prumo promote <componente> --from <tela>`         | mover um componente para `src/components/shared` quando a segunda tela o usa                                 |
+| `prumo check` e `prumo doctor`                     | cobrar a arquitetura e conferir o ambiente, os pacotes do Prumo e o registry de UI                           |
 
 Um produto de cliente com design system próprio nasce com `--ds <cliente>`, que troca o registry `@mads` por `@<cliente>-ds`. Todas as opções estão em [packages/cli/README.md](packages/cli/README.md), e a receita do produto, no `AGENTS.md` do [starter](starter/README.md).
 

@@ -297,6 +297,37 @@ describe('@matizze/prumo-cli empacotado', () => {
       expect(result.stdout.trim()).toBe('@matizze/prumo-rules 5')
     })
 
+    it('exporta a API em processo em @matizze/prumo-cli/api, e roda um comando sem escrever no stdout', () => {
+      const packed = packedManifest('cli')
+      expect(Object.keys(packed.exports)).toEqual(['.', './api'])
+      expect(packed.exports['./api']).toEqual({
+        types: './dist/api.d.ts',
+        default: './dist/api.js',
+      })
+      const script = `
+        const { describeCommands, createRoot, runInProcess, toArgv } = await import('@matizze/prumo-cli/api')
+        const root = createRoot({ out() {}, err() {}, cwd: '.', env: {}, interactive: false, choose: async () => undefined })
+        const commands = await describeCommands(root)
+        const check = commands.find((c) => c.name === 'check')
+        const result = await runInProcess([...check.path, ...toArgv(check, { root: process.cwd() })], { cwd: process.cwd() })
+        process.stderr.write(JSON.stringify({ names: commands.map((c) => c.toolName), code: result.exitCode, out: result.stdout, err: result.stderr }))
+      `
+      const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
+        cwd: product,
+        encoding: 'utf8',
+      })
+      // O stdout do processo fica vazio: o que o comando escreveu veio no resultado, e o que o
+      // teste lê vem do stderr só porque é o que o script escolheu para devolver os dados
+      expect(result.stdout).toBe('')
+      const data = JSON.parse(result.stderr) as { names: string[]; code: number; err: string }
+      expect(data.names).toEqual(
+        expect.arrayContaining(['make_page', 'check', 'patterns', 'catalog']),
+      )
+      // O produto vazio não tem src: o check recusa com 2, e a mensagem veio pelo resultado
+      expect(data.code).toBe(2)
+      expect(data.err).toContain('não tem src')
+    })
+
     it('tem o dist do rules e do cli onde o exports aponta', () => {
       expect(
         existsSync(path.join(product, 'node_modules/@matizze/prumo-rules/dist/check/index.js')),

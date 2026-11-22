@@ -14,7 +14,7 @@ O plano completo está em [docs/plano-prumo.md](docs/plano-prumo.md).
 - **O `prumo promote` e o `prumo doctor`:** mover um componente de uma tela para o `shared` quando a segunda tela o usa, e conferir o ambiente e o projeto.
 - **Build e empacotamento:** os quatro pacotes publicáveis saem com `dist/`, e o `pnpm pack:all` gera os tarballs.
 
-O portão da fase está cumprido: `pnpm verify:product` cria um produto fora do monorepo com os pacotes empacotados, gera uma tela, um domínio e um componente com a CLI, instala um bloco do catálogo e roda o `pnpm verify` do produto. **Nada foi publicado:** os pacotes continuam `"private": true`, e a primeira publicação no GitHub Packages precisa de um token e de uma pessoa ([docs/publicacao.md](docs/publicacao.md)). O produto piloto também espera uma pessoa. O `@matizze/prumo-mcp` ainda é esqueleto (Fase 4).
+O portão da fase está cumprido: `pnpm verify:product` cria um produto fora do monorepo com os pacotes empacotados, gera uma tela, um domínio e um componente com a CLI, instala um bloco do catálogo e roda o `pnpm verify` do produto. **Nada foi publicado:** os pacotes continuam `"private": true`, e a primeira publicação no GitHub Packages precisa de um token e de uma pessoa ([docs/publicacao.md](docs/publicacao.md)). O produto piloto também espera uma pessoa. O `@matizze/prumo-mcp` (Fase 4, em andamento) já tem o servidor MCP, uma ferramenta por comando da CLI; falta empacotá-lo e ligá-lo ao produto.
 
 ## Estrutura
 
@@ -24,7 +24,7 @@ O portão da fase está cumprido: `pnpm verify:product` cria um produto fora do 
 | `packages/rules`   | `@matizze/prumo-rules`: regras da arquitetura, plugin de ESLint e `prumo check` (Fase 1)  |
 | `packages/testing` | `@matizze/prumo-testing`: render, teste de contrato e stories com axe (Fase 3)            |
 | `packages/cli`     | `@matizze/prumo-cli`: o comando `prumo` (Fases 1 a 3)                                     |
-| `packages/mcp`     | `@matizze/prumo-mcp`: servidor MCP para agentes (Fase 4)                                  |
+| `packages/mcp`     | `@matizze/prumo-mcp`: servidor MCP, uma ferramenta por comando da CLI (Fase 4)            |
 | `apps/reference`   | o app de referência: as 65 telas portadas, fonte do `--like` e alvo do verify             |
 | `catalog`          | `@matizze/prumo-catalog`: o índice dos blocos e telas que o `prumo add` instala (Fase 3)  |
 | `starter`          | `@matizze/prumo-starter`: o que o `prumo new` copia, gerado do app de referência (Fase 3) |

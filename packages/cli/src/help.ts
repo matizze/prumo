@@ -30,7 +30,7 @@ export async function renderHelp(command: AnyCommand, path: string[]): Promise<s
   if (subCommands.length > 0) syntax.push('<comando> [opções]')
   for (const [name, def] of positionals) syntax.push(positionalText(name, def))
   for (const [name, def] of options) {
-    const text = `--${name}${valueOf(name, def)}`
+    const text = `${flagOf(name, def)}${valueOf(name, def)}`
     syntax.push(isRequired(def) ? text : `[${text}]`)
   }
 
@@ -93,7 +93,16 @@ function valueOf(name: string, def: ArgDef): string {
 
 function optionLabel(name: string, def: ArgDef): string {
   const aliases = aliasesOf(def).map((alias) => `-${alias}`)
-  return [...aliases, `--${name}`].join(', ') + valueOf(name, def)
+  return [...aliases, flagOf(name, def)].join(', ') + valueOf(name, def)
+}
+
+/**
+ * A opção como se escreve na linha de comando. A opção liga e desliga que já vem ligada
+ * (`default: true`) só se desliga, e o citty entende `--no-<nome>` como `<nome>: false`: é esse o
+ * nome que a ajuda mostra (`--no-install`, para a opção `install`).
+ */
+function flagOf(name: string, def: ArgDef): string {
+  return def.type === 'boolean' && def.default === true ? `--no-${name}` : `--${name}`
 }
 
 /** Duas colunas alinhadas, recuadas em dois espaços. */

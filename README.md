@@ -6,7 +6,7 @@ O plano completo está em [docs/plano-prumo.md](docs/plano-prumo.md).
 
 ## Situação
 
-**Fase 2 concluída.** Depois da Fase 1 (o `@matizze/prumo-core` e o `@matizze/prumo-rules`, extraídos do app de referência, em [docs/fase-1.md](docs/fase-1.md)), o `@matizze/prumo-cli` gera código a partir das telas e dos domínios reais do app: `prumo make:page` (os dez padrões de tela), `prumo make:domain` e `prumo make:component`, com as costuras de mensagens, rota, menu e índices, conforme [docs/fase-2.md](docs/fase-2.md). O portão da fase está cumprido: uma tela de cada padrão, um domínio e um componente gerados pela CLI passam no `pnpm verify` (`pnpm verify:generated`). O `@matizze/prumo-testing` e o `@matizze/prumo-mcp` ainda são esqueleto (Fases 3 e 4), e o comando `new` chega na Fase 3 (o `add`, o `promote` e o `doctor` já estão no `@matizze/prumo-cli`).
+**Fase 2 concluída.** Depois da Fase 1 (o `@matizze/prumo-core` e o `@matizze/prumo-rules`, extraídos do app de referência, em [docs/fase-1.md](docs/fase-1.md)), o `@matizze/prumo-cli` gera código a partir das telas e dos domínios reais do app: `prumo make:page` (os dez padrões de tela), `prumo make:domain` e `prumo make:component`, com as costuras de mensagens, rota, menu e índices, conforme [docs/fase-2.md](docs/fase-2.md). O portão da fase está cumprido: uma tela de cada padrão, um domínio e um componente gerados pela CLI passam no `pnpm verify` (`pnpm verify:generated`). O `@matizze/prumo-testing` e o `@matizze/prumo-mcp` ainda são esqueleto (Fases 3 e 4), e a Fase 3 está em andamento (o `new`, o `add`, o `promote` e o `doctor` já estão no `@matizze/prumo-cli`).
 
 ## Estrutura
 
@@ -52,6 +52,8 @@ Os outros scripts do app (Storybook, registry, paridade visual) rodam dentro de 
 O `prumo check` é o comando do `@matizze/prumo-cli`: no app de referência, `pnpm check` dentro de `apps/reference`. Em outro projeto, rode `prumo check [--root <pasta>]` (veja [packages/cli/README.md](packages/cli/README.md)); ele sai com 0 sem violação, 1 com violação e 2 se o uso está errado.
 
 Os comandos que geram código rodam no app de referência com `pnpm exec prumo <comando>`, dentro de `apps/reference`: `make:page <nome> --like <padrão>`, `make:domain <nome>` e `make:component <nome> --page <tela>`. Eles geram no app. Para só testar, use o `--dry-run` (lista o que seria feito, sem escrever) ou gere numa cópia do app com `--root` (`rsync -a --exclude node_modules apps/reference/ /tmp/copia/`, e `prumo make:page ... --root /tmp/copia`). Desfazer com `git checkout -- apps/reference && git clean -fd apps/reference` apaga também o trabalho não commitado do app: só vale com a árvore limpa antes de gerar. Com trabalho em andamento, desfaça só os arquivos que o comando listou. Nunca faça commit de tela, domínio ou componente gerado no app de referência. O `pnpm verify:generated` faz essa prova sem sujar a árvore, numa worktree temporária; rode as etapas dele (`prepare`, `run`, `run-starter` e `clean`) uma por vez, e não junto com outro verify.
+
+O `prumo new <nome>` cria um produto a partir do starter (`--from` aponta para este monorepo, e `--packages <pasta>` instala os pacotes do Prumo dos tarballs do `pnpm pack:all`, sem publicar nada): veja [packages/cli/README.md](packages/cli/README.md#prumo-new).
 
 O starter não é escrito à mão: o `pnpm starter:build` o monta (copia a casca e a UI do app, roda o `prumo add` das dez telas dos padrões e move para a tela o bloco que só ela usa). O jeito de montar e de mexer está em [starter/scripts/README.md](starter/scripts/README.md).
 

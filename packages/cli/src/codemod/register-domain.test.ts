@@ -49,7 +49,25 @@ export * from './entities/supplier'
     )
   })
 
-  it('recusa a entidade que já está exportada e o índice que não existe ou não tem export', () => {
+  it('põe o primeiro export no fim de um índice sem nenhum, vazio ou só com comentário', () => {
+    for (const [before, after] of [
+      ['', "export * from './entities/supplier'\n"],
+      ['\n', "\nexport * from './entities/supplier'\n"],
+      [
+        '// Schemas, um por entidade.\n',
+        "// Schemas, um por entidade.\nexport * from './entities/supplier'\n",
+      ],
+      ['// sem quebra', "// sem quebra\nexport * from './entities/supplier'\n"],
+    ] as const) {
+      const plan = new ChangePlan(findProject(makeProject({ 'src/schemas/index.ts': before })))
+
+      registerSchema(plan, domainNames('suppliers'))
+
+      expect(text(plan, `${plan.project.src}/schemas/index.ts`)).toBe(after)
+    }
+  })
+
+  it('recusa a entidade que já está exportada e o índice que não existe', () => {
     const plan = fixturePlan()
     expect(() => registerSchema(plan, domainNames('customers'))).toThrow(
       /src\/schemas\/index\.ts já exporta '.\/entities\/customer'/,
@@ -59,8 +77,6 @@ export * from './entities/supplier'
     expect(() => registerSchema(without, domainNames('suppliers'))).toThrow(
       'o projeto não tem src/schemas/index.ts.',
     )
-    const empty = new ChangePlan(findProject(makeProject({ 'src/schemas/index.ts': '\n' })))
-    expect(() => registerSchema(empty, domainNames('suppliers'))).toThrow(/não tem nenhum export/)
   })
 })
 
@@ -101,6 +117,22 @@ export { taskKeys, taskQueries } from './tasks'
     expect(plan.source(`${plan.project.src}/queries/index.ts`).getFullText()).toContain(
       "export { purchaseOrderKeys, purchaseOrderQueries } from './purchase-orders'\nexport { supportKeys",
     )
+  })
+
+  it('põe o primeiro export no fim de um índice vazio ou só com comentário', () => {
+    for (const [before, after] of [
+      ['', "export { supplierKeys, supplierQueries } from './suppliers'\n"],
+      [
+        '// Queries, uma por domínio.\n',
+        "// Queries, uma por domínio.\nexport { supplierKeys, supplierQueries } from './suppliers'\n",
+      ],
+    ] as const) {
+      const plan = new ChangePlan(findProject(makeProject({ 'src/queries/index.ts': before })))
+
+      registerQueries(plan, domainNames('suppliers'))
+
+      expect(text(plan, `${plan.project.src}/queries/index.ts`)).toBe(after)
+    }
   })
 
   it('recusa o arquivo que já está exportado', () => {
@@ -202,8 +234,7 @@ const factories = {
 };
 `)
 
-    const empty = `import { x } from '@x/y'
-const factories = {}
+    const empty = `const factories = {}
 `
     const emptyPlan = new ChangePlan(
       findProject(makeProject({ 'src/repositories/index.ts': empty })),
@@ -211,6 +242,55 @@ const factories = {}
     expect(() => registerRepository(emptyPlan, domainNames('bees'))).toThrow(
       /não achei onde acrescentar '.\/bees'/,
     )
+  })
+
+  it('registra o primeiro domínio de um índice sem domínios, como o de um projeto novo', () => {
+    const source = `import { createRepositoryContainer } from '@matizze/prumo-core/repositories'
+import { DATA_SOURCES, type RepositoryOptions } from './options'
+
+export { DATA_SOURCES, type RepositoryOptions } from './options'
+
+const factories = {}
+
+export const container = createRepositoryContainer(factories, { dataSource: DATA_SOURCES[0] })
+`
+    const plan = new ChangePlan(findProject(makeProject({ 'src/repositories/index.ts': source })))
+
+    registerRepository(plan, domainNames('bees'))
+
+    expect(text(plan, `${plan.project.src}/repositories/index.ts`))
+      .toBe(`import { createRepositoryContainer } from '@matizze/prumo-core/repositories'
+import { createBeesRepository } from './bees'
+import { DATA_SOURCES, type RepositoryOptions } from './options'
+
+export * from './bees'
+export { DATA_SOURCES, type RepositoryOptions } from './options'
+
+const factories = {
+  bees: createBeesRepository,
+}
+
+export const container = createRepositoryContainer(factories, { dataSource: DATA_SOURCES[0] })
+`)
+  })
+
+  it('sem nenhum export de módulo, o primeiro export * vem depois do último import', () => {
+    const source = `import { createRepositoryContainer } from '@matizze/prumo-core/repositories'
+const factories = {}
+`
+    const plan = new ChangePlan(findProject(makeProject({ 'src/repositories/index.ts': source })))
+
+    registerRepository(plan, domainNames('bees'))
+
+    expect(text(plan, `${plan.project.src}/repositories/index.ts`))
+      .toBe(`import { createRepositoryContainer } from '@matizze/prumo-core/repositories'
+import { createBeesRepository } from './bees'
+
+export * from './bees'
+const factories = {
+  bees: createBeesRepository,
+}
+`)
   })
 
   it('acrescenta ao mapa vazio', () => {
@@ -277,8 +357,8 @@ describe('registerDomain', () => {
   })
 })
 
-describe('registerRepositoryEntry e registerQueriesEntry (o que o prumo add usa)', () => {
-  it('registram o repositório e as queries com os nomes do catálogo, sem derivar nada', () => {
+describe('registerRepositoryEntry e registerQueriesEntry (nomes dados, sem derivar nada)', () => {
+  it('registram o repositório e as queries com os nomes que recebem', () => {
     const plan = fixturePlan()
 
     registerRepositoryEntry(plan, {

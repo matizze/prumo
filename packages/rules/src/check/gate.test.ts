@@ -3,12 +3,10 @@ import { check } from './index.ts'
 import { makeProject } from './test-support.ts'
 import type { Violation } from './types.ts'
 
-// Equivalência com os testes que o app de referência tinha antes do portão (R6). O
-// `src/architecture.test.ts` e o `src/i18n/messages.test.ts` foram removidos do app: cada
-// verificação deles aparece aqui, com uma violação equivalente num projeto de fixture que o
-// `prumo check` precisa acusar e uma variante sem violação que ele precisa deixar passar.
-// As verificações por arquivo do `architecture.test.ts` (ui sem app, telas isoladas, SVG solto)
-// migraram antes para o plugin de ESLint, que roda no lint do app, e têm os testes em `eslint/`.
+// Cada verificação do `prumo check` aparece aqui com uma violação equivalente num projeto de
+// fixture, que ele precisa acusar, e uma variante sem violação, que ele precisa deixar passar.
+// As verificações por arquivo (telas isoladas, estrutura da tela) são do plugin de ESLint e têm
+// os testes em `eslint/`.
 
 const json = (value: unknown) => JSON.stringify(value)
 
@@ -24,7 +22,7 @@ const useShared = (module: string) => `import { x } from '@/components/shared/${
 /** Arquivo e regra de cada violação, na ordem em que saem. */
 const where = (violations: Violation[]) => violations.map(({ rule, file }) => [rule, file])
 
-describe('architecture.test.ts: "src/components só tem ui, shared e layout"', () => {
+describe('src/components só tem ui, shared e layout', () => {
   it('acusa uma pasta de domínio em src/components', () => {
     const root = makeProject({
       'src/components/ui/a.tsx': '',
@@ -58,7 +56,7 @@ describe('architecture.test.ts: "src/components só tem ui, shared e layout"', (
   })
 })
 
-describe('architecture.test.ts: "o que está em shared/ é usado por 2 ou mais telas"', () => {
+describe('o que está em shared/ é usado por 2 ou mais telas', () => {
   const sharedViolations = (files: Record<string, string>) =>
     check({ root: makeProject(files) }).filter((v) => v.rule === 'shared-usage')
 
@@ -126,11 +124,10 @@ describe('architecture.test.ts: "o que está em shared/ é usado por 2 ou mais t
     ])
   })
 
-  it('não conta teste nem story como uso, e nem acusa o teste ou a story que mora em shared', () => {
+  it('não conta teste como uso, e nem acusa o teste que mora em shared', () => {
     const violations = sharedViolations({
       'src/components/shared/table.tsx': '',
       'src/components/shared/table.test.tsx': useShared('table'),
-      'src/components/shared/table.stories.tsx': useShared('table'),
       ...page('a', useShared('table')),
       'src/pages/b/view.test.tsx': useShared('table'),
     })
@@ -148,7 +145,7 @@ describe('architecture.test.ts: "o que está em shared/ é usado por 2 ou mais t
   })
 })
 
-describe('messages.test.ts: "pt-BR e en têm exatamente o mesmo conjunto de chaves"', () => {
+describe('pt-BR e en têm exatamente o mesmo conjunto de chaves', () => {
   it('acusa a chave que existe em pt-BR e falta em en', () => {
     const root = makeProject({
       'src/messages/pt-BR/a.json': json({ title: 'Título', extra: 'Extra' }),
@@ -198,7 +195,7 @@ describe('messages.test.ts: "pt-BR e en têm exatamente o mesmo conjunto de chav
   })
 })
 
-describe('messages.test.ts: "cada chave usa os mesmos argumentos ICU nos dois idiomas"', () => {
+describe('cada chave usa os mesmos argumentos ICU nos dois idiomas', () => {
   const diverging = (pt: string, en: string) =>
     check({
       root: makeProject({
@@ -262,7 +259,7 @@ describe('messages.test.ts: "cada chave usa os mesmos argumentos ICU nos dois id
   })
 })
 
-describe('messages.test.ts: "nenhuma mensagem está vazia"', () => {
+describe('nenhuma mensagem está vazia', () => {
   it('acusa a mensagem vazia em pt-BR e em en, e a que só tem espaços', () => {
     const root = makeProject({
       'src/messages/pt-BR/a.json': json({ ok: 'x', blank: '', spaces: '   ' }),
@@ -284,7 +281,7 @@ describe('messages.test.ts: "nenhuma mensagem está vazia"', () => {
   })
 })
 
-describe('messages.test.ts: "cada index.ts registra todos os namespaces do idioma"', () => {
+describe('cada index.ts registra todos os namespaces do idioma', () => {
   const registry = (imports: string[], entries: string[]) =>
     `${imports.map((name) => `import ${name} from './${name}.json'`).join('\n')}\n\nexport default { ${entries.join(', ')} }\n`
   const project = (enIndex: string) => ({

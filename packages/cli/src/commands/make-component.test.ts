@@ -1,11 +1,10 @@
-import { createHash } from 'node:crypto'
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemod/test-support.ts'
 import { createRoot } from '../root.ts'
 import { runCli } from '../run.ts'
-import { captureRuntime } from '../test-support.ts'
+import { captureRuntime, makeDir } from '../test-support.ts'
 
 async function run(args: string[], cwd: string) {
   const runtime = captureRuntime(cwd)
@@ -13,186 +12,113 @@ async function run(args: string[], cwd: string) {
   return { code, stdout: runtime.stdout, stderr: runtime.stderr }
 }
 
-/** Caminho relativo de cada arquivo da pasta, com o hash do conteúdo, para comparar antes e depois. */
-function snapshot(root: string, dir = root): Record<string, string> {
-  const result: Record<string, string> = {}
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) Object.assign(result, snapshot(root, full))
-    else
-      result[path.relative(root, full)] = createHash('sha1')
-        .update(readFileSync(full))
-        .digest('hex')
-  }
-  return result
+function withPage(root: string) {
+  mkdirSync(path.join(root, 'src/pages/clientes'), { recursive: true })
+  for (const file of ['index.tsx', 'model.ts', 'view.tsx'])
+    writeFileSync(path.join(root, 'src/pages/clientes', file), 'export {}\n')
 }
 
-const read = (root: string, file: string) => readFileSync(path.join(root, file), 'utf8')
-
 describe('prumo make:component', () => {
-  it('gera o componente e a story na tela e lista tudo, sem violação do check', async () => {
+  it('--page: gera o componente e o teste na tela, roda o check e mostra como testar', async () => {
     const { root } = fixtureProject()
-    const result = await run(['make:component', 'resumo-pedido', '--page', 'products-list'], root)
+    withPage(root)
+    const result = await run(['make:component', 'resumo', '--page', 'clientes'], root)
 
     expect(result.code, result.stderr).toBe(0)
     expect(result.stderr).toBe('')
-    expect(result.stdout)
-      .toBe(`prumo make:component: ResumoPedido na tela products-list, a partir de StorageCard.
+    expect(result.stdout).toBe(`prumo make:component: resumo (src/pages/clientes/components).
 
 Criados (2):
-  src/pages/products-list/components/resumo-pedido.stories.tsx
-  src/pages/products-list/components/resumo-pedido.tsx
+  src/pages/clientes/components/resumo.test.tsx
+  src/pages/clientes/components/resumo.tsx
 
 prumo check: nenhuma violação.
 
-A story é 'Pages/ProductsList/ResumoPedido'. As props, o visual e os textos são os de StorageCard: edite o componente e a story.
+Edite o componente (src/pages/clientes/components/resumo.tsx); o teste acompanha. Use-o na view da tela: import { Resumo } from './components/resumo'.
 
-Para rodar o teste da story (play function e axe):
-  pnpm exec vitest run src/pages/products-list/components/resumo-pedido.stories.tsx
+Para rodar os testes do componente novo:
+  pnpm exec vitest run src/pages/clientes/components
 `)
-    expect(read(root, 'src/pages/products-list/components/resumo-pedido.tsx')).toContain(
-      'export function ResumoPedido({',
-    )
-    expect(read(root, 'src/pages/products-list/components/resumo-pedido.stories.tsx')).toContain(
-      "title: 'Pages/ProductsList/ResumoPedido',",
-    )
   })
 
-  it('mostra o script test:storybook do projeto, e o --dry-run não escreve nada', async () => {
+  it('--shared: gera em src/components/shared e mostra a violação esperada sem falhar', async () => {
     const { root } = fixtureProject()
-    writeFileSync(
-      path.join(root, 'package.json'),
-      JSON.stringify({
-        name: 'app',
-        scripts: { 'test:storybook': 'vitest run --project storybook' },
-      }),
-    )
-    const before = snapshot(root)
-    const dry = await run(
-      ['make:component', 'resumo', '--page', 'products-list', '--dry-run'],
-      root,
-    )
-
-    expect(dry.code, dry.stderr).toBe(0)
-    expect(dry.stdout)
-      .toBe(`prumo make:component: Resumo na tela products-list, a partir de StorageCard.
-
-Seriam criados (2):
-  src/pages/products-list/components/resumo.stories.tsx
-  src/pages/products-list/components/resumo.tsx
-
-Simulação (--dry-run): nada foi escrito.
-`)
-    expect(snapshot(root)).toEqual(before)
-
-    const real = await run(['make:component', 'resumo', '--page', 'products-list'], root)
-    expect(real.stdout).toContain(
-      '  pnpm test:storybook src/pages/products-list/components/resumo.stories.tsx\n',
-    )
-  })
-
-  it('aceita --root, relativo à pasta atual', async () => {
-    const { root } = fixtureProject()
-    const result = await run(
-      ['make:component', 'resumo', '--page', 'blank', '--root', path.basename(root)],
-      path.dirname(root),
-    )
+    const result = await run(['make:component', 'cartao', '--shared'], root)
 
     expect(result.code, result.stderr).toBe(0)
+    expect(result.stderr).toBe('')
+    expect(existsSync(path.join(root, 'src/components/shared/cartao.tsx'))).toBe(true)
     expect(result.stdout).toContain(
-      `  pnpm --dir ${path.basename(root)} exec vitest run src/pages/blank/components/resumo.stories.tsx\n`,
+      'prumo check: só a violação esperada de um componente shared ainda sem uso:\nsrc/components/shared/cartao.tsx  [shared-usage]',
     )
+    expect(result.stdout).toContain('Ela some quando duas telas importarem o componente.')
+    expect(result.stdout).toContain("import { Cartao } from '@/components/shared/cartao'")
   })
 
-  describe('erros de uso, que saem com 2 antes de escrever qualquer coisa', () => {
-    const cases: { title: string; args: string[]; reason: string }[] = [
-      {
-        title: 'nome que não é kebab-case',
-        args: ['ResumoPedido', '--page', 'products-list'],
-        reason: "o nome do componente 'ResumoPedido' é inválido",
-      },
-      {
-        title: 'tela que não existe',
-        args: ['resumo', '--page', 'nao-existe'],
-        reason: "a tela 'nao-existe' não existe em src/pages",
-      },
-      {
-        title: 'o nome do componente de referência',
-        args: ['storage-card', '--page', 'products-list'],
-        reason: "o nome do componente é o da referência ('storage-card')",
-      },
-      {
-        title: 'componente que já existe na tela',
-        args: ['product-table', '--page', 'products-list'],
-        reason: "'src/pages/products-list/components/product-table.tsx' já existe.",
-      },
-      {
-        title: 'nome que repete uma export da story: Video',
-        args: ['video', '--page', 'products-list'],
-        reason: "o nome do componente 'video' repetiria 'Video' (em storage-card.stories.tsx)",
-      },
-      {
-        title: 'nome que repete um import da story: FolderIcon',
-        args: ['folder-icon', '--page', 'products-list'],
-        reason: "'FolderIcon' (em storage-card.stories.tsx)",
-      },
-      {
-        title: 'nome que repete um import do componente: ReactNode',
-        args: ['react-node', '--page', 'products-list'],
-        reason: "'ReactNode' (em storage-card.tsx)",
-      },
-      {
-        title: 'palavra reservada',
-        args: ['new', '--page', 'products-list'],
-        reason: "o nome do componente 'new' vira o identificador 'new', que é palavra reservada",
-      },
-      {
-        title: 'nome global',
-        args: ['promise', '--page', 'products-list'],
-        reason: "vira o identificador 'Promise', que é um nome global",
-      },
-    ]
+  it('--dry-run lista o que seria criado e não escreve nada', async () => {
+    const { root } = fixtureProject()
+    const result = await run(['make:component', 'cartao', '--shared', '--dry-run'], root)
 
-    it.each(
-      cases.flatMap((entry) => [
-        entry,
-        { ...entry, title: `${entry.title} (--dry-run)`, args: [...entry.args, '--dry-run'] },
-      ]),
-    )('$title', async ({ args, reason }) => {
-      const { root } = fixtureProject()
-      const before = snapshot(root)
-      const result = await run(['make:component', ...args], root)
-
-      expect(result.code).toBe(2)
-      expect(result.stderr).toContain(reason)
-      expect(result.stdout).toBe('')
-      expect(snapshot(root)).toEqual(before)
-    })
-
-    it('sem a opção --page, mostra a ajuda do comando', async () => {
-      const { root } = fixtureProject()
-      const result = await run(['make:component', 'resumo'], root)
-
-      expect(result.code).toBe(2)
-      expect(result.stderr).toContain('a opção --page é obrigatória.')
-      expect(result.stderr).toContain('prumo make:component')
-    })
-
-    it('sem o nome do componente', async () => {
-      const { root } = fixtureProject()
-      const result = await run(['make:component', '--page', 'products-list'], root)
-
-      expect(result.code).toBe(2)
-      expect(result.stderr).toContain('falta o argumento <nome>.')
-    })
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).toContain('Seriam criados (2):')
+    expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')
+    expect(existsSync(path.join(root, 'src/components'))).toBe(false)
   })
 
-  it('a ajuda do comando mostra a sintaxe e as opções, e o prumo --help lista o comando', async () => {
-    const help = await run(['make:component', '--help'], process.cwd())
-    expect(help.code).toBe(0)
-    for (const text of ['make:component', '--page', '--dry-run', '--root']) {
-      expect(help.stdout).toContain(text)
-    }
-    expect((await run(['--help'], process.cwd())).stdout).toContain('make:component')
+  it('--root aponta o projeto de fora dele', async () => {
+    const { root } = fixtureProject()
+    const outside = makeDir()
+    const result = await run(['make:component', 'cartao', '--shared', '--root', root], outside)
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(readdirSync(outside)).toEqual([])
+  })
+
+  it('exige --page ou --shared, recusa os dois e a tela que falta, com 2', async () => {
+    const { root } = fixtureProject()
+    withPage(root)
+
+    const none = await run(['make:component', 'cartao'], root)
+    expect(none.code).toBe(2)
+    expect(none.stderr).toContain('diga onde o componente mora')
+
+    const both = await run(['make:component', 'cartao', '--shared', '--page', 'clientes'], root)
+    expect(both.code).toBe(2)
+    expect(both.stderr).toContain('use --page <tela> ou --shared, não os dois.')
+
+    const missing = await run(['make:component', 'cartao', '--page', 'outra'], root)
+    expect(missing.code).toBe(2)
+    expect(missing.stderr).toContain("a tela 'outra' não existe")
+    expect(existsSync(path.join(root, 'src/components'))).toBe(false)
+  })
+
+  it('recusa o nome inválido e sobrescrever, com 2', async () => {
+    const { root } = fixtureProject()
+
+    const invalid = await run(['make:component', 'Cartao', '--shared'], root)
+    expect(invalid.code).toBe(2)
+    expect(invalid.stderr).toContain('Uso: prumo make:component <nome>')
+
+    expect((await run(['make:component', 'cartao', '--shared'], root)).code).toBe(0)
+    const again = await run(['make:component', 'cartao', '--shared'], root)
+    expect(again.code).toBe(2)
+    expect(again.stderr).toContain('já existe')
+  })
+
+  it('uma violação que não é a esperada sai com 1, com o componente já gerado', async () => {
+    const { root } = fixtureProject()
+    mkdirSync(path.join(root, 'src/components/estranha'), { recursive: true })
+    const result = await run(['make:component', 'cartao', '--shared'], root)
+
+    expect(result.code).toBe(1)
+    expect(result.stderr).toContain('(o componente foi gerado, e os arquivos ficaram no projeto)')
+    expect(result.stderr).toContain('[components-folders]')
+    expect(result.stderr).not.toContain('cartao.tsx  [shared-usage]')
+  })
+
+  it('aparece na lista de comandos do prumo', async () => {
+    const help = await run(['--help'], fixtureProject().root)
+
+    expect(help.stdout).toMatch(/\n {2}make:component {2}Gera um componente novo/)
   })
 })

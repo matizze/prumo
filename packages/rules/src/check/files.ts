@@ -24,8 +24,8 @@ export function walk(dir: string): string[] {
 /** Arquivo de código: `.ts` ou `.tsx`. */
 export const isCode = (file: string): boolean => /\.(ts|tsx)$/.test(file)
 
-/** Teste ou story, que não contam como uso de um módulo. */
-export const isAux = (file: string): boolean => /\.(test|stories)\.(ts|tsx)$/.test(file)
+/** Arquivo de teste, que não conta como uso de um módulo. */
+export const isAux = (file: string): boolean => /\.test\.(ts|tsx)$/.test(file)
 
 /** Tira a extensão `.ts` ou `.tsx` do caminho. */
 export const stripExtension = (file: string): string => file.replace(/\.(ts|tsx)$/, '')

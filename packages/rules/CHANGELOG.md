@@ -1,5 +1,15 @@
 # @matizze/prumo-rules
 
+## 0.2.0
+
+### Minor Changes
+
+- e19be78: O `@matizze/prumo-rules` cobra só a estrutura do projeto, sem nada de interface. Saem as regras de ESLint `ui-boundary`, `icons-from-alias` e `no-inline-svg` (com as opções delas, e o preset `recommended` passa a ligar só `no-cross-page-import` e `page-structure`) e a análise `references` do `prumo check`, que conferia o que o `AGENTS.md` cita entre crases (a opção `referenceFiles` sai junto). Saem também os exports de `@matizze/prumo-rules/check` que serviam às seções geradas do `AGENTS.md`: `findSections`, `replaceSection`, `proseLines`, `AGENTS_SECTIONS` e `SectionError`. Ficam as análises `components-folders` (a `ui` é a pasta que o produto usa para o design system dele, seja qual for: o Prumo só confere o nome), `shared-usage`, `page-structure` e `messages`. O `shared-usage` deixa de ignorar os arquivos `.stories.tsx`, que não existem mais no que o Prumo cobre.
+
+### Patch Changes
+
+- c422a51: Pronto para publicar no GitHub Packages: sem `"private": true` e com `repository` apontando para o repositório.
+
 ## 0.1.1
 
 ### Patch Changes

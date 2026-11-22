@@ -15,11 +15,27 @@ function importedFile(declaration: ImportDeclaration): string {
   return path.basename(declaration.getModuleSpecifierValue(), '.json')
 }
 
-/** A edição que acrescenta o import do JSON na posição alfabética, pelo nome do arquivo. */
+/**
+ * A edição que acrescenta o import do JSON na posição alfabética, pelo nome do arquivo. Num índice
+ * sem nenhum import (o de um projeto novo, só com o `export default {}`), o primeiro import entra
+ * logo antes do `export default`, e um comentário que o preceda continua no alto do arquivo.
+ */
 function importEdit(index: SourceFile, file: string, camel: string): TextEdit {
   const imports = index.getImportDeclarations()
   const last = imports[imports.length - 1]
-  if (!last) throw new UsageError(`'${index.getFilePath()}' não tem imports de mensagens.`)
+  if (!last) {
+    const exported = index.getExportAssignment((assignment) => !assignment.isExportEquals())
+    if (!exported) {
+      throw new UsageError(
+        `'${index.getFilePath()}' não tem um 'export default { ... }' com os namespaces.`,
+      )
+    }
+    return {
+      pos: exported.getStart(),
+      end: exported.getStart(),
+      text: `import ${camel} from './${file}.json'\n\n`,
+    }
+  }
 
   const quote = last.getModuleSpecifier().getText().charAt(0)
   const semicolon = last.getText().endsWith(';') ? ';' : ''
@@ -92,49 +108,13 @@ function addToIndex(index: SourceFile, file: string, camel: string): void {
 }
 
 /**
- * Registra o namespace novo nas mensagens, nos dois idiomas (em todos os que o projeto tem):
- * copia `src/messages/<idioma>/<refFile>.json` para `<newFile>.json` e acrescenta, no `index.ts`
- * do idioma, o import e a chave de `export default`, cada um na posição alfabética (antes do
- * primeiro que vem depois dele; no fim, se nenhum vem). `camel` é o namespace: `produtos`.
- * Falta o JSON da referência, já existe o novo em algum idioma ou o índice já registra o namespace
- * (`error404` e `error-404` dão o mesmo): `UsageError`, sem escrever nada.
- */
-export function registerMessages(
-  plan: ChangePlan,
-  refFile: string,
-  newFile: string,
-  camel: string,
-): void {
-  const { messages } = plan.project
-  for (const language of messageLanguages(plan.project)) {
-    const dir = path.join(messages, language)
-    const from = path.join(dir, `${refFile}.json`)
-    if (!plan.has(from))
-      throw new UsageError(
-        `faltam as mensagens da referência: src/messages/${language}/${refFile}.json.`,
-      )
-
-    plan.createCopy(from, path.join(dir, `${newFile}.json`))
-
-    const index = plan.source(path.join(dir, 'index.ts'))
-    // `error404` e `error-404` dão o mesmo namespace: o índice teria o import e a chave repetidos
-    const registered = registeredNamespaces(index)
-    if (registered.has(camel)) {
-      const file = registered.get(camel)
-      throw new UsageError(
-        `src/messages/${language}/index.ts já registra o namespace '${camel}'${file === undefined ? '' : ` (${file}.json)`}: o nome '${newFile}' dá o mesmo namespace (o hífen e os números não mudam o nome em camelCase). Escolha outro nome para a tela.`,
-      )
-    }
-    addToIndex(index, newFile, camel)
-  }
-}
-
-/**
  * Registra no `index.ts` de cada idioma do projeto um namespace cujo JSON já está (ou vai estar,
- * pelo plano) em `src/messages/<idioma>/<file>.json`: é o registro do `prumo add`, que copia o
- * JSON da origem. O namespace que o índice já registra com o mesmo arquivo fica como está, o que
- * deixa o `add` repetível. Registrado com outro arquivo (`error404` para `error-404.json`, ou um
- * `import` do produto com o mesmo nome local): `UsageError`, sem escrever nada.
+ * pelo plano) em `src/messages/<idioma>/<file>.json`: o import e a chave de `export default`,
+ * cada um na posição alfabética (antes do primeiro que vem depois dele; no fim, se nenhum vem).
+ * `camel` é o namespace: `produtos`. O namespace que o índice já registra com o mesmo arquivo
+ * fica como está, o que deixa o registro repetível. Registrado com outro arquivo (`error404`
+ * para `error-404.json`, ou um `import` do produto com o mesmo nome local): `UsageError`, sem
+ * escrever nada.
  */
 export function registerMessageNamespace(plan: ChangePlan, file: string, camel: string): void {
   for (const language of messageLanguages(plan.project)) {
@@ -143,7 +123,7 @@ export function registerMessageNamespace(plan: ChangePlan, file: string, camel: 
     if (registered.has(camel)) {
       if (registered.get(camel) === file) continue
       throw new UsageError(
-        `src/messages/${language}/index.ts já registra o namespace '${camel}' com outro arquivo (${registered.get(camel) ?? 'sem import de JSON'}): o item traz '${file}.json'.`,
+        `src/messages/${language}/index.ts já registra o namespace '${camel}' com outro arquivo (${registered.get(camel) ?? 'sem import de JSON'}): o novo é '${file}.json' (o hífen e os números não mudam o nome em camelCase).`,
       )
     }
     addToIndex(index, file, camel)

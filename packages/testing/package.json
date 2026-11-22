@@ -1,15 +1,17 @@
 {
   "name": "@matizze/prumo-testing",
-  "version": "0.1.0",
-  "description": "Utilitários de teste do Prumo: renderWithProviders, rota de memória, teste de contrato contra o mock e a API real, e configuração das stories com axe nos dois temas.",
-  "private": true,
+  "version": "0.2.0",
+  "description": "Utilitários de teste do Prumo, sem interface: renderWithProviders com rota em memória, setup do DOM, matchMedia controlável, createDeferred e o teste de contrato de um repositório.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matizze/prumo.git",
+    "directory": "packages/testing"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/contract.ts",
-    "./dom": "./src/dom/index.ts",
-    "./storybook": "./src/storybook/index.ts",
-    "./storybook/preview": "./src/storybook/preview.ts"
+    "./dom": "./src/dom/index.ts"
   },
   "files": [
     "dist"
@@ -30,14 +32,6 @@
       "./dom": {
         "types": "./dist/dom/index.d.ts",
         "default": "./dist/dom/index.js"
-      },
-      "./storybook": {
-        "types": "./dist/storybook/index.d.ts",
-        "default": "./dist/storybook/index.js"
-      },
-      "./storybook/preview": {
-        "types": "./dist/storybook/preview.d.ts",
-        "default": "./dist/storybook/preview.js"
       }
     }
   },
@@ -47,38 +41,24 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@storybook/addon-vitest": "^10.6.7",
     "@tanstack/react-query": "^5.105.0",
     "@testing-library/react": "^16.3.3",
-    "@vitest/browser-playwright": "^5.1.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "vitest": "^5.1.0",
     "wouter": "^3.13.0"
   },
   "devDependencies": {
-    "@storybook/addon-vitest": "^10.6.7",
     "@tanstack/react-query": "^5.105.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitest/browser-playwright": "^5.1.0",
     "jsdom": "^31.0.1",
-    "playwright": "^1.65.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "storybook": "^10.6.7",
     "typescript": "~6.0.3",
     "vitest": "^5.1.0",
     "wouter": "^3.13.0"
-  },
-  "peerDependenciesMeta": {
-    "@storybook/addon-vitest": {
-      "optional": true
-    },
-    "@vitest/browser-playwright": {
-      "optional": true
-    }
   }
 }

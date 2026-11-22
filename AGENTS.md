@@ -1,30 +1,24 @@
 # AGENTS.md
 
-Guia para agentes de IA neste monorepo. Dentro de `apps/reference`, vale também o guia do próprio app, [apps/reference/AGENTS.md](apps/reference/AGENTS.md), com a arquitetura das telas, os repositórios e o índice de padrões. O starter (`starter/`) tem o `AGENTS.md` do produto, e o jeito de montá-lo está em [starter/scripts/README.md](starter/scripts/README.md).
+Guia para agentes de IA neste monorepo.
 
 ## O que é
 
-O Prumo é o framework da Matizze para produtos React: pacotes versionados (core, rules, testing, cli e mcp), um app de referência com as telas portadas, um catálogo e um starter. Visão geral e comandos no [README.md](README.md); o plano completo em [docs/plano-prumo.md](docs/plano-prumo.md).
+O Prumo é uma **ferramenta** da Matizze para criar e manter aplicações React organizadas em camadas (telas com `index`, `model` e `view`, domínios com schema, repositório e queries, textos em dois idiomas) e conferir a arquitetura. **Não tem frontend:** nenhum componente de interface, ícone, tema, CSS, Storybook, tela pronta, catálogo de blocos ou padrão de tela. A interface é do produto. Visão geral e comandos no [README.md](README.md); o plano e as fases, em [docs/plano.md](docs/plano.md).
 
-As Fases 1 a 3 estão concluídas (o resultado de cada uma, em [docs/fase-1.md](docs/fase-1.md), [docs/fase-2.md](docs/fase-2.md) e [docs/fase-3.md](docs/fase-3.md)): a CLI cria um produto (`prumo new`), gera telas, domínios e componentes (`make:*`), traz itens do catálogo (`add`), move componentes para o `shared` (`promote`) e confere o ambiente (`doctor`). Os pacotes saem empacotados com `dist/`, mas **nada foi publicado**: a primeira publicação no GitHub Packages espera uma pessoa e um token ([docs/publicacao.md](docs/publicacao.md)), e os pacotes seguem `"private": true`. Não tire o `private` nem publique por conta própria. O `@matizze/prumo-mcp` é a Fase 4.
+As **Fases A e B terminaram**: não há interface no repositório, e `new`, `make:page`, `make:domain` e `make:component` existem, com o portão local `pnpm verify:new` (veja a seção Verificação). Os modelos são arquivos `.tpl` com marcadores de nome em `packages/cli/templates/` (veja o README do cli), e o gerador novo entra em `packages/cli/src/generate/`. São cinco pacotes em `packages/`: `core`, `rules`, `testing`, `cli` (os comandos `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`) e `mcp` (o servidor com as mesmas ferramentas). Nada foi publicado ainda: os pacotes já estão prontos (sem `private`, com `repository`) para o GitHub Packages privado, publicado à mão pelo orquestrador, e o npm público (Fase C do plano) espera uma pessoa e um token (a organização `matizze` no npmjs). Não publique por conta própria.
 
 ## Regras
 
-1. **O Prumo depende do MaDS; o MaDS nunca depende do Prumo.** Componentes de UI, tokens, tema e ícones são do MaDS. O MaDS já publica o registry `@mads`, mas o app de referência (e o starter, gerado dele) mantém a própria cópia da UI até o MaDS ser a fonte dela; o produto novo instala itens novos pelo registry (`prumo add @mads/<item>`).
-2. **O app de referência é a fonte de verdade.** Uma mudança num pacote não pode quebrar o verify do app.
-3. **Extração do app para um pacote: um módulo por pull request.** O app passa a importar do pacote no mesmo pull request, com o verify verde. A ordem e os arquivos estão em [docs/fase-1.md](docs/fase-1.md).
-4. **Pull request abre contra a `develop`**, e o que muda `packages/*` traz changeset (`pnpm changeset`). A CI cobra. A `main` recebe as versões.
-5. **Idioma.** Comentários, documentação e commits em português; nomes de função, variável e arquivo em inglês.
-6. **Dependência nova só com aprovação de uma pessoa**, mesmo que seja pequena.
-7. **Um verify por vez.** O do app e o do starter rodam as stories no Chromium e chegam a uns 2 GB de memória.
-8. **O starter é gerado do app, não editado.** O `starter/` sai de `pnpm starter:build` (copia do app, roda o `prumo add` e localiza os blocos). Mudou o app de referência numa pasta que o starter copia (a UI, a casca, as telas dos padrões), o catálogo ou o `starter/scripts`: rode o `starter:build` e faça o commit do que mudou. O teste do cli (`starter.test.ts`) acusa o starter fora de dia.
+1. **Critério para qualquer decisão:** se uma peça só faz sentido com uma interface específica, ela não é do Prumo.
+2. **Pull request abre contra a `develop`**, e o que muda `packages/*` traz changeset (`pnpm changeset`). A `main` recebe as versões.
+3. **Não há CI de verificação no GitHub** (custo). A verificação é local, com `pnpm verify`. A CI do Prumo existirá só para publicar (Fase C).
+4. **Idioma.** Comentários, documentação e commits em português; nomes de função, variável e arquivo em inglês.
+5. **Dependência nova só com aprovação de uma pessoa**, mesmo que seja pequena.
+6. **Um verify por vez.** A máquina de desenvolvimento tem pouca memória.
 
 ## Verificação
 
-- Mudança só em `packages/*` ou em `catalog/`: `pnpm verify:packages` (typecheck, lint e testes dos pacotes e do catálogo).
-- Mudança no `apps/reference/registry.json` ou no `catalog/seams.json`: regere o índice com `pnpm --filter @matizze/prumo-catalog build` e faça o commit do `catalog/index.json`; o teste do catálogo acusa o índice velho.
-- Mudança no starter (`starter/`): `pnpm verify:starter` (typecheck, lint, `prumo check`, testes, stories nos dois temas e build do starter). Os arquivos do starter saem do `pnpm starter:build`; não os edite à mão (veja a regra 8).
-- Mudança no build dos pacotes (`tsconfig.build.json`, `publishConfig`, `scripts/pack-packages.sh`): o `packaging.test.ts` do cli (já dentro do `pnpm verify:packages`) compila e empacota os quatro pacotes e confere os tarballs; `pnpm pack:all [pasta]` gera os tarballs à mão, e `pnpm build` só compila.
-- Antes de abrir o pull request: `pnpm verify`, que roda os pacotes, o app de referência e o starter, um depois do outro.
-- Mudança no codemod, nos comandos `make:*` ou numa tela de referência: também `pnpm verify:generated`, o portão da Fase 2, que gera uma tela de cada padrão, um domínio e um componente numa worktree temporária, regera o starter e roda nela o verify dos pacotes, o do app e o do starter (etapas `prepare`, `run`, `run-starter` e `clean`, cada uma com menos de 10 minutos; um verify por vez). Veja `scripts/verify-generated.sh`.
-- Mudança no `prumo new`, no `prumo add`, no starter, no build dos pacotes ou no que o produto herda do monorepo: também `pnpm verify:product`, o portão da Fase 3, que empacota os pacotes, cria um produto novo numa pasta temporária fora do monorepo (`prumo new --from` o HEAD, `--packages` os tarballs), gera nele uma tela com menu, um domínio e um componente, roda o `pnpm verify` dele e instala um bloco do catálogo (etapas `pack`, `new`, `generate`, `run`, `add` e `clean`, cada uma com menos de 10 minutos; um verify por vez; o `pack` e o `all` recusam, com código 2, mudança não commitada em `packages`, `starter`, `catalog` ou `apps/reference` (os tarballs vêm do working tree e o starter, do HEAD), a não ser com `PRUMO_GATE_DIRTY=1`, então faça o commit antes). O script não edita arquivo do produto: se o verify dele falha, o achado é do starter, da CLI ou dos pacotes. Veja `scripts/verify-product.sh`.
+- `pnpm verify`: typecheck, lint e testes dos cinco pacotes, sem navegador.
+- `pnpm build`: compila os pacotes (`dist/`). `pnpm pack:all [pasta]` gera os tarballs; o `packaging.test.ts` do cli (já dentro do `pnpm verify`) compila, empacota e confere os tarballs.
+- `pnpm verify:new`: o portão local do app novo, sem navegador e sem GitHub (`scripts/verify-new.sh`). Empacota os pacotes (`pnpm pack:all`), cria um app com `prumo new` numa pasta temporária fora do monorepo (`--packages` os tarballs), gera nele pela CLI um domínio, uma tela com `--domain` e um componente, gera outro domínio, outra tela e outro componente só por ferramentas MCP (o cliente é `packages/mcp/scripts/drive-mcp.mjs`, por stdio, contra o `prumo-mcp` do app), roda o `pnpm verify` do app (typecheck, lint, `prumo check` e testes) e apaga a pasta (trap, também na falha). Dura cerca de 30 s a 1 min, mas instala dependências e roda `tsc`, `eslint` e `vitest`: rode-o pela trava de memória, um por vez. O script não edita arquivo do app (só a CLI e o MCP mudam o app): se o verify do app falha, o achado é dos modelos, da CLI ou dos pacotes. O `verify-new.test.ts` do cli confere a estrutura do script. Rode-o ao mudar os modelos (`packages/cli/templates`), o `new`, os `make:*` ou o servidor MCP.

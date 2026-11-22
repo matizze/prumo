@@ -5,7 +5,7 @@
   "format": false,
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "ignore": ["@matizze/prumo-reference", "@matizze/prumo-catalog", "@matizze/prumo-starter"],
+  "ignore": [],
   "fixed": [],
   "linked": [],
   "updateInternalDependencies": "patch",

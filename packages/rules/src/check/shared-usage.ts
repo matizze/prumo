@@ -10,7 +10,7 @@ const PAGE = 'page:'
 /**
  * O que está em `components/shared` é usado por 2 ou mais telas. O uso conta pelo grafo de
  * imports: um módulo usado só por outro módulo compartilhado vale pelas telas que usam esse
- * outro. A casca do layout aparece em todas as telas, então conta como duas. Testes e stories
+ * outro. A casca do layout aparece em todas as telas, então conta como duas. Testes
  * não contam como uso. Os imports são lidos por expressão regular, nos mesmos casos do
  * `import`, do `export ... from` e do `import()` com texto fixo.
  */

@@ -1,6 +1,4 @@
 import path from 'node:path'
-import { MADS, UI_REGISTRY_NAMESPACE } from '../ds.ts'
-import { lookupVariable, variablesIn } from './env-file.ts'
 import { CLI_PACKAGE_NAME, PRUMO_PACKAGES, PRUMO_PACKAGE_RANGES } from './ranges.ts'
 import {
   caretRange,
@@ -39,19 +37,16 @@ export interface DoctorSystem {
   pnpmVersion: () => string | undefined
   /** O conteúdo do arquivo, ou `undefined` se ele não existe ou não pode ser lido. */
   readText: (file: string) => string | undefined
+  /** O valor da variável de ambiente, ou `undefined` se ela não existe ou está vazia. */
+  env: (name: string) => string | undefined
 }
 
 export interface DoctorInput {
   root: string
-  /** As variáveis de ambiente (têm prioridade sobre o `.env.local`). */
-  env: Readonly<Record<string, string | undefined>>
   system: DoctorSystem
 }
 
 type Json = Record<string, unknown>
-
-const DEFAULT_URL_VARIABLE = MADS.urlVariable
-const DEFAULT_TOKEN_VARIABLE = MADS.tokenVariable
 
 /** Roda todas as conferências e devolve as linhas, na ordem do relatório. Não escreve nada. */
 export function runChecks(input: DoctorInput): Finding[] {
@@ -60,8 +55,8 @@ export function runChecks(input: DoctorInput): Finding[] {
     checkNode(input, manifest),
     checkPnpm(input, manifest),
     ...checkPackages(input, manifest),
-    ...checkRegistry(input),
-    ...checkProjectFiles(input),
+    checkMcpJson(input),
+    ...checkRegistryToken(input),
   ]
 }
 
@@ -283,135 +278,86 @@ function checkPackage(input: DoctorInput, name: string, versionText: string | un
   return { status: 'ok', label: name, message: `${shown} (esperado: ${expected}).` }
 }
 
-// Registry de UI
+// .mcp.json
 
-interface UiRegistry {
-  name: string
-  urlVariables: string[]
-  tokenVariables: string[]
-  /** A URL, quando o `components.json` a escreve direto, sem variável. */
-  fixedUrl?: string
-}
+/** O nome do servidor do Prumo no `mcpServers` do `.mcp.json` (o `prumo new` o cria com ele). */
+export const PRUMO_MCP_SERVER = 'prumo'
 
-function findUiRegistry(registries: unknown): UiRegistry | undefined {
-  if (typeof registries !== 'object' || registries === null) return undefined
-  const names = Object.keys(registries).filter((name) => UI_REGISTRY_NAMESPACE.test(name))
-  // `--ds <cliente>` troca o @mads pelo do cliente: se os dois estão lá, o do cliente é o que vale
-  const name = names.find((candidate) => candidate !== MADS.namespace) ?? names[0]
-  if (name === undefined) return undefined
-  const config = (registries as Json)[name]
-  const url = typeof config === 'string' ? config : asString((config as Json | null)?.url)
-  const headers =
-    typeof config === 'object' && config !== null ? (config as Json).headers : undefined
-  const urlVariables = variablesIn(url)
-  return {
-    name,
-    urlVariables,
-    tokenVariables: variablesIn(headers),
-    ...(urlVariables.length === 0 && url ? { fixedUrl: url } : {}),
-  }
-}
-
-function checkRegistry(input: DoctorInput): Finding[] {
-  const label = 'components.json'
-  const file = path.join(input.root, 'components.json')
-  const text = input.system.readText(file)
-  if (text === undefined) {
-    return [
-      {
-        status: 'error',
-        label,
-        message: 'não existe: o projeto precisa do components.json do shadcn.',
-      },
-    ]
-  }
-  const components = readJson(input.system, file)
-  if (!components) {
-    return [{ status: 'error', label, message: 'não é um JSON de objeto válido.' }]
-  }
-
-  const registry = findUiRegistry(components.registries)
-  const findings: Finding[] = []
-  if (registry) {
-    findings.push({ status: 'ok', label, message: `registry de UI: ${registry.name}.` })
-  } else {
-    findings.push({
+/**
+ * O `.mcp.json`: existe, é um JSON de objeto e tem o servidor `prumo` (o `prumo-mcp`, com que o agente
+ * faz pelo MCP o que a pessoa faz pela CLI). Sem ele, aviso: o projeto funciona, só o agente não
+ * enxerga as ferramentas do Prumo.
+ */
+function checkMcpJson({ root, system }: DoctorInput): Finding {
+  const label = '.mcp.json'
+  const file = path.join(root, label)
+  if (system.readText(file) === undefined) {
+    return {
       status: 'warn',
       label,
-      message:
-        'sem registry de UI (@mads ou @<cliente>-ds) em "registries": o prumo add @mads/<item> não vai achar a UI.',
-    })
+      message: 'não existe (a configuração dos servidores MCP, entre eles o do prumo).',
+    }
   }
-
-  // Os mesmos arquivos, na mesma ordem, que o `prumo add` confere antes de instalar UI
-  const lookup = (variable: string) =>
-    lookupVariable(variable, input.env, input.system.readText, input.root)
-
-  if (registry?.fixedUrl) {
-    findings.push({
-      status: 'ok',
-      label: registry.name,
-      message: `URL fixa: ${maskUrl(registry.fixedUrl)}.`,
-    })
+  const manifest = readJson(system, file)
+  if (!manifest) return { status: 'warn', label, message: 'não é um JSON de objeto válido.' }
+  const servers = manifest.mcpServers
+  const server =
+    typeof servers === 'object' && servers !== null
+      ? (servers as Record<string, unknown>)[PRUMO_MCP_SERVER]
+      : undefined
+  const command =
+    typeof server === 'object' && server !== null
+      ? (server as Record<string, unknown>).command
+      : undefined
+  if (typeof command !== 'string' || command === '') {
+    return {
+      status: 'warn',
+      label,
+      message: `sem o servidor ${PRUMO_MCP_SERVER} (com "command") em "mcpServers": o agente não vê as ferramentas do Prumo. Acrescente "${PRUMO_MCP_SERVER}": { "command": "pnpm", "args": ["exec", "prumo-mcp"] } e o @matizze/prumo-mcp como devDependency.`,
+    }
   }
-  const urlVariables = registry ? registry.urlVariables : [DEFAULT_URL_VARIABLE]
-  const tokenVariables = registry ? registry.tokenVariables : [DEFAULT_TOKEN_VARIABLE]
-
-  for (const variable of unique(urlVariables)) {
-    const found = lookup(variable)
-    findings.push(
-      found?.value
-        ? { status: 'ok', label: variable, message: `${maskUrl(found.value)} (${found.source}).` }
-        : {
-            status: 'warn',
-            label: variable,
-            message: 'ausente: defina no ambiente ou no .env.local.',
-          },
-    )
-  }
-  // O valor do token nunca entra numa linha: só se ele existe e de onde vem
-  for (const variable of unique(tokenVariables)) {
-    const found = lookup(variable)
-    findings.push(
-      found
-        ? { status: 'ok', label: variable, message: `definido (${found.source}).` }
-        : {
-            status: 'warn',
-            label: variable,
-            message: 'ausente: defina no ambiente ou no .env.local.',
-          },
-    )
-  }
-  return findings
+  return { status: 'ok', label, message: `existe, com o servidor ${PRUMO_MCP_SERVER}.` }
 }
 
-function unique<T>(values: T[]): T[] {
-  return [...new Set(values)]
+// .npmrc
+
+/** O registry do GitHub Packages, de onde vêm os pacotes @matizze/prumo-* enquanto não estão no npm público. */
+export const GITHUB_PACKAGES_HOST = 'npm.pkg.github.com'
+
+/** A variável de ambiente que o `.npmrc` do app gerado lê para autenticar no GitHub Packages. */
+export const REGISTRY_TOKEN_VARIABLE = 'NODE_AUTH_TOKEN'
+
+/** O `.npmrc` manda o escopo `@matizze` para o GitHub Packages? (`@matizze:registry=https://npm.pkg.github.com`) */
+function routesScopeToGithubPackages(npmrc: string): boolean {
+  return npmrc.split('\n').some((raw) => {
+    const match = /^\s*@matizze:registry\s*=\s*(\S+)\s*$/.exec(raw)
+    return match?.[1] !== undefined && match[1].includes(GITHUB_PACKAGES_HOST)
+  })
 }
 
 /**
- * Esconde o que numa URL pode ser segredo: usuário e senha (`https://user:senha@host` vira
- * `https://***@host`) e o que vem depois do `?` ou do `#` (`/r?token=x` vira `/r?***`).
+ * O token do GitHub Packages: se o `.npmrc` do projeto manda o escopo `@matizze` para o
+ * `npm.pkg.github.com` e a `NODE_AUTH_TOKEN` não está definida, o `pnpm install` não consegue baixar
+ * os pacotes do Prumo. Sem `.npmrc` desse tipo, não há linha. Nunca mostra o valor da variável.
  */
-function maskUrl(value: string): string {
-  const masked = value.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/@\s]+@/i, '$1***@')
-  const cut = masked.search(/[?#]/)
-  return cut === -1 ? masked : `${masked.slice(0, cut + 1)}***`
-}
-
-// Arquivos do projeto
-
-function checkProjectFiles({ root, system }: DoctorInput): Finding[] {
-  const findings: Finding[] = []
-  for (const [name, hint] of [
-    ['.mcp.json', 'a configuração do servidor MCP do shadcn'],
-    ['.env.local', 'copie o .env.example e preencha o registry'],
-  ] as const) {
-    findings.push(
-      system.readText(path.join(root, name)) === undefined
-        ? { status: 'warn', label: name, message: `não existe (${hint}).` }
-        : { status: 'ok', label: name, message: 'existe.' },
-    )
+function checkRegistryToken({ root, system }: DoctorInput): Finding[] {
+  const label = '.npmrc'
+  const npmrc = system.readText(path.join(root, '.npmrc'))
+  if (npmrc === undefined || !routesScopeToGithubPackages(npmrc)) return []
+  if (system.env(REGISTRY_TOKEN_VARIABLE) === undefined) {
+    return [
+      {
+        status: 'warn',
+        label,
+        message: `o escopo @matizze vem do GitHub Packages (${GITHUB_PACKAGES_HOST}), mas ${REGISTRY_TOKEN_VARIABLE} não está definida: crie um token clássico do GitHub com read:packages e exporte-o em ${REGISTRY_TOKEN_VARIABLE} antes do pnpm install.`,
+      },
+    ]
   }
-  return findings
+  return [
+    {
+      status: 'ok',
+      label,
+      message: `o escopo @matizze vem do GitHub Packages e ${REGISTRY_TOKEN_VARIABLE} está definida.`,
+    },
+  ]
 }

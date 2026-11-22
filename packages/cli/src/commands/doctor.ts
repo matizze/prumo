@@ -67,6 +67,7 @@ export function realSystem(): DoctorSystem {
     cliVersion: readCliVersion(),
     pnpmVersion,
     readText,
+    env: (name) => process.env[name] || undefined,
   }
 }
 
@@ -79,15 +80,13 @@ export function createDoctorCommand(runtime: Runtime, injected?: DoctorSystem) {
   return defineCommand({
     meta: {
       name: 'doctor',
-      description: `Confere o ambiente e o projeto: Node, pnpm, pacotes do Prumo e registry de UI.
+      description: `Confere o ambiente e o projeto: Node, pnpm, pacotes do Prumo e .mcp.json.
 
 Cada item sai numa linha com ok, aviso ou erro: o Node (mínimo 24, e o .nvmrc do projeto), o pnpm
 (contra o packageManager), a versão de cada @matizze/prumo-* instalado contra a faixa que esta CLI
-espera, o registry de UI do components.json (@mads ou @<cliente>-ds) com as variáveis dele, lidas
-do ambiente e dos arquivos .env que o shadcn lê (.env.local, .env.development.local,
-.env.development e .env, nessa ordem, como o prumo add), e a presença do .mcp.json e do .env.local.
-A URL do registry aparece, sem usuário, senha, query nem fragmento; o token nunca: só "definido" ou
-"ausente".
+espera e o .mcp.json (com o servidor prumo, o prumo-mcp, que dá ao agente as ferramentas do Prumo).
+Se o .npmrc manda o escopo @matizze para o GitHub Packages, confere que a NODE_AUTH_TOKEN está
+definida (só avisa; nunca mostra o valor).
 
 Sai com 0 sem erro (avisos não falham), com 1 com erro e com 2 se a pasta não é um projeto. Não
 escreve nada e não usa a rede.`,
@@ -107,7 +106,7 @@ escreve nada e não usa a rede.`,
           `a pasta '${root}' não tem package.json: aponte --root para a raiz do projeto.`,
         )
       }
-      const findings = runChecks({ root, env: runtime.env, system })
+      const findings = runChecks({ root, system })
       runtime.out(`${findings.map(formatFinding).join('\n')}\n\n${formatSummary(findings)}\n`)
       if (findings.some((finding) => finding.status === 'error')) throw new ExitError(1)
     },

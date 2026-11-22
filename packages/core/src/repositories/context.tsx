@@ -2,7 +2,7 @@ import { createContext, useContext, useState, type ReactNode } from 'react'
 
 export interface RepositoryProviderProps<C> {
   children: ReactNode
-  /** Container injetado (testes e Storybook). Sem ele, o provedor cria o padrão do produto. */
+  /** Container injetado (nos testes). Sem ele, o provedor cria o padrão do produto. */
   value?: C
 }
 

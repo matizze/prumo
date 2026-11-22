@@ -1,6 +1,6 @@
 import { defineCommand } from 'citty'
-import { check, type Violation } from '@matizze/prumo-rules/check'
 import path from 'node:path'
+import { check, type Violation } from '@matizze/prumo-rules/check'
 import { ExitError } from '../errors.ts'
 import { findProject } from '../project.ts'
 import type { Runtime } from '../runtime.ts'

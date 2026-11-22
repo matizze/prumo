@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto'
-import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemod/test-support.ts'
 import { createRoot } from '../root.ts'
 import { runCli } from '../run.ts'
-import { captureRuntime } from '../test-support.ts'
+import { captureRuntime, makeDir } from '../test-support.ts'
 
 async function run(args: string[], cwd: string) {
   const runtime = captureRuntime(cwd)
@@ -30,23 +30,22 @@ function snapshot(root: string, dir = root): Record<string, string> {
 const read = (root: string, file: string) => readFileSync(path.join(root, file), 'utf8')
 
 describe('prumo make:domain', () => {
-  it('gera o domínio, faz as costuras e lista tudo, sem violação do check', async () => {
+  it('gera o domínio, registra nos índices, roda o check e mostra como testar', async () => {
     const { root } = fixtureProject()
-    const result = await run(['make:domain', 'suppliers'], root)
+    const result = await run(['make:domain', 'clientes'], root)
 
     expect(result.code, result.stderr).toBe(0)
     expect(result.stderr).toBe('')
-    expect(result.stdout)
-      .toBe(`prumo make:domain: suppliers (entidade supplier), a partir de customers.
+    expect(result.stdout).toBe(`prumo make:domain: clientes (entidade cliente).
 
 Criados (7):
-  src/queries/suppliers.ts
-  src/repositories/suppliers/fixtures.ts
-  src/repositories/suppliers/index.ts
-  src/repositories/suppliers/repository.contract.test.ts
-  src/repositories/suppliers/repository.contract.ts
-  src/repositories/suppliers/repository.mock.ts
-  src/schemas/entities/supplier.ts
+  src/queries/clientes.ts
+  src/repositories/clientes/fixtures.ts
+  src/repositories/clientes/index.ts
+  src/repositories/clientes/repository.contract.test.ts
+  src/repositories/clientes/repository.contract.ts
+  src/repositories/clientes/repository.mock.ts
+  src/schemas/entities/cliente.ts
 
 Alterados (3):
   src/queries/index.ts
@@ -55,274 +54,183 @@ Alterados (3):
 
 prumo check: nenhuma violação.
 
-Os campos e as fixtures são os de customers: edite src/schemas/entities/supplier.ts e src/repositories/suppliers/fixtures.ts. A mensagem de erro do "não encontrado" é "Registro não encontrado.".
+Edite o schema (src/schemas/entities/cliente.ts) e as fixtures (src/repositories/clientes/fixtures.ts); o teste de contrato acompanha.
+As queries importam useRepositories de @/providers/repository, e o projeto não tem src/providers/repository: crie-o com createRepositoryContext, de @matizze/prumo-core/repositories.
 
 Para rodar os testes do domínio novo:
-  pnpm exec vitest run src/repositories/suppliers
+  pnpm exec vitest run src/repositories/clientes
 `)
-    expect(read(root, 'src/queries/suppliers.ts')).toContain(
-      "export const supplierKeys = createQueryKeys('suppliers', {",
-    )
-    expect(read(root, 'src/queries/index.ts')).toContain(
-      "export { supplierKeys, supplierQueries } from './suppliers'",
+    expect(read(root, 'src/queries/clientes.ts')).toContain(
+      "export const clienteKeys = createQueryKeys('clientes', {",
     )
     expect(read(root, 'src/repositories/index.ts')).toContain(
-      '  suppliers: createSuppliersRepository,\n  support: createSupportRepository,',
+      '  clientes: createClientesRepository,\n  customers: createCustomersRepository,',
     )
-    expect(read(root, 'src/schemas/index.ts')).toContain("export * from './entities/supplier'\n")
   })
 
-  it('avisa quando o projeto não tem o src/test/contract.ts que o teste de contrato importa', async () => {
+  it('usa o script test do projeto, e não avisa do provedor quando ele existe', async () => {
     const { root } = fixtureProject()
-    rmSync(path.join(root, 'src/test/contract.ts'))
-    const result = await run(['make:domain', 'suppliers'], root)
+    writeFileSync(path.join(root, 'package.json'), '{ "scripts": { "test": "vitest run" } }\n')
+    mkdirSync(path.join(root, 'src/providers/repository'), { recursive: true })
+    writeFileSync(path.join(root, 'src/providers/repository/index.ts'), 'export {}\n')
+
+    const result = await run(['make:domain', 'clientes'], root)
 
     expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).not.toContain('providers/repository')
+    expect(result.stdout).toContain('\n  pnpm test src/repositories/clientes\n')
+  })
+
+  it('--entity dá o singular, e --root aponta o projeto de fora dele', async () => {
+    const { root } = fixtureProject()
+    const outside = makeDir()
+    const result = await run(
+      ['make:domain', 'categories', '--entity', 'category', '--root', root],
+      outside,
+    )
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).toContain('prumo make:domain: categories (entidade category).')
+    expect(existsSync(path.join(root, 'src/schemas/entities/category.ts'))).toBe(true)
     expect(result.stdout).toContain(
-      'O teste de contrato importa src/test/contract.ts (a ligação com @matizze/prumo-testing), e o projeto não tem o arquivo: crie-o reexportando defineContractSuite e runContractSuite de @matizze/prumo-testing/contract.\n',
+      `pnpm --dir ${root} exec vitest run src/repositories/categories`,
     )
+    expect(readdirSync(outside)).toEqual([])
   })
 
-  it('não avisa do contrato quando o projeto tem o src/test/contract.ts', async () => {
-    const { root } = fixtureProject()
-    const result = await run(['make:domain', 'suppliers'], root)
-
-    expect(result.stdout).not.toContain('src/test/contract.ts')
-  })
-
-  it('a mensagem de erro do domínio gerado é a que a saída diz, e não a de customers', async () => {
-    const { root } = fixtureProject()
-    await run(['make:domain', 'suppliers'], root)
-
-    expect(read(root, 'src/repositories/suppliers/repository.mock.ts')).toContain(
-      "'Registro não encontrado.'",
-    )
-    expect(read(root, 'src/repositories/suppliers/repository.mock.ts')).not.toContain('Cliente')
-  })
-
-  it('com registry.json, o item que publica o índice ganha o schema novo, e o arquivo vai na lista de alterados', async () => {
-    const { root } = fixtureProject()
-    const registry = {
-      items: [
-        {
-          name: 'schemas',
-          files: [
-            { path: 'src/schemas/index.ts', type: 'registry:lib', target: 'src/schemas/index.ts' },
-          ],
-        },
-      ],
-    }
-    writeFileSync(path.join(root, 'registry.json'), `${JSON.stringify(registry, null, 2)}\n`)
-
-    const dry = await run(['make:domain', 'suppliers', '--dry-run'], root)
-    expect(dry.code, dry.stderr).toBe(0)
-    expect(dry.stdout).toContain(
-      'Seriam alterados (4):\n  registry.json\n  src/queries/index.ts\n  src/repositories/index.ts\n  src/schemas/index.ts\n',
-    )
-    expect(read(root, 'registry.json')).not.toContain('supplier')
-
-    const result = await run(['make:domain', 'suppliers'], root)
-    expect(result.code, result.stderr).toBe(0)
-    expect(result.stdout).toContain('Alterados (4):\n  registry.json\n')
-    expect(JSON.parse(read(root, 'registry.json')).items[0].files).toEqual([
-      {
-        path: 'src/schemas/entities/supplier.ts',
-        type: 'registry:lib',
-        target: 'src/schemas/entities/supplier.ts',
-      },
-      { path: 'src/schemas/index.ts', type: 'registry:lib', target: 'src/schemas/index.ts' },
-    ])
-  })
-
-  it('sem registry.json, o registry.json não aparece e nenhum é criado', async () => {
-    const { root } = fixtureProject()
-    const result = await run(['make:domain', 'suppliers'], root)
-
-    expect(result.stdout).not.toContain('registry.json')
-    expect(existsSync(path.join(root, 'registry.json'))).toBe(false)
-  })
-
-  it('a ajuda e a saída não dizem que a mensagem de erro é a de customers', async () => {
-    const { root } = fixtureProject()
-    const help = await run(['make:domain', '--help'], root)
-
-    expect(help.stdout).not.toContain('as fixtures e a mensagem de erro')
-    expect(help.stdout).toContain('vira "Registro não encontrado."')
-    expect(help.stdout).toContain('registry.json')
-  })
-
-  it('mostra o aviso do snapshot das chaves quando o projeto tem o keys.test.ts', async () => {
-    const { root } = fixtureProject()
-    writeFileSync(path.join(root, 'src/queries/keys.test.ts'), '')
-    const result = await run(['make:domain', 'suppliers'], root)
-
-    expect(result.stdout).toContain(
-      'As chaves (supplierKeys) não entram sozinhas no snapshot de src/queries/keys.test.ts: acrescente-as à lista de grupos protegidos dele, se quiser congelá-las.\n',
-    )
-  })
-
-  it('--entity vale mais que a regra do singular', async () => {
-    const { root } = fixtureProject()
-    const result = await run(['make:domain', 'categories', '--entity', 'category'], root)
-
-    expect(result.code, result.stderr).toBe(0)
-    expect(result.stdout).toContain('categories (entidade category)')
-    expect(read(root, 'src/schemas/entities/category.ts')).toContain('export const categorySchema')
-    expect(read(root, 'src/repositories/index.ts')).toContain(
-      '  categories: createCategoriesRepository,',
-    )
-  })
-
-  it('--dry-run lista o que seria criado e alterado e não escreve nada', async () => {
+  it('--dry-run lista o que seria feito e não escreve nada', async () => {
     const { root } = fixtureProject()
     const before = snapshot(root)
-    const result = await run(['make:domain', 'suppliers', '--dry-run'], root)
+    const result = await run(['make:domain', 'clientes', '--dry-run'], root)
 
     expect(result.code, result.stderr).toBe(0)
-    expect(result.stderr).toBe('')
-    expect(result.stdout)
-      .toBe(`prumo make:domain: suppliers (entidade supplier), a partir de customers.
-
-Seriam criados (7):
-  src/queries/suppliers.ts
-  src/repositories/suppliers/fixtures.ts
-  src/repositories/suppliers/index.ts
-  src/repositories/suppliers/repository.contract.test.ts
-  src/repositories/suppliers/repository.contract.ts
-  src/repositories/suppliers/repository.mock.ts
-  src/schemas/entities/supplier.ts
-
-Seriam alterados (3):
-  src/queries/index.ts
-  src/repositories/index.ts
-  src/schemas/index.ts
-
-Simulação (--dry-run): nada foi escrito.
-`)
+    expect(result.stdout).toContain('Seriam criados (7):\n  src/queries/clientes.ts\n')
+    expect(result.stdout).toContain(
+      'Seriam alterados (3):\n  src/queries/index.ts\n  src/repositories/index.ts\n  src/schemas/index.ts\n',
+    )
+    expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')
+    expect(result.stdout).not.toContain('prumo check')
     expect(snapshot(root)).toEqual(before)
   })
 
-  it('aceita --root, relativo à pasta atual, e mostra o comando com o script de teste do projeto', async () => {
+  it('o --dry-run também valida: nome inválido sai com 2 e não escreve', async () => {
     const { root } = fixtureProject()
-    writeFileSync(
-      path.join(root, 'package.json'),
-      JSON.stringify({ name: 'app', scripts: { test: 'vitest run --project unit' } }),
-    )
-    const result = await run(
-      ['make:domain', 'suppliers', '--root', path.basename(root)],
-      path.dirname(root),
-    )
+    const before = snapshot(root)
+    const result = await run(['make:domain', 'Clientes', '--dry-run'], root)
 
-    expect(result.code, result.stderr).toBe(0)
-    expect(result.stdout).toContain(
-      `Para rodar os testes do domínio novo:\n  pnpm --dir ${path.basename(root)} test src/repositories/suppliers\n`,
-    )
+    expect(result.code).toBe(2)
+    expect(snapshot(root)).toEqual(before)
   })
 
-  describe('erros de uso, que saem com 2 antes de escrever qualquer coisa', () => {
-    const cases: { title: string; args: string[]; reason: string }[] = [
-      {
-        title: 'nome que não é kebab-case',
-        args: ['Fornecedores'],
-        reason: "o nome do domínio 'Fornecedores' é inválido",
-      },
-      {
-        title: 'entidade inválida',
-        args: ['suppliers', '--entity', 'Supplier'],
-        reason: "a entidade 'Supplier' é inválido",
-      },
-      {
-        title: 'singular que a regra não deriva',
-        args: ['staff'],
-        reason: 'Informe o singular com --entity',
-      },
-      {
-        title: 'o domínio da própria referência',
-        args: ['customers'],
-        reason: "o domínio 'customers' é o da referência",
-      },
-      {
-        title: 'entidade que já existe',
-        args: ['users', '--entity', 'customer'],
-        reason: 'já existe: src/schemas/entities/customer.ts',
-      },
-      {
-        title: 'singular suspeito: status viraria statu',
-        args: ['status'],
-        reason: "'status' parece já estar no singular",
-      },
-      {
-        title: 'singular suspeito: categories viraria categorie',
-        args: ['categories'],
-        reason: "daria 'categorie'",
-      },
-      {
-        title: 'entidade que é palavra reservada',
-        args: ['classes', '--entity', 'class'],
-        reason: "a entidade 'class' vira o identificador 'class', que é palavra reservada",
-      },
-      {
-        title: 'entidade que é nome global',
-        args: ['records', '--entity', 'record'],
-        reason: "a entidade 'record' vira o identificador 'Record', que é um nome global",
-      },
-      {
-        title: 'nomes exportados que um índice já exporta (TS2308)',
-        args: ['profiles'],
-        reason: 'src/schemas/index.ts: ProfileSchema, profileSchema',
-      },
-    ]
+  it('recusa o nome inválido com 2, antes de escrever, e explica', async () => {
+    const { root } = fixtureProject()
+    const before = snapshot(root)
+    const result = await run(['make:domain', 'Meus_Clientes'], root)
 
-    it.each(
-      cases.flatMap((entry) => [
-        entry,
-        { ...entry, title: `${entry.title} (--dry-run)`, args: [...entry.args, '--dry-run'] },
-      ]),
-    )('$title', async ({ args, reason }) => {
-      const { root } = fixtureProject()
-      const before = snapshot(root)
-      const result = await run(['make:domain', ...args], root)
-
-      expect(result.code).toBe(2)
-      expect(result.stderr).toContain(reason)
-      expect(result.stdout).toBe('')
-      expect(snapshot(root)).toEqual(before)
-    })
-
-    it('sem o nome do domínio, mostra a ajuda do comando', async () => {
-      const { root } = fixtureProject()
-      const result = await run(['make:domain'], root)
-
-      expect(result.code).toBe(2)
-      expect(result.stderr).toContain('falta o argumento <nome>.')
-      expect(result.stderr).toContain('prumo make:domain')
-    })
-
-    it('numa pasta que não é projeto', async () => {
-      const { root } = fixtureProject()
-      const result = await run(
-        ['make:domain', 'suppliers', '--root', path.join(root, 'nada')],
-        root,
-      )
-
-      expect(result.code).toBe(2)
-      expect(result.stderr).toContain('não existe')
-    })
+    expect(result.code).toBe(2)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toContain("make:domain: o nome do domínio 'Meus_Clientes' é inválido")
+    expect(result.stderr).toContain('Uso: prumo make:domain <nome>')
+    expect(snapshot(root)).toEqual(before)
   })
 
-  it('a ajuda do comando mostra a sintaxe e as opções', async () => {
-    const result = await run(['make:domain', '--help'], process.cwd())
+  it('recusa o plural suspeito, sugerindo a entidade', async () => {
+    const { root } = fixtureProject()
+    const result = await run(['make:domain', 'categories'], root)
 
-    expect(result.code).toBe(0)
-    expect(result.stdout).toContain('make:domain')
-    expect(result.stdout).toContain('--entity')
-    expect(result.stdout).toContain('--dry-run')
-    expect(result.stdout).toContain('--root')
+    expect(result.code).toBe(2)
+    expect(result.stderr).toContain('--entity category')
   })
 
-  it('o prumo --help lista o comando', async () => {
-    const result = await run(['--help'], process.cwd())
+  it('recusa sobrescrever: o domínio que já existe sai com 2 e não mexe em nada', async () => {
+    const { root } = fixtureProject()
+    expect((await run(['make:domain', 'clientes'], root)).code).toBe(0)
+    const before = snapshot(root)
 
-    expect(result.stdout).toContain('make:domain')
+    const again = await run(['make:domain', 'clientes'], root)
+
+    expect(again.code).toBe(2)
+    expect(again.stderr).toContain("o domínio 'clientes' já existe")
+    expect(snapshot(root)).toEqual(before)
+  })
+
+  it('recusa um arquivo que já existe, mesmo sem o domínio registrado, e não escreve nada', async () => {
+    const { root } = fixtureProject()
+    mkdirSync(path.join(root, 'src/schemas/entities'), { recursive: true })
+    writeFileSync(path.join(root, 'src/schemas/entities/cliente.ts'), 'export const meu = 1\n')
+    const before = snapshot(root)
+
+    const result = await run(['make:domain', 'clientes'], root)
+
+    expect(result.code).toBe(2)
+    expect(result.stderr).toContain("'src/schemas/entities/cliente.ts' já existe.")
+    expect(snapshot(root)).toEqual(before)
+  })
+
+  it('um índice que falta sai com 2 e não deixa o projeto pela metade', async () => {
+    const { root } = fixtureProject()
+    rmSync(path.join(root, 'src/queries/index.ts'))
+    const before = snapshot(root)
+
+    const result = await run(['make:domain', 'clientes'], root)
+
+    expect(result.code).toBe(2)
+    expect(result.stderr).toContain('o projeto não tem src/queries/index.ts.')
+    expect(snapshot(root)).toEqual(before)
+  })
+
+  it('uma pasta que não é projeto sai com 2', async () => {
+    const result = await run(['make:domain', 'clientes'], makeDir())
+
+    expect(result.code).toBe(2)
+    expect(result.stderr).toContain('não tem package.json')
+  })
+
+  it('sem o nome ou com opção desconhecida, sai com 2', async () => {
+    const { root } = fixtureProject()
+
+    const missing = await run(['make:domain'], root)
+    expect(missing.code).toBe(2)
+    expect(missing.stderr).toContain('falta o argumento <nome>.')
+
+    const unknown = await run(['make:domain', 'clientes', '--entidade', 'cliente'], root)
+    expect(unknown.code).toBe(2)
+    expect(unknown.stderr).toContain("opção desconhecida: '--entidade'.")
+  })
+
+  it('com violação do check, sai com 1 e o domínio já está gerado', async () => {
+    const { root } = fixtureProject()
+    // Uma tela sem index nem view: a análise page-structure do check acusa
+    mkdirSync(path.join(root, 'src/pages/orfa'), { recursive: true })
+    writeFileSync(path.join(root, 'src/pages/orfa/model.ts'), 'export const model = 1\n')
+
+    const result = await run(['make:domain', 'clientes'], root)
+
+    expect(result.code).toBe(1)
+    expect(result.stderr).toContain('prumo check: 2 violações (o domínio foi gerado')
+    expect(result.stderr).toContain("src/pages/orfa/index.tsx  [page-structure]  A tela 'orfa'")
+    expect(result.stdout).toContain('Criados (7):')
+    expect(result.stdout).toContain('Para rodar os testes do domínio novo:')
+    expect(existsSync(path.join(root, 'src/repositories/clientes/index.ts'))).toBe(true)
+  })
+
+  it('a ajuda mostra o uso, as opções e o que o comando gera', async () => {
+    const { root } = fixtureProject()
+    const help = await run(['make:domain', '--help'], root)
+
+    expect(help.code).toBe(0)
+    expect(help.stdout).toContain(
+      'Uso: prumo make:domain <nome> [--entity <singular>] [--root <pasta>] [--dry-run]',
+    )
+    expect(help.stdout).toContain('--dry-run')
+    expect(help.stdout).toContain('src/schemas/entities/<entidade>.ts')
+    expect(help.stdout).toContain('@matizze/prumo-testing')
+  })
+
+  it('aparece na lista de comandos do prumo', async () => {
+    const { root } = fixtureProject()
+    const help = await run(['--help'], root)
+
+    expect(help.stdout).toMatch(/\n {2}make:domain {2,5}Gera um domínio de dados novo/)
   })
 })

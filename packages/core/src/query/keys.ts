@@ -34,15 +34,15 @@ export type QueryKeys<D extends string, Defs extends Record<string, KeyDefinitio
  * com esse nome.
  *
  * @example
- * const catalogKeys = createQueryKeys('catalog', {
+ * const productKeys = createQueryKeys('products', {
  *   lists: ['list'],
  *   list: (query: ProductListQuery = {}) => ['list', query] as const,
  *   detail: (id: string) => ['detail', id] as const,
  * })
  *
- * catalogKeys.all // ['catalog']
- * catalogKeys.lists // ['catalog', 'list']
- * catalogKeys.detail('42') // ['catalog', 'detail', '42']
+ * productKeys.all // ['products']
+ * productKeys.lists // ['products', 'list']
+ * productKeys.detail('42') // ['products', 'detail', '42']
  */
 export function createQueryKeys<
   const D extends string,

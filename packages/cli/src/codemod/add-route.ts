@@ -19,7 +19,7 @@ import {
   type RouteElement,
 } from './route-elements.ts'
 
-/** A rota de uma tela do catálogo, como o índice a descreve (`RouteSeam`, sem o `type`). */
+/** A rota de uma tela, como a costura a recebe: o componente, de onde importá-lo e o `path`. */
 export interface RouteSpec {
   /** O componente padrão da tela: `ProductsListPage`. */
   component: string
@@ -46,6 +46,15 @@ interface Origin {
 export function openOriginApp(plan: ChangePlan, file: string): Origin {
   if (!existsSync(file)) throw new UsageError(`a origem não tem ${file}.`)
   return { app: plan.morph.createSourceFile(file, readFileSync(file, 'utf8'), { overwrite: true }) }
+}
+
+/** O `src/App.tsx` do projeto, aberto no plano (uma costura). */
+function openApp(plan: ChangePlan): SourceFile {
+  try {
+    return plan.source(plan.project.app)
+  } catch {
+    throw new UsageError(`o projeto não tem ${DISPLAY}.`)
+  }
 }
 
 /** O `<Switch>` mais externo do arquivo, o das rotas do app. */
@@ -102,18 +111,27 @@ function findSourceRoute(origin: Origin, spec: RouteSpec): RouteElement {
   })
   if (!found) {
     throw new UsageError(
-      `a origem não tem, no src/App.tsx dela, a rota '${spec.path}' de '${spec.component}': o índice do catálogo está fora de dia.`,
+      `a origem não tem, no src/App.tsx dela, a rota '${spec.path}' de '${spec.component}': a especificação da rota não confere com a origem.`,
     )
   }
   return found
 }
 
-/** Os nomes que um trecho de JSX usa, fora o nome dos atributos e das propriedades. */
-function usedNames(plan: ChangePlan, snippet: string): Set<string> {
+/** Abre o trecho de JSX num arquivo temporário do plano, para lê-lo, e o remove ao terminar. */
+function withClone<T>(plan: ChangePlan, snippet: string, read: (file: SourceFile) => T): T {
   const file = plan.morph.createSourceFile(CLONE_FILE, `const clone = (\n${snippet}\n)\n`, {
     overwrite: true,
   })
   try {
+    return read(file)
+  } finally {
+    plan.morph.removeSourceFile(file)
+  }
+}
+
+/** Os nomes que um trecho de JSX usa, fora o nome dos atributos e das propriedades. */
+function usedNames(plan: ChangePlan, snippet: string): Set<string> {
+  return withClone(plan, snippet, (file) => {
     const names = new Set<string>()
     for (const id of file.getDescendantsOfKind(SyntaxKind.Identifier)) {
       const parent = id.getParent()
@@ -123,9 +141,7 @@ function usedNames(plan: ChangePlan, snippet: string): Set<string> {
       names.add(id.getText())
     }
     return names
-  } finally {
-    plan.morph.removeSourceFile(file)
-  }
+  })
 }
 
 /** Os nomes que o arquivo declara ou importa no primeiro nível. */
@@ -256,22 +272,25 @@ function importEdits(
   return edits
 }
 
-/** O import da tela: o da origem, na posição alfabética entre os imports de `@/pages`. */
-function componentImportEdit(app: SourceFile, origin: Origin, spec: RouteSpec): TextEdit {
-  const source = importOf(origin.app, spec.component)
-  const line =
-    source?.getModuleSpecifierValue() === spec.importPath
-      ? source.getText()
-      : `import ${spec.component} from '${spec.importPath}'`
+/** O import da tela, na posição alfabética entre os imports de `@/pages`. */
+function componentImportEdit(app: SourceFile, line: string, importPath: string): TextEdit {
   const imports = app.getImportDeclarations()
   const pages = imports.filter((declaration) =>
     declaration.getModuleSpecifierValue().startsWith('@/pages/'),
   )
-  const next = pages.find((declaration) => declaration.getModuleSpecifierValue() > spec.importPath)
+  const next = pages.find((declaration) => declaration.getModuleSpecifierValue() > importPath)
   if (next) return { pos: next.getStart(), end: next.getStart(), text: `${line}\n` }
   const last = pages.at(-1) ?? imports.at(-1)
   if (!last) throw new UsageError(`${DISPLAY} não tem imports: não sei onde acrescentar.`)
   return { pos: last.getEnd(), end: last.getEnd(), text: `\n${line}` }
+}
+
+/** O import da tela como a origem o escreve, se o módulo é o da costura; senão, o import padrão. */
+function originImportLine(origin: Origin, spec: RouteSpec): string {
+  const source = importOf(origin.app, spec.component)
+  return source?.getModuleSpecifierValue() === spec.importPath
+    ? source.getText()
+    : `import ${spec.component} from '${spec.importPath}'`
 }
 
 /** A edição que põe o clone entre as rotas do `<Switch>`: depois da última com `path`, ou antes da curinga. */
@@ -296,9 +315,16 @@ function insertionEdit(
   }
   const catchAll = routes[0]
   if (!catchAll) {
-    throw new UsageError(
-      `o <Switch> do ${DISPLAY} não tem nenhum <Route>: não sei onde acrescentar.`,
-    )
+    // Um <Switch> sem nenhuma rota (o de um app novo): a rota entra sozinha, entre as tags
+    const opening = switchElement.getOpeningElement().getEnd()
+    const closing = switchElement.getClosingElement().getStart()
+    const outer = indentOf(text, switchElement.getStart())
+    const inner = `${outer}  `
+    return {
+      pos: opening,
+      end: closing,
+      text: `\n${inner}${reindent(clone, from, inner)}\n${outer}`,
+    }
   }
   const indent = indentOf(text, catchAll.getStart())
   return {
@@ -340,7 +366,7 @@ function wrapperClone(element: RouteElement): { text: string; outer: RouteElemen
     .find((ancestor): ancestor is JsxElement => Node.isJsxElement(ancestor) && isSwitch(ancestor))
   if (!outer || !inner) {
     throw new UsageError(
-      'a rota da origem está num <Route nest> sem <Switch>: o índice do catálogo está fora de dia.',
+      'a rota da origem está num <Route nest> sem <Switch>: a especificação da rota não confere com a origem.',
     )
   }
   const base = outer.getStart()
@@ -356,7 +382,7 @@ function wrapperClone(element: RouteElement): { text: string; outer: RouteElemen
 }
 
 /**
- * Faz no `src/App.tsx` do projeto a costura da rota de uma tela do catálogo, clonando o `<Route>`
+ * Faz no `src/App.tsx` do projeto a costura da rota de uma tela, clonando o `<Route>`
  * do `src/App.tsx` da origem:
  *
  * - tela de primeiro nível: o `<Route>` da origem (com a casca e o layout dele) entra depois da
@@ -370,17 +396,12 @@ function wrapperClone(element: RouteElement): { text: string; outer: RouteElemen
  * nome que o `App.tsx` não tem e não dá para importar: `UsageError`, sem escrever nada.
  */
 export function addRoute(plan: ChangePlan, origin: Origin, spec: RouteSpec): boolean {
-  let app: SourceFile
-  try {
-    app = plan.source(plan.project.app)
-  } catch {
-    throw new UsageError(`o projeto não tem ${DISPLAY}.`)
-  }
+  const app = openApp(plan)
   const routes = app.getDescendants().filter(isRouteElement)
   if (routes.some((route) => usesIdentifier(route, spec.component))) return false
   if (declaredNames(app).has(spec.component)) {
     throw new UsageError(
-      `${DISPLAY} já declara '${spec.component}' sem uma rota para ele: o item traz a tela '${spec.importPath}'.`,
+      `${DISPLAY} já declara '${spec.component}' sem uma rota para ele: a tela é '${spec.importPath}'.`,
     )
   }
 
@@ -395,7 +416,7 @@ export function addRoute(plan: ChangePlan, origin: Origin, spec: RouteSpec): boo
   if (spec.prefix === undefined) {
     if (parentRoute(element)) {
       throw new UsageError(
-        `a rota '${spec.path}' de '${spec.component}' está dentro de outro <Route> na origem, e o índice não diz o prefixo: o índice do catálogo está fora de dia.`,
+        `a rota '${spec.path}' de '${spec.component}' está dentro de outro <Route> na origem, e a especificação não diz o prefixo: ela não confere com a origem.`,
       )
     }
     target = topSwitch(app)
@@ -424,9 +445,93 @@ export function addRoute(plan: ChangePlan, origin: Origin, spec: RouteSpec): boo
   const used = usedNames(plan, clone)
   const edits = [
     insertionEdit(app, target, clone, from),
-    componentImportEdit(app, origin, spec),
+    componentImportEdit(app, originImportLine(origin, spec), spec.importPath),
     ...importEdits(plan, app, origin, used, spec.component),
   ]
   applyEdits(app, edits)
+  return true
+}
+
+/** A rota de uma tela como um trecho de JSX pronto, para a costura que não tem um `App.tsx` de origem. */
+export interface RouteSnippet {
+  /** O componente padrão da tela: `ClientesPage`. */
+  component: string
+  /** De onde o `App.tsx` o importa: `@/pages/clientes`. */
+  importPath: string
+  /** O `path` do `<Route>` do trecho: `/clientes`. */
+  path: string
+  /**
+   * O `<Route>` como entra no `App.tsx`, em JSX: `<Route path="/clientes">...</Route>`. As linhas
+   * depois da primeira são recuadas em relação à primeira, e a costura soma o recuo do destino.
+   */
+  element: string
+}
+
+/** Confere que o trecho é um único `<Route>` com o `path` e o componente da costura. */
+function assertSnippet(plan: ChangePlan, spec: RouteSnippet): void {
+  const problem = withClone(plan, spec.element, (file) => {
+    const initializer = file.getVariableDeclarations()[0]?.getInitializer()
+    const root = Node.isParenthesizedExpression(initializer)
+      ? initializer.getExpression()
+      : initializer
+    if (!root || !isRouteElement(root)) return 'não é um único <Route>'
+    const literal = pathLiteral(root)
+    if (literal === undefined || innerText(literal) !== spec.path) {
+      return `não tem o path '${spec.path}' (literal) no <Route> de fora`
+    }
+    if (!usesIdentifier(root, spec.component)) return `não usa '${spec.component}'`
+    return undefined
+  })
+  if (problem) throw new Error(`o trecho da rota ${problem}.`)
+}
+
+/**
+ * Faz no `src/App.tsx` do projeto a costura da rota de uma tela a partir de um trecho de JSX
+ * pronto (o `<Route>` que o gerador montou), sem um `App.tsx` de origem para clonar:
+ *
+ * - o trecho entra no `<Switch>` mais externo, depois da última rota com `path` (ou antes da rota
+ *   curinga, ou sozinho num `<Switch>` vazio), com o recuo do destino;
+ * - o import do componente entra na posição alfabética dos de `@/pages`.
+ *
+ * Tela que o `App.tsx` já usa fica como está (devolve `false`). Rota repetida ou conflitante,
+ * `App.tsx` ou `<Switch>` que falta, componente já declarado sem rota e nome do trecho (um layout,
+ * um guarda) que o `App.tsx` não declara nem importa: `UsageError`, sem escrever nada. Trecho que
+ * não é um `<Route>` com o `path` e o componente da costura é erro de quem chama (`Error`).
+ */
+export function addRouteSnippet(plan: ChangePlan, spec: RouteSnippet): boolean {
+  const app = openApp(plan)
+  if (
+    app
+      .getDescendants()
+      .filter(isRouteElement)
+      .some((route) => usesIdentifier(route, spec.component))
+  ) {
+    return false
+  }
+  const declared = declaredNames(app)
+  if (declared.has(spec.component)) {
+    throw new UsageError(
+      `${DISPLAY} já declara '${spec.component}' sem uma rota para ele: a tela é '${spec.importPath}'.`,
+    )
+  }
+  assertSnippet(plan, spec)
+
+  const target = topSwitch(app)
+  if (!target) throw new UsageError(`${DISPLAY} não tem o <Switch> das rotas.`)
+  assertFree(target, spec.path)
+
+  const missing = [...usedNames(plan, spec.element)].filter(
+    (name) => /^[A-Z]/.test(name) && name !== spec.component && !declared.has(name),
+  )
+  if (missing.length > 0) {
+    throw new UsageError(
+      `${DISPLAY} não declara nem importa ${missing.map((name) => `'${name}'`).join(', ')}, que a rota usa: ${missing.length === 1 ? 'traga-o' : 'traga-os'} para o ${DISPLAY} e rode o comando de novo.`,
+    )
+  }
+
+  applyEdits(app, [
+    insertionEdit(app, target, spec.element, ''),
+    componentImportEdit(app, `import ${spec.component} from '${spec.importPath}'`, spec.importPath),
+  ])
   return true
 }

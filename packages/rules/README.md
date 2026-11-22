@@ -1,22 +1,18 @@
 # @matizze/prumo-rules
 
-Regras da arquitetura do Prumo: plugin de ESLint, com aviso no editor, e análise do projeto inteiro para o prumo check.
+Regras da arquitetura do Prumo: um plugin de ESLint, com aviso no editor, e a análise do projeto inteiro que o `prumo check` roda.
 
-**Situação:** Fase 1, extração concluída: o plugin de ESLint e a análise do projeto vieram do app de referência (`apps/reference`), que agora roda as duas. O plano está em [docs/fase-1.md](../../docs/fase-1.md). Fase 3 concluída: o pacote ganhou o build com o `tsc` e sai empacotado com `dist/`, pronto para a publicação (que ainda não aconteceu; veja [docs/publicacao.md](../../docs/publicacao.md)). O cli usa as regras e a análise daqui no `prumo check`, nos `make:*`, no `prumo add` e no `prumo promote` (que rodam a conferência ao terminar), num produto novo também; o `prumo doctor` não as usa (ele confere o ambiente: Node, pnpm, versões dos pacotes, registry de UI e variáveis).
-
-## Build e empacotamento
-
-No workspace, o `exports` do pacote aponta para o código-fonte (`src/*.ts`). Fora do monorepo o Node não faz type stripping dentro de `node_modules`, então o pacote tem `tsconfig.build.json` e o script `build` (`pnpm --filter @matizze/prumo-rules run build`), que emite o `dist/` com `.js` e `.d.ts` (sem os testes, as fixtures e os arquivos de apoio deles). O `publishConfig` do `package.json` troca `exports` para o `dist/` e define o registry `https://npm.pkg.github.com` (acesso restrito); o `pnpm pack` aplica essa troca, e o tarball leva só o `dist/`, o `package.json` e o README. O pacote continua `"private": true`: nada é publicado até uma pessoa tirar o `private` e fazer a primeira publicação (o que falta está em [.changeset/README.md](../../.changeset/README.md#o-que-falta-para-publicar)). `pnpm pack:all`, na raiz, empacota os quatro pacotes numa pasta.
+**Situação:** o Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)), então as regras cobram só a estrutura (as camadas, as pastas e os textos), nunca a interface. Nada foi publicado: o pacote segue `"private": true`.
 
 ## Plugin de ESLint
 
-`@matizze/prumo-rules/eslint` exporta o plugin. O pacote entrega o código-fonte em TypeScript, então o `eslint.config.js` precisa de um Node que execute `.ts` (Node 24 ou mais novo). O `eslint` é peer dependency, na faixa `^10.13.0`, e opcional: só o plugin precisa dele, e o `prumo check` (`@matizze/prumo-rules/check`) roda sem ele.
+`@matizze/prumo-rules/eslint` exporta o plugin. O pacote entrega o código-fonte em TypeScript no workspace, então o `eslint.config.js` precisa de um Node que execute `.ts` (Node 24 ou mais novo). O `eslint` é peer dependency, na faixa `^10.13.0`, e opcional: só o plugin precisa dele, e o `prumo check` (`@matizze/prumo-rules/check`) roda sem ele.
 
 ```js
 import prumo from '@matizze/prumo-rules/eslint'
 
 export default [
-  // Liga todas as regras da tabela abaixo, com as opções padrão
+  // Liga as regras da tabela abaixo, com as opções padrão
   prumo.configs.recommended,
 ]
 ```
@@ -29,7 +25,7 @@ export default [
     files: ['**/*.{ts,tsx}'],
     plugins: { prumo },
     rules: {
-      'prumo/ui-boundary': ['error', { designSystemDir: 'src/design-system' }],
+      'prumo/page-structure': ['error', { pagesDir: 'app/screens' }],
     },
   },
 ]
@@ -37,19 +33,16 @@ export default [
 
 ### Regras
 
-Cada regra olha só os arquivos que protege (uma pasta, ou o projeto menos a pasta de ícones) e deixa os demais passarem, então a config `recommended` vale para o projeto inteiro.
+Cada regra olha só a pasta que protege e deixa os demais arquivos passarem, então a config `recommended` vale para o projeto inteiro.
 
-| Regra                        | O que cobra                                                                                                                                                                                                 | Opções                                                                                              |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `prumo/ui-boundary`          | O design system (`src/components/ui`) não conhece o app: importa dele mesmo, das pastas permitidas do app (`@/icons`, `@/lib/utils`, `@/hooks/use-mobile`) e de pacotes npm, menos os proibidos (`wouter`)  | `alias`, `aliasRoot`, `designSystemDir`, `allow` (permitidos do app) e `forbidPackages` (proibidos) |
-| `prumo/icons-from-alias`     | Ícone só da pasta de ícones: fora de `src/icons`, nada de importar arquivo `.svg` nem biblioteca de ícones (`lucide-react`, `react-icons`, `@heroicons/*`, `@tabler/icons-react` e `@phosphor-icons/react`) | `iconsDir`, `iconsImport` (só para a mensagem) e `libraries` (a lista de bibliotecas proibidas)     |
-| `prumo/no-cross-page-import` | Uma tela não importa da pasta de outra: um arquivo de `src/pages/<tela>/` não importa de `src/pages/<outra>/`, nem pelo alias nem por caminho relativo                                                      | `alias`, `aliasRoot` e `pagesDir` (a pasta das telas)                                               |
-| `prumo/no-inline-svg`        | Nenhum SVG solto nas telas: o elemento `<svg>` em JSX dentro de `src/pages/**/*.tsx` vira um ícone da pasta de ícones                                                                                       | `pagesDir` (a pasta das telas) e `iconsImport` (só para a mensagem)                                 |
-| `prumo/page-structure`       | Toda tela tem a mesma estrutura: o `index.tsx` de `src/pages/<tela>/` tem ao lado o `model.ts` e a `view.tsx`. O `skeleton.tsx` não é cobrado (só o registry o cobra, nas telas publicadas)                 | `pagesDir` (a pasta das telas) e `requiredFiles` (os arquivos cobrados)                             |
+| Regra                        | O que cobra                                                                                                                                            | Opções                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `prumo/no-cross-page-import` | Uma tela não importa da pasta de outra: um arquivo de `src/pages/<tela>/` não importa de `src/pages/<outra>/`, nem pelo alias nem por caminho relativo | `alias`, `aliasRoot` e `pagesDir` (a pasta das telas)                   |
+| `prumo/page-structure`       | Toda tela tem a mesma estrutura: o `index.tsx` de `src/pages/<tela>/` tem ao lado o `model.ts` e a `view.tsx`                                          | `pagesDir` (a pasta das telas) e `requiredFiles` (os arquivos cobrados) |
 
 ## Análise do projeto (prumo check)
 
-`@matizze/prumo-rules/check` exporta `check(options)`, a análise do projeto inteiro. Ela cobre o que o ESLint não vê, porque a regra olha o conjunto de arquivos, e devolve a lista de violações (`{ rule, file, message }`, com o `file` relativo à raiz do projeto). É o que o comando `prumo check`, do [`@matizze/prumo-cli`](../cli/README.md), roda.
+`@matizze/prumo-rules/check` exporta `check(options)`, a análise do projeto inteiro. Ela cobre o que o ESLint não vê, porque a verificação olha o conjunto de arquivos, e devolve a lista de violações (`{ rule, file, message }`, com o `file` relativo à raiz do projeto). É o que o comando `prumo check`, do [`@matizze/prumo-cli`](../cli/README.md), roda.
 
 ```ts
 import { check } from '@matizze/prumo-rules/check'
@@ -57,12 +50,12 @@ import { check } from '@matizze/prumo-rules/check'
 const violations = check({ root: process.cwd() })
 ```
 
-| Verificação          | O que cobra                                                                                                                                                                                                                                             |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `components-folders` | `src/components` só tem as subpastas permitidas (`ui`, `shared` e `layout`). Pasta de fora acusa; pasta que falta, não                                                                                                                                  |
-| `shared-usage`       | O que está em `src/components/shared` é usado por 2 ou mais telas. O uso conta pelo grafo de imports (lidos por expressão regular), a casca do layout conta como duas telas, e teste e story não contam                                                 |
-| `page-structure`     | Toda pasta de `src/pages` tem `index.tsx`, `model.ts` e `view.tsx`: a mesma regra do `prumo/page-structure`, que no ESLint só vê a tela que já tem `index.tsx`                                                                                          |
-| `messages`           | Textos completos: os idiomas têm as mesmas chaves, cada chave usa os mesmos argumentos ICU em todos eles (interpolação, `plural`, `select` e formatos como `date`) e nenhuma mensagem fica vazia. O JSON malformado e o ICU que não fecha também acusam |
+| Verificação          | O que cobra                                                                                                                                                                                                                                                                                                     |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `components-folders` | `src/components` só tem as subpastas permitidas (`ui`, `shared` e `layout`). A `ui` é a pasta que o produto usa para o design system dele, seja qual for: o Prumo só confere o nome dela. Pasta de fora acusa; pasta que falta, não                                                                             |
+| `shared-usage`       | O que está em `src/components/shared` é usado por 2 ou mais telas. O uso conta pelo grafo de imports (lidos por expressão regular), a casca do layout conta como duas telas, e os testes não contam                                                                                                             |
+| `page-structure`     | Toda pasta de `src/pages` tem `index.tsx`, `model.ts` e `view.tsx`: a mesma regra do `prumo/page-structure`, que no ESLint só vê a tela que já tem `index.tsx`                                                                                                                                                  |
+| `messages`           | Textos completos: os idiomas têm as mesmas chaves, cada chave usa os mesmos argumentos ICU em todos eles (interpolação, `plural`, `select` e formatos como `date`), nenhuma mensagem fica vazia e cada `index.ts` registra todos os namespaces do idioma. O JSON malformado e o ICU que não fecha também acusam |
 
 As mensagens são um JSON por namespace em `src/messages/<idioma>/<namespace>.json`, e o primeiro idioma da lista é a referência. Sem a pasta de mensagens, o projeto não tem i18n e a verificação passa.
 
@@ -84,6 +77,8 @@ As opções, todas com padrão, exceto a raiz:
 ## Código-fonte
 
 - `src/eslint/`: o plugin e as regras, cada uma com o teste ao lado (`RuleTester` do ESLint).
-- `src/check/`: a análise do projeto, uma verificação por arquivo, com o teste nos projetos de `__fixtures__` (um sem violação e um com uma violação plantada por verificação) e no próprio app de referência. O `gate.test.ts` prova que a análise acusa tudo o que o `architecture.test.ts` e o `messages.test.ts` do app acusavam, com uma violação equivalente a cada verificação deles.
+- `src/check/`: a análise do projeto, uma verificação por arquivo, com o teste nos projetos de `__fixtures__` (um sem violação e um com uma violação plantada por verificação) e em projetos montados numa pasta temporária. O `gate.test.ts` junta, por verificação, uma violação que ela precisa acusar e uma variante que ela precisa deixar passar.
 
-**Origem no app de referência:** `src/architecture.test.ts`, `src/i18n/messages.test.ts` e as regras de import do `eslint.config.js`. Os dois testes foram removidos do app quando o `prumo check` entrou no verify dele (R6): o histórico fica em `git log --follow -- apps/reference/src/architecture.test.ts`.
+## Build e empacotamento
+
+No workspace, o `exports` do pacote aponta para o código-fonte (`src/*.ts`). Fora do monorepo o Node não faz type stripping dentro de `node_modules`, então o pacote tem `tsconfig.build.json` e o script `build` (`pnpm --filter @matizze/prumo-rules run build`), que emite o `dist/` com `.js` e `.d.ts`, sem os testes, as fixtures e os arquivos de apoio. O `publishConfig` troca `exports` para o `dist/`, e o tarball leva só o `dist/`, o `package.json` e o README. `pnpm pack:all`, na raiz, empacota os cinco pacotes.

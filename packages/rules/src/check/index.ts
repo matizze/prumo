@@ -10,8 +10,8 @@ export type { CheckOptions, CheckRule, Violation } from './types.ts'
 /**
  * Analisa o projeto inteiro e devolve as violações das regras que o ESLint não vê, porque
  * olham o conjunto de arquivos: as pastas de `src/components`, o uso de `components/shared`
- * pelas telas, a estrutura de cada tela e os textos completos nos idiomas. Sem violação, a
- * lista vem vazia. A ordem é a das verificações e, dentro de cada uma, a das pastas.
+ * pelas telas, a estrutura de cada tela e os textos completos nos idiomas. Sem violação, a lista vem
+ * vazia. A ordem é a das verificações e, dentro de cada uma, a das pastas.
  *
  * ```ts
  * import { check } from '@matizze/prumo-rules/check'

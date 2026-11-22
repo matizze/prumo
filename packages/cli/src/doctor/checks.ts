@@ -1,6 +1,4 @@
 import path from 'node:path'
-import { MADS, UI_REGISTRY_NAMESPACE } from '../ds.ts'
-import { lookupVariable, variablesIn } from './env-file.ts'
 import { CLI_PACKAGE_NAME, PRUMO_PACKAGES, PRUMO_PACKAGE_RANGES } from './ranges.ts'
 import {
   caretRange,
@@ -43,15 +41,10 @@ export interface DoctorSystem {
 
 export interface DoctorInput {
   root: string
-  /** As variáveis de ambiente (têm prioridade sobre o `.env.local`). */
-  env: Readonly<Record<string, string | undefined>>
   system: DoctorSystem
 }
 
 type Json = Record<string, unknown>
-
-const DEFAULT_URL_VARIABLE = MADS.urlVariable
-const DEFAULT_TOKEN_VARIABLE = MADS.tokenVariable
 
 /** Roda todas as conferências e devolve as linhas, na ordem do relatório. Não escreve nada. */
 export function runChecks(input: DoctorInput): Finding[] {
@@ -60,8 +53,7 @@ export function runChecks(input: DoctorInput): Finding[] {
     checkNode(input, manifest),
     checkPnpm(input, manifest),
     ...checkPackages(input, manifest),
-    ...checkRegistry(input),
-    ...checkProjectFiles(input),
+    checkMcpJson(input),
   ]
 }
 
@@ -283,139 +275,9 @@ function checkPackage(input: DoctorInput, name: string, versionText: string | un
   return { status: 'ok', label: name, message: `${shown} (esperado: ${expected}).` }
 }
 
-// Registry de UI
+// .mcp.json
 
-interface UiRegistry {
-  name: string
-  urlVariables: string[]
-  tokenVariables: string[]
-  /** A URL, quando o `components.json` a escreve direto, sem variável. */
-  fixedUrl?: string
-}
-
-function findUiRegistry(registries: unknown): UiRegistry | undefined {
-  if (typeof registries !== 'object' || registries === null) return undefined
-  const names = Object.keys(registries).filter((name) => UI_REGISTRY_NAMESPACE.test(name))
-  // `--ds <cliente>` troca o @mads pelo do cliente: se os dois estão lá, o do cliente é o que vale
-  const name = names.find((candidate) => candidate !== MADS.namespace) ?? names[0]
-  if (name === undefined) return undefined
-  const config = (registries as Json)[name]
-  const url = typeof config === 'string' ? config : asString((config as Json | null)?.url)
-  const headers =
-    typeof config === 'object' && config !== null ? (config as Json).headers : undefined
-  const urlVariables = variablesIn(url)
-  return {
-    name,
-    urlVariables,
-    tokenVariables: variablesIn(headers),
-    ...(urlVariables.length === 0 && url ? { fixedUrl: url } : {}),
-  }
-}
-
-function checkRegistry(input: DoctorInput): Finding[] {
-  const label = 'components.json'
-  const file = path.join(input.root, 'components.json')
-  const text = input.system.readText(file)
-  if (text === undefined) {
-    return [
-      {
-        status: 'error',
-        label,
-        message: 'não existe: o projeto precisa do components.json do shadcn.',
-      },
-    ]
-  }
-  const components = readJson(input.system, file)
-  if (!components) {
-    return [{ status: 'error', label, message: 'não é um JSON de objeto válido.' }]
-  }
-
-  const registry = findUiRegistry(components.registries)
-  const findings: Finding[] = []
-  if (registry) {
-    findings.push({ status: 'ok', label, message: `registry de UI: ${registry.name}.` })
-  } else {
-    findings.push({
-      status: 'warn',
-      label,
-      message:
-        'sem registry de UI (@mads ou @<cliente>-ds) em "registries": o prumo add @mads/<item> não vai achar a UI.',
-    })
-  }
-
-  // Os mesmos arquivos, na mesma ordem, que o `prumo add` confere antes de instalar UI
-  const lookup = (variable: string) =>
-    lookupVariable(variable, input.env, input.system.readText, input.root)
-
-  if (registry?.fixedUrl) {
-    findings.push({
-      status: 'ok',
-      label: registry.name,
-      message: `URL fixa: ${maskUrl(registry.fixedUrl)}.`,
-    })
-  }
-  const urlVariables = registry ? registry.urlVariables : [DEFAULT_URL_VARIABLE]
-  const tokenVariables = registry ? registry.tokenVariables : [DEFAULT_TOKEN_VARIABLE]
-
-  for (const variable of unique(urlVariables)) {
-    const found = lookup(variable)
-    findings.push(
-      found?.value
-        ? { status: 'ok', label: variable, message: `${maskUrl(found.value)} (${found.source}).` }
-        : {
-            status: 'warn',
-            label: variable,
-            message: 'ausente: defina no ambiente ou no .env.local.',
-          },
-    )
-  }
-  // O valor do token nunca entra numa linha: só se ele existe e de onde vem
-  for (const variable of unique(tokenVariables)) {
-    const found = lookup(variable)
-    findings.push(
-      found
-        ? { status: 'ok', label: variable, message: `definido (${found.source}).` }
-        : {
-            status: 'warn',
-            label: variable,
-            message: 'ausente: defina no ambiente ou no .env.local.',
-          },
-    )
-  }
-  return findings
-}
-
-function unique<T>(values: T[]): T[] {
-  return [...new Set(values)]
-}
-
-/**
- * Esconde o que numa URL pode ser segredo: usuário e senha (`https://user:senha@host` vira
- * `https://***@host`) e o que vem depois do `?` ou do `#` (`/r?token=x` vira `/r?***`).
- */
-function maskUrl(value: string): string {
-  const masked = value.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/@\s]+@/i, '$1***@')
-  const cut = masked.search(/[?#]/)
-  return cut === -1 ? masked : `${masked.slice(0, cut + 1)}***`
-}
-
-// Arquivos do projeto
-
-function checkProjectFiles({ root, system }: DoctorInput): Finding[] {
-  const findings: Finding[] = [checkMcpJson(root, system)]
-  findings.push(
-    system.readText(path.join(root, '.env.local')) === undefined
-      ? {
-          status: 'warn',
-          label: '.env.local',
-          message: 'não existe (copie o .env.example e preencha o registry).',
-        }
-      : { status: 'ok', label: '.env.local', message: 'existe.' },
-  )
-  return findings
-}
-
-/** O nome do servidor do Prumo no `mcpServers` do `.mcp.json` (o `prumo new` e o starter o criam com ele). */
+/** O nome do servidor do Prumo no `mcpServers` do `.mcp.json` (o `prumo new` o cria com ele). */
 export const PRUMO_MCP_SERVER = 'prumo'
 
 /**
@@ -423,14 +285,14 @@ export const PRUMO_MCP_SERVER = 'prumo'
  * faz pelo MCP o que a pessoa faz pela CLI). Sem ele, aviso: o projeto funciona, só o agente não
  * enxerga as ferramentas do Prumo.
  */
-function checkMcpJson(root: string, system: DoctorSystem): Finding {
+function checkMcpJson({ root, system }: DoctorInput): Finding {
   const label = '.mcp.json'
   const file = path.join(root, label)
   if (system.readText(file) === undefined) {
     return {
       status: 'warn',
       label,
-      message: 'não existe (a configuração dos servidores MCP, o do shadcn e o do prumo).',
+      message: 'não existe (a configuração dos servidores MCP, entre eles o do prumo).',
     }
   }
   const manifest = readJson(system, file)

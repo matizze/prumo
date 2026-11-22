@@ -114,13 +114,13 @@ describe('inputSchemaOf', () => {
     const schema = inputSchemaOf(
       command(
         option({ name: 'install', kind: 'boolean', description: 'Instala.', default: true }),
-        option({ name: 'ds', kind: 'string', description: 'O cliente.', default: 'mads' }),
+        option({ name: 'idioma', kind: 'string', description: 'O idioma.', default: 'pt-BR' }),
         option({ name: 'from', kind: 'string', description: 'A origem.' }),
       ),
     )
     const json = z.toJSONSchema(schema) as { properties: Record<string, { description?: string }> }
     expect(json.properties.install?.description).toBe('Instala. (padrão: ligada)')
-    expect(json.properties.ds?.description).toBe('O cliente. (padrão: mads)')
+    expect(json.properties.idioma?.description).toBe('O idioma. (padrão: pt-BR)')
     expect(json.properties.from?.description).toBe('A origem.')
   })
 

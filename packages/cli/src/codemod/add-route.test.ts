@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { findProject } from '../project.ts'
@@ -301,7 +302,6 @@ import ProfilePage from '@/pages/profile'
     addRoute(plan, origin, ORDERS)
 
     expect(plan.summary()).toEqual({ created: [], modified: ['src/App.tsx'] })
-    expect(plan.edits()).toHaveLength(1)
-    expect(plan.edits()[0]?.before).toBe(SHELL)
+    expect(readFileSync(plan.project.app, 'utf8')).toBe(SHELL)
   })
 })

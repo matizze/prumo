@@ -16,7 +16,6 @@ describe('findProject', () => {
       pages: path.join(root, 'src', 'pages'),
       messages: path.join(root, 'src', 'messages'),
       app: path.join(root, 'src', 'App.tsx'),
-      sidebar: path.join(root, 'src', 'components', 'layout', 'app-layout', 'sidebar', 'data.tsx'),
     })
   })
 

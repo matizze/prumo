@@ -6,7 +6,7 @@ import type { Runtime } from './runtime.ts'
 export interface InProcessOptions {
   /** A pasta de trabalho do comando: quem chama passa, o `process.cwd()` não é lido. */
   cwd: string
-  /** As variáveis de ambiente do comando (`PRUMO_REPOSITORY`, `PRUMO_CACHE_DIR`, `HOME`). Padrão: nenhuma. */
+  /** As variáveis de ambiente do comando. Padrão: nenhuma. */
   env?: Readonly<Record<string, string | undefined>>
 }
 
@@ -23,12 +23,11 @@ export interface InProcessResult {
 /**
  * Roda um comando do `prumo` neste processo e devolve o código de saída e a saída, sem escrever no
  * stdout nem no stderr do processo (num servidor MCP o stdout é o protocolo) e sem encerrar nada.
- * `argv` é a linha de comando sem o `prumo` (`['make:page', 'orders', '--like=lista']`); a de
+ * `argv` é a linha de comando sem o `prumo` (`['check', '--root=app']`); a de
  * um comando descrito é `[...command.path, ...toArgv(command, input)]`.
  *
- * O Runtime é de captura: `interactive` falso (o comando não pergunta: onde perguntaria, recusa e
- * diz o comando que resolve), sem `inheritStdio` (a saída dos subprocessos é capturada, e o stdin
- * deles é ignorado). Nada é lido do processo (`cwd`, `env`), e duas chamadas não compartilham estado.
+ * O Runtime é de captura: nada é lido do processo (`cwd`, `env`), e duas chamadas não compartilham
+ * estado.
  */
 export async function runInProcess(
   argv: string[],
@@ -41,9 +40,6 @@ export async function runInProcess(
     err: (text) => void (stderr += text),
     cwd: options.cwd,
     env: options.env ?? {},
-    interactive: false,
-    choose: () =>
-      Promise.reject(new Error('sem terminal para perguntar: o comando não é interativo')),
   }
   const exitCode = await runCli(createRoot(runtime), argv, runtime)
   return { exitCode, stdout, stderr }

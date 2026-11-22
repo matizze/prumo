@@ -4,7 +4,6 @@ import { check } from './index.ts'
 import { makeProject } from './test-support.ts'
 
 const fixtures = path.join(import.meta.dirname, '__fixtures__')
-const reference = path.resolve(import.meta.dirname, '../../../../apps/reference')
 
 describe('check nos projetos de fixture', () => {
   it('o projeto sem violação passa limpo', () => {
@@ -31,10 +30,6 @@ describe('check nos projetos de fixture', () => {
       "A chave 'common.subtitle' existe em 'pt-BR' e falta em 'en'.",
       "A chave 'common.greeting' usa argumentos diferentes: 'pt-BR' tem [name] e 'en' tem [user].",
     ])
-  })
-
-  it('o app de referência não tem nenhuma violação', () => {
-    expect(check({ root: reference })).toEqual([])
   })
 })
 

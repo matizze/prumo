@@ -19,7 +19,7 @@ import {
   type RouteElement,
 } from './route-elements.ts'
 
-/** A rota de uma tela do catálogo, como o índice a descreve (`RouteSeam`, sem o `type`). */
+/** A rota de uma tela, como a costura a recebe: o componente, de onde importá-lo e o `path`. */
 export interface RouteSpec {
   /** O componente padrão da tela: `ProductsListPage`. */
   component: string
@@ -102,7 +102,7 @@ function findSourceRoute(origin: Origin, spec: RouteSpec): RouteElement {
   })
   if (!found) {
     throw new UsageError(
-      `a origem não tem, no src/App.tsx dela, a rota '${spec.path}' de '${spec.component}': o índice do catálogo está fora de dia.`,
+      `a origem não tem, no src/App.tsx dela, a rota '${spec.path}' de '${spec.component}': a especificação da rota não confere com a origem.`,
     )
   }
   return found
@@ -340,7 +340,7 @@ function wrapperClone(element: RouteElement): { text: string; outer: RouteElemen
     .find((ancestor): ancestor is JsxElement => Node.isJsxElement(ancestor) && isSwitch(ancestor))
   if (!outer || !inner) {
     throw new UsageError(
-      'a rota da origem está num <Route nest> sem <Switch>: o índice do catálogo está fora de dia.',
+      'a rota da origem está num <Route nest> sem <Switch>: a especificação da rota não confere com a origem.',
     )
   }
   const base = outer.getStart()
@@ -356,7 +356,7 @@ function wrapperClone(element: RouteElement): { text: string; outer: RouteElemen
 }
 
 /**
- * Faz no `src/App.tsx` do projeto a costura da rota de uma tela do catálogo, clonando o `<Route>`
+ * Faz no `src/App.tsx` do projeto a costura da rota de uma tela, clonando o `<Route>`
  * do `src/App.tsx` da origem:
  *
  * - tela de primeiro nível: o `<Route>` da origem (com a casca e o layout dele) entra depois da
@@ -380,7 +380,7 @@ export function addRoute(plan: ChangePlan, origin: Origin, spec: RouteSpec): boo
   if (routes.some((route) => usesIdentifier(route, spec.component))) return false
   if (declaredNames(app).has(spec.component)) {
     throw new UsageError(
-      `${DISPLAY} já declara '${spec.component}' sem uma rota para ele: o item traz a tela '${spec.importPath}'.`,
+      `${DISPLAY} já declara '${spec.component}' sem uma rota para ele: a tela é '${spec.importPath}'.`,
     )
   }
 
@@ -395,7 +395,7 @@ export function addRoute(plan: ChangePlan, origin: Origin, spec: RouteSpec): boo
   if (spec.prefix === undefined) {
     if (parentRoute(element)) {
       throw new UsageError(
-        `a rota '${spec.path}' de '${spec.component}' está dentro de outro <Route> na origem, e o índice não diz o prefixo: o índice do catálogo está fora de dia.`,
+        `a rota '${spec.path}' de '${spec.component}' está dentro de outro <Route> na origem, e a especificação não diz o prefixo: ela não confere com a origem.`,
       )
     }
     target = topSwitch(app)

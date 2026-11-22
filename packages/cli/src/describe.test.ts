@@ -20,7 +20,7 @@ const realTree = () => describeCommands(createRoot(captureRuntime()))
 describe('toolNameOf', () => {
   it('troca : por _, e deixa o resto como está', () => {
     expect(toolNameOf('make:page')).toBe('make_page')
-    expect(toolNameOf('add')).toBe('add')
+    expect(toolNameOf('check')).toBe('check')
     expect(toolNameOf('make:page:extra')).toBe('make_page_extra')
   })
 
@@ -33,32 +33,8 @@ describe('describeCommands: a árvore real do prumo', () => {
   it('tem um comando por subcomando da raiz, folhas, na ordem de declaração', async () => {
     const commands = await realTree()
 
-    expect(commands.map((command) => command.name)).toEqual([
-      'add',
-      'agents',
-      'catalog',
-      'check',
-      'doctor',
-      'make:component',
-      'make:domain',
-      'make:page',
-      'new',
-      'patterns',
-      'promote',
-    ])
-    expect(commands.map((command) => command.toolName)).toEqual([
-      'add',
-      'agents',
-      'catalog',
-      'check',
-      'doctor',
-      'make_component',
-      'make_domain',
-      'make_page',
-      'new',
-      'patterns',
-      'promote',
-    ])
+    expect(commands.map((command) => command.name)).toEqual(['check', 'doctor'])
+    expect(commands.map((command) => command.toolName)).toEqual(['check', 'doctor'])
     for (const command of commands) expect(command.path).toEqual([command.name])
   })
 
@@ -75,58 +51,24 @@ describe('describeCommands: a árvore real do prumo', () => {
     }
   })
 
-  it('descreve o posicional variádico do add e as opções dele', async () => {
-    const add = (await realTree()).find((command) => command.name === 'add')
-
-    expect(add?.options[0]).toMatchObject({
-      name: 'item',
-      kind: 'positional',
-      required: true,
-      variadic: true,
-    })
-    expect(add?.options.map((option) => option.name)).toEqual([
-      'item',
-      'root',
-      'from',
-      'ref',
-      'diff',
-      'dry-run',
-      'overwrite',
-    ])
-    expect(add?.options.find((option) => option.name === 'root')).toEqual({
-      name: 'root',
-      kind: 'string',
-      required: false,
-      variadic: false,
-      description: 'Pasta do projeto, a que tem o src. Padrão: a pasta atual.',
-      valueHint: 'pasta',
-      aliases: [],
-    })
-  })
-
-  it('descreve o booleano que parte ligado (install do new) e o enum com as opções (kind do catalog)', async () => {
+  it('descreve a opção --root do check e do doctor, sem posicionais', async () => {
     const commands = await realTree()
-    const install = commands
-      .find((command) => command.name === 'new')
-      ?.options.find((option) => option.name === 'install')
-    const kind = commands
-      .find((command) => command.name === 'catalog')
-      ?.options.find((option) => option.name === 'kind')
 
-    expect(install).toMatchObject({ kind: 'boolean', default: true, required: false })
-    expect(kind).toMatchObject({
-      kind: 'enum',
-      choices: ['block', 'page', 'domain', 'app'],
-      required: false,
-    })
-  })
-
-  it('o posicional opcional do patterns não é obrigatório', async () => {
-    const busca = (await realTree())
-      .find((command) => command.name === 'patterns')
-      ?.options.find((option) => option.name === 'busca')
-
-    expect(busca).toMatchObject({ kind: 'positional', required: false, variadic: false })
+    for (const name of ['check', 'doctor']) {
+      const command = commands.find((candidate) => candidate.name === name)
+      expect(
+        command?.options.map((option) => option.name),
+        name,
+      ).toEqual(['root'])
+      expect(command?.options[0], name).toMatchObject({
+        name: 'root',
+        kind: 'string',
+        required: false,
+        variadic: false,
+        valueHint: 'pasta',
+        aliases: [],
+      })
+    }
   })
 
   /**

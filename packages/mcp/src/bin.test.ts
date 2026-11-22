@@ -3,8 +3,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import pkg from '../package.json' with { type: 'json' }
-import { makeRegistryDir, startRegistry, uiProject } from '../../cli/src/add/ui-test-support.ts'
-import { REPOSITORY, makeDir, makeProject } from './test-support.ts'
+import { makeDir, makeProject } from './test-support.ts'
 
 const BIN = path.resolve(import.meta.dirname, 'bin.ts')
 
@@ -18,10 +17,9 @@ class Session {
   private readonly waiting = new Map<number, (message: Record<string, unknown>) => void>()
   private readonly exited: Promise<number | null>
 
-  constructor(cwd: string, env: Record<string, string> = {}) {
+  constructor(cwd: string) {
     this.child = spawn(process.execPath, [BIN], {
       cwd,
-      env: { ...process.env, ...env },
       stdio: ['pipe', 'pipe', 'pipe'],
     })
     this.child.stderr.on('data', (chunk: Buffer) => (this.stderr += String(chunk)))
@@ -133,43 +131,27 @@ describe('o bin prumo-mcp', () => {
 
 describe('o stdout do bin é o protocolo', () => {
   it('só tem JSON-RPC, e nada do que os comandos escreveram está fora das respostas', async () => {
-    const project = uiProject()
-    const registry = await startRegistry(makeRegistryDir())
-    const env = { MADS_REGISTRY_URL: registry.url, MADS_REGISTRY_TOKEN: 'segredo' }
-    const session = new Session(project, env)
+    const parent = makeDir()
+    const session = new Session(parent)
     await session.initialize()
 
     const calls: Array<[string, object]> = [
-      ['make_page', { nome: 'produtos', like: 'products-list', 'dry-run': true }],
-      ['doctor', {}],
-      ['check', {}],
-      // O shadcn de mentira escreve no stderr quando falha: o texto tem de vir dentro da resposta
-      ['add', { item: ['@mads/inexistente'] }],
-      ['add', { item: ['@mads/button'] }],
-      ['new', { nome: 'loja', dir: 'filhos', 'dry-run': true, install: false, from: REPOSITORY }],
+      ['doctor', { root: makeProject({ inside: parent }) }],
+      ['check', { root: makeProject({ inside: parent }) }],
+      ['check', { root: makeProject({ broken: true, inside: parent }) }],
+      ['check', { root: path.join(parent, 'nao-existe') }],
     ]
     const results: Array<{ text: string; isError: boolean }> = []
     for (const [name, args] of calls) results.push(await session.call(name, args))
 
-    // make_page --dry-run
-    expect(results[0]?.isError, results[0]?.text).toBe(false)
-    expect(results[0]?.text).toContain('Simulação (--dry-run): nada foi escrito.')
-    // doctor: o que escreveu, voltou na resposta (sucesso ou aviso, o importante é a saída estar nela)
-    expect(results[1]?.text).toContain('prumo doctor')
-    // check
-    expect(results[2]?.text).toBe('prumo check: nenhuma violação.\n')
-    // add com falha do shadcn: o stderr do filho chegou à resposta, não ao stderr do servidor
+    // doctor: o que escreveu voltou na resposta (sucesso ou aviso, o importante é a saída estar nela)
+    expect(results[0]?.text).toContain('prumo doctor')
+    expect(results[1]?.text).toBe('prumo check: nenhuma violação.\n')
+    // check com violação: o stderr do comando chegou à resposta, não ao stderr do servidor
+    expect(results[2]?.isError).toBe(true)
+    expect(results[2]?.text).toContain('src/pages/solta')
     expect(results[3]?.isError).toBe(true)
-    expect(results[3]?.text).toContain('shadcn de mentira')
-    expect(results[3]?.text).toContain('[saída 1]')
-    // add que instala: o filho rodou, o arquivo existe
-    expect(results[4]?.isError, results[4]?.text).toBe(false)
-    expect(readFileSync(path.join(project, 'src/components/ui/button.tsx'), 'utf8')).toContain(
-      'Button',
-    )
-    // new --dry-run
-    expect(results[5]?.isError, results[5]?.text).toBe(false)
-    expect(results[5]?.text).toContain('Simulação (--dry-run): nada foi escrito.')
+    expect(results[3]?.text).toContain('[saída 2]')
 
     expect(await session.close()).toBe(0)
 
@@ -180,7 +162,6 @@ describe('o stdout do bin é o protocolo', () => {
     expect(
       messages.every((message) => 'id' in message && ('result' in message || 'error' in message)),
     ).toBe(true)
-    // O que os filhos escreveram não vazou: o stderr do servidor não tem o texto do shadcn
-    expect(session.stderr).not.toContain('shadcn de mentira')
+    expect(session.stderr).not.toContain('src/pages/solta')
   }, 120_000)
 })

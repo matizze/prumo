@@ -13,8 +13,6 @@ export interface Project {
   messages: string
   /** `src/App.tsx`: as rotas. */
   app: string
-  /** O menu lateral, com os grupos e os itens. */
-  sidebar: string
 }
 
 /**
@@ -23,8 +21,8 @@ export interface Project {
  * errada não acharia nada e sairia como se estivesse tudo certo. Se a raiz não serve, lança um
  * `UsageError` (saída 2) que explica o motivo.
  *
- * Só confere a raiz. Cada comando confere as pastas e os arquivos de que precisa, como a tela de
- * referência, porque um projeto novo ainda não tem `src/pages` nem `App.tsx`.
+ * Só confere a raiz. Cada comando confere as pastas e os arquivos de que precisa, porque um
+ * projeto novo ainda não tem `src/pages` nem `App.tsx`.
  */
 export function findProject(root: string): Project {
   const resolved = path.resolve(root)
@@ -47,7 +45,6 @@ export function findProject(root: string): Project {
     pages: path.join(src, 'pages'),
     messages: path.join(src, 'messages'),
     app: path.join(src, 'App.tsx'),
-    sidebar: path.join(src, 'components', 'layout', 'app-layout', 'sidebar', 'data.tsx'),
   }
 }
 

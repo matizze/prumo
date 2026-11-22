@@ -1,7 +1,7 @@
 {
   "name": "@matizze/prumo-cli",
   "version": "0.3.0",
-  "description": "O comando prumo: new, make, add, catalog, patterns, promote, check e doctor, e a API para rodar comandos em processo.",
+  "description": "O comando prumo: check e doctor, e a API para rodar comandos em processo.",
   "private": true,
   "type": "module",
   "bin": {
@@ -38,7 +38,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@clack/prompts": "^1.9.0",
     "@matizze/prumo-rules": "workspace:*",
     "citty": "^0.2.2",
     "ts-morph": "^28.0.0"

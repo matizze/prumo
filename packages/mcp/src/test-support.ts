@@ -1,19 +1,9 @@
-import { cpSync, mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { Client, InMemoryTransport, type CallToolResult } from '@modelcontextprotocol/client'
 import { afterAll } from 'vitest'
 import { createServer, type ServerOptions } from './server.ts'
-
-/**
- * O projeto de fixture do cli (o app em miniatura do codemod) e a raiz do monorepo: os testes do mcp
- * usam os mesmos que os do cli, em vez de manter uma cópia. Só os testes leem estes caminhos; o pacote
- * publicado não os tem.
- */
-const FIXTURE_APP = path.resolve(import.meta.dirname, '../../cli/src/codemod/__fixtures__/app')
-
-/** A raiz do monorepo, a origem (`--from`) que tem o `catalog/index.json` e o `starter/`. */
-export const REPOSITORY = path.resolve(import.meta.dirname, '../../..')
 
 const created: string[] = []
 afterAll(() => {
@@ -27,10 +17,24 @@ export function makeDir(): string {
   return dir
 }
 
-/** Uma cópia do app em miniatura, numa pasta temporária. Devolve a raiz. */
-export function makeProject(): string {
-  const root = makeDir()
-  cpSync(FIXTURE_APP, root, { recursive: true })
+/**
+ * Um projeto mínimo numa pasta temporária (o `package.json` e um `src`). Com `broken`, tem também
+ * uma tela fora da estrutura (só o `index.tsx`, sem `model.ts` nem `view.tsx`), que o `check` acusa.
+ * Com `inside`, a pasta do projeto é criada dentro dessa pasta (o `root` de uma chamada tem de ficar
+ * dentro da pasta do servidor). Devolve a raiz.
+ */
+export function makeProject({
+  broken = false,
+  inside,
+}: { broken?: boolean; inside?: string } = {}): string {
+  const root = inside === undefined ? makeDir() : mkdtempSync(path.join(inside, 'app-'))
+  mkdirSync(path.join(root, 'src'), { recursive: true })
+  writeFileSync(path.join(root, 'package.json'), '{ "name": "app" }\n')
+  writeFileSync(path.join(root, 'src/main.ts'), 'export {}\n')
+  if (broken) {
+    mkdirSync(path.join(root, 'src/pages/solta'), { recursive: true })
+    writeFileSync(path.join(root, 'src/pages/solta/index.tsx'), 'export {}\n')
+  }
   return root
 }
 

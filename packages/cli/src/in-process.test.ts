@@ -1,30 +1,21 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { makeOrigin } from './add/test-support.ts'
 import { describeCommands, toArgv } from './describe.ts'
 import { runInProcess } from './in-process.ts'
 import { createRoot } from './root.ts'
-import { makeStarterOrigin } from './new/test-support.ts'
 import { captureRuntime, makeDir, makeProject } from './test-support.ts'
 
-afterEach(() => {
-  vi.restoreAllMocks()
-  vi.unstubAllEnvs()
-})
+afterEach(() => vi.restoreAllMocks())
 
 /** Um projeto com uma tela fora da estrutura (sem model.ts nem view.tsx): o `check` acusa. */
 const brokenProject = () => makeProject({ 'src/pages/solta/index.tsx': 'export {}\n' })
 
 describe('runInProcess', () => {
   it('devolve o código 0 e o que o comando escreveu no stdout', async () => {
-    const result = await runInProcess(['catalog', 'badge', '--from', makeOrigin()], {
-      cwd: makeDir(),
+    const result = await runInProcess(['check'], {
+      cwd: makeProject({ 'src/main.ts': 'export {}\n' }),
     })
 
-    expect(result).toEqual({
-      exitCode: 0,
-      stdout: 'status-badge — block — status-badge\n\n1 item.\n',
-      stderr: '',
-    })
+    expect(result).toEqual({ exitCode: 0, stdout: 'prumo check: nenhuma violação.\n', stderr: '' })
   })
 
   it('devolve o código 1 com a saída do comando que falha, sem lançar', async () => {
@@ -41,9 +32,9 @@ describe('runInProcess', () => {
     expect(unknown.exitCode).toBe(2)
     expect(unknown.stderr).toContain("comando desconhecido: 'nao-existe'.")
 
-    const missing = await runInProcess(['make:page'], { cwd: makeProject({}) })
-    expect(missing.exitCode).toBe(2)
-    expect(missing.stderr).toContain('falta o argumento <nome>')
+    const option = await runInProcess(['check', '--nope'], { cwd: makeProject({}) })
+    expect(option.exitCode).toBe(2)
+    expect(option.stderr).toContain("opção desconhecida: '--nope'.")
   })
 
   it('devolve a ajuda no stdout com 0', async () => {
@@ -75,39 +66,32 @@ describe('runInProcess', () => {
   })
 
   it('duas chamadas em sequência não compartilham estado: a saída de uma não aparece na outra', async () => {
-    const origin = makeOrigin()
-    const first = await runInProcess(['catalog', 'badge', '--from', origin], { cwd: makeDir() })
-    const second = await runInProcess(['catalog', 'settings', '--from', origin], {
-      cwd: makeDir(),
-    })
+    const broken = brokenProject()
+    const first = await runInProcess(['check'], { cwd: broken })
     const failing = await runInProcess(['nao-existe'], { cwd: makeDir() })
-    const after = await runInProcess(['catalog', 'badge', '--from', origin], { cwd: makeDir() })
+    const after = await runInProcess(['check'], { cwd: broken })
 
-    expect(first.stdout).toContain('status-badge')
-    expect(second.stdout).not.toContain('status-badge')
-    expect(second.stdout).toContain('page-settings-security')
+    expect(first.exitCode).toBe(1)
     expect(failing.stdout).toBe('')
     expect(after).toEqual(first)
   })
 
   it('chamadas em paralelo também ficam separadas', async () => {
-    const origin = makeOrigin()
-    const [badge, orders] = await Promise.all([
-      runInProcess(['catalog', 'badge', '--from', origin], { cwd: makeDir() }),
-      runInProcess(['catalog', 'repo-orders', '--from', origin], { cwd: makeDir() }),
+    const [ok, broken] = await Promise.all([
+      runInProcess(['check'], { cwd: makeProject({ 'src/main.ts': 'export {}\n' }) }),
+      runInProcess(['check'], { cwd: brokenProject() }),
     ])
 
-    expect(badge.stdout).toContain('1 item.')
-    expect(badge.stdout).not.toContain('repo-orders')
-    expect(orders.stdout).toContain('repo-orders')
-    expect(orders.stdout).not.toContain('status-badge')
+    expect(ok.stdout).toBe('prumo check: nenhuma violação.\n')
+    expect(ok.stderr).toBe('')
+    expect(broken.stdout).toBe('')
+    expect(broken.stderr).toContain('src/pages/solta')
   })
 
   it('não escreve no stdout nem no stderr do processo', async () => {
     const out = vi.spyOn(process.stdout, 'write')
     const err = vi.spyOn(process.stderr, 'write')
 
-    await runInProcess(['catalog', '--from', makeOrigin()], { cwd: makeDir() })
     await runInProcess(['check'], { cwd: brokenProject() })
     await runInProcess(['nao-existe'], { cwd: makeDir() })
 
@@ -115,46 +99,18 @@ describe('runInProcess', () => {
     expect(err).not.toHaveBeenCalled()
   })
 
-  it('não lê o process.env: o ambiente é o dado, e vazio por padrão', async () => {
-    vi.stubEnv('NODE_AUTH_TOKEN', 'token-do-processo')
-    const args = ['new', 'meu-produto', '--from', makeStarterOrigin()]
-
-    // Sem a variável no env dado, o new recusa antes de escrever, apesar do token do processo
-    const without = await runInProcess(args, { cwd: makeDir() })
-    expect(without.exitCode).toBe(2)
-    expect(without.stderr).toContain('falta a variável NODE_AUTH_TOKEN')
-
-    const empty = await runInProcess(args, { cwd: makeDir(), env: {} })
-    expect(empty.exitCode).toBe(2)
-  })
-
-  it('não é interativo: onde o comando perguntaria, ele recusa e diz o comando que resolve', async () => {
-    const root = makeProject({
-      'src/components/shared/status-badge.tsx': 'export {}\n',
-    })
-    // O add de uma página que precisa de UI que o projeto não tem pergunta no terminal; aqui recusa
-    const result = await runInProcess(['add', 'page-orders', '--from', makeOrigin()], {
-      cwd: root,
-    })
-
-    expect(result.exitCode).toBe(2)
-    expect(result.stderr).toContain('prumo add @mads/')
-  })
-  it('roda a linha que o toArgv monta a partir de um comando descrito, como o servidor MCP fará', async () => {
+  it('roda a linha que o toArgv monta a partir de um comando descrito, como o servidor MCP faz', async () => {
     const commands = await describeCommands(createRoot(captureRuntime()))
-    const catalog = commands.find((command) => command.name === 'catalog')!
+    const check = commands.find((command) => command.name === 'check')!
 
     const result = await runInProcess(
-      [
-        ...catalog.path,
-        ...toArgv(catalog, { busca: 'orders', kind: 'page', from: makeOrigin(), json: true }),
-      ],
-      { cwd: makeDir() },
+      [...check.path, ...toArgv(check, { root: brokenProject() })],
+      {
+        cwd: makeDir(),
+      },
     )
 
-    expect(result.exitCode, result.stderr).toBe(0)
-    expect((JSON.parse(result.stdout) as { items: Array<{ name: string }> }).items).toEqual([
-      expect.objectContaining({ name: 'page-orders' }),
-    ])
+    expect(result.exitCode, result.stderr).toBe(1)
+    expect(result.stderr).toContain('src/pages/solta')
   })
 })

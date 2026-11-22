@@ -8,11 +8,11 @@ Este plano substitui o anterior (Fases 0 a 4), que levou o Prumo para o lado de 
 
 ## Situação
 
-**Fases A e B concluídas** (22/11/2026). A Fase C espera uma pessoa.
+**Fases A e B concluídas** (22/11/2026). Da Fase C, os pacotes estão no npm público; faltam o repositório público e o workflow de publicação.
 
 - **A (PRs #66 e #67):** saíram o app de referência, o catálogo, o starter, os portões antigos e a CI de verificação; cada pacote perdeu o que era de interface. `pnpm verify` verde, sem Chromium.
 - **B (PRs #68 a #72):** `make:domain`, `make:page` e `make:component` por modelo (`templates/` do cli), `new` (app mínimo de 27 arquivos), o MCP com as mesmas ferramentas e o portão `pnpm verify:new`. Números do último verify da raiz: core 95 testes, rules 111, testing 43, cli 465, mcp 50, em cerca de 1 minuto. O portão, em 41 s (empacotar 9 s, criar o app 10 s, CLI 4 s, MCP 1 s, verify do app 14 s), com 19 testes no app gerado, sem navegador e sem GitHub.
-- **C (em andamento):** decidido em 22/11/2026: os pacotes vão para o npm público (`publishConfig` público, `prumo new` sem `.npmrc`) e o repositório também fica público; o GitHub Packages foi etapa provisória, com a versão atual publicada lá. Falta (1) a organização `matizze` no npmjs e quem guarda o token (`NPM_TOKEN`); (2) o workflow de publicação, só na `main`; (3) o repositório público com histórico novo. Ao subir versões, o mapa `packages/cli/src/new/versions.ts` acompanha. Pronta quando um projeto fora do monorepo instala os pacotes do npm e o `prumo new` funciona.
+- **C (em andamento):** os pacotes estão no npm público desde 22/11/2026 (core 0.1.3, rules e testing 0.2.1, cli 0.5.0, mcp 0.1.1), publicados à mão a partir da `main`. O critério de pronta foi cumprido: fora do monorepo, sem token e sem `.npmrc`, `pnpm dlx @matizze/prumo-cli new demo` instalou os cinco pacotes do npm, a CLI e o MCP geraram domínio, tela e componente, o `prumo check` não achou violação e o `pnpm verify` do app saiu verde (19 testes). O histórico do repositório já foi reescrito (seção 6). Falta (1) apagar as refs de pull request antigas (pedido ao suporte do GitHub) e tornar o repositório público; (2) o workflow de publicação, só na `main` e só com aprovação. Ao subir versões, o mapa `packages/cli/src/new/versions.ts` acompanha.
 
 ## 1. O que é e o que não é
 
@@ -79,9 +79,9 @@ Os modelos de cada comando moram no `@matizze/prumo-cli`, como arquivos com marc
 ## 6. Publicação e repositório público
 
 - **npm público:** os pacotes vão para o `registry.npmjs.org`, no escopo `@matizze`, com acesso público: ninguém precisa de token para instalar. O `prumo new` não cria `.npmrc`, e o `prumo doctor` avisa se o `.npmrc` do projeto ainda manda o escopo para o GitHub Packages.
-- **GitHub Packages foi uma etapa provisória:** a versão atual (core 0.1.2, rules 0.2.0, testing 0.2.0, cli 0.4.0, mcp 0.1.0) está publicada lá, à mão; a próxima sai no npm público.
-- **CI só para publicar:** um workflow que, na `main`, roda o build e o `changeset publish`, com o token do npm num segredo do repositório. Nenhum job de verificação no GitHub; a verificação é local.
-- **Repositório público depois da separação.** O histórico atual tem o código e as imagens das telas portadas do TailAdmin Pro, que não podem ficar públicos. Recomendação: abrir o repositório público com um histórico novo, a partir do estado limpo, e arquivar o atual como privado.
+- **GitHub Packages foi uma etapa provisória:** a versão anterior (core 0.1.2, rules 0.2.0, testing 0.2.0, cli 0.4.0, mcp 0.1.0) ficou publicada lá, à mão; desde a seguinte, os pacotes saem no npm público.
+- **CI só para publicar:** um workflow que, na `main`, roda o build e o `changeset publish`. De preferência com o Trusted Publishing do npm (o GitHub Actions se identifica para o npm, sem token guardado no repositório), que só se configura depois que o pacote existe no npm, o que já é o caso. Nenhum job de verificação no GitHub; a verificação é local.
+- **Repositório público depois da separação.** O histórico antigo tinha o código e as imagens das telas portadas do TailAdmin Pro, que não podem ficar públicos. Decidido e feito em 22/11/2026: o histórico foi reescrito no próprio repositório (só os caminhos que a `main` e a `develop` têm hoje). Antes de abrir, as refs dos pull requests antigos, que ainda guardam o histórico anterior e não somem com push, precisam ser apagadas pelo suporte do GitHub.
 
 ## 7. Fases
 
@@ -95,5 +95,5 @@ Os modelos de cada comando moram no `@matizze/prumo-cli`, como arquivos com marc
 
 1. **`promote` sai?** Decidido: sai (Fase A). Ele dependia de stories e do `registry.json`; se fizer falta, volta simples depois.
 2. **`skeleton.tsx`:** Decidido: não é cobrado nem gerado (é interface). A regra e a análise `page-structure` só olham os arquivos da lista (`index.tsx`, `model.ts` e `view.tsx`).
-3. **Versões:** os pacotes nunca foram publicados. A recomendação é recomeçar o histórico no repositório público, mantendo a versão atual de cada pacote.
-4. **Escopo no npm:** confirmar que a organização `matizze` existe no npmjs e quem guarda o token.
+3. **Versões:** Decidido: cada pacote manteve a sua versão; o npm começou em core 0.1.3, rules e testing 0.2.1, cli 0.5.0 e mcp 0.1.1.
+4. **Escopo no npm:** Decidido: a organização `matizze` existe no npmjs, e a primeira publicação foi feita à mão, com um token granular de validade curta. As próximas saem pelo workflow de publicação (seção 6).

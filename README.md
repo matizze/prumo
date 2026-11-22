@@ -6,7 +6,7 @@ O plano completo está em [docs/plano-prumo.md](docs/plano-prumo.md).
 
 ## Situação
 
-**Fase 2 concluída.** Depois da Fase 1 (o `@matizze/prumo-core` e o `@matizze/prumo-rules`, extraídos do app de referência, em [docs/fase-1.md](docs/fase-1.md)), o `@matizze/prumo-cli` gera código a partir das telas e dos domínios reais do app: `prumo make:page` (os dez padrões de tela), `prumo make:domain` e `prumo make:component`, com as costuras de mensagens, rota, menu e índices, conforme [docs/fase-2.md](docs/fase-2.md). O portão da fase está cumprido: uma tela de cada padrão, um domínio e um componente gerados pela CLI passam no `pnpm verify` (`pnpm verify:generated`). O `@matizze/prumo-testing` e o `@matizze/prumo-mcp` ainda são esqueleto (Fases 3 e 4), e os comandos `new`, `add`, `promote` e `doctor` chegam na Fase 3.
+**Fase 2 concluída.** Depois da Fase 1 (o `@matizze/prumo-core` e o `@matizze/prumo-rules`, extraídos do app de referência, em [docs/fase-1.md](docs/fase-1.md)), o `@matizze/prumo-cli` gera código a partir das telas e dos domínios reais do app: `prumo make:page` (os dez padrões de tela), `prumo make:domain` e `prumo make:component`, com as costuras de mensagens, rota, menu e índices, conforme [docs/fase-2.md](docs/fase-2.md). O portão da fase está cumprido: uma tela de cada padrão, um domínio e um componente gerados pela CLI passam no `pnpm verify` (`pnpm verify:generated`). O `@matizze/prumo-testing` e o `@matizze/prumo-mcp` ainda são esqueleto (Fases 3 e 4), e os comandos `new` e `doctor` chegam na Fase 3 (o `add` e o `promote` já estão no `@matizze/prumo-cli`).
 
 ## Estrutura
 

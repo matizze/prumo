@@ -2,7 +2,7 @@
 
 O comando prumo: new, make, add, promote, check e doctor.
 
-**Situação:** Fase 3, passo H4: o `prumo add` está pronto, além do que a Fase 2 entregou. O `prumo` é uma árvore de comandos ([citty](https://github.com/unjs/citty)) com o `prumo check` e os três comandos que geram código: `prumo make:page` (os dez padrões de tela e a escolha no terminal, por [@clack/prompts](https://github.com/bombshell-dev/clack)), `prumo make:domain` e `prumo make:component`. Os três renomeiam pela estrutura do código ([ts-morph](https://ts-morph.com), em `src/codemod/`), nunca por busca e troca de texto, e fazem as costuras que eram manuais. O portão da fase está cumprido: uma tela de cada padrão, um domínio e um componente gerados pela CLI passam no `pnpm verify` (`pnpm verify:generated`, na raiz do monorepo; o resultado está em [docs/fase-2.md](../../docs/fase-2.md#resultado)). O `prumo add` instala blocos, telas e domínios do catálogo num projeto (veja abaixo). Faltam o `new`, o `promote` e o `doctor` (Fase 3), a troca de domínio da tela gerada (`--domain`) e o arquivo de configuração do `check`. O plano está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md).
+**Situação:** Fase 3, passo H5: o `prumo add` e o `prumo promote` estão prontos, além do que a Fase 2 entregou. O `prumo` é uma árvore de comandos ([citty](https://github.com/unjs/citty)) com o `prumo check` e os três comandos que geram código: `prumo make:page` (os dez padrões de tela e a escolha no terminal, por [@clack/prompts](https://github.com/bombshell-dev/clack)), `prumo make:domain` e `prumo make:component`. Os três renomeiam pela estrutura do código ([ts-morph](https://ts-morph.com), em `src/codemod/`), nunca por busca e troca de texto, e fazem as costuras que eram manuais. O portão da fase está cumprido: uma tela de cada padrão, um domínio e um componente gerados pela CLI passam no `pnpm verify` (`pnpm verify:generated`, na raiz do monorepo; o resultado está em [docs/fase-2.md](../../docs/fase-2.md#resultado)). O `prumo add` instala blocos, telas e domínios do catálogo num projeto, e o `prumo promote` move um componente de uma tela para o `shared` (veja abaixo). Faltam o `new` e o `doctor` (Fase 3), a troca de domínio da tela gerada (`--domain`) e o arquivo de configuração do `check`. O plano está na seção 9 de [docs/plano-prumo.md](../../docs/plano-prumo.md).
 
 ## Comandos
 
@@ -13,6 +13,7 @@ O comando prumo: new, make, add, promote, check e doctor.
 | `prumo make:component <nome> --page <tela>`        | Gera um componente e a story dele em `src/pages/<tela>/components/`, a partir de um componente pequeno do projeto (`storage-card`), renomeado pela estrutura do código. A story tem play function e roda com o axe nos dois temas                                                                                                                                             |
 | `prumo add <item>...`                              | Instala itens do catálogo (blocos, telas, domínios de dados e a camada de app) no projeto, com os itens de que eles dependem: copia os arquivos de uma origem (um checkout do `matizze/prumo` ou o clone em cache) e faz as costuras (mensagens, `<Route>`, índices do domínio e barrel de schemas). Valida tudo antes de escrever, com `--diff`, `--dry-run` e `--overwrite` |
 | `prumo check`                                      | Analisa o projeto inteiro e lista as violações da arquitetura: as pastas de `src/components`, o uso de `components/shared` pelas telas, a estrutura de cada tela e os textos completos nos idiomas                                                                                                                                                                            |
+| `prumo promote <componente> --from <tela>`         | Move um componente de `src/pages/<tela>/components` para `src/components/shared` (com a story e o teste), quando uma segunda tela passa a usá-lo, e ajusta os imports de quem o usa, o título da story e o `registry.json`. Recusa se só uma tela o usa                                                                                                                       |
 
 Os três comandos `make:*` geram a partir do próprio projeto (no app de referência, fonte e destino são o mesmo) e fazem sozinhos as costuras:
 
@@ -156,7 +157,7 @@ prumo make:component <nome> --page <tela> [--root <pasta>] [--dry-run]
 
 **A fonte** é um componente real do app de referência, o `storage-card` (`src/pages/file-manager/components/`): pequeno, só de apresentação (sem i18n e sem dados) e com uma story que tem play function e passa no axe nos dois temas. O comando o copia, com a story, para `src/pages/<tela>/components/`, e renomeia pela estrutura do código (ts-morph): o componente e o tipo das props (`StorageCard` e `StorageCardProps` viram `<Pascal>` e `<Pascal>Props`), o import da story (`./storage-card` vira `./<nome>`), o título da story (`Pages/<PascalDaTela>/<Pascal>`, porque título repetido quebra o Storybook) e a descrição da story, que citava a tela e o assunto da referência e vira um texto neutro para o produto trocar. Não há arquivo de modelo no pacote: a fonte é o próprio projeto, como nos outros comandos, e o teste que gera a partir do app de referência avisa se o componente mudar.
 
-**O componente novo não precisa ser usado pela tela**, e a pasta `components` é criada se a tela ainda não tiver. As props (ícone, tom, título, uso, arquivos e tamanho), o visual e os textos da story são os da referência, e o produto os edita. Um componente usado por duas ou mais telas é de `src/components/shared`, e quem move é o `prumo promote` (Fase 3); por isso o comando não tem `--shared`.
+**O componente novo não precisa ser usado pela tela**, e a pasta `components` é criada se a tela ainda não tiver. As props (ícone, tom, título, uso, arquivos e tamanho), o visual e os textos da story são os da referência, e o produto os edita. Um componente usado por duas ou mais telas é de `src/components/shared`, e quem move é o [`prumo promote`](#prumo-promote); por isso o comando não tem `--shared`.
 
 O que o comando faz:
 
@@ -207,6 +208,33 @@ prumo add page-login --overwrite                                     # troca os 
 ```
 
 **Para testar numa cópia do app de referência**, como o portão da fase: apague os arquivos de um item (e as costuras dele), rode `prumo add <item> --root apps/reference --from <checkout limpo>` e confira com `git diff`: os arquivos voltam iguais, e só mudam a posição das linhas nos índices e a das rotas no `App.tsx` (o `add` põe a rota depois da última rota do `<Switch>`, e as mensagens em ordem alfabética). Desfaça com `git checkout -- apps/reference && git clean -fd apps/reference`, só com a árvore limpa antes.
+
+### prumo promote
+
+```sh
+prumo promote <componente> --from <tela> [--root <pasta>] [--dry-run]
+```
+
+- `<componente>`: o componente, em kebab-case, como o arquivo (`resumo-do-pedido`).
+- `--from <tela>`: a tela onde ele está, uma pasta de `src/pages` (`orders`). Obrigatória.
+- `--root <pasta>`: a pasta do projeto. Padrão: a pasta atual.
+- `--dry-run`: lista o que seria movido e alterado, sem escrever nada.
+
+Quando uma segunda tela passa a usar um componente de `src/pages/<tela>/components/`, ele é de `src/components/shared/`. O comando move `<componente>.tsx` e o que vai ao lado dele (`<componente>.stories.tsx`, `<componente>.test.tsx`, `.spec.*` e `.mdx`) e ajusta, pela estrutura do código (ts-morph, no mesmo plano em memória dos outros comandos) e não por busca e troca de texto:
+
+- **Os imports de quem usa o componente**, em qualquer tela, no layout e em outros módulos de `shared`, e também testes, stories, `import()` dinâmico, `export ... from`, tipos `import('...')` e `vi.mock`: viram `@/components/shared/<componente>`, escritos com o alias, relativos ou não.
+- **Os imports relativos dos arquivos movidos** que deixam de resolver (`../../../lib/x` vira `../../lib/x`). O que o componente importa por alias ou por pacote não muda.
+- **O título da story** que cita a tela (`Pages/<Tela>/<Pascal>`, o formato do `make:component`) vira `Patterns/<Tela>/<Pascal>`, o formato das stories de `src/components/shared`, que agrupam por assunto. Título que não cita a tela fica.
+- **O `registry.json`**, se o projeto tem: o componente entra como bloco (`registry:block`) na ordem alfabética, com `registryDependencies` e `dependencies` lidas dos imports, e título e descrição provisórios para você editar (o teste do registry exige um bloco por arquivo de `shared`). O arquivo antigo sai da lista do item da tela, e todo item que importa o componente passa a depender do bloco.
+
+**Recusa com código 2, sem escrever nada** (o `--dry-run` recusa o mesmo): nome inválido; tela ou componente que não existe; componente que já está em `shared`; **menos de duas telas usando o componente**, porque o `prumo check` exige 2 ou mais em `shared` e o `promote` não gera essa violação (a mensagem diz o que fazer: importar o componente da segunda tela, pelo caminho da tela de origem, e rodar de novo); componente (ou story ou teste dele) que importa algo da pasta da tela de origem além dos arquivos que se movem, porque o `shared` não depende de tela; nome que já existe em `shared`, na pasta ou como item do `registry.json`; título de story que outra story já usa. A contagem de telas é a da regra `shared-usage` do `prumo check`: testes e stories não contam, um módulo de `shared` vale pelas telas que o usam e a casca do layout conta como duas.
+
+Ao terminar, roda a análise do `prumo check` e imprime o comando do teste da story. Códigos de saída: 0 sem violação (e `--dry-run`), 1 se o `check` do fim achar violação (o componente já foi movido), 2 para uso errado.
+
+```sh
+prumo promote resumo-do-pedido --from orders            # move para src/components/shared
+prumo promote resumo-do-pedido --from orders --dry-run  # o que seria feito
+```
 
 ### Núcleo do codemod (interno)
 

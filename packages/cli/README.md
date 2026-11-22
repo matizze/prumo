@@ -1,20 +1,35 @@
 # @matizze/prumo-cli
 
-O comando `prumo`: `make:page`, `make:domain`, `make:component`, `check` e `doctor`, e a API para rodar os comandos em processo.
+O comando `prumo`: `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`, e a API para rodar os comandos em processo.
 
-**Situação:** o Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)). Na Fase A, a CLI ficou só com o que confere o projeto; os geradores simples voltam na Fase B, um por vez: já existem `make:domain`, `make:page` e `make:component`, e falta o `new`. Nada foi publicado: o pacote segue `"private": true`.
+**Situação:** o Prumo é uma ferramenta sem frontend ([docs/plano.md](../../docs/plano.md)). Na Fase A, a CLI ficou só com o que confere o projeto; os geradores simples voltam na Fase B, um por vez: já existem `make:domain`, `make:page` e `make:component`, e o `new`. Nada foi publicado: o pacote segue `"private": true`.
 
 ## Comandos
 
-| Comando                                                                                | O que faz                                                                                                                                                             |
-| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `prumo make:page <nome> [--domain <domínio>] [--root <pasta>] [--dry-run]`             | Gera uma tela (`index`, `model`, `view` e o teste), as mensagens nos idiomas do projeto, o namespace nos índices de mensagens e a rota no `src/App.tsx`. Veja abaixo. |
-| `prumo make:component <nome> (--page <tela> \| --shared) [--root <pasta>] [--dry-run]` | Gera um componente (só HTML) e o teste dele, na pasta da tela ou em `src/components/shared`. Veja abaixo.                                                             |
-| `prumo make:domain <nome> [--entity <singular>] [--root <pasta>] [--dry-run]`          | Gera um domínio de dados (schema, repositório com mock e contrato, queries com hooks e o teste de contrato) e o registra nos índices e no container. Veja abaixo.     |
-| `prumo check [--root <pasta>]`                                                         | Analisa o projeto (a análise do [`@matizze/prumo-rules`](../rules/README.md)) e escreve uma linha por violação, com o arquivo e a regra.                              |
-| `prumo doctor [--root <pasta>]`                                                        | Confere o ambiente e o projeto, uma linha por item com ok, aviso ou erro. Não escreve nada e não usa a rede.                                                          |
+| Comando                                                                                | O que faz                                                                                                                                                                    |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prumo new <nome> [--dir <pasta>] [--packages <pasta>] [--no-install] [--dry-run]`     | Cria um app mínimo, sem CSS e sem design system, com a estrutura de pastas, os provedores, uma tela inicial, o eslint, o vitest, o `AGENTS.md` e o `.mcp.json`. Veja abaixo. |
+| `prumo make:page <nome> [--domain <domínio>] [--root <pasta>] [--dry-run]`             | Gera uma tela (`index`, `model`, `view` e o teste), as mensagens nos idiomas do projeto, o namespace nos índices de mensagens e a rota no `src/App.tsx`. Veja abaixo.        |
+| `prumo make:component <nome> (--page <tela> \| --shared) [--root <pasta>] [--dry-run]` | Gera um componente (só HTML) e o teste dele, na pasta da tela ou em `src/components/shared`. Veja abaixo.                                                                    |
+| `prumo make:domain <nome> [--entity <singular>] [--root <pasta>] [--dry-run]`          | Gera um domínio de dados (schema, repositório com mock e contrato, queries com hooks e o teste de contrato) e o registra nos índices e no container. Veja abaixo.            |
+| `prumo check [--root <pasta>]`                                                         | Analisa o projeto (a análise do [`@matizze/prumo-rules`](../rules/README.md)) e escreve uma linha por violação, com o arquivo e a regra.                                     |
+| `prumo doctor [--root <pasta>]`                                                        | Confere o ambiente e o projeto, uma linha por item com ok, aviso ou erro. Não escreve nada e não usa a rede.                                                                 |
 
 `--root` é a pasta do projeto (a que tem o `package.json` e o `src`); o padrão é a pasta atual. Códigos de saída: 0 sem erro, 1 com violação (`check`) ou erro (`doctor`), 2 para uso errado (comando ou opção desconhecidos, pasta que não é um projeto). `prumo --help` e `prumo <comando> --help` mostram a ajuda, em português.
+
+### prumo new
+
+`prumo new meu-app` cria `./meu-app` (ou `<dir>/meu-app`, com `--dir`) com o app mínimo do Prumo: Vite, React 19, TypeScript, wouter, TanStack Query, zod e i18next (o que o `@matizze/prumo-core` usa), e **nada de interface** (sem CSS, sem design system, sem Storybook). O app tem:
+
+- a estrutura de pastas do plano (`src/pages`, `src/components/shared`, `src/schemas`, `src/repositories`, `src/queries` e `src/messages/{pt-BR,en}`) e os pontos que os geradores pressupõem: `@/` para `src` (tsconfig e vite), `src/i18n.ts`, `src/providers/repository`, `src/repositories/{index,options}.ts` (o container) e `src/test/render.tsx` (o `renderWithProviders`);
+- os provedores (`src/providers/app.tsx`: query, i18n e repositórios) e o `src/main.tsx`;
+- uma tela inicial, `src/pages/home` na rota `/`, gerada pelo mesmo modelo do `make:page` (com o teste e as mensagens nos dois idiomas);
+- o eslint com o plugin do Prumo, o vitest com jsdom, o `AGENTS.md` (as camadas e os comandos, curto) e o `.mcp.json` com o servidor `prumo` (`pnpm exec prumo-mcp`);
+- os scripts `dev`, `build`, `typecheck`, `lint`, `check`, `test` e `verify` (typecheck, lint, check e test, sem navegador).
+
+As dependências são só as bibliotecas e versões do app de referência das fases anteriores, e os cinco pacotes do Prumo entram como `^<versão>` (a versão de cada um está em `src/new/versions.ts`, que o `versions.test.ts` confere contra os `package.json` de `packages/*`: ao subir uma versão, atualize o arquivo). Com `--packages <pasta>` (os tarballs do `pnpm pack:all`), o `package.json` ganha `pnpm.overrides` com `file:` para os tarballs, e o app instala sem registry. Roda `git init` (sem commit) e `pnpm install`, a não ser com `--no-install`; sob o servidor MCP (ou qualquer Runtime sem `inheritStdio`), a saída do `pnpm install` é capturada e volta pelo `runtime.out`/`runtime.err` (`process.ts`), nunca direto no stdout do processo.
+
+O app é montado numa pasta de rascunho e só vai ao destino se tudo deu certo. Valida antes de escrever (saída 2): o nome em kebab-case, o destino (não pode existir com conteúdo) e os tarballs (a pasta tem de ter os cinco). `--dry-run` lista os arquivos e não escreve nada.
 
 ### prumo make:domain
 
@@ -79,7 +94,7 @@ Com `--domain clientes`, o model lê a lista do domínio (`useClientesList()`, d
 
 Os geradores não copiam tela nem domínio de outro projeto: cada arquivo gerado sai de um modelo em `templates/`, um arquivo `.tpl` com marcadores de nome. O `.tpl` evita que o TypeScript, o ESLint e o Vitest tomem o modelo por código, e o `templates.test.ts` confere que todo arquivo da pasta é usado por um gerador e todo modelo de um gerador existe.
 
-- **Marcadores:** `{{plural.kebab}}`, `{{plural.pascal}}`, `{{plural.camel}}` e `{{plural.constant}}` (o mesmo para `singular`): para `pedidos-recentes`, `pedidos-recentes`, `PedidosRecentes`, `pedidosRecentes` e `PEDIDOS_RECENTES`. O nome do marcador só tem letras, números e ponto, então um `{{` de JSX não é marcador. Marcador sem valor lança um erro: o gerador não escreve `undefined` no código de ninguém. `src/templates.ts` troca os marcadores (`renderTemplate`) e monta os valores de um nome (`nameVars`).
+- **Marcadores:** `{{plural.kebab}}`, `{{plural.pascal}}`, `{{plural.camel}}` e `{{plural.constant}}` (o mesmo para `singular`, `page`, `domain` e `component`; o `new` usa `{{app.kebab}}` e `{{app.title}}`): para `pedidos-recentes`, `pedidos-recentes`, `PedidosRecentes`, `pedidosRecentes` e `PEDIDOS_RECENTES`. O nome do marcador só tem letras, números e ponto, então um `{{` de JSX não é marcador. Marcador sem valor lança um erro: o gerador não escreve `undefined` no código de ninguém. `src/templates.ts` troca os marcadores (`renderTemplate`) e monta os valores de um nome (`nameVars`).
 - **Caminhos:** cada gerador (`src/generate/<nome>.ts`) lista os pares modelo e destino, o destino também com marcadores (`src/repositories/{{plural.kebab}}/index.ts`), e monta tudo num `ChangePlan` em memória, junto com as costuras.
 - **No tarball:** `templates/` está no `files` do `package.json`, e o caminho (`templates/`, um nível acima de `src/` e de `dist/`) vale no workspace e no pacote instalado. O `packaging.test.ts` confere que o tarball leva os mesmos arquivos e gera um domínio com o `prumo` empacotado.
 - **O código gerado compila e roda:** o `generate/page.compile.test.ts` monta um projeto como o do `prumo new` (App sem rota, índices vazios, i18n, provedores e `renderWithProviders`), gera um domínio, três telas (uma com `--domain`) e dois componentes, e roda nele o `tsc` (estrito), o Vitest e o `prumo check`. E o `generate/domain.compile.test.ts`: o `generate/domain.compile.test.ts` cria um projeto mínimo, gera três domínios (um com nome composto e entidade explícita), e roda nele o `tsc` (estrito) e o Vitest, com o contrato de cada mock e os hooks de verdade.

@@ -26,6 +26,7 @@ describe('o servidor MCP', () => {
       'make_component',
       'make_domain',
       'make_page',
+      'new',
     ])
     const check = tools.find((tool) => tool.name === 'check')
     expect(check?.description).toContain('Analisa o projeto')
@@ -278,5 +279,54 @@ describe('o root e o dir ficam dentro da pasta do servidor', () => {
     const result = await client.callTool({ name: 'check', arguments: { root: 'atalho' } })
     expect(result.isError).toBe(true)
     expect(textOf(result as never)).toContain('fica fora da pasta do servidor')
+  })
+  describe('a ferramenta new', () => {
+    it('cria o app dentro da pasta do servidor, sem escrever no stdout do processo', async () => {
+      const cwd = makeDir()
+      const client = await connect({ cwd })
+
+      const result = await client.callTool({
+        name: 'new',
+        arguments: { nome: 'meu-app', dir: 'apps', install: false },
+      })
+      expect(result.isError, textOf(result as never)).toBe(false)
+      expect(textOf(result as never)).toContain('prumo new: meu-app.')
+      expect(existsSync(path.join(cwd, 'apps/meu-app/src/pages/home/view.tsx'))).toBe(true)
+      expect(existsSync(path.join(cwd, 'apps/meu-app/.mcp.json'))).toBe(true)
+
+      // E as outras ferramentas já enxergam o app novo
+      const check = await client.callTool({
+        name: 'check',
+        arguments: { root: 'apps/meu-app' },
+      })
+      expect(check.isError, textOf(check as never)).toBe(false)
+    })
+
+    it('recusa o dir fora da pasta do servidor, e não escreve', async () => {
+      const parent = makeDir()
+      const cwd = path.join(parent, 'servidor')
+      mkdirSync(cwd)
+      const client = await connect({ cwd })
+
+      const result = await client.callTool({
+        name: 'new',
+        arguments: { nome: 'meu-app', dir: '..', install: false },
+      })
+      expect(result.isError).toBe(true)
+      expect(textOf(result as never)).toContain(
+        "o campo 'dir' ('..') fica fora da pasta do servidor",
+      )
+      expect(existsSync(path.join(parent, 'meu-app'))).toBe(false)
+    })
+
+    it('o nome inválido volta como erro de uso, com [saída 2]', async () => {
+      const client = await connect({ cwd: makeDir() })
+      const result = await client.callTool({
+        name: 'new',
+        arguments: { nome: 'Meu App', install: false },
+      })
+      expect(result.isError).toBe(true)
+      expect(textOf(result as never)).toMatch(/kebab-case[\s\S]*\[saída 2\]$/)
+    })
   })
 })

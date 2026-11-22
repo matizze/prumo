@@ -5,10 +5,11 @@ import { describe, expect, it } from 'vitest'
 /**
  * A regra do servidor MCP: nada do cli escreve no stdout ou no stderr do processo fora do
  * `Runtime`. Num servidor MCP o stdout é o protocolo, e uma linha solta o corrompe. Os dois lugares
- * que pode tocar no terminal é o `bin.ts`, que monta o Runtime com ele.
+ * que podem tocar no terminal são o `bin.ts`, que monta o Runtime com ele, e o `process.ts`, que
+ * deixa um subprocesso (o `pnpm install` do `new`) herdá-lo só quando o Runtime diz que é o terminal.
  */
 const SRC = import.meta.dirname
-const ALLOWED = new Set(['bin.ts'])
+const ALLOWED = new Set(['bin.ts', 'process.ts'])
 
 /** Os arquivos de código do cli: tudo em `src`, menos testes e apoio de teste. */
 function sourceFiles(dir = SRC): string[] {

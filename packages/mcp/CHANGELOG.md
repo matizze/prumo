@@ -1,5 +1,13 @@
 # @matizze/prumo-mcp
 
+## 0.1.1
+
+### Patch Changes
+
+- 3e763de: Publicado no npm público (`registry.npmjs.org`, acesso público), sem token para instalar.
+- Updated dependencies [3e763de]
+  - @matizze/prumo-cli@0.5.0
+
 ## 0.1.0
 
 ### Minor Changes

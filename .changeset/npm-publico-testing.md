@@ -1,5 +1,0 @@
----
-'@matizze/prumo-testing': patch
----
-
-Publicado no npm público (`registry.npmjs.org`, acesso público), sem token para instalar.

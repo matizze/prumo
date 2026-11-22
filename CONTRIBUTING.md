@@ -69,7 +69,7 @@ refactor!: regras sem interface
 
 ### Workflows
 
-O único workflow do GitHub é o de publicação (`.github/workflows/release.yml`). Não crie nem mude workflow sem aprovação.
+Os únicos workflows do GitHub são os de publicação: o `release.yml` (pacotes no npm) e o `docs.yml` (site da documentação). Não crie nem mude workflow sem aprovação.
 
 ## Convenções
 
@@ -82,6 +82,16 @@ O único workflow do GitHub é o de publicação (`.github/workflows/release.yml
 ### Documentação
 
 A documentação mora em [`docs/`](docs/README.md) e segue quatro tipos de texto: tutorial, conceitos, guias e referência. Ao mudar um comportamento visível, atualize a referência correspondente e os guias que o usam. Os READMEs dos pacotes são a página de cada um no npm: curtos, com a instalação, o uso essencial e links para a documentação.
+
+A mesma pasta vira o site [docs.prumo.matizze.com.br](https://docs.prumo.matizze.com.br), gerado pelo Docusaurus em `website/` (um projeto à parte, fora do workspace dos pacotes). Para ver o site enquanto escreve:
+
+```bash
+pnpm --dir website install --ignore-workspace
+pnpm --dir website start     # http://localhost:3000, recarrega a cada mudança
+pnpm --dir website build     # o build falha com link ou âncora quebrados
+```
+
+Links para arquivos fora de `docs/` (o CONTRIBUTING.md, o plano) viram, no site, links para o GitHub. O menu lateral fica em `website/sidebars.ts`: uma página nova entra lá.
 
 ## Versões
 

@@ -1,0 +1,7 @@
+# O contexto do build é a raiz do repositório: entram só a documentação e o site
+*
+!docs
+!website
+website/node_modules
+website/build
+website/.docusaurus

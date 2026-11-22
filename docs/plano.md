@@ -78,7 +78,8 @@ Os modelos de cada comando moram no `@matizze/prumo-cli`, como arquivos com marc
 
 ## 6. Publicação e repositório público
 
-- **npm público**, no escopo `@matizze` do npmjs, e não mais o GitHub Packages privado.
+- **Por enquanto, GitHub Packages privado:** os pacotes saem no `npm.pkg.github.com`, publicados à mão pelo orquestrador (nenhum workflow), com `repository` apontando para este repositório, de quem herdam a visibilidade privada. Quem instala usa um token clássico do GitHub com `read:packages` em `NODE_AUTH_TOKEN`; o `prumo new` cria o `.npmrc` do app com o escopo `@matizze` apontando para lá e o `prumo doctor` avisa quando o token falta.
+- **npm público continua sendo o destino**, no escopo `@matizze` do npmjs.
 - **CI só para publicar:** um workflow que, na `main`, roda o build e o `changeset publish`, com o token do npm num segredo do repositório. Nenhum job de verificação no GitHub; a verificação é local.
 - **Repositório público depois da separação.** O histórico atual tem o código e as imagens das telas portadas do TailAdmin Pro, que não podem ficar públicos. Recomendação: abrir o repositório público com um histórico novo, a partir do estado limpo, e arquivar o atual como privado.
 

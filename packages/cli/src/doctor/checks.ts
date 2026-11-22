@@ -37,6 +37,8 @@ export interface DoctorSystem {
   pnpmVersion: () => string | undefined
   /** O conteúdo do arquivo, ou `undefined` se ele não existe ou não pode ser lido. */
   readText: (file: string) => string | undefined
+  /** O valor da variável de ambiente, ou `undefined` se ela não existe ou está vazia. */
+  env: (name: string) => string | undefined
 }
 
 export interface DoctorInput {
@@ -54,6 +56,7 @@ export function runChecks(input: DoctorInput): Finding[] {
     checkPnpm(input, manifest),
     ...checkPackages(input, manifest),
     checkMcpJson(input),
+    ...checkRegistryToken(input),
   ]
 }
 
@@ -314,4 +317,47 @@ function checkMcpJson({ root, system }: DoctorInput): Finding {
     }
   }
   return { status: 'ok', label, message: `existe, com o servidor ${PRUMO_MCP_SERVER}.` }
+}
+
+// .npmrc
+
+/** O registry do GitHub Packages, de onde vêm os pacotes @matizze/prumo-* enquanto não estão no npm público. */
+export const GITHUB_PACKAGES_HOST = 'npm.pkg.github.com'
+
+/** A variável de ambiente que o `.npmrc` do app gerado lê para autenticar no GitHub Packages. */
+export const REGISTRY_TOKEN_VARIABLE = 'NODE_AUTH_TOKEN'
+
+/** O `.npmrc` manda o escopo `@matizze` para o GitHub Packages? (`@matizze:registry=https://npm.pkg.github.com`) */
+function routesScopeToGithubPackages(npmrc: string): boolean {
+  return npmrc.split('\n').some((raw) => {
+    const match = /^\s*@matizze:registry\s*=\s*(\S+)\s*$/.exec(raw)
+    return match?.[1] !== undefined && match[1].includes(GITHUB_PACKAGES_HOST)
+  })
+}
+
+/**
+ * O token do GitHub Packages: se o `.npmrc` do projeto manda o escopo `@matizze` para o
+ * `npm.pkg.github.com` e a `NODE_AUTH_TOKEN` não está definida, o `pnpm install` não consegue baixar
+ * os pacotes do Prumo. Sem `.npmrc` desse tipo, não há linha. Nunca mostra o valor da variável.
+ */
+function checkRegistryToken({ root, system }: DoctorInput): Finding[] {
+  const label = '.npmrc'
+  const npmrc = system.readText(path.join(root, '.npmrc'))
+  if (npmrc === undefined || !routesScopeToGithubPackages(npmrc)) return []
+  if (system.env(REGISTRY_TOKEN_VARIABLE) === undefined) {
+    return [
+      {
+        status: 'warn',
+        label,
+        message: `o escopo @matizze vem do GitHub Packages (${GITHUB_PACKAGES_HOST}), mas ${REGISTRY_TOKEN_VARIABLE} não está definida: crie um token clássico do GitHub com read:packages e exporte-o em ${REGISTRY_TOKEN_VARIABLE} antes do pnpm install.`,
+      },
+    ]
+  }
+  return [
+    {
+      status: 'ok',
+      label,
+      message: `o escopo @matizze vem do GitHub Packages e ${REGISTRY_TOKEN_VARIABLE} está definida.`,
+    },
+  ]
 }

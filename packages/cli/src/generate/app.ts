@@ -20,6 +20,8 @@ export const APP_FILES: readonly AppFile[] = [
   { template: 'app/gitignore.tpl', to: '.gitignore' },
   { template: 'app/index.html.tpl', to: 'index.html' },
   { template: 'app/mcp.json.tpl', to: '.mcp.json' },
+  { template: 'app/npmrc.tpl', to: '.npmrc' },
+  { template: 'app/README.md.tpl', to: 'README.md' },
   { template: 'app/typescript.json.tpl', to: 'tsconfig.json' },
   { template: 'app/vite.config.ts.tpl', to: 'vite.config.ts' },
   { template: 'app/src/App.tsx.tpl', to: 'src/App.tsx' },

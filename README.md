@@ -6,7 +6,7 @@ O plano está em [docs/plano.md](docs/plano.md).
 
 ## Situação
 
-**Fases A e B do plano concluídas.** O Prumo não traz frontend, e os geradores simples estão prontos: a CLI tem `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`, os modelos moram no `@matizze/prumo-cli`, e o servidor MCP expõe as mesmas ferramentas. O portão local, `pnpm verify:new`, cria um app numa pasta temporária, gera tela, domínio e componente pela CLI e pelo MCP e roda a verificação nele, em menos de um minuto e sem navegador. A Fase C, a publicação no npm público, depende de uma pessoa (a organização `matizze` no npmjs e um token). Nada foi publicado.
+**Fases A e B do plano concluídas.** O Prumo não traz frontend, e os geradores simples estão prontos: a CLI tem `new`, `make:page`, `make:domain`, `make:component`, `check` e `doctor`, os modelos moram no `@matizze/prumo-cli`, e o servidor MCP expõe as mesmas ferramentas. O portão local, `pnpm verify:new`, cria um app numa pasta temporária, gera tela, domínio e componente pela CLI e pelo MCP e roda a verificação nele, em menos de um minuto e sem navegador. A Fase C, a publicação, começa pelo GitHub Packages privado, publicado à mão por enquanto (os pacotes já saem sem `private`, com `repository`; o app gerado traz o `.npmrc` e lê o token de `NODE_AUTH_TOKEN`); o npm público continua sendo o destino e depende de uma pessoa (a organização `matizze` no npmjs e um token).
 
 ## Pacotes
 

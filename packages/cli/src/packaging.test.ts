@@ -27,6 +27,7 @@ type Manifest = {
   name: string
   version: string
   private?: boolean
+  repository?: { type?: string; url?: string; directory?: string }
   bin?: Record<string, string>
   exports: Record<string, { types: string; default: string }>
   types?: string
@@ -203,9 +204,21 @@ describe.each(PACKAGES)('tarball de @matizze/prumo-%s', (name) => {
     }
   })
 
-  it('continua private: a primeira publicação é uma decisão de uma pessoa', () => {
-    expect(workspaceManifest(name).private).toBe(true)
-    expect(packedManifest(name).private).toBe(true)
+  it('está pronto para o GitHub Packages: sem private, com repository e publishConfig restrito', () => {
+    // A publicação em si é de uma pessoa (à mão, com token); aqui só se confere que o pacote pode sair.
+    for (const manifest of [workspaceManifest(name), packedManifest(name)]) {
+      expect(manifest.private, 'um pacote private não publica').toBeUndefined()
+      // O repository liga o pacote ao repositório privado, de quem ele herda a visibilidade
+      expect(manifest.repository).toEqual({
+        type: 'git',
+        url: 'git+https://github.com/matizze/prumo.git',
+        directory: `packages/${name}`,
+      })
+      expect(manifest.publishConfig).toMatchObject({
+        registry: 'https://npm.pkg.github.com',
+        access: 'restricted',
+      })
+    }
   })
 })
 

@@ -1,7 +1,7 @@
 {
   "name": "@matizze/prumo-cli",
   "version": "0.3.0",
-  "description": "O comando prumo: check e doctor, e a API para rodar comandos em processo.",
+  "description": "O comando prumo: make:domain, check e doctor, e a API para rodar comandos em processo.",
   "private": true,
   "type": "module",
   "bin": {
@@ -12,7 +12,8 @@
     "./api": "./src/api.ts"
   },
   "files": [
-    "dist"
+    "dist",
+    "templates"
   ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com",

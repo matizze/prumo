@@ -129,10 +129,16 @@ describe.each(PACKAGES)('tarball de @matizze/prumo-%s', (name) => {
     expect(files).toContain('README.md')
   })
 
-  it('só leva o dist, o package.json e o README: sem código-fonte, teste, fixture nem tsconfig', () => {
+  it('só leva o dist, o package.json e o README (e os modelos, no cli): sem código-fonte, teste, fixture nem tsconfig', () => {
     const files = entries(name)
     const outside = files.filter(
-      (file) => !(file === 'package.json' || file === 'README.md' || file.startsWith('dist/')),
+      (file) =>
+        !(
+          file === 'package.json' ||
+          file === 'README.md' ||
+          file.startsWith('dist/') ||
+          (name === 'cli' && file.startsWith('templates/'))
+        ),
     )
     expect(outside).toEqual([])
     const unwanted = files.filter((file) =>
@@ -247,6 +253,30 @@ describe('@matizze/prumo-cli empacotado', () => {
     expect(statSync(bin).mode & 0o111).not.toBe(0)
   })
 
+  it('leva os modelos dos geradores, os mesmos arquivos de templates/, e nenhum outro', () => {
+    const templates = path.join(REPO, 'packages', 'cli', 'templates')
+    const source = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+        entry.isDirectory()
+          ? source(path.join(dir, entry.name)).map((file) => `${entry.name}/${file}`)
+          : [entry.name],
+      )
+    const expected = source(templates).map((file) => `templates/${file}`)
+
+    expect(expected.length).toBeGreaterThan(0)
+    expect(
+      entries('cli')
+        .filter((file) => file.startsWith('templates/'))
+        .sort(),
+    ).toEqual(expected.sort())
+    for (const file of expected) {
+      expect(readFileSync(path.join(extracted('cli'), file), 'utf8'), file).toBe(
+        readFileSync(path.join(REPO, 'packages', 'cli', file), 'utf8'),
+      )
+    }
+    expect(workspaceManifest('cli')).toMatchObject({ files: ['dist', 'templates'] })
+  })
+
   describe('instalado como o gerenciador de pacotes instala (em node_modules, sem type stripping)', () => {
     let product: string
     let bin: string
@@ -287,6 +317,7 @@ describe('@matizze/prumo-cli empacotado', () => {
       expect(result.status).toBe(0)
       expect(result.stdout).toContain('check')
       expect(result.stdout).toContain('doctor')
+      expect(result.stdout).toContain('make:domain')
     })
 
     it('roda o check num projeto, com a análise do rules empacotado', () => {
@@ -304,6 +335,44 @@ describe('@matizze/prumo-cli empacotado', () => {
       })
       expect(`${result.stdout}${result.stderr}`).not.toContain('[')
       expect(result.status).toBe(0)
+    })
+
+    it('gera um domínio com os modelos do tarball, a partir do dist/, e o check do fim passa', () => {
+      const project = path.join(work, 'domain-project')
+      const write = (file: string, content: string) => {
+        mkdirSync(path.dirname(path.join(project, file)), { recursive: true })
+        writeFileSync(path.join(project, file), content)
+      }
+      write('package.json', '{ "name": "projeto" }\n')
+      write('src/schemas/index.ts', "export * from '@matizze/prumo-core/data'\n")
+      write('src/queries/index.ts', '// Queries, uma por domínio.\n')
+      write(
+        'src/repositories/index.ts',
+        "import { createRepositoryContainer } from '@matizze/prumo-core/repositories'\nconst factories = {}\nexport const container = createRepositoryContainer(factories, { dataSource: 'memory' })\n",
+      )
+
+      const result = spawnSync(
+        process.execPath,
+        [bin, 'make:domain', 'clientes', '--root', project],
+        {
+          cwd: product,
+          encoding: 'utf8',
+        },
+      )
+
+      expect(result.stderr).toBe('')
+      expect(result.status).toBe(0)
+      expect(result.stdout).toContain('Criados (7):')
+      expect(result.stdout).toContain('prumo check: nenhuma violação.')
+      const mock = readFileSync(
+        path.join(project, 'src/repositories/clientes/repository.mock.ts'),
+        'utf8',
+      )
+      expect(mock).toContain('export class MockClientesRepository implements IClientesRepository')
+      expect(mock).not.toContain('{{')
+      expect(readFileSync(path.join(project, 'src/repositories/index.ts'), 'utf8')).toContain(
+        '  clientes: createClientesRepository,',
+      )
     })
 
     it('lê a própria versão no doctor, do package.json que fica acima do dist/', () => {
@@ -354,7 +423,7 @@ describe('@matizze/prumo-cli empacotado', () => {
       // teste lê vem do stderr só porque é o que o script escolheu para devolver os dados
       expect(result.stdout).toBe('')
       const data = JSON.parse(result.stderr) as { names: string[]; code: number; err: string }
-      expect(data.names).toEqual(['check', 'doctor'])
+      expect(data.names).toEqual(['check', 'doctor', 'make_domain'])
       // O produto vazio não tem src: o check recusa com 2, e a mensagem veio pelo resultado
       expect(data.code).toBe(2)
       expect(data.err).toContain('não tem src')
@@ -414,7 +483,7 @@ describe('@matizze/prumo-cli empacotado', () => {
         serverInfo: { name: 'prumo', version: workspaceManifest('mcp').version },
       })
       const tools = (list?.result.tools as Array<{ name: string }>).map((tool) => tool.name)
-      expect(tools).toEqual(['check', 'doctor'])
+      expect(tools).toEqual(['check', 'doctor', 'make_domain'])
     }, 60_000)
 
     it('tem o dist do rules e do cli onde o exports aponta', () => {

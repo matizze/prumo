@@ -33,8 +33,8 @@ describe('describeCommands: a árvore real do prumo', () => {
   it('tem um comando por subcomando da raiz, folhas, na ordem de declaração', async () => {
     const commands = await realTree()
 
-    expect(commands.map((command) => command.name)).toEqual(['check', 'doctor'])
-    expect(commands.map((command) => command.toolName)).toEqual(['check', 'doctor'])
+    expect(commands.map((command) => command.name)).toEqual(['check', 'doctor', 'make:domain'])
+    expect(commands.map((command) => command.toolName)).toEqual(['check', 'doctor', 'make_domain'])
     for (const command of commands) expect(command.path).toEqual([command.name])
   })
 
@@ -69,6 +69,17 @@ describe('describeCommands: a árvore real do prumo', () => {
         aliases: [],
       })
     }
+  })
+
+  it('descreve o make:domain: o nome posicional obrigatório e as três opções', async () => {
+    const command = (await realTree()).find((candidate) => candidate.name === 'make:domain')
+
+    expect(command?.options.map((option) => [option.name, option.kind, option.required])).toEqual([
+      ['nome', 'positional', true],
+      ['entity', 'string', false],
+      ['root', 'string', false],
+      ['dry-run', 'boolean', false],
+    ])
   })
 
   /**

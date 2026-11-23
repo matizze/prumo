@@ -21,7 +21,7 @@ export class Mock{{plural.pascal}}Repository implements I{{plural.pascal}}Reposi
 
   async list(query: {{singular.pascal}}ListQuery = {}): Promise<Page<{{singular.pascal}}Schema>> {
     await wait(this.latencyMs)
-    const filtered = this.items.filter((item) => matchesSearch([{{fields.search}}], query.search))
+    {{fields.search}}
     const sorted = sortBy(filtered, query.sort, {
 {{fields.sortAccessors}}
     })

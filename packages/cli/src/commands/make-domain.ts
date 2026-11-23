@@ -37,7 +37,8 @@ o certo é --entity category.
 
 Os campos da entidade vêm de --fields, no formato nome:tipo separados por vírgula
 ("titulo:string,ano:number,disponivel:boolean,publicadoEm:date"): nome em camelCase e tipo string,
-number, boolean, date (AAAA-MM-DD) ou datetime (ISO com hora); um ? depois do nome torna o campo
+number, int (inteiro), boolean, date (AAAA-MM-DD), datetime (ISO com hora) ou enum(a|b|c) (um valor
+da lista; no mínimo dois, identificadores simples); um ? depois do nome torna o campo
 opcional ("apelido?:string"). Os nomes id e createdAt são reservados, e um nome repetido é recusado.
 Com os campos, o schema, o schema de entrada, as fixtures (três registros), o mock (busca nos campos
 de texto, ordem pelos campos, create e update) e o teste de contrato saem coerentes com eles; make:page
@@ -67,7 +68,7 @@ já existe, índice que falta.`,
         type: 'string',
         valueHint: 'campos',
         description:
-          'Os campos da entidade, nome:tipo separados por vírgula (por exemplo, "titulo:string,ano:number,apelido?:string"). Tipos: string, number, boolean, date, datetime; ? torna opcional. Padrão: só name:string.',
+          'Os campos da entidade, nome:tipo separados por vírgula (por exemplo, "titulo:string,ano:number,apelido?:string"). Tipos: string, number, int, boolean, date, datetime, enum(a|b|c); ? torna opcional. Padrão: só name:string.',
       },
       root: {
         type: 'string',

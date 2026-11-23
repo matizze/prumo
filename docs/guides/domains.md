@@ -45,9 +45,13 @@ pnpm exec prumo make:domain livros --fields "titulo:string,autor:string,ano:numb
 | ---------- | ---------------------- | ------------------------------- |
 | `string`   | `z.string()`           | `'Titulo 1'`                    |
 | `number`   | `z.number()`           | `10`                            |
+| `int`      | `z.number().int()`     | `10`, `20`, `30`                |
 | `boolean`  | `z.boolean()`          | `true`                          |
 | `date`     | `z.iso.date()`         | `'2026-01-05'` (`AAAA-MM-DD`)   |
 | `datetime` | `z.iso.datetime()`     | `'2026-01-05T12:00:00.000Z'`    |
+| `enum(a\|b\|c)` | `z.enum(['a', 'b', 'c'])` | `'a'`, `'b'`, `'c'`      |
+
+O enum leva os valores entre parênteses, separados por `|` (no mínimo dois, sem repetir, cada um com letras, números e `_`, começando por letra), por exemplo `status:enum(ativo|inativo|pendente)`. Por isso a lista vai entre aspas, como no exemplo acima. As fixtures usam os valores da lista, na ordem.
 
 O nome do campo é camelCase (começa com letra minúscula; só letras e números). Um `?` depois do nome torna o campo opcional (`apelido?:string` vira `z.string().optional()`). O comando recusa, sem escrever nada, `id` e `createdAt` (o repositório já os dá a todo registro), nomes repetidos, tipos desconhecidos e listas mal formadas.
 
@@ -57,7 +61,9 @@ A partir dos campos, o comando gera coerentes entre si:
 - **as fixtures**: três registros com valores de exemplo por tipo (texto `Titulo 1`, número `10`, `20`, `30`, booleano alternado, datas crescentes), para a ordem do contrato ser previsível;
 - **o mock**: a busca nos campos de texto (sem campo de texto, no `id`), a ordem por cada campo que ordena, e `create` e `update` com todos os campos;
 - **o teste de contrato**: busca, ordem, criação e edição usam os campos gerados;
-- **as telas** de `make:page --domain`: a lista e o detalhe mostram o primeiro campo de texto obrigatório do schema (veja [Páginas](pages.md)).
+- **as telas** de `make:page --domain`: a lista e o detalhe mostram o primeiro campo de texto obrigatório do schema (um `enum` não é texto de exibição: sem outro campo de texto, a tela mostra o `id`, com um aviso) (veja [Páginas](pages.md)).
+
+Com muitos campos, o `pick` do schema de entrada, a busca do mock e a entrada do teste de contrato saem quebrados em várias linhas quando passam de cerca de 100 colunas. O gerador não formata o resto do código: rode o formatador do projeto, se tiver um.
 
 Os textos de exemplo das fixtures são genéricos: troque pelos dados do seu produto. O contrato continua verde enquanto as fixtures e o contrato andam juntos (veja abaixo).
 

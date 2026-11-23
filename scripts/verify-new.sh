@@ -71,8 +71,8 @@ stage_cli() {
   # Promover o componente a shared só em simulação: de verdade, ele ficaria usado por uma tela só e o
   # check do verify do app o acusaria (o script não edita o app para uma segunda tela usá-lo)
   prumo move:component resumo --from clientes --shared --dry-run
-  # Um domínio com --fields (todos os tipos e dois opcionais), a lista e o detalhe dele
-  prumo make:domain livros --fields "titulo:string,autor:string,ano:number,disponivel:boolean,publicadoEm:date,lidoEm?:datetime,apelido?:string"
+  # Um domínio com --fields (todos os tipos, inclusive int e enum, e dois opcionais), a lista e o detalhe dele
+  prumo make:domain livros --fields "titulo:string,autor:string,ano:number,paginas:int,situacao:enum(lido|lendo|desejado),disponivel:boolean,publicadoEm:date,lidoEm?:datetime,apelido?:string"
   prumo make:page livros --domain livros
   prumo make:page livro --domain livros --path /livros/:id
 }

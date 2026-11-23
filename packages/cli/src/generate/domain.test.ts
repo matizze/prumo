@@ -301,8 +301,9 @@ describe('generateDomain com fields', () => {
   apelido: z.string().optional(),
   createdAt: z.string(),
 })`)
+    // A linha passaria de 100 colunas: o pick sai uma entrada por linha
     expect(schema).toContain(
-      'livroSchema.pick({ titulo: true, autor: true, ano: true, disponivel: true, publicadoEm: true, apelido: true })',
+      'livroSchema.pick({\n  titulo: true,\n  autor: true,\n  ano: true,\n  disponivel: true,\n  publicadoEm: true,\n  apelido: true,\n})',
     )
     expect(schema).toContain("export type LivroSortKey = 'titulo' | 'autor' | 'ano' | 'publicadoEm' | 'apelido' | 'createdAt'")
     expect(schema).toContain('/** Busca pelos campos titulo, autor, apelido, sem')
@@ -326,7 +327,7 @@ describe('generateDomain com fields', () => {
     expect(mock).toContain('      disponivel: input.disponivel,')
     expect(contract).toContain("search: 'TITULO 2'")
     expect(contract).toContain("key: 'titulo'")
-    expect(contract).toContain("repo.create({ titulo: 'Titulo 4', autor: 'Autor 4'")
+    expect(contract).toContain("repo.create({\n        titulo: 'Titulo 4',\n        autor: 'Autor 4',")
     expect(contract).toContain("{ titulo: 'Titulo editado' }")
     expect(contract).not.toContain('Exemplo')
   })

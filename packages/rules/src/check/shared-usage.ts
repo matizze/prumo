@@ -70,11 +70,17 @@ export function checkSharedUsage(options: ResolvedOptions): Violation[] {
     .map(([id, file]) => ({ file, used: [...screens(id)] }))
     .filter(({ used }) => used.length < 2)
     .map(({ file, used }): Violation => {
-      const by = used.length === 0 ? 'nenhuma tela' : `só a tela '${used[0]!.slice(PAGE.length)}'`
+      // Zero, uma ou várias telas (várias não chega aqui, mas a frase cobre os três casos)
+      const by =
+        used.length === 0
+          ? 'não é usado por nenhuma tela'
+          : used.length === 1
+            ? `é usado só pela tela '${used[0]!.slice(PAGE.length)}'`
+            : `é usado pelas telas ${used.map((screen) => `'${screen.slice(PAGE.length)}'`).join(', ')}`
       return {
         rule: 'shared-usage',
         file,
-        message: `O módulo é usado por ${by}, e o que está em ${options.sharedDir} precisa de 2 ou mais telas: mova-o para a tela que o usa.`,
+        message: `O módulo ${by}, e o que está em ${options.sharedDir} precisa de 2 ou mais telas: mova-o para a tela que o usa.`,
       }
     })
 }

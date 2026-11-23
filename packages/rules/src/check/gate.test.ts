@@ -67,7 +67,7 @@ describe('o que está em shared/ é usado por 2 ou mais telas', () => {
       ...page('b'),
     })
     expect(where(violations)).toEqual([['shared-usage', 'src/components/shared/unused.tsx']])
-    expect(violations[0]!.message).toContain('nenhuma tela')
+    expect(violations[0]!.message).toContain('O módulo não é usado por nenhuma tela')
   })
 
   it('acusa o módulo que só uma tela usa', () => {
@@ -77,7 +77,7 @@ describe('o que está em shared/ é usado por 2 ou mais telas', () => {
       ...page('b'),
     })
     expect(where(violations)).toEqual([['shared-usage', 'src/components/shared/table.tsx']])
-    expect(violations[0]!.message).toContain("só a tela 'a'")
+    expect(violations[0]!.message).toContain("é usado só pela tela 'a'")
   })
 
   it('acusa a tela que importa o módulo por dois arquivos dela (conta uma tela, não dois)', () => {

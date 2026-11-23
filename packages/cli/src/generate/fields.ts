@@ -1,7 +1,7 @@
 import { UsageError } from '../errors.ts'
 
 /** Os tipos que o `--fields` aceita, e o que cada um vira no schema zod. */
-export const FIELD_TYPES = ['string', 'number', 'boolean', 'date', 'datetime'] as const
+export const FIELD_TYPES = ['string', 'number', 'int', 'boolean', 'date', 'datetime', 'enum'] as const
 
 export type FieldType = (typeof FIELD_TYPES)[number]
 
@@ -10,6 +10,8 @@ export interface Field {
   /** O nome, em camelCase (`publicadoEm`). */
   name: string
   type: FieldType
+  /** Os valores do `enum(a|b|c)`, na ordem em que vieram (só no tipo `enum`). */
+  values?: string[]
   /** Campo opcional (`apelido?:string`): o schema aceita a falta dele. */
   optional: boolean
 }
@@ -21,7 +23,10 @@ export const RESERVED_FIELDS: ReadonlySet<string> = new Set(['id', 'createdAt'])
 export const DEFAULT_FIELDS: readonly Field[] = [{ name: 'name', type: 'string', optional: false }]
 
 /** O formato aceito, para as mensagens de erro. */
-const SYNTAX = `nome:tipo separados por vírgula, por exemplo "titulo:string,ano:number,apelido?:string" (tipos: ${FIELD_TYPES.join(', ')}; ? depois do nome torna o campo opcional)`
+const SYNTAX = `nome:tipo separados por vírgula, por exemplo "titulo:string,ano:int,status:enum(ativo|inativo),apelido?:string" (tipos: ${FIELD_TYPES.filter((type) => type !== 'enum').join(', ')} e enum(a|b|c); ? depois do nome torna o campo opcional)`
+
+/** O `enum(a|b|c)`: o que vem entre os parênteses. */
+const ENUM_TYPE = /^enum\((.*)\)$/s
 
 /**
  * Lê o texto do `--fields` (`titulo:string,ano:number,apelido?:string`) e confere cada campo: nome em
@@ -49,8 +54,24 @@ export function parseFields(text: string): Field[] {
       bad(`'${name}' é reservado: o repositório já dá ${[...RESERVED_FIELDS].join(' e ')} a todo registro`)
     }
     if (fields.some((field) => field.name === name)) bad(`o campo '${name}' aparece mais de uma vez`)
-    const type = FIELD_TYPES.find((candidate) => candidate === typeText)
-    if (!type) bad(`'${typeText}' não é um tipo de '${name}' (use ${FIELD_TYPES.join(', ')})`)
+    const enumMatch = ENUM_TYPE.exec(typeText)
+    if (enumMatch) {
+      const values = enumMatch[1]!.split('|').map((value) => value.trim())
+      const invalid = values.find((value) => !/^[A-Za-z][A-Za-z0-9_]*$/.test(value))
+      if (invalid !== undefined) {
+        bad(`'${invalid}' não é um valor válido de '${name}' (letras, números e _, começando por letra)`)
+      }
+      if (values.length < 2) bad(`o enum '${name}' precisa de pelo menos dois valores (enum(a|b))`)
+      const repeated = values.find((value, index) => values.indexOf(value) !== index)
+      if (repeated !== undefined) bad(`o valor '${repeated}' aparece mais de uma vez em '${name}'`)
+      fields.push({ name, type: 'enum', values, optional })
+      continue
+    }
+    const type = FIELD_TYPES.find((candidate) => candidate === typeText && candidate !== 'enum')
+    if (!type) {
+      const hint = typeText === 'enum' ? ' (o enum leva os valores: enum(a|b|c))' : ''
+      bad(`'${typeText}' não é um tipo de '${name}' (use ${FIELD_TYPES.filter((candidate) => candidate !== 'enum').join(', ')} ou enum(a|b|c))${hint}`)
+    }
     fields.push({ name, type: type!, optional })
   }
   return fields
@@ -58,7 +79,8 @@ export function parseFields(text: string): Field[] {
 
 /** O texto do campo na lista de uma saída: `titulo (string)`, `apelido (string, opcional)`. */
 export function describeField(field: Field): string {
-  return `${field.name} (${field.type}${field.optional ? ', opcional' : ''})`
+  const type = field.type === 'enum' ? `enum(${(field.values ?? []).join('|')})` : field.type
+  return `${field.name} (${type}${field.optional ? ', opcional' : ''})`
 }
 
 /** Um valor de exemplo, como entra no código. */
@@ -69,6 +91,11 @@ export function literal(value: Value): string {
   return typeof value === 'string'
     ? `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`
     : String(value)
+}
+
+/** Os valores do enum (um campo `enum` sempre os tem; o `Field` à mão pode esquecê-los). */
+function enumValues(field: Field): string[] {
+  return field.values && field.values.length > 0 ? field.values : ['a', 'b']
 }
 
 /** O campo `name` de texto: nele os exemplos seguem o que o `make:domain` sempre gerou. */
@@ -95,7 +122,10 @@ export function sampleValue(field: Field, n: number): Value {
       if (isLegacy(field)) return n === 4 ? 'Novo' : `Exemplo ${n}`
       return `${titleOf(field.name)} ${n}`
     case 'number':
+    case 'int':
       return n * 10
+    case 'enum':
+      return enumValues(field)[Math.min(n, enumValues(field).length) - 1]!
     case 'boolean':
       return n % 2 === 1
     case 'date':
@@ -112,7 +142,10 @@ export function editValue(field: Field, partial = false): Value {
       if (isLegacy(field)) return partial ? 'Parcial' : 'Renomeado'
       return `${titleOf(field.name)} editado`
     case 'number':
+    case 'int':
       return 999
+    case 'enum':
+      return enumValues(field).at(-1)!
     case 'boolean':
       return false
     case 'date':
@@ -127,6 +160,8 @@ export function zodOf(field: Field): string {
   const base = {
     string: 'z.string()',
     number: 'z.number()',
+    int: 'z.number().int()',
+    enum: `z.enum([${enumValues(field).map(literal).join(', ')}])`,
     boolean: 'z.boolean()',
     date: 'z.iso.date()',
     datetime: 'z.iso.datetime()',
@@ -139,11 +174,57 @@ const isText = (field: Field) => field.type === 'string'
 /** Os campos pelos quais a lista ordena: tudo menos o booleano (que não tem ordem útil). */
 const isSortable = (field: Field) => field.type !== 'boolean'
 
+/**
+ * Uma lista entre `open` e `close` (`{ }` ou `[ ]`) numa linha só, ou uma entrada por linha (2 espaços,
+ * vírgula no fim) se a linha passar de `max` colunas. `prefix` é o tamanho do que vem antes (e depois)
+ * da lista na mesma linha, fora o recuo.
+ */
+function bracketed(
+  open: '{' | '[',
+  entries: string[],
+  indent: string,
+  { max = 90, prefix = 0 }: { max?: number; prefix?: number } = {},
+): string {
+  const close = open === '{' ? '}' : ']'
+  const inline = open === '{' ? `{ ${entries.join(', ')} }` : `[${entries.join(', ')}]`
+  if (indent.length + prefix + inline.length <= max) return inline
+  return `${open}\n${entries.map((entry) => `${indent}  ${entry},`).join('\n')}\n${indent}${close}`
+}
+
 /** Um objeto numa linha só, ou um por linha se passar de `max` colunas. */
-function object(entries: string[], indent: string, max = 90): string {
-  const inline = `{ ${entries.join(', ')} }`
-  if (indent.length + inline.length <= max) return inline
-  return `{\n${entries.map((entry) => `${indent}  ${entry},`).join('\n')}\n${indent}}`
+const object = (entries: string[], indent: string, options?: { max?: number; prefix?: number }) =>
+  bracketed('{', entries, indent, options)
+
+/** A largura em que as listas longas do código gerado quebram em várias linhas. */
+const WIDE = 100
+
+/**
+ * A união da `SortKey`: numa linha, ou uma opção por linha (`| 'a'`) se a declaração passar de
+ * `WIDE` colunas. Vem sem o espaço depois do `=`, que o modelo deixa para este texto.
+ */
+function union(keys: string[], idBase: string): string {
+  const inline = ` ${keys.join(' | ')}`
+  // `export type <Entidade>SortKey =`: o nome em Pascal tem o tamanho do kebab, sem os hifens
+  if ('export type SortKey ='.length + idBase.length + inline.length <= WIDE) return inline
+  return `\n${keys.map((key) => `  | ${key}`).join('\n')}`
+}
+
+/**
+ * O `const filtered = ...` do mock (num recuo de 4 colunas): numa linha só, ou com o `matchesSearch` na
+ * linha de baixo (e a lista, se ainda passar de `WIDE`, uma entrada por linha).
+ */
+function searchStatement(entries: string[]): string {
+  const head = 'const filtered = this.items.filter((item) =>'
+  const oneLine = `${head} matchesSearch([${entries.join(', ')}], query.search))`
+  if ('    '.length + oneLine.length <= WIDE) return oneLine
+  const list = bracketed('[', entries, '      ', { max: WIDE, prefix: 'matchesSearch(, query.search),'.length })
+  return `${head}\n      matchesSearch(${list}, query.search),\n    )`
+}
+
+/** `pelos campos a, b, c`; com tantos que a frase estoura a linha, `pelos campos de texto`. */
+function listOf(names: string[]): string {
+  const phrase = `pelos campos ${names.join(', ')}`
+  return phrase.length <= 50 ? phrase : 'pelos campos de texto'
 }
 
 /** Os marcadores dos modelos do domínio, calculados dos campos. */
@@ -163,9 +244,10 @@ export function domainFieldVars(
         ? 'pelo nome'
         : texts.length === 1
           ? `pelo campo ${texts[0]!.name}`
-          : `pelos campos ${texts.map((field) => field.name).join(', ')}`
+          : listOf(texts.map((field) => field.name))
   const searchBy = texts[0]
-  const sortBy = sortable[0]
+  // O enum repete valores entre os registros de exemplo: não serve para o teste de ordem
+  const sortBy = sortable.find((field) => field.type !== 'enum')
   const sortValue = (n: number) =>
     literal(sortBy ? sampleValue(sortBy, n) : `2026-01-${['05', '14', '23'][n - 1]}T12:00:00.000Z`)
   const edit = fields[0]!
@@ -178,14 +260,19 @@ export function domainFieldVars(
     return `  ${object(entries, '  ')},`
   })
   const accessor = (field: Field) =>
-    `      ${field.name}: (item) => item.${field.name}${field.optional ? (field.type === 'string' ? " ?? ''" : ' ?? 0') : ''},`
+    `      ${field.name}: (item) => item.${field.name}${field.optional ? (field.type === 'string' || field.type === 'enum' ? " ?? ''" : ' ?? 0') : ''},`
   const searchHit = searchBy ? sampleValue(searchBy, 2) : `${idBase}-2`
   return {
     'fields.schema': fields.map((field) => `  ${field.name}: ${zodOf(field)},`).join('\n'),
-    'fields.pick': fields.map((field) => `${field.name}: true`).join(', '),
-    'fields.sortKeys': [...sortable.map((field) => `'${field.name}'`), "'createdAt'"].join(' | '),
+    'fields.pick': object(
+      fields.map((field) => `${field.name}: true`),
+      '',
+      // `export const <entidade>InputSchema = <entidade>Schema.pick(` e o `)` do fim
+      { max: WIDE, prefix: 'export const InputSchema = Schema.pick()'.length + 2 * idBase.length },
+    ),
+    'fields.sortKeys': union([...sortable.map((field) => `'${field.name}'`), "'createdAt'"], idBase),
     'fields.searchPhrase': searchPhrase,
-    'fields.search': searchFields.length > 0 ? searchFields.join(', ') : 'item.id',
+    'fields.search': searchStatement(searchFields.length > 0 ? searchFields : ['item.id']),
     'fields.sortAccessors': [
       ...sortable.map(accessor),
       '      createdAt: (item) => item.createdAt,',
@@ -198,7 +285,12 @@ export function domainFieldVars(
     'test.sortKey': sortBy ? sortBy.name : 'createdAt',
     'test.sortFirst': sortValue(3),
     'test.sortSecond': sortValue(2),
-    'test.newInput': fields.map((field) => `${field.name}: ${literal(sampleValue(field, 4))}`).join(', '),
+    'test.newInput': object(
+      fields.map((field) => `${field.name}: ${literal(sampleValue(field, 4))}`),
+      '      ',
+      // `expect(created).toMatchObject(` e o `)`
+      { max: WIDE, prefix: 'expect(created).toMatchObject()'.length },
+    ),
     'test.editName': edit.name,
     'test.editValue': literal(editValue(edit)),
     'test.partialValue': literal(editValue(edit, true)),

@@ -51,7 +51,7 @@ O nome do domínio vai no plural, e a entidade sai dele tirando o `s`. Quando a 
 ### Um componente recém-gerado com `--shared` aparece no `prumo check`
 
 ```text
-src/components/shared/cartao.tsx  [shared-usage]  O módulo é usado por nenhuma tela, ...
+src/components/shared/cartao.tsx  [shared-usage]  O módulo não é usado por nenhuma tela, ...
 ```
 
 É esperado: o que está em `shared` precisa ser usado por duas telas ou mais, e o componente novo ainda não é usado. A violação some quando duas telas o importarem. Se só uma tela vai usá-lo, gere-o com `--page <tela>`.

@@ -124,7 +124,7 @@ src/components/widgets  [components-folders]  A pasta 'widgets' não é permitid
 - os imports são lidos por expressão regular, nos casos do `import`, do `export ... from` e do `import()` com texto fixo, pelo alias ou por caminho relativo.
 
 ```text
-src/components/shared/cartao.tsx  [shared-usage]  O módulo é usado por nenhuma tela, e o que está em src/components/shared precisa de 2 ou mais telas: mova-o para a tela que o usa.
+src/components/shared/cartao.tsx  [shared-usage]  O módulo não é usado por nenhuma tela, e o que está em src/components/shared precisa de 2 ou mais telas: mova-o para a tela que o usa.
 ```
 
 ### `page-structure`

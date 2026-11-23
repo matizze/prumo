@@ -10,11 +10,11 @@ export const {{singular.camel}}Schema = z.object({
 export type {{singular.pascal}}Schema = z.infer<typeof {{singular.camel}}Schema>
 
 /** O que se envia para criar ou editar: o `id` e a data são do repositório. */
-export const {{singular.camel}}InputSchema = {{singular.camel}}Schema.pick({ {{fields.pick}} })
+export const {{singular.camel}}InputSchema = {{singular.camel}}Schema.pick({{fields.pick}})
 
 export type {{singular.pascal}}Input = z.infer<typeof {{singular.camel}}InputSchema>
 
-export type {{singular.pascal}}SortKey = {{fields.sortKeys}}
+export type {{singular.pascal}}SortKey ={{fields.sortKeys}}
 
 export interface {{singular.pascal}}ListQuery extends PageQuery {
   /** Busca {{fields.searchPhrase}}, sem diferenciar maiúsculas e acentos. */

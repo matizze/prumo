@@ -1,6 +1,6 @@
 # Testes
 
-Cada gerador do Prumo cria o teste do que gerou, e o `pnpm test` roda todos com o Vitest e o jsdom, sem navegador. Este guia mostra como testar os estados de uma tela, trocar um repositório num teste, testar rotas e navegação e escrever o contrato de um repositório.
+Cada gerador do Prumo cria o teste do que gerou, e o `pnpm test` roda todos com o Vitest e o jsdom, sem navegador. Este guia mostra como testar os estados de uma tela, trocar um repositório num teste, testar rotas e navegação, um hook de query ou mutation e escrever o contrato de um repositório.
 
 ## O que o app já traz
 
@@ -8,7 +8,7 @@ Cada gerador do Prumo cria o teste do que gerou, e o `pnpm test` roda todos com 
 | --------------------- | --------------------------------------------------------------------------------------------- |
 | `vite.config.ts`      | Vitest com `environment: 'jsdom'`, `setupFiles: ['./src/test/setup.ts']` e os testes em `src/**/*.test.{ts,tsx}` |
 | `src/test/setup.ts`   | Fixa o idioma padrão do app (`pt-BR`) e desmonta os componentes depois de cada teste           |
-| `src/test/render.tsx` | O `renderWithProviders` do app                                                                |
+| `src/test/render.tsx` | O `renderWithProviders` e o `renderHookWithProviders` do app                                  |
 
 O `renderWithProviders` renderiza o componente com os provedores do app (i18n e repositórios), um `QueryClient` só do teste e uma rota em memória do wouter:
 
@@ -191,6 +191,88 @@ it('vai da tela inicial para a lista de clientes', async () => {
 ```
 
 O `history` lista as rotas visitadas; navegar com `{ replace: true }` troca a última entrada, como o `AuthGuard` faz ao redirecionar para o login.
+
+## Testar um hook de query ou mutation
+
+Para testar um hook sem montar um componente de mentira, use o `renderHookWithProviders` de `@/test/render`. Ele roda o hook com os mesmos provedores, repositórios em memória, `QueryClient` sem retry e rota em memória do `renderWithProviders`, e aceita as mesmas opções (`path`, `repositories`, `queryClient`, `providerProps`). O resultado traz o `result.current` do Testing Library e os campos `repositories`, `queryClient`, `navigate`, `history` e `currentPath`.
+
+Uma query:
+
+```tsx
+import { waitFor } from '@testing-library/react'
+import { expect, it } from 'vitest'
+import { renderHookWithProviders } from '@/test/render'
+import { useClientes } from '@/queries/clientes'
+
+it('lista os clientes', async () => {
+  const { result } = renderHookWithProviders(() => useClientes())
+
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  expect(result.current.data?.total).toBeGreaterThan(0)
+})
+```
+
+Uma mutation: chame `mutateAsync` dentro do `act` e confira o repositório, que o resultado devolve, ou o cache:
+
+```tsx
+import { act } from '@testing-library/react'
+import { useCreateCliente } from '@/queries/clientes'
+
+it('cria um cliente', async () => {
+  const { result, repositories } = renderHookWithProviders(() => useCreateCliente())
+  const antes = (await repositories.clientes.list()).total
+
+  await act(() => result.current.mutateAsync({ name: 'Ana Souza' }))
+
+  expect((await repositories.clientes.list()).total).toBe(antes + 1)
+})
+```
+
+Para uma mutation que falha, troque o método do repositório com `vi.spyOn(...).mockRejectedValue(...)` (como em [Estado de erro](#estado-de-erro)) e espere `await expect(act(() => result.current.mutateAsync(valor))).rejects.toThrow()`. Se o hook recebe argumentos que mudam, use `initialProps` e o `rerender` do resultado.
+
+## Provedores do app nos testes
+
+O `Providers` gerado só conhece o i18n e os repositórios. Se o app tem um provedor que muda de teste para teste, como a sessão (logado como bibliotecário, como membro, sem ninguém), declare as opções dele no `src/test/render.tsx`, aceite-as no `Providers` e passe o tipo como segundo parâmetro aos dois criadores. O arquivo gerado traz esse passo a passo comentado.
+
+```tsx
+// src/test/render.tsx
+interface TestProviderProps {
+  session?: Session
+}
+
+function Providers({
+  children,
+  repositories,
+  session = createAnonymousSession(),
+}: { children: ReactNode; repositories: RepositoryContainer } & TestProviderProps) {
+  return (
+    <I18nProvider>
+      <RepositoryProvider value={repositories}>
+        <SessionProvider session={session}>{children}</SessionProvider>
+      </RepositoryProvider>
+    </I18nProvider>
+  )
+}
+
+export const renderWithProviders = createRenderWithProviders<RepositoryContainer, TestProviderProps>(binding)
+export const renderHookWithProviders = createRenderHookWithProviders<RepositoryContainer, TestProviderProps>(binding)
+```
+
+Cada teste escolhe a sessão na opção `providerProps`, tipada pelo app:
+
+```tsx
+it('mostra o menu do bibliotecário', async () => {
+  renderWithProviders(<PainelPage />, { providerProps: { session: await openSession(BIBLIOTECARIA) } })
+
+  expect(await screen.findByRole('link', { name: 'Empréstimos' })).toBeDefined()
+})
+
+it('usa a sessão do membro no hook', () => {
+  renderHookWithProviders(() => useMeusEmprestimos(), { providerProps: { session: membroSession } })
+})
+```
+
+`createAnonymousSession` e `openSession` são funções do app (uma sessão sem ninguém e uma já aberta, com uma API de autenticação falsa e um storage em memória), e ficam em `src/test/`. O `Providers` roda por dentro do `QueryClientProvider` e do `Router` que o pacote põe, então um provedor de sessão que limpa o cache ao sair pode usar o `useQueryClient`.
 
 ## Testar um componente
 

@@ -176,6 +176,24 @@ O parâmetro só existe dentro da `<Route>`, e por isso o teste gerado renderiza
 
 O `<Switch>` do wouter mostra a **primeira** rota que casa com o endereço. Por isso o `make:page` recusa uma rota que repete ou conflita com outra, e uma rota curinga (sem `path`, a de "página não encontrada") deve ficar por último, onde o gerador a mantém.
 
+### A rota `/`
+
+O `prumo new` gera a tela `home` na rota `/`. Se o app não tem uma tela `home` (você a apagou, ou o produto começa em outra tela), o `/` fica sem rota e cai na página "não encontrada". Faça-o redirecionar, com o `Redirect` do wouter, para a tela em que o app começa, trocando a entrada do histórico:
+
+```tsx
+// src/App.tsx
+import { Redirect, Route, Switch } from 'wouter'
+
+<Switch>
+  <Route path="/">
+    <Redirect to="/painel" replace />
+  </Route>
+  {/* ... as outras rotas */}
+</Switch>
+```
+
+Se a tela inicial é protegida, o redirecionamento pode ficar fora do guarda: o `/` manda para `/painel`, e o `AuthGuard` dele manda para o login quando falta sessão.
+
 ## Navegação
 
 A navegação é do wouter. Na view, use o `Link`; no model, o `useLocation`:
@@ -200,12 +218,12 @@ const onSave = (input: ClienteInput) =>
 
 ## Rotas protegidas
 
-O `AuthGuard` do core mostra o conteúdo só com a sessão aberta e, sem ela, redireciona para o login (trocando a entrada do histórico, para o "voltar" não cair de novo na rota protegida). Ele não conhece a sua autenticação: você passa o estado da sessão.
+O `AuthGuard` do core mostra o conteúdo só com a sessão aberta e, sem ela, redireciona para o login (trocando a entrada do histórico, para o "voltar" não cair de novo na rota protegida). Ele não conhece a sua autenticação: você passa o estado da sessão. Onde a sessão mora, como o login e o logout funcionam e como proteger por perfil estão em [Sessão e login](auth.md).
 
 ```tsx
 // src/App.tsx
 import { AuthGuard } from '@matizze/prumo-core/auth'
-import { useSession } from '@/auth' // o hook de sessão do seu produto
+import { useSession } from '@/providers/session' // o hook de sessão do app (veja Sessão e login)
 
 export default function App() {
   const session = useSession()
@@ -262,6 +280,8 @@ function LoginPage() {
 ```
 
 O `useAuthOrigin` só devolve **caminho relativo do próprio app** (começa com `/`, nunca `//`, sem esquema nem barra invertida); qualquer outra coisa em `?next=` (`https://outro.site`, `//outro.site`) é ignorada e vale o fallback. Isso fecha o redirecionamento aberto: não leia o `next` por conta própria e navegue direto para ele. Fora do React, use `safeRedirectPath` ou `readOrigin` (`@matizze/prumo-core/auth`). Sem `keepOrigin`, o guarda faz o que sempre fez: vai para `redirectTo`.
+
+Para a casca do app (cabeçalho e menu) só nas rotas protegidas, de modo que o login fique sem menu, veja [Design system](design-system.md#a-casca-só-nas-rotas-protegidas).
 
 ## Apagar ou renomear uma tela
 

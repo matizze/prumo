@@ -22,6 +22,7 @@ const sidebars: SidebarsConfig = {
         { type: 'doc', id: 'guides/pages', label: 'Telas' },
         { type: 'doc', id: 'guides/domains', label: 'Domínios de dados' },
         { type: 'doc', id: 'guides/real-api', label: 'Ligar uma API real' },
+        { type: 'doc', id: 'guides/auth', label: 'Sessão e login' },
         { type: 'doc', id: 'guides/i18n', label: 'Textos e idiomas' },
         { type: 'doc', id: 'guides/errors-and-notifications', label: 'Erros e notificações' },
         { type: 'doc', id: 'guides/test', label: 'Testes' },

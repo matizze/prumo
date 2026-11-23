@@ -32,7 +32,7 @@ O app gerado nasce com `pt-BR` e `en`, e o `prumo check` compara os dois. Um pro
 
 ### Onde fica o estado global da aplicação?
 
-O Prumo não decide. Estado de tela fica no model; dado do servidor fica no cache do TanStack Query, por domínio. Se o produto precisar de um store global (sessão, preferências), ele escolhe a biblioteca e o lugar, normalmente um provedor em `src/providers/`.
+O Prumo não decide. Estado de tela fica no model; dado do servidor fica no cache do TanStack Query, por domínio. Se o produto precisar de um store global (sessão, preferências), ele escolhe a biblioteca e o lugar, normalmente um provedor em `src/providers/` (a sessão de login, por exemplo, fica em `src/providers/session/`: veja [Sessão e login](guides/auth.md)).
 
 ### Como atualizo o Prumo num app existente?
 

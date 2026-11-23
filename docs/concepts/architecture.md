@@ -73,13 +73,17 @@ Um domínio (clientes, pedidos, produtos) tem três partes, cada uma numa pasta:
 
 O **container** (`src/repositories/index.ts`) é um mapa de fábricas: cada domínio registra uma função que cria o repositório dele. Os testes trocam um repositório pelo container, sem mock de módulo.
 
+### Regras de negócio e operações entre domínios
+
+O que não é CRUD de um domínio só tem lugar fixo por convenção (o Prumo não gera nem cobra): as **regras** são funções puras em `src/rules/` (recebem os dados e "hoje" como argumento), e as **operações que envolvem mais de um domínio** são mutations em `src/queries/<nome>.ts`, que pegam os repositórios do container, aplicam as regras e invalidam os domínios afetados. O model da tela usa as mesmas regras para ligar e desligar ações. Veja [Regras de negócio e operações entre domínios](../guides/domains.md#regras-de-negócio-e-operações-entre-domínios).
+
 ### Textos (`src/messages/<idioma>/`)
 
 Cada tela tem um JSON por idioma, com o mesmo nome da tela. O `index.ts` de cada idioma registra os JSONs como namespaces, e o `useTranslations('<tela>')` devolve um tradutor tipado pelas chaves do idioma padrão. As mensagens usam ICU, então plural e gênero ficam no texto, não no código.
 
 ### Provedores e infraestrutura
 
-`src/providers/` reúne o que envolve o app: o `QueryClient` (com o tratamento global de erro), o i18n e o provedor de repositórios. A infraestrutura vem do `@matizze/prumo-core`, e o app guarda só a configuração: quais idiomas, quais fontes de dados, como notificar um erro.
+`src/providers/` reúne o que envolve o app: o `QueryClient` (com o tratamento global de erro), o i18n, o provedor de repositórios e, se o app tem login, a sessão (`src/providers/session/`, veja [Sessão e login](../guides/auth.md)). A infraestrutura vem do `@matizze/prumo-core`, e o app guarda só a configuração: quais idiomas, quais fontes de dados, como notificar um erro.
 
 ## As regras
 
@@ -123,7 +127,8 @@ Algumas convenções não são cobradas por regra, mas o código gerado as segue
 O Prumo decide **onde** cada coisa mora e **como** as camadas se falam. Ele não decide:
 
 - **A interface.** Nenhum componente visual, ícone, tema, token ou CSS. Use o design system que quiser em `src/components/ui`.
-- **A API.** O Prumo gera o contrato e um repositório em memória; o cliente HTTP, a autenticação e o formato da API são do produto.
+- **A API e a autenticação.** O Prumo gera o contrato e um repositório em memória; o cliente HTTP, a sessão e o formato da API são do produto (os guias [Ligar uma API real](../guides/real-api.md) e [Sessão e login](../guides/auth.md) mostram um jeito).
+- **As regras de negócio.** O Prumo diz onde elas moram (`src/rules/`), não quais são.
 - **O estado global de interface.** Estado de tela fica no model; se o produto precisar de um store global, é escolha dele.
 
 O critério para decidir se algo é do Prumo: **se a peça só faz sentido com uma interface específica, ela não é do Prumo.**

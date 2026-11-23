@@ -29,7 +29,7 @@ Crie com os geradores, não à mão: eles registram a rota, as mensagens e os í
 
 | Comando                                                | O que faz                                                                       |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| `pnpm exec prumo make:domain <nome> [--fields "a:string,b:number"]` | Schema, repositório com mock e contrato, queries e o teste de contrato; `--fields` dá os campos da entidade (tipos: string, number, boolean, date, datetime; `?` opcional) |
+| `pnpm exec prumo make:domain <nome> [--fields "a:string,b:number"]` | Schema, repositório com mock e contrato, queries e o teste de contrato; `--fields` dá os campos da entidade (tipos: string, number, int, boolean, date, datetime, enum(a\|b\|c); `?` opcional) |
 | `pnpm exec prumo make:page <nome> [--domain <nome>] [--path <caminho>]` | Tela com index, model, view, teste, mensagens e rota; com `--domain`, lista dele; com `--path /x/:id`, rota com parâmetro (com `--domain`, detalhe) |
 | `pnpm exec prumo make:component <nome> --page <tela>`  | Componente só HTML e o teste dele (`--shared` para o `src/components/shared`)   |
 | `pnpm exec prumo move:component <nome> --from <tela> --shared` | Promove um componente da tela a `src/components/shared` (move o teste e reescreve os imports); use quando uma segunda tela precisar dele |

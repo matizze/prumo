@@ -42,8 +42,8 @@ const {{plural.camel}}Contract = defineContractSuite<I{{plural.pascal}}Repositor
     })
 
     it('cria um registro com id e data, e ele aparece na lista', async () => {
-      const created = await repo.create({ {{test.newInput}} })
-      expect(created).toMatchObject({ {{test.newInput}} })
+      const created = await repo.create({{test.newInput}})
+      expect(created).toMatchObject({{test.newInput}})
       expect(created.id).not.toBe('')
       expect(Number.isNaN(Date.parse(created.createdAt))).toBe(false)
       const { items, total } = await repo.list()

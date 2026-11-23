@@ -186,17 +186,19 @@ prumo make:domain <nome> [--entity <singular>] [--fields <campos>] [--root <past
 
 **A entidade.** Sem `--entity`, o singular é o nome sem o `s` final (`clientes` → `cliente`). O comando recusa, pedindo `--entity`, o nome que não termina em `s` e os plurais em que a regra erra: os terminados em `ies`, `sses`, `xes`, `ches` e `shes` (com o singular provável na mensagem: `categories` sugere `--entity category`) e os terminados em `us` e `ss`, que parecem singulares (`status`, `address`). A entidade precisa diferir do nome do domínio.
 
-**Os campos (`--fields`).** Uma lista `nome:tipo` separada por vírgula, entre aspas: `"titulo:string,ano:number,apelido?:string"`. O nome é camelCase (letra minúscula primeiro; só letras e números); o tipo é `string`, `number`, `boolean`, `date` (`AAAA-MM-DD`) ou `datetime` (ISO com hora); um `?` depois do nome torna o campo opcional. Sem `--fields`, a entidade tem só `name`, de texto, e a saída é a de sempre.
+**Os campos (`--fields`).** Uma lista `nome:tipo` separada por vírgula, entre aspas: `"titulo:string,ano:number,apelido?:string"`. O nome é camelCase (letra minúscula primeiro; só letras e números); o tipo é `string`, `number`, `int` (inteiro), `boolean`, `date` (`AAAA-MM-DD`), `datetime` (ISO com hora) ou `enum(a|b|c)` (um valor da lista: no mínimo dois, sem repetir, cada um com letras, números e `_`, começando por letra; as aspas do `--fields` protegem o `|` e os parênteses do shell); um `?` depois do nome torna o campo opcional. Sem `--fields`, a entidade tem só `name`, de texto, e a saída é a de sempre.
 
 | Tipo       | Schema (zod)         | Valor de exemplo nas fixtures        |
 | ---------- | -------------------- | ------------------------------------ |
 | `string`   | `z.string()`         | `Titulo 1`, `Titulo 2`, `Titulo 3`   |
 | `number`   | `z.number()`         | `10`, `20`, `30`                     |
+| `int`      | `z.number().int()`   | `10`, `20`, `30`                     |
 | `boolean`  | `z.boolean()`        | `true`, `false`, `true`              |
 | `date`     | `z.iso.date()`       | `2026-01-05`, `2026-01-14`, ...      |
 | `datetime` | `z.iso.datetime()`   | `2026-01-05T12:00:00.000Z`, ...      |
+| `enum(a\|b\|c)` | `z.enum(['a', 'b', 'c'])` | `a`, `b`, `c` (os valores da lista, em ordem) |
 
-Com os campos, saem coerentes: o schema e o `...InputSchema` (todos os campos, sem `id` nem `createdAt`); a `...SortKey` (os campos que ordenam, todos menos `boolean`, e `createdAt`); as fixtures; o mock (a busca nos campos de texto, ou no `id` se não há texto; a ordem por cada campo que ordena; `create` e `update` com todos os campos); e o teste de contrato. O `make:page --domain` lê o schema que existe e mostra o primeiro campo de texto obrigatório (veja [`make:page`](#prumo-makepage)). Recusa (código 2), sem escrever nada: lista vazia, item fora do formato `nome:tipo`, nome que não é camelCase, `id` e `createdAt` (reservados), nome repetido e tipo desconhecido.
+Com os campos, saem coerentes: o schema e o `...InputSchema` (todos os campos, sem `id` nem `createdAt`); a `...SortKey` (os campos que ordenam, todos menos `boolean`, e `createdAt`; o `enum` entra, mas o teste de ordem do contrato usa outro campo, porque o enum repete valores); as fixtures; o mock (a busca nos campos de texto, ou no `id` se não há texto; a ordem por cada campo que ordena; `create` e `update` com todos os campos); e o teste de contrato. O `make:page --domain` lê o schema que existe e mostra o primeiro campo de texto obrigatório, e o `enum` não conta como texto: um domínio só com enums mostra o `id`, com um aviso (veja [`make:page`](#prumo-makepage)). Com muitos campos, o código gerado quebra o `pick` do schema de entrada, a busca do mock e a entrada do teste de contrato em várias linhas (2 espaços, vírgula no fim) quando a linha passaria de cerca de 100 colunas; o `prumo make:*` não formata o resto, e vale rodar o formatador do projeto. Recusa (código 2), sem escrever nada: lista vazia, item fora do formato `nome:tipo`, nome que não é camelCase, `id` e `createdAt` (reservados), nome repetido, tipo desconhecido e `enum` mal formado (sem valores, com menos de dois, com valor repetido ou com valor que não é identificador simples).
 
 **Cria** (para `clientes`, entidade `cliente`):
 

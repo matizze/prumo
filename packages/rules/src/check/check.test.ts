@@ -24,7 +24,7 @@ describe('check nos projetos de fixture', () => {
     ])
     expect(violations.map((v) => v.message)).toEqual([
       "A pasta 'widgets' não é permitida em src/components: só 'layout', 'shared', 'ui'.",
-      "O módulo é usado por só a tela 'home', e o que está em src/components/shared precisa de 2 ou mais telas: mova-o para a tela que o usa.",
+      "O módulo é usado só pela tela 'home', e o que está em src/components/shared precisa de 2 ou mais telas: mova-o para a tela que o usa.",
       "A tela 'orphan' precisa do arquivo 'index.tsx' na própria pasta.",
       "A mensagem 'common.title' está vazia.",
       "A chave 'common.subtitle' existe em 'pt-BR' e falta em 'en'.",
@@ -109,7 +109,7 @@ describe('shared-usage', () => {
     })
     const violations = check({ root }).filter((v) => v.rule === 'shared-usage')
     expect(violations).toHaveLength(1)
-    expect(violations[0]!.message).toContain("só a tela 'a'")
+    expect(violations[0]!.message).toContain("é usado só pela tela 'a'")
   })
 
   it('lê export ... from, import() e import de tipo, e resolve a pasta pelo index', () => {

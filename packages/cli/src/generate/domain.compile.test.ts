@@ -273,7 +273,7 @@ export default defineConfig({
     'make:domain',
     'livros',
     '--fields',
-    'titulo:string,autor:string,ano:number,disponivel:boolean,publicadoEm:date,lidoEm?:datetime,apelido?:string',
+    'titulo:string,autor:string,editora:string,idioma:string,ano:number,paginas:int,situacao:enum(lido|lendo|desejado),disponivel:boolean,publicadoEm:date,lidoEm?:datetime,apelido?:string',
   )
   await prumo('make:domain', 'avisos', '--fields', 'ativo:boolean')
   write('src/queries/hooks.test.tsx', HOOKS_TEST)
@@ -303,6 +303,16 @@ describe('o domínio gerado, num projeto de verdade', () => {
     // Oito casos de contrato por domínio, mais os quatro dos hooks
     expect(output).toMatch(/Tests {2}44 passed \(44\)/)
   }, 120_000)
+
+  it('com muitos campos, o schema e o mock saem com linhas de até 100 colunas', () => {
+    for (const file of [
+      'src/schemas/entities/livro.ts',
+      'src/repositories/livros/repository.mock.ts',
+    ]) {
+      const longest = Math.max(...readFileSync(path.join(root, file), 'utf8').split('\n').map((line) => line.length))
+      expect(longest, file).toBeLessThanOrEqual(100)
+    }
+  })
 
   it('o tsc de fato confere: um tipo errado no domínio gerado seria pego', () => {
     const file = path.join(root, 'src/repositories/clientes/fixtures.ts')

@@ -54,6 +54,7 @@ try {
   }
   await call('make_domain', { nome: 'fornecedores' })
   await call('make_page', { nome: 'fornecedores', domain: 'fornecedores' })
+  await call('make_page', { nome: 'ficha', path: '/fornecedores/:codigo' })
   await call('make_component', { nome: 'detalhe', page: 'fornecedores' })
   await call('check', {})
 } catch (error) {

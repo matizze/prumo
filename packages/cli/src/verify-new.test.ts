@@ -48,10 +48,12 @@ describe('scripts/verify-new.sh', () => {
   it('gera pela CLI um domínio, uma tela com --domain e um componente', () => {
     expect(code).toContain('prumo make:domain clientes')
     expect(code).toContain('prumo make:page clientes --domain clientes')
+    expect(code).toContain('prumo make:page cliente --domain clientes --path /clientes/:id')
     expect(code).toContain('prumo make:component resumo --page clientes')
   })
 
-  it('gera o resto por um cliente MCP', () => {
+  it('gera o resto por um cliente MCP, com uma tela de rota com parâmetro', () => {
+    expect(driver).toContain("path: '/fornecedores/:codigo'")
     expect(code).toContain('packages/mcp/scripts/drive-mcp.mjs')
     expect(driver).toContain('StdioClientTransport')
     for (const tool of ['make_domain', 'make_page', 'make_component', 'check']) {

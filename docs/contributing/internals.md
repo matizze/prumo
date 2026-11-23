@@ -117,7 +117,7 @@ O `scripts/verify-new.sh` prova de ponta a ponta o que o Prumo entrega, sem nave
 
 1. **pack:** compila e empacota os cinco pacotes (`pnpm pack:all`).
 2. **new:** cria um app com `prumo new --packages <tarballs>` numa pasta temporária fora do monorepo.
-3. **cli:** gera um domínio, uma tela com `--domain` e um componente pela CLI.
+3. **cli:** gera um domínio, uma tela com `--domain`, uma tela de detalhe com `--path` e um componente pela CLI.
 4. **mcp:** gera outro domínio, outra tela e outro componente só por ferramentas MCP, com um cliente de verdade por stdio (`packages/mcp/scripts/drive-mcp.mjs`) contra o `prumo-mcp` do app.
 5. **verify:** roda o `pnpm verify` do app (typecheck, lint, `prumo check` e testes).
 6. **clean:** apaga a pasta temporária, também em caso de falha.

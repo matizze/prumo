@@ -229,6 +229,9 @@ afterEach(cleanup)
   await prumoOk('make:page', 'inicio')
   await prumoOk('make:page', 'clientes', '--domain', 'clientes')
   await prumoOk('make:page', 'pedidos-recentes')
+  // Rotas com parâmetro: a tela que só lê o parâmetro e a de detalhe, que busca o registro
+  await prumoOk('make:page', 'produto', '--path', '/produtos/:codigo')
+  await prumoOk('make:page', 'cliente', '--domain', 'clientes', '--path', '/clientes/:id')
   await prumoOk('make:component', 'resumo', '--page', 'inicio')
   // O componente shared ainda sem uso em duas telas: o check o mostra como esperado, e sai com 0
   await prumoOk('make:component', 'cartao', '--shared')
@@ -239,13 +242,21 @@ afterAll(() => {
 })
 
 describe('as telas e os componentes gerados, num projeto de verdade', () => {
-  it('registram as três rotas e os namespaces, em ordem, nos dois idiomas', () => {
+  it('registram as rotas e os namespaces, em ordem, nos dois idiomas', () => {
     const app = readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
-    for (const route of ['/clientes', '/inicio', '/pedidos-recentes'])
+    for (const route of [
+      '/clientes',
+      '/clientes/:id',
+      '/inicio',
+      '/pedidos-recentes',
+      '/produtos/:codigo',
+    ])
       expect(app).toContain(`<Route path="${route}">`)
     for (const language of ['en', 'pt-BR']) {
       const index = readFileSync(path.join(root, `src/messages/${language}/index.ts`), 'utf8')
-      expect(index).toContain('  clientes,\n  inicio,\n  pedidosRecentes,\n')
+      expect(index).toContain(
+        '  cliente,\n  clientes,\n  inicio,\n  pedidosRecentes,\n  produto,\n',
+      )
     }
   })
 
@@ -268,6 +279,8 @@ describe('as telas e os componentes gerados, num projeto de verdade', () => {
       'src/pages/inicio/index.test.tsx',
       'src/pages/clientes/index.test.tsx',
       'src/pages/pedidos-recentes/index.test.tsx',
+      'src/pages/produto/index.test.tsx',
+      'src/pages/cliente/index.test.tsx',
       'src/pages/inicio/components/resumo.test.tsx',
       'src/components/shared/cartao.test.tsx',
     ]) {

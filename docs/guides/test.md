@@ -150,7 +150,7 @@ expect((await repositories.clientes.list()).total).toBe(2)
 
 ### Rotas com parâmetro
 
-O parâmetro de rota só existe dentro de uma `<Route>`. Renderize a tela dentro da rota, com o caminho inicial já com o parâmetro:
+O parâmetro de rota só existe dentro de uma `<Route>`. Renderize a tela dentro da rota, com o caminho inicial já com o parâmetro. O teste que o `make:page --path /clientes/:id` gera já é assim (e, sem `--domain`, confere que o valor do parâmetro aparece na tela):
 
 ```tsx
 // src/pages/cliente/index.test.tsx

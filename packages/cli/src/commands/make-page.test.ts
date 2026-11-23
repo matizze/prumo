@@ -152,16 +152,18 @@ Para rodar os testes da tela nova:
     expect(missing.stderr).toContain('falta o argumento <nome>.')
   })
 
-  it('o check que acha violação sai com 1, com a tela já gerada', async () => {
+  it('a violação que já existia antes vira preexistente e não faz o comando falhar', async () => {
     const { root } = fixtureProject()
     mkdirSync(path.join(root, 'src/pages/solta'), { recursive: true })
     writeFileSync(path.join(root, 'src/pages/solta/index.tsx'), 'export {}\n')
 
     const result = await run(['make:page', 'clientes'], root)
 
-    expect(result.code).toBe(1)
-    expect(result.stderr).toContain('prumo check:')
-    expect(result.stderr).toContain('(a tela foi gerada, e os arquivos ficaram no projeto)')
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stderr).toBe('')
+    expect(result.stdout).toContain('prumo check: nenhuma violação nova.')
+    expect(result.stdout).toContain('Preexistentes (')
+    expect(result.stdout).toContain('src/pages/solta')
     expect(existsSync(path.join(root, 'src/pages/clientes/index.tsx'))).toBe(true)
   })
 

@@ -61,7 +61,7 @@ O `runMain` do citty não serve de porta de entrada: ele sai com 1 em qualquer e
 
 Cada gerador (`src/generate/<nome>.ts`) monta um **`ChangePlan`** (`src/codemod/plan.ts`): um plano de mudanças em memória, sobre um `Project` do [ts-morph](https://ts-morph.com) sem tsconfig e sem checagem de tipos. O plano recebe os arquivos novos e as costuras (as edições nos pontos de registro), lista o que seria criado e alterado (`summary()`, o `--dry-run`) e só grava no `commit()`. Um erro em qualquer etapa lança antes do `commit`, e o projeto não fica pela metade.
 
-Os comandos (`src/commands/make-*.ts`) chamam o gerador, mostram o resumo, fazem o `commit` e terminam com o `finishWithCheck` (`src/commands/shared.ts`), que roda o `prumo check`, separa as violações esperadas (o `shared-usage` de um componente compartilhado novo) e escreve o próximo passo.
+Os comandos (`src/commands/make-*.ts`) chamam o gerador, mostram o resumo, fazem o `commit` e terminam com o `finishWithCheck` (`src/commands/shared.ts`), que roda o `prumo check`, separa as violações esperadas (o `shared-usage` de um componente compartilhado novo) e as preexistentes (as que o `checkBefore`, chamado antes do `commit`, já tinha achado: mesma regra, arquivo e mensagem), falha só pelas que o comando causou e escreve o próximo passo. O `make:domain` também acrescenta `<ENTIDADE>_NOT_FOUND` ao `errors.json` de cada idioma (`addNotFoundMessages`, em `src/generate/domain.ts`), com aviso, sem falha, quando o app não tem o arquivo.
 
 ### As costuras (`src/codemod/`)
 

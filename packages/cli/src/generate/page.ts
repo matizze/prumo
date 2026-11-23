@@ -52,7 +52,7 @@ export function messagesTemplate(language: (typeof MESSAGE_LANGUAGES)[number], d
  * Qual dos dois modelos de mensagens vale para um idioma do projeto: os `pt` (`pt-BR`, `pt-PT`)
  * usam o texto em português, e qualquer outro (`en`, `es`) o texto em inglês, que a pessoa traduz.
  */
-function messagesLanguageOf(language: string): (typeof MESSAGE_LANGUAGES)[number] {
+export function messagesLanguageOf(language: string): (typeof MESSAGE_LANGUAGES)[number] {
   return language.toLowerCase().startsWith('pt') ? 'pt-BR' : 'en'
 }
 

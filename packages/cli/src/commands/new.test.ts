@@ -71,10 +71,13 @@ describe('prumo new', () => {
         'index.html',
         'package.json',
         'src/App.tsx',
+        'src/errors.ts',
         'src/i18n.ts',
         'src/main.tsx',
+        'src/messages/en/errors.json',
         'src/messages/en/home.json',
         'src/messages/en/index.ts',
+        'src/messages/pt-BR/errors.json',
         'src/messages/pt-BR/home.json',
         'src/messages/pt-BR/index.ts',
         'src/pages/home/index.test.tsx',
@@ -94,8 +97,10 @@ describe('prumo new', () => {
       ].sort(),
     )
     expect(result.stdout).toContain(`Destino: ${root}`)
-    expect(result.stdout).toContain('Criados (28):')
-    expect(result.stdout).toContain('pnpm exec prumo make:domain clientes')
+    expect(result.stdout).toContain('Criados (31):')
+    expect(result.stdout).toContain('pnpm exec prumo make:domain <domínio>')
+    expect(result.stdout).not.toContain('clientes')
+    expect(result.stdout).toContain('docs.prumo.matizze.com.br')
     expect(result.stdout).toContain('  pnpm install\n')
     // O app tem git, sem commit
     expect(existsSync(path.join(root, '.git'))).toBe(true)
@@ -145,7 +150,7 @@ describe('prumo new', () => {
       'test',
       'verify',
     ])
-    expect(manifest.scripts.verify).toBe('pnpm typecheck && pnpm lint && pnpm check && pnpm test')
+    expect(manifest.scripts.verify).toBe('pnpm typecheck && pnpm lint && pnpm test && pnpm check')
     for (const [name, version] of Object.entries(PRUMO_VERSIONS)) {
       const section = name === '@matizze/prumo-core' ? 'dependencies' : 'devDependencies'
       expect(manifest[section][name], name).toBe(`^${version}`)
@@ -245,7 +250,7 @@ export default function App() {
 
     expect(result.code, result.stderr).toBe(0)
     expect(result.stdout).toContain('prumo new: app-seco (simulação).')
-    expect(result.stdout).toContain('Seriam criados (28):')
+    expect(result.stdout).toContain('Seriam criados (31):')
     expect(result.stdout).toContain('  src/pages/home/view.tsx\n')
     expect(result.stdout).toContain('Depois: git init e pnpm install.')
     expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')

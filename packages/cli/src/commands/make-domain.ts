@@ -4,7 +4,7 @@ import path from 'node:path'
 import { generateDomain } from '../generate/domain.ts'
 import { findProject } from '../project.ts'
 import type { Runtime } from '../runtime.ts'
-import { finishWithCheck, formatSummary, testCommandFor } from './shared.ts'
+import { checkBefore, finishWithCheck, formatSummary, testCommandFor } from './shared.ts'
 
 /**
  * `prumo make:domain <nome> [--entity <singular>]`: gera um domínio de dados a partir dos modelos
@@ -23,7 +23,8 @@ export function createMakeDomainCommand(runtime: Runtime) {
 Cria o schema da entidade (src/schemas/entities/<entidade>.ts, com zod: id, name e createdAt), o
 repositório (src/repositories/<nome>/: contrato, mock com fixtures e a latência simulada do core,
 index e o teste de contrato do @matizze/prumo-testing) e as queries (src/queries/<nome>.ts: query
-keys do core, as queries e os hooks de lista, detalhe e mutations do TanStack Query). Registra o
+keys do core, as queries e os hooks de lista, detalhe e mutations do TanStack Query). Acrescenta o texto de <ENTIDADE>_NOT_FOUND (o código que o mock lança) ao errors.json de cada
+idioma; num app sem esse arquivo, avisa e segue. Registra o
 domínio em src/schemas/index.ts, src/repositories/index.ts (o import, o export * e a entrada no
 mapa factories, que é o container, em ordem alfabética) e src/queries/index.ts. O tipo do container
 acompanha o mapa sozinho.
@@ -37,8 +38,8 @@ Os hooks pegam o repositório de useRepositories(), de src/providers/repository,
 contrato é o que o mock cumpre: edite o schema e as fixtures depois, e o contrato junto.
 
 Valida tudo antes de escrever e recusa sobrescrever. Ao terminar, roda o prumo check e mostra o
-comando dos testes do domínio novo. Sai com código 1 se o check achar violação (o domínio já foi
-gerado) e com 2 se o uso está errado: nome inválido ou reservado, singular suspeito, domínio que
+comando dos testes do domínio novo. Sai com código 1 se o check achar violação nova, causada por ele (o domínio já foi
+gerado; a violação que já existia antes aparece como preexistente e não conta) e com 2 se o uso está errado: nome inválido ou reservado, singular suspeito, domínio que
 já existe, índice que falta.`,
     },
     args: {
@@ -65,18 +66,20 @@ já existe, índice que falta.`,
     },
     run({ args }) {
       const project = findProject(path.resolve(runtime.cwd, args.root ?? '.'))
-      const { plan, names } = generateDomain(project, { name: args.nome, entity: args.entity })
+      const { plan, names, warnings } = generateDomain(project, { name: args.nome, entity: args.entity })
+      const warningsText = warnings.map((warning) => `Aviso: ${warning}\n`).join('') + (warnings.length > 0 ? '\n' : '')
       const heading = `prumo make:domain: ${names.plural.kebab} (entidade ${names.singular.kebab}).`
 
       if (args['dry-run']) {
         runtime.out(
-          `${heading}\n\n${formatSummary(plan.summary(), true)}\nSimulação (--dry-run): nada foi escrito.\n`,
+          `${heading}\n\n${formatSummary(plan.summary(), true)}\n${warningsText}Simulação (--dry-run): nada foi escrito.\n`,
         )
         return
       }
 
+      const before = checkBefore(project)
       const summary = plan.commit()
-      runtime.out(`${heading}\n\n${formatSummary(summary, false)}\n`)
+      runtime.out(`${heading}\n\n${formatSummary(summary, false)}\n${warningsText}`)
 
       const schema = `src/schemas/entities/${names.singular.kebab}.ts`
       const fixtures = `src/repositories/${names.plural.kebab}/fixtures.ts`
@@ -88,7 +91,7 @@ já existe, índice que falta.`,
         : `As queries importam useRepositories de @/providers/repository, e o projeto não tem src/providers/repository: crie-o com createRepositoryContext, de @matizze/prumo-core/repositories.\n`
       const next = `Edite o schema (${schema}) e as fixtures (${fixtures}); o teste de contrato acompanha.\n${provider}\nPara rodar os testes do domínio novo:\n  ${testCommandFor(project, runtime.cwd, `src/repositories/${names.plural.kebab}`)}\n`
 
-      finishWithCheck(runtime, project, { generated: 'o domínio foi gerado', next })
+      finishWithCheck(runtime, project, { generated: 'o domínio foi gerado', next, before })
     },
   })
 }

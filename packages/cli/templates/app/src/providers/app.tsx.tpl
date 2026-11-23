@@ -1,5 +1,6 @@
 import { createQueryClient, QueryProvider } from '@matizze/prumo-core/query'
 import type { ReactNode } from 'react'
+import { getErrorMessage } from '@/errors'
 import { I18nProvider } from '@/i18n'
 import { RepositoryProvider } from '@/providers/repository'
 
@@ -7,7 +8,7 @@ function createClient() {
   return createQueryClient({
     // Sem interface no projeto, o erro vai para o console: troque pela notificação do seu design system
     notify: (message) => console.error(message),
-    getErrorMessage: (error) => (error instanceof Error ? error.message : String(error)),
+    getErrorMessage,
   })
 }
 

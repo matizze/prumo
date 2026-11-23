@@ -52,6 +52,8 @@ Alterados (3):
   src/repositories/index.ts
   src/schemas/index.ts
 
+Aviso: o texto de CLIENTE_NOT_FOUND não foi acrescentado: falta o namespace de erros: src/messages/en/errors.json, src/messages/pt-BR/errors.json. Sem ele, a tela mostra o texto genérico; veja o guia de erros (docs/guides/errors-and-notifications.md) para criar o errors.json e o src/errors.ts.
+
 prumo check: nenhuma violação.
 
 Edite o schema (src/schemas/entities/cliente.ts) e as fixtures (src/repositories/clientes/fixtures.ts); o teste de contrato acompanha.
@@ -66,6 +68,42 @@ Para rodar os testes do domínio novo:
     expect(read(root, 'src/repositories/index.ts')).toContain(
       '  clientes: createClientesRepository,\n  customers: createCustomersRepository,',
     )
+  })
+
+  it('acrescenta o texto de <ENTIDADE>_NOT_FOUND ao errors.json de cada idioma', async () => {
+    const { root } = fixtureProject()
+    writeFileSync(path.join(root, 'src/messages/pt-BR/errors.json'), '{ "generic": "Deu errado." }\n')
+    writeFileSync(path.join(root, 'src/messages/en/errors.json'), '{ "generic": "Failed." }\n')
+
+    const result = await run(['make:domain', 'pedidos'], root)
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).not.toContain('Aviso:')
+    expect(result.stdout).toContain('src/messages/pt-BR/errors.json')
+    expect(JSON.parse(read(root, 'src/messages/pt-BR/errors.json'))).toEqual({
+      generic: 'Deu errado.',
+      PEDIDO_NOT_FOUND: 'Registro não encontrado.',
+    })
+    expect(JSON.parse(read(root, 'src/messages/en/errors.json'))).toEqual({
+      generic: 'Failed.',
+      PEDIDO_NOT_FOUND: 'Record not found.',
+    })
+  })
+
+  it('o domínio gerado de novo não troca o texto que a pessoa já editou', async () => {
+    const { root } = fixtureProject()
+    writeFileSync(
+      path.join(root, 'src/messages/pt-BR/errors.json'),
+      '{ "CLIENTE_NOT_FOUND": "Cliente sumiu." }\n',
+    )
+    writeFileSync(path.join(root, 'src/messages/en/errors.json'), '{}\n')
+
+    const result = await run(['make:domain', 'clientes'], root)
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(JSON.parse(read(root, 'src/messages/pt-BR/errors.json'))).toEqual({
+      CLIENTE_NOT_FOUND: 'Cliente sumiu.',
+    })
   })
 
   it('usa o script test do projeto, e não avisa do provedor quando ele existe', async () => {
@@ -198,7 +236,7 @@ Para rodar os testes do domínio novo:
     expect(unknown.stderr).toContain("opção desconhecida: '--entidade'.")
   })
 
-  it('com violação do check, sai com 1 e o domínio já está gerado', async () => {
+  it('a violação do check que já existia fica como preexistente, e o domínio é gerado sem falha', async () => {
     const { root } = fixtureProject()
     // Uma tela sem index nem view: a análise page-structure do check acusa
     mkdirSync(path.join(root, 'src/pages/orfa'), { recursive: true })
@@ -206,9 +244,10 @@ Para rodar os testes do domínio novo:
 
     const result = await run(['make:domain', 'clientes'], root)
 
-    expect(result.code).toBe(1)
-    expect(result.stderr).toContain('prumo check: 2 violações (o domínio foi gerado')
-    expect(result.stderr).toContain("src/pages/orfa/index.tsx  [page-structure]  A tela 'orfa'")
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).toContain('prumo check: nenhuma violação nova.')
+    expect(result.stdout).toContain('Preexistentes (2;')
+    expect(result.stdout).toContain("src/pages/orfa/index.tsx  [page-structure]  A tela 'orfa'")
     expect(result.stdout).toContain('Criados (7):')
     expect(result.stdout).toContain('Para rodar os testes do domínio novo:')
     expect(existsSync(path.join(root, 'src/repositories/clientes/index.ts'))).toBe(true)

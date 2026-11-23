@@ -3,7 +3,7 @@ import path from 'node:path'
 import { generateComponent } from '../generate/component.ts'
 import { findProject } from '../project.ts'
 import type { Runtime } from '../runtime.ts'
-import { finishWithCheck, formatSummary, testCommandFor } from './shared.ts'
+import { checkBefore, finishWithCheck, formatSummary, testCommandFor } from './shared.ts'
 
 /**
  * `prumo make:component <nome> --page <tela>` ou `--shared`: gera um componente (só HTML) e o teste
@@ -27,7 +27,8 @@ exportado, em PascalCase. O prumo check cobra que o que está em shared seja usa
 telas; um componente shared recém-gerado ainda não é, e o comando avisa isso sem falhar.
 
 Valida tudo antes de escrever e recusa sobrescrever. Sai com código 1 se o check achar outra
-violação (o componente já foi gerado) e com 2 se o uso está errado: nome inválido ou reservado,
+violação nova, causada por ele (o componente já foi gerado; a violação que já existia antes
+aparece como preexistente e não conta) e com 2 se o uso está errado: nome inválido ou reservado,
 nem --page nem --shared (ou os dois), tela que não existe, componente que já existe.`,
     },
     args: {
@@ -71,6 +72,7 @@ nem --page nem --shared (ou os dois), tela que não existe, componente que já e
         return
       }
 
+      const before = checkBefore(project)
       const summary = plan.commit()
       runtime.out(`${heading}\n\n${formatSummary(summary, false)}\n`)
 
@@ -81,6 +83,7 @@ nem --page nem --shared (ou os dois), tela que não existe, componente que já e
       finishWithCheck(runtime, project, {
         generated: 'o componente foi gerado',
         next,
+        before,
         expected: {
           matches: (violation) => violation.rule === 'shared-usage' && violation.file === file,
           intro: 'só a violação esperada de um componente shared ainda sem uso:',

@@ -56,14 +56,14 @@ Um nome que vira palavra reservada do JavaScript (`new`, `class`, `default`, `de
 
 **`--root <pasta>`.** Os comandos que agem num projeto aceitam a pasta dele (a que tem `package.json` e `src`). O padrão é a pasta atual. Uma pasta que não existe, não é pasta ou não tem `package.json` e `src` é erro de uso (o `doctor` exige só o `package.json`).
 
-**`prumo check` no fim.** Os geradores `make:*` rodam a análise da arquitetura depois de escrever e mostram o resultado, seguido do próximo passo e do comando dos testes do que foi gerado.
+**`prumo check` no fim.** Os geradores `make:*` rodam a análise da arquitetura depois de escrever e mostram o resultado, seguido do próximo passo e do comando dos testes do que foi gerado. O comando só falha (código 1) pelas violações que **ele** causou: antes de escrever, ele roda o `check` e guarda o resultado, e a violação que já existia (a mesma regra, arquivo e mensagem) aparece rotulada como **preexistente** (`Preexistentes (N; já estavam no projeto antes deste comando...)`) e não muda o código de saída. Sem violação nova, a primeira linha é `prumo check: nenhuma violação nova.` O `prumo check` em si não muda: ele lista tudo.
 
 ### Códigos de saída
 
 | Código | Significado                                                                                                    |
 | ------ | -------------------------------------------------------------------------------------------------------------- |
 | `0`    | Sucesso                                                                                                        |
-| `1`    | O `check` achou violação (também no fim de um `make:*`, com os arquivos já gerados), o `doctor` achou erro, o `pnpm install` do `new` falhou, ou erro inesperado |
+| `1`    | O `check` achou violação (no fim de um `make:*`, só a violação nova, causada pelo comando, com os arquivos já gerados), o `doctor` achou erro, o `pnpm install` do `new` falhou, ou erro inesperado |
 | `2`    | Uso errado: comando ou opção desconhecidos, argumento que falta, nome inválido, pasta que não é projeto, arquivo que já existe, ponto de registro que falta |
 
 A mensagem de erro vai para o stderr; no erro de uso, seguida da ajuda do comando.
@@ -92,9 +92,9 @@ prumo new <nome> [--dir <pasta>] [--packages <pasta>] [--no-install] [--dry-run]
 2. Monta o app numa pasta temporária e só o leva ao destino se tudo deu certo.
 3. Roda `git init`, sem commit (o primeiro commit é seu). Se o git falhar, só avisa.
 4. Roda `pnpm install`, a não ser com `--no-install`. Se a instalação falhar, sai com 1, mantém o app criado e diz como seguir.
-5. Mostra os próximos passos.
+5. Mostra os próximos passos (o `verify`, o `dev`, os geradores com `<domínio>` e `<tela>` no lugar do nome e o endereço da documentação).
 
-**O app criado** tem Vite, React 19, TypeScript, wouter, TanStack Query, zod e i18next; os cinco pacotes do Prumo; a estrutura de pastas; os provedores; a tela inicial `home` na rota `/`; ESLint com o plugin do Prumo; Vitest com jsdom; o `AGENTS.md`, o `README.md` e o `.mcp.json`. Os scripts são `dev`, `build`, `typecheck`, `lint`, `check`, `test` e `verify`. O detalhe de cada arquivo está em [Anatomia do app gerado](../concepts/generated-app.md).
+**O app criado** tem Vite, React 19, TypeScript, wouter, TanStack Query, zod e i18next; os cinco pacotes do Prumo; a estrutura de pastas; os provedores; a tela inicial `home` na rota `/`; ESLint com o plugin do Prumo; Vitest com jsdom; o tratamento de erro ligado (o namespace `errors` nos dois idiomas, o `src/errors.ts` com o `getErrorMessage` e o `providers/app.tsx` usando-o); o `src/test/setup.ts` com o idioma padrão fixado; o `AGENTS.md`, o `README.md` e o `.mcp.json`. Os scripts são `dev`, `build`, `typecheck`, `lint`, `check`, `test` e `verify` (`typecheck && lint && test && check`: os testes rodam antes do `check`, que pode falhar por causa de um componente `shared` recém-gerado). O detalhe de cada arquivo está em [Anatomia do app gerado](../concepts/generated-app.md).
 
 **Versões.** As bibliotecas de terceiros entram com as versões fixadas nos modelos da CLI. Os pacotes do Prumo entram como `^<versão>`, cada um com a própria versão, registrada na CLI a cada lançamento (os pacotes versionam separados). O `packageManager` do `package.json` recebe a versão do pnpm que rodou o comando (pelo `npm_config_user_agent`, ou por `pnpm --version`); sem nenhuma das duas, o campo fica de fora.
 
@@ -193,6 +193,8 @@ prumo make:domain <nome> [--entity <singular>] [--root <pasta>] [--dry-run]
 
 Os três índices podem começar vazios, como os de um app novo.
 
+**Textos de erro.** Acrescenta `<ENTIDADE>_NOT_FOUND` (para `cliente`, `CLIENTE_NOT_FOUND`: o código que o mock lança) ao `src/messages/<idioma>/errors.json` de cada idioma, com "Registro não encontrado." nos idiomas `pt*` e "Record not found." nos outros, para você ajustar. A chave que já existe não é trocada. Num app criado antes de o `new` gerar o namespace de erros (sem `errors.json`), o comando avisa e segue, sem falhar.
+
 **Aviso:** se o projeto não tem `src/providers/repository` (de onde as queries importam o `useRepositories`), o comando gera o domínio e avisa como criar o provedor.
 
 **Recusa (código 2):** nome ou entidade inválidos ou reservados; singular que não dá para derivar; entidade igual ao nome; domínio que já existe; índice que falta; mapa `factories` que falta; export que já existe.
@@ -227,7 +229,7 @@ Use exatamente um de `--page` e `--shared`.
 
 **Cria** `<pasta>/<nome>.tsx`, com `<Nome>Props` (`title: string`) e o componente `<Nome>` (uma `<section>` com um `<h2>`), e `<pasta>/<nome>.test.tsx`, que renderiza o componente e confere o título. Não altera nenhum arquivo.
 
-**O `prumo check` e o `--shared`.** A análise cobra que o que está em `shared` seja usado por duas telas ou mais. Um componente compartilhado recém-gerado ainda não é usado, e a violação `shared-usage` dele é **esperada**: o comando a mostra, explica que ela some quando duas telas o importarem e sai com 0. Qualquer outra violação sai com 1.
+**O `prumo check` e o `--shared`.** A análise cobra que o que está em `shared` seja usado por duas telas ou mais. Um componente compartilhado recém-gerado ainda não é usado, e a violação `shared-usage` dele é **esperada**: o comando a mostra, explica que ela some quando duas telas o importarem e sai com 0. Qualquer outra violação nova sai com 1.
 
 **Recusa (código 2):** nome inválido ou reservado; nem `--page` nem `--shared`, ou os dois; tela que não existe; componente que já existe.
 

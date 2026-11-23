@@ -198,7 +198,7 @@ src/messages/<idioma>/<tela>.json  os textos, em cada idioma do projeto
 
 Altera `src/App.tsx` (a rota `/<tela>`, ou a de `--path`) e o `index.ts` de cada idioma (o namespace).
 
-### `prumo make:domain <domínio>`
+### `prumo make:domain <domínio> [--fields <campos>]`
 
 ```text
 src/schemas/entities/<entidade>.ts                   schema zod e tipos
@@ -210,7 +210,7 @@ src/repositories/<domínio>/repository.contract.test.ts  o teste de contrato
 src/queries/<domínio>.ts                             query keys, queries e hooks
 ```
 
-Altera `src/schemas/index.ts`, `src/repositories/index.ts` (import, `export *` e a entrada no mapa `factories`) e `src/queries/index.ts`, e acrescenta `<ENTIDADE>_NOT_FOUND` ao `src/messages/<idioma>/errors.json` de cada idioma (a chave que já existe fica como está). Num app criado por uma versão anterior do `new`, sem o `errors.json`, o comando avisa e segue, sem falhar: veja [Erros e notificações](../guides/errors-and-notifications.md#app-criado-antes-do-tratamento-de-erro).
+Com `--fields "titulo:string,ano:number"`, o schema, as fixtures, o mock e o teste de contrato saem com esses campos em vez de `name` (veja [Domínios](../guides/domains.md#os-campos-do-dominio---fields)). Altera `src/schemas/index.ts`, `src/repositories/index.ts` (import, `export *` e a entrada no mapa `factories`) e `src/queries/index.ts`, e acrescenta `<ENTIDADE>_NOT_FOUND` ao `src/messages/<idioma>/errors.json` de cada idioma (a chave que já existe fica como está). Num app criado por uma versão anterior do `new`, sem o `errors.json`, o comando avisa e segue, sem falhar: veja [Erros e notificações](../guides/errors-and-notifications.md#app-criado-antes-do-tratamento-de-erro).
 
 ### `prumo make:component <nome>`
 

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import pkg from '../package.json' with { type: 'json' }
@@ -83,7 +83,7 @@ describe('as chamadas', () => {
       return root
     }
 
-    it('tem o esquema do comando: o nome obrigatório, a entidade, o root e o dry-run', async () => {
+    it('tem o esquema do comando: o nome obrigatório, a entidade, os campos, o root e o dry-run', async () => {
       const client = await connect({ cwd: makeProject() })
       const { tools } = await client.listTools()
       const tool = tools.find((candidate) => candidate.name === 'make_domain')
@@ -95,10 +95,35 @@ describe('as chamadas', () => {
         properties: {
           nome: { type: 'string' },
           entity: { type: 'string' },
+          fields: { type: 'string' },
           root: { type: 'string' },
           'dry-run': { type: 'boolean' },
         },
       })
+    })
+
+    it('gera o domínio com os campos de fields, e recusa o que o --fields recusa', async () => {
+      const parent = makeDir()
+      const root = appProject(parent)
+      const client = await connect({ cwd: parent })
+
+      const bad = await client.callTool({
+        name: 'make_domain',
+        arguments: { nome: 'livros', root, fields: 'id:string' },
+      })
+      expect(bad.isError).toBe(true)
+      expect(textOf(bad as never)).toContain("'id' é reservado")
+      expect(existsSync(path.join(root, 'src/repositories/livros'))).toBe(false)
+
+      const result = await client.callTool({
+        name: 'make_domain',
+        arguments: { nome: 'livros', root, fields: 'titulo:string,ano:number,apelido?:string' },
+      })
+      expect(result.isError).toBeFalsy()
+      expect(textOf(result as never)).toContain('Campos: titulo (string), ano (number), apelido (string, opcional).')
+      const schema = readFileSync(path.join(root, 'src/schemas/entities/livro.ts'), 'utf8')
+      expect(schema).toContain('  ano: z.number(),')
+      expect(schema).not.toContain('name')
     })
 
     it('gera o domínio no projeto e devolve o texto da CLI', async () => {

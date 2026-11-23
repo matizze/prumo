@@ -11,7 +11,7 @@ export function {{page.pascal}}View(m: {{page.pascal}}Model) {
       ) : (
         <ul>
           {m.items.map((i) => (
-            <li key={i.id}>{i.name}</li>
+            <li key={i.id}>{i.{{field.name}}}</li>
           ))}
         </ul>
       )}

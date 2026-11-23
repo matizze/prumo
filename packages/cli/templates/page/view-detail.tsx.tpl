@@ -9,7 +9,7 @@ export function {{page.pascal}}View(m: {{page.pascal}}Model) {
       ) : m.failed || !m.item ? (
         <p role="alert">{m.failedText}</p>
       ) : (
-        <p>{m.item.name}</p>
+        <p>{m.item.{{field.name}}}</p>
       )}
     </main>
   )

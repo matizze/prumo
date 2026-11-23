@@ -34,7 +34,7 @@ pnpm verify                                # typecheck, lint, testes e check
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `prumo new <nome>`                                        | Cria um app mínimo, sem CSS e sem design system, com a estrutura, os provedores, uma tela inicial, ESLint, Vitest, `AGENTS.md` e `.mcp.json` |
 | `prumo make:page <nome> [--domain <domínio>] [--path <caminho>]` | Gera index, model, view, teste, os textos nos idiomas do projeto e a rota                  |
-| `prumo make:domain <nome> [--entity <singular>]`          | Gera schema, contrato, mock com fixtures, queries e o teste de contrato, e registra o domínio |
+| `prumo make:domain <nome> [--entity <singular>] [--fields <campos>]` | Gera schema, contrato, mock com fixtures, queries e o teste de contrato, e registra o domínio |
 | `prumo make:component <nome> (--page <tela> \| --shared)`  | Gera um componente (só HTML) e o teste                                                     |
 | `prumo check`                                             | Lista as violações da arquitetura                                                          |
 | `prumo doctor`                                            | Confere Node, pnpm, a versão dos pacotes do Prumo e o `.mcp.json`                         |

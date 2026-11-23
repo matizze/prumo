@@ -13,6 +13,7 @@ import { UsageError } from '../errors.ts'
 import type { Project } from '../project.ts'
 import { messagesLanguageOf } from './page.ts'
 import { nameVars, renderTemplate, renderTemplateFile } from '../templates.ts'
+import { DEFAULT_FIELDS, domainFieldVars, parseFields, type Field } from './fields.ts'
 
 /** Um arquivo do domínio: o modelo e onde ele cai no projeto, os dois com marcadores. */
 interface DomainFile {
@@ -111,6 +112,11 @@ export interface DomainRequest {
   name: string
   /** A entidade, no singular. Sem ela, sai do nome (tira o `s` final). */
   entity?: string | undefined
+  /**
+   * Os campos da entidade, no formato do `--fields` (`titulo:string,ano:number`). Sem eles, o domínio
+   * tem só o campo `name`, de texto.
+   */
+  fields?: string | undefined
 }
 
 /**
@@ -118,13 +124,15 @@ export interface DomainRequest {
  * mock, fixtures, index e teste de contrato, e as queries) e as costuras nos índices de schemas,
  * repositórios (com o mapa `factories`, que é o container) e queries. Nada vai para o disco: o
  * chamador mostra o `summary()` ou faz o `commit()`. Valida o nome e confere o projeto antes de
- * montar qualquer coisa, e todo erro de uso é um `UsageError` (saída 2).
+ * montar qualquer coisa, e todo erro de uso é um `UsageError` (saída 2). Os `fields` dão a forma da
+ * entidade: o schema, as fixtures, o mock e o teste de contrato saem coerentes com eles.
  */
 export function generateDomain(
   project: Project,
-  { name, entity }: DomainRequest,
-): { plan: ChangePlan; names: DomainNames; warnings: string[] } {
+  { name, entity, fields: fieldsText }: DomainRequest,
+): { plan: ChangePlan; names: DomainNames; fields: Field[]; warnings: string[] } {
   const names = domainNames(name, entity)
+  const fields = fieldsText === undefined ? [...DEFAULT_FIELDS] : parseFields(fieldsText)
   const folder = path.join(project.src, 'repositories', names.plural.kebab)
   if (existsSync(folder)) {
     throw new UsageError(
@@ -132,7 +140,11 @@ export function generateDomain(
     )
   }
 
-  const vars = { ...nameVars('plural', names.plural), ...nameVars('singular', names.singular) }
+  const vars = {
+    ...nameVars('plural', names.plural),
+    ...nameVars('singular', names.singular),
+    ...domainFieldVars(fields, names.singular.kebab),
+  }
   const plan = new ChangePlan(project)
   for (const { template, to } of DOMAIN_FILES) {
     plan.createSource(
@@ -145,5 +157,5 @@ export function generateDomain(
   registerRepository(plan, names)
   registerQueriesEntry(plan, { module: names.plural.kebab, exports: queriesExports(names) })
   const warnings = addNotFoundMessages(plan, names)
-  return { plan, names, warnings }
+  return { plan, names, fields, warnings }
 }

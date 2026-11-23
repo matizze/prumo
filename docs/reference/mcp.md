@@ -42,7 +42,7 @@ Uma ferramenta por comando da CLI. O nome é o do comando com `:` trocado por `_
 | `check`          | `prumo check`          | `root?`                                                   |
 | `doctor`         | `prumo doctor`         | `root?`                                                   |
 | `make_component` | `prumo make:component` | `nome`, `page?`, `shared?`, `root?`, `dry-run?`           |
-| `make_domain`    | `prumo make:domain`    | `nome`, `entity?`, `root?`, `dry-run?`                    |
+| `make_domain`    | `prumo make:domain`    | `nome`, `entity?`, `fields?`, `root?`, `dry-run?`            |
 | `make_page`      | `prumo make:page`      | `nome`, `domain?`, `path?`, `root?`, `dry-run?`            |
 | `new`            | `prumo new`            | `nome`, `dir?`, `packages?`, `install?`, `dry-run?`       |
 

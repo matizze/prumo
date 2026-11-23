@@ -50,10 +50,14 @@ describe('scripts/verify-new.sh', () => {
     expect(code).toContain('prumo make:page clientes --domain clientes')
     expect(code).toContain('prumo make:page cliente --domain clientes --path /clientes/:id')
     expect(code).toContain('prumo make:component resumo --page clientes')
+    expect(code).toContain('prumo make:domain livros --fields "titulo:string')
+    expect(code).toContain('prumo make:page livros --domain livros')
+    expect(code).toContain('prumo make:page livro --domain livros --path /livros/:id')
   })
 
   it('gera o resto por um cliente MCP, com uma tela de rota com parâmetro', () => {
     expect(driver).toContain("path: '/fornecedores/:codigo'")
+    expect(driver).toContain('fields:')
     expect(code).toContain('packages/mcp/scripts/drive-mcp.mjs')
     expect(driver).toContain('StdioClientTransport')
     for (const tool of ['make_domain', 'make_page', 'make_component', 'check']) {

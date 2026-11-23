@@ -85,12 +85,13 @@ describe('describeCommands: a árvore real do prumo', () => {
     }
   })
 
-  it('descreve o make:domain: o nome posicional obrigatório e as três opções', async () => {
+  it('descreve o make:domain: o nome posicional obrigatório e as quatro opções', async () => {
     const command = (await realTree()).find((candidate) => candidate.name === 'make:domain')
 
     expect(command?.options.map((option) => [option.name, option.kind, option.required])).toEqual([
       ['nome', 'positional', true],
       ['entity', 'string', false],
+      ['fields', 'string', false],
       ['root', 'string', false],
       ['dry-run', 'boolean', false],
     ])

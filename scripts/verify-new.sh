@@ -3,7 +3,7 @@
 #
 # Prova de ponta a ponta o que o Prumo entrega: empacota os pacotes, cria um app com `prumo new`
 # numa pasta temporária fora do monorepo, gera nele um domínio, uma tela com --domain e um componente
-# pela CLI, gera outro domínio e outra tela só por ferramentas MCP (um cliente de verdade, por stdio,
+# pela CLI (e um domínio com --fields, com a lista e o detalhe dele), gera outro domínio e outra tela só por ferramentas MCP (um cliente de verdade, por stdio,
 # contra o prumo-mcp do app) e roda o `pnpm verify` do app (typecheck, lint, testes e check).
 #
 # O script não edita arquivo do app: quem muda o app é a CLI e o servidor MCP. Se o verify do app
@@ -68,6 +68,10 @@ stage_cli() {
   prumo make:page clientes --domain clientes
   prumo make:page cliente --domain clientes --path /clientes/:id
   prumo make:component resumo --page clientes
+  # Um domínio com --fields (todos os tipos e dois opcionais), a lista e o detalhe dele
+  prumo make:domain livros --fields "titulo:string,autor:string,ano:number,disponivel:boolean,publicadoEm:date,lidoEm?:datetime,apelido?:string"
+  prumo make:page livros --domain livros
+  prumo make:page livro --domain livros --path /livros/:id
 }
 
 stage_mcp() {

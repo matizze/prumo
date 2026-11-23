@@ -13,6 +13,7 @@ import { messageLanguages } from '../codemod/messages.ts'
 import { UsageError } from '../errors.ts'
 import type { Project } from '../project.ts'
 import { nameVars, renderTemplate, renderTemplateFile } from '../templates.ts'
+import { domainIdSample, domainShapeOf, literal, type DomainShape } from './fields.ts'
 
 /** Um arquivo da tela: o modelo e onde ele cai no projeto, os dois com marcadores. */
 interface PageFile {
@@ -134,19 +135,64 @@ export function parseRoutePath(route: string): RoutePath {
   }
 }
 
+/**
+ * A entidade do domínio (`Livro`, `livro`), lida do hook `use<Entidade>Detail` de
+ * `src/queries/<domínio>.ts` (ou, com `anyHook`, também dos de criar, editar e remover).
+ */
+function entityOf(
+  project: Project,
+  domain: Names,
+  anyHook = false,
+): { pascal: string; kebab: string } | undefined {
+  const file = moduleFile(project, `queries/${domain.kebab}`)
+  const source = file ? readFileSync(file, 'utf8') : ''
+  const match =
+    /\buse([A-Z][A-Za-z0-9]*)Detail\b/.exec(source) ??
+    (anyHook ? /\buse(?:Create|Update|Remove)([A-Z][A-Za-z0-9]*)\b/.exec(source) : null)
+  if (!match) return undefined
+  const pascal = match[1]!
+  return { pascal, kebab: pascal.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase() }
+}
+
 /** O hook de detalhe do domínio (`useLivroDetail`) e o nome do registro (`livro`), lidos de `src/queries/<domínio>.ts`. */
 function detailHookOf(project: Project, domain: Names): { hook: string; fixture: string } {
-  const file = moduleFile(project, `queries/${domain.kebab}`)
-  const match = file ? /\buse([A-Z][A-Za-z0-9]*)Detail\b/.exec(readFileSync(file, 'utf8')) : null
-  if (!match) {
+  const entity = entityOf(project, domain)
+  if (!entity) {
     throw new UsageError(
       `o domínio '${domain.kebab}' não tem o hook use<Entidade>Detail em src/queries/${domain.kebab}.ts: a tela de detalhe (--domain com um caminho com parâmetro) busca o registro por ele.`,
     )
   }
-  const entity = match[1]!
+  return { hook: `use${entity.pascal}Detail`, fixture: entity.kebab }
+}
+
+/** Lê o arquivo, ou `undefined` se não existe. */
+function readIfExists(file: string): string | undefined {
+  return existsSync(file) ? readFileSync(file, 'utf8') : undefined
+}
+
+/**
+ * O que a tela mostra do registro do domínio: o primeiro campo de texto do schema que o projeto tem
+ * hoje (veja `domainShapeOf`), ou o `id`, com um aviso. Com `needSample` (a tela de detalhe, cujo
+ * teste confere o texto), um campo sem valor nas fixtures também cai no `id`.
+ */
+function shapeOf(project: Project, domain: Names, needSample: boolean): DomainShape {
+  const entity = entityOf(project, domain, true)
+  const file = entity ? `src/schemas/entities/${entity.kebab}.ts` : 'src/schemas/entities/<entidade>.ts'
+  const fixturesFile = `src/repositories/${domain.kebab}/fixtures.ts`
+  const fixtures = readIfExists(path.join(project.root, fixturesFile))
+  const shape = domainShapeOf(
+    {
+      file,
+      source: entity ? readIfExists(path.join(project.root, file)) : undefined,
+      camel: entity ? entity.pascal.charAt(0).toLowerCase() + entity.pascal.slice(1) : undefined,
+    },
+    fixtures,
+  )
+  if (!needSample || shape.field === 'id' || shape.sample !== undefined) return shape
   return {
-    hook: `use${entity}Detail`,
-    fixture: entity.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase(),
+    field: 'id',
+    ...domainIdSample(fixtures),
+    warning: `não achei o valor de '${shape.field}' no primeiro registro de ${fixturesFile}: a tela mostra o id do registro. Troque pelo campo certo na view (e no teste).`,
   }
 }
 
@@ -169,6 +215,8 @@ export interface PageResult {
   domain?: Names
   /** A rota nova no `src/App.tsx`: `/clientes`. */
   route: string
+  /** Avisos que o comando mostra (por exemplo, a tela mostra o `id` por falta de campo de texto). */
+  warnings: string[]
 }
 
 /** O `<Route>` da tela, como entra no `src/App.tsx`. */
@@ -221,9 +269,16 @@ export function generatePage(project: Project, { name, domain, route }: PageRequ
   const routePath = parseRoutePath(pagePath)
   const detail =
     domainNames && routePath.param ? detailHookOf(project, domainNames) : undefined
+  const shape = domainNames ? shapeOf(project, domainNames, detail !== undefined) : undefined
   const vars = {
     ...nameVars('page', names),
     ...(domainNames ? nameVars('domain', domainNames) : {}),
+    ...(shape
+      ? {
+          'field.name': shape.field,
+          'field.sample': literal(shape.sample ?? `${detail?.fixture ?? 'registro'}-1`),
+        }
+      : {}),
     'route.path': pagePath,
     ...(routePath.param
       ? {
@@ -263,5 +318,11 @@ export function generatePage(project: Project, { name, domain, route }: PageRequ
     path: pagePath,
     element: routeElement(names, pagePath),
   })
-  return { plan, names, route: pagePath, ...(domainNames ? { domain: domainNames } : {}) }
+  return {
+    plan,
+    names,
+    route: pagePath,
+    warnings: shape?.warning ? [shape.warning] : [],
+    ...(domainNames ? { domain: domainNames } : {}),
+  }
 }

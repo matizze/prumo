@@ -269,6 +269,13 @@ export default defineConfig({
   await prumo('make:domain', 'clientes')
   await prumo('make:domain', 'pedidos-recentes', '--entity', 'pedido-recente')
   await prumo('make:domain', 'categories', '--entity', 'category')
+  await prumo(
+    'make:domain',
+    'livros',
+    '--fields',
+    'titulo:string,autor:string,ano:number,disponivel:boolean,publicadoEm:date,lidoEm?:datetime,apelido?:string',
+  )
+  await prumo('make:domain', 'avisos', '--fields', 'ativo:boolean')
   write('src/queries/hooks.test.tsx', HOOKS_TEST)
 }, 60_000)
 
@@ -289,12 +296,12 @@ describe('o domínio gerado, num projeto de verdade', () => {
     const result = run(process.execPath, [vitest, 'run', '--reporter=verbose'])
     const output = `${result.stdout}${result.stderr}`
     expect(result.status, output).toBe(0)
-    for (const folder of ['clientes', 'pedidos-recentes', 'categories']) {
+    for (const folder of ['clientes', 'pedidos-recentes', 'categories', 'livros', 'avisos']) {
       expect(output).toContain(`src/repositories/${folder}/repository.contract.test.ts`)
     }
     expect(output).toContain('src/queries/hooks.test.tsx')
     // Oito casos de contrato por domínio, mais os quatro dos hooks
-    expect(output).toMatch(/Tests {2}28 passed \(28\)/)
+    expect(output).toMatch(/Tests {2}44 passed \(44\)/)
   }, 120_000)
 
   it('o tsc de fato confere: um tipo errado no domínio gerado seria pego', () => {

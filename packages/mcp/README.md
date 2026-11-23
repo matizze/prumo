@@ -32,7 +32,7 @@ Uma por comando da CLI, com o nome do comando (`:` vira `_`) e os campos com o n
 | ---------------- | ---------------------- | ------------------------------------------------ |
 | `new`            | `prumo new`            | `nome`, `dir`, `packages`, `install`, `dry-run` |
 | `make_page`      | `prumo make:page`      | `nome`, `domain`, `path`, `root`, `dry-run`     |
-| `make_domain`    | `prumo make:domain`    | `nome`, `entity`, `root`, `dry-run`             |
+| `make_domain`    | `prumo make:domain`    | `nome`, `entity`, `fields`, `root`, `dry-run`    |
 | `make_component` | `prumo make:component` | `nome`, `page`, `shared`, `root`, `dry-run`     |
 | `check`          | `prumo check`          | `root`                                           |
 | `doctor`         | `prumo doctor`         | `root`                                           |

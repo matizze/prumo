@@ -148,7 +148,7 @@ Alterados (3):
 prumo check: nenhuma violação.
 ```
 
-O nome do domínio vai no plural; a entidade (`cliente`) sai dele, tirando o `s`. O comando criou:
+O nome do domínio vai no plural; a entidade (`cliente`) sai dele, tirando o `s`. Sem `--fields`, a entidade tem só o campo `name`; para os campos do seu produto, peça-os na criação, por exemplo `--fields "nome:string,email:string,ativo:boolean"` (veja [Domínios](guides/domains.md#os-campos-do-dominio---fields)). O comando criou:
 
 - o **schema** zod da entidade (`id`, `name` e `createdAt`), com os tipos de entrada e de consulta;
 - o **contrato** do repositório, a interface `IClientesRepository` (`list`, `get`, `create`, `update` e `remove`);

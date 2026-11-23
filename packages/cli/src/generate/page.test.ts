@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemod/test-support.ts'
@@ -10,7 +10,22 @@ function withDomain(root: string, hook = 'useClientesList') {
   mkdirSync(path.join(root, 'src/queries'), { recursive: true })
   writeFileSync(
     path.join(root, 'src/queries/clientes.ts'),
-    `export function ${hook}() {\n  return null\n}\n`,
+    `export function ${hook}() {\n  return null\n}\nexport function useCreateCliente() {\n  return null\n}\n`,
+  )
+  withShape(root, '  name: z.string(),\n', "{ id: 'cliente-1', name: 'Exemplo 1', createdAt: 'x' }")
+}
+
+/** O schema e as fixtures do domínio `clientes`: o que a tela lê para saber o que mostrar. */
+function withShape(root: string, fields: string, fixture: string) {
+  mkdirSync(path.join(root, 'src/schemas/entities'), { recursive: true })
+  mkdirSync(path.join(root, 'src/repositories/clientes'), { recursive: true })
+  writeFileSync(
+    path.join(root, 'src/schemas/entities/cliente.ts'),
+    `export const clienteSchema = z.object({\n  id: z.string(),\n${fields}  createdAt: z.string(),\n})\n`,
+  )
+  writeFileSync(
+    path.join(root, 'src/repositories/clientes/fixtures.ts'),
+    `export const MOCK_CLIENTES = [\n  ${fixture},\n]\n`,
   )
 }
 
@@ -162,6 +177,46 @@ export type ClientesModel = ReturnType<typeof useClientesModel>
     ).toContain('"loading": "Carregando…"')
   })
 
+  it('com domínio: mostra o primeiro campo de texto obrigatório do schema que existe, não o name', () => {
+    const project = fixtureProject()
+    withDomain(project.root)
+    withShape(
+      project.root,
+      '  ano: z.number(),\n  apelido: z.string().optional(),\n  titulo: z.string(),\n  publicadoEm: z.iso.date(),\n',
+      "{ id: 'cliente-1', ano: 10, titulo: 'Titulo 1', createdAt: 'x' }",
+    )
+    const { plan, warnings } = generatePage(project, { name: 'clientes', domain: 'clientes' })
+
+    expect(plan.source(path.join(project.root, 'src/pages/clientes/view.tsx')).getFullText()).toContain(
+      '<li key={i.id}>{i.titulo}</li>',
+    )
+    expect(warnings).toEqual([])
+  })
+
+  it('com domínio: sem campo de texto no schema, mostra o id e avisa', () => {
+    const project = fixtureProject()
+    withDomain(project.root)
+    withShape(project.root, '  ano: z.number(),\n  publicadoEm: z.iso.date(),\n', "{ id: 'cliente-1' }")
+    const { plan, warnings } = generatePage(project, { name: 'clientes', domain: 'clientes' })
+
+    expect(plan.source(path.join(project.root, 'src/pages/clientes/view.tsx')).getFullText()).toContain(
+      '<li key={i.id}>{i.id}</li>',
+    )
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('não tem campo de texto')
+    expect(warnings[0]).toContain('mostra o id')
+  })
+
+  it('com domínio: se não acha o schema, mostra o id e avisa', () => {
+    const project = fixtureProject()
+    withDomain(project.root)
+    rmSync(path.join(project.root, 'src/schemas/entities/cliente.ts'))
+    const { warnings } = generatePage(project, { name: 'clientes', domain: 'clientes' })
+
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('não consegui ler o schema')
+  })
+
   it('a tela pode ter outro nome que o do domínio', () => {
     const project = fixtureProject()
     withDomain(project.root)
@@ -274,6 +329,50 @@ export type LivroModel = ReturnType<typeof useLivroModel>
       expect(
         readFileSync(path.join(project.root, 'src/messages/pt-BR/cliente.json'), 'utf8'),
       ).toContain('"loading"')
+    })
+
+    it('com --domain e parâmetro, a tela de detalhe mostra o campo de texto e o teste espera o valor da fixture', () => {
+      const project = fixtureProject()
+      withDomain(project.root)
+      writeFileSync(
+        path.join(project.root, 'src/queries/clientes.ts'),
+        'export function useClientesList() {\n  return null\n}\nexport function useClienteDetail(id: string) {\n  return id\n}\n',
+      )
+      withShape(
+        project.root,
+        '  titulo: z.string(),\n',
+        "{ id: 'cliente-1', titulo: 'Dom Casmurro', createdAt: 'x' }",
+      )
+      const { plan, warnings } = generatePage(project, {
+        name: 'cliente',
+        domain: 'clientes',
+        route: '/clientes/:id',
+      })
+      const at = (file: string) => plan.source(path.join(project.root, file)).getFullText()
+
+      expect(at('src/pages/cliente/view.tsx')).toContain('m.item.titulo')
+      expect(at('src/pages/cliente/index.test.tsx')).toContain("findByText('Dom Casmurro')")
+      expect(warnings).toEqual([])
+    })
+
+    it('com --domain e parâmetro, sem o valor do campo nas fixtures, cai no id e avisa', () => {
+      const project = fixtureProject()
+      withDomain(project.root)
+      writeFileSync(
+        path.join(project.root, 'src/queries/clientes.ts'),
+        'export function useClientesList() {\n  return null\n}\nexport function useClienteDetail(id: string) {\n  return id\n}\n',
+      )
+      withShape(project.root, '  titulo: z.string(),\n', "{ id: 'cliente-1', titulo: titulos[0] }")
+      const { plan, warnings } = generatePage(project, {
+        name: 'cliente',
+        domain: 'clientes',
+        route: '/clientes/:id',
+      })
+      const at = (file: string) => plan.source(path.join(project.root, file)).getFullText()
+
+      expect(at('src/pages/cliente/view.tsx')).toContain('m.item.id')
+      expect(at('src/pages/cliente/index.test.tsx')).toContain("findByText('cliente-1')")
+      expect(warnings[0]).toContain("não achei o valor de 'titulo'")
     })
 
     it('com --domain e parâmetro, recusa o domínio sem o hook de detalhe', () => {

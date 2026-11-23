@@ -6,7 +6,7 @@ O Prumo é uma **ferramenta** para criar e manter aplicações React organizadas
 
 Este plano substitui o de 22/11/2026 (Fases A, B e C, já concluídas, exceto o repositório público). A `cli` é reescrita do zero com o commander; a arquitetura do app gerado não muda.
 
-**Situação:** plano fechado em 23/11/2026; execução pela seção 11. Passos concluídos: nenhum.
+**Situação:** plano fechado em 23/11/2026; execução pela seção 11. Passos concluídos: 1.
 
 ## 1. Por que recomeçar a CLI
 
@@ -207,7 +207,7 @@ Um subagente por vez: nunca um implementador e um revisor ao mesmo tempo (a máq
 3. **Revisar.** O revisor recebe o número do PR, o pedido do passo e este plano. Devolve achados com gravidade: `important` (bug ou desvio do plano), `nit` (pequeno).
 4. **Corrigir.** Com achado `important`, o mesmo implementador corrige (ele mantém o contexto) e o revisor confere só a correção. No máximo duas voltas.
 5. **Portão.** O orquestrador roda ele mesmo, no branch do PR, o `pnpm verify`, o `pnpm verify:new` (do passo 2 em diante) e o critério de pronto da seção 8.
-6. **Merge.** Com o portão verde: `gh pr merge --merge --delete-branch`, atualiza a `develop` local e marca o passo na **Situação**, no topo deste plano (no PR do passo seguinte).
+6. **Merge.** Com o portão verde: `gh pr merge --merge --delete-branch` e atualiza a `develop` local. Cada PR já marca o próprio passo na **Situação**, no topo deste plano.
 
 ### Regras do implementador
 

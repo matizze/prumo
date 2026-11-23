@@ -48,7 +48,7 @@ Próximos passos:
   ...
 ```
 
-> Para ver o que seria criado sem escrever nada, use `--dry-run`. Para escolher outra pasta, `--dir <pasta>`. Todas as opções estão na [referência da CLI](reference/cli.md#prumo-new).
+> Para ver o que seria criado sem escrever nada, use `--dry-run`. Para escolher outra pasta, `--dir <pasta>`. Todas as opções estão na [referência da CLI](reference/cli.md).
 
 Entre na pasta e suba o app:
 

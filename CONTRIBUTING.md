@@ -27,7 +27,7 @@ No workspace, os pacotes exportam o código-fonte TypeScript, e o Node 24 o exec
 
 ```bash
 node packages/cli/src/bin.ts --help
-node packages/cli/src/bin.ts new demo --dir /tmp --no-install
+node packages/cli/src/bin.ts --version
 ```
 
 ## Verificação
@@ -36,19 +36,18 @@ Não há CI de verificação: **a verificação é local**, e todo pull request 
 
 | Comando            | O que roda                                                                                                   | Quando                                                       |
 | ------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| `pnpm verify`      | Typecheck, lint e testes dos cinco pacotes, sem navegador (cerca de 1 minuto)                                | Sempre                                                       |
-| `pnpm verify:new`  | Empacota os pacotes, cria um app numa pasta temporária, gera tela, domínio e componente pela CLI e pelo MCP e roda o `pnpm verify` do app | Ao mudar os modelos (`packages/cli/templates`), o `new`, os `make:*` ou o servidor MCP |
+| `pnpm verify`      | Typecheck, lint e testes dos quatro pacotes, sem navegador (cerca de 1 minuto)                                | Sempre                                                       |
 | `pnpm build`       | Compila os pacotes (`dist/`)                                                                                 | Para inspecionar o que vai para o npm                        |
-| `pnpm pack:all`    | Compila e empacota os cinco pacotes em `.packs/`                                                             | Para testar um app com os tarballs (`prumo new --packages .packs`) |
+| `pnpm pack:all`    | Compila e empacota os quatro pacotes em `.packs/`                                                             | Para testar um app com os tarballs (o `prumo new --packages .packs` volta no passo 2) |
 
-Rode um comando pesado por vez: o `verify:new` instala dependências e roda `tsc`, `eslint` e `vitest` no app gerado, e em máquinas com pouca memória dois ao mesmo tempo atrapalham um ao outro.
+Rode um comando pesado por vez: `tsc`, `eslint` e `vitest` juntos pesam, e em máquinas com pouca memória dois ao mesmo tempo atrapalham um ao outro. (O `pnpm verify:new`, que cria um app e roda o `verify` dele, volta no passo 2 da reescrita da CLI.)
 
 ## Fluxo de trabalho
 
 1. Crie uma branch a partir da `develop` (`feat/...`, `fix/...`, `docs/...`).
 2. Faça a mudança com os testes. Todo comportamento novo tem teste.
 3. Se a mudança toca `packages/*`, crie um changeset (veja [Versões](#versões)).
-4. Rode `pnpm verify` (e o `pnpm verify:new`, se couber).
+4. Rode `pnpm verify`.
 5. Abra o pull request **contra a `develop`**. A `main` recebe só as versões.
 
 ### Commits
@@ -57,9 +56,9 @@ Mensagens em português, no padrão [Conventional Commits](https://www.conventio
 
 ```text
 feat(cli): prumo make:page aceita --domain
-fix: o app do prumo new fixa o pnpm em packageManager
+fix: o app gerado fixa o pnpm em packageManager
 docs: guia de testes
-chore: versões cli 0.5.1 e mcp 0.1.2
+chore: versões cli 0.5.1 e core 0.1.2
 refactor!: regras sem interface
 ```
 
@@ -112,7 +111,7 @@ Escolha os pacotes, o tipo de versão e descreva a mudança **do ponto de vista 
 
 **Para lançar uma versão** (decisão de uma pessoa do time):
 
-1. Um pull request para a `develop` roda `pnpm changeset version`: sobe as versões, escreve os CHANGELOGs e apaga os changesets. No mesmo pull request, atualize `packages/cli/src/new/versions.ts` (o teste `versions.test.ts` falha até ele acompanhar) e confira as faixas de `packages/cli/src/doctor/ranges.ts`.
+1. Um pull request para a `develop` roda `pnpm changeset version`: sobe as versões, escreve os CHANGELOGs e apaga os changesets. (O mapa de versões do app novo volta com o `new`, no passo 2 da reescrita da CLI, e então também se atualiza nesta etapa.)
 2. Um pull request leva a `develop` para a `main`.
 3. O workflow de publicação publica no npm as versões que faltam, autenticado pelo Trusted Publishing.
 
@@ -124,7 +123,7 @@ Abra uma issue com:
 
 - o que você fez (o comando, com as opções) e o que esperava;
 - o que aconteceu, com a saída completa;
-- a saída do `pnpm exec prumo doctor`;
+- a versão (`pnpm exec prumo --version`) e a do Node;
 - o sistema operacional.
 
 Para uma vulnerabilidade, **não** abra uma issue pública: siga o [SECURITY.md](SECURITY.md).

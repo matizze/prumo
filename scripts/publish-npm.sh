@@ -3,7 +3,7 @@
 #
 # Roda no workflow de publicação (.github/workflows/release.yml), a cada push na `main`. Primeiro
 # pergunta ao npm, sem instalar nada, quais versões faltam: se nenhuma falta (o caso comum), termina
-# em segundos. Se falta alguma, instala as dependências, compila e empacota os cinco pacotes
+# em segundos. Se falta alguma, instala as dependências, compila e empacota os quatro pacotes
 # (scripts/pack-packages.sh, que troca o `workspace:*` pela versão) e publica só os tarballs que
 # faltam, com o `npm publish`.
 #
@@ -20,8 +20,8 @@ REGISTRY="https://registry.npmjs.org"
 # A versão mínima do npm com Trusted Publishing; abaixo dela, o script instala esta versão fixa
 NPM_MIN="11.5.1"
 NPM_PINNED="11.11.0"
-# A mesma ordem do pack-packages.sh: o cli depende do rules, e o mcp depende do cli
-PACKAGES=(rules core testing cli mcp)
+# A mesma ordem do pack-packages.sh: o cli depende do rules
+PACKAGES=(rules core testing cli)
 
 DRY_RUN=""
 case "${1:-}" in
@@ -61,7 +61,7 @@ if [ "${#pending[@]}" -eq 0 ]; then
   exit 0
 fi
 
-# 2. Instala, compila e empacota os cinco (o pack-packages.sh compila cada um antes do pack)
+# 2. Instala, compila e empacota os quatro (o pack-packages.sh compila cada um antes do pack)
 cd "$ROOT"
 pnpm install --frozen-lockfile
 PACKS="$(mktemp -d)"

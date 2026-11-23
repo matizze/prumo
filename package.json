@@ -12,8 +12,7 @@
     "test": "pnpm --filter \"./packages/*\" --workspace-concurrency=1 run test",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
     "build": "pnpm --filter \"./packages/*\" run build",
-    "pack:all": "scripts/pack-packages.sh",
-    "verify:new": "scripts/verify-new.sh"
+    "pack:all": "scripts/pack-packages.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",

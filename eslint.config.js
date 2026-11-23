@@ -18,8 +18,8 @@ export default defineConfig([
     languageOptions: { globals: globals.browser },
   },
   {
-    // Código de Node: plugin de ESLint, análise do projeto, CLI e servidor MCP
-    files: ['packages/{rules,cli,mcp}/src/**/*.ts'],
+    // Código de Node: plugin de ESLint, análise do projeto e CLI
+    files: ['packages/{rules,cli}/src/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
 ])

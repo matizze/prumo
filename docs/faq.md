@@ -20,7 +20,7 @@ O Prumo usa o pnpm: o `prumo new` roda `pnpm install`, os scripts do app chamam 
 
 ### Por que Node 24?
 
-O Node 24 é a versão mínima que o Prumo testa e o `prumo doctor` cobra. A CLI e o servidor MCP são escritos em TypeScript moderno e compilados para ES2023.
+O Node 24 é a versão mínima que o Prumo testa e o `prumo doctor` cobra. A CLI é escrita em TypeScript moderno e compilados para ES2023.
 
 ### Preciso usar os geradores?
 
@@ -85,9 +85,9 @@ Os pacotes do Prumo passaram por uma fase provisória no GitHub Packages. Hoje e
 
 O app fica criado na pasta. Corrija o que o pnpm disse (rede, versão do Node) e rode `pnpm install` dentro dela.
 
-### O agente de IA não vê as ferramentas do Prumo
+### O agente de IA não segue as regras do Prumo
 
-Rode `pnpm exec prumo doctor`, que confere o `.mcp.json`. Confira também se as dependências estão instaladas e se o cliente MCP aprovou o servidor do projeto. Veja [Agentes de IA](guides/ai-agents.md#quando-algo-não-funciona).
+Confira se o agente lê o `AGENTS.md` da raiz do projeto (o Claude Code lê o `CLAUDE.md`, que pode importá-lo). Veja [Agentes de IA](guides/ai-agents.md#o-agentsmd).
 
 ### Um gerador diz que não acha o `<Switch>`, o `factories` ou um índice
 

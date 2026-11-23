@@ -82,7 +82,6 @@ const config: Config = {
           items: [
             { label: '@matizze/prumo-cli', href: 'https://www.npmjs.com/package/@matizze/prumo-cli' },
             { label: '@matizze/prumo-core', href: 'https://www.npmjs.com/package/@matizze/prumo-core' },
-            { label: '@matizze/prumo-mcp', href: 'https://www.npmjs.com/package/@matizze/prumo-mcp' },
           ],
         },
         {

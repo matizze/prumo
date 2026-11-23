@@ -470,16 +470,12 @@ function withoutOptional(expression: Node): { inner: Node; optional: boolean } {
  * não é um identificador em camelCase, repetido, tipo fora dos tipos, enum com valor inválido,
  * repetido ou menos de dois valores), com o arquivo, a linha e o nome do campo.
  */
-export function readEntityFields(
-  plan: ChangePlan,
-  names: DomainNames,
-  command = 'make:repository',
-): Field[] {
+export function readEntityFields(plan: ChangePlan, names: DomainNames): Field[] {
   const relative = schemaFile(names)
   const file = path.join(plan.project.root, relative)
   if (!plan.hasFile(file)) {
     throw new UsageError(
-      `falta o schema ${names.plural.kebab} (${relative}); rode prumo make:schema ${names.plural.kebab}${entityFlag(names)}.${unusedSchemasHint(plan, names, command)}`,
+      `falta o schema ${names.plural.kebab} (${relative}); rode prumo make:schema ${names.plural.kebab}${entityFlag(names)}.${unusedSchemasHint(plan, names)}`,
     )
   }
   const object = schemaObject(plan, names, file)
@@ -540,7 +536,7 @@ export function readEntityFields(
  * derivada do domínio: o schema pode ter saído do `make:schema` com `--entity`, e a pessoa esqueceu
  * de repetir a opção. Sem candidatos (ou com `--entity` explícito diferente da derivada), `''`.
  */
-function unusedSchemasHint(plan: ChangePlan, names: DomainNames, command: string): string {
+function unusedSchemasHint(plan: ChangePlan, names: DomainNames): string {
   if (entityFlag(names) !== '') return ''
   const entities = path.join(plan.project.src, 'schemas', 'entities')
   if (!existsSync(entities)) return ''
@@ -556,12 +552,13 @@ function unusedSchemasHint(plan: ChangePlan, names: DomainNames, command: string
     .filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))
     .map((file) => file.slice(0, -3))
     .filter((kebab) => /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(kebab))
-    .filter((kebab) => !contracts.some((text) => text.includes(`${deriveNames(kebab).pascal}Schema`)))
+    .filter((kebab) => {
+      // O nome exato (`PedidoSchema`, com limite de palavra): `PedidoItemSchema` não esconde `item`
+      const used = new RegExp(`\\b${deriveNames(kebab).pascal}Schema\\b`)
+      return !contracts.some((text) => used.test(text))
+    })
   if (candidates.length === 0) return ''
-  const commands = candidates
-    .map((kebab) => `prumo ${command} ${names.plural.kebab} --entity ${kebab}`)
-    .join(' ou ')
-  return ` Se o schema saiu do make:schema com --entity, repita a opção aqui; schemas sem repositório: ${candidates.join(', ')} (rode ${commands}).`
+  return ` Se o schema saiu do make:schema com --entity, repita a opção; schemas sem repositório: ${candidates.join(', ')}.`
 }
 
 /** O que o schema deixa entrar (o `.pick` do `<entidade>InputSchema`) e ordenar (o `<Entidade>SortKey`). */
@@ -603,7 +600,7 @@ export function readEntityShape(
   if (!declaration || !argument || !Node.isObjectLiteralExpression(argument)) {
     return fail(
       declaration?.getStartLineNumber() ?? 1,
-      `não achei 'export const ${inputName} = ${expected}({ campo: true, ... })': não sei quais campos entram na criação`,
+      `não achei 'export const ${inputName} = ${expected}({ campo: true, ... })': só o .pick({ ... }) é aceito (o .omit({ ... }) não), então liste no .pick os campos que entram na criação`,
     )
   }
   const input: string[] = []
@@ -639,6 +636,9 @@ export function readEntityShape(
     const name = (literal as { getLiteralText(): string }).getLiteralText()
     if (!known.has(name) && name !== 'createdAt') {
       fail(line, `o ${sortName} tem '${name}', que não é campo do ${names.singular.camel}Schema (nem createdAt)`)
+    }
+    if (fields.some((field) => field.name === name && field.type === 'boolean')) {
+      fail(line, `o ${sortName} tem '${name}', que é booleano: a lista não ordena por booleano (o --fields também não gera essa chave)`)
     }
     sort.push(name)
   }

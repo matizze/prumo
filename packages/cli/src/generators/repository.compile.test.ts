@@ -208,6 +208,14 @@ describe('o repositório gerado compila (tsc estrito) e passa no contrato', () =
     expect(tests.status, tests.output).toBe(0)
   }, 120_000)
 
+  it('recusa um booleano na SortKey, em vez de gerar um mock que não compila', async () => {
+    const root = await project()
+    edit(root, (text) => text.replace(/export type ClienteSortKey =[^\n]*/, "export type ClienteSortKey = 'nome' | 'ativo' | 'createdAt'"))
+    const result = await exec(['make:repository', 'clientes'], root)
+    expect(result.code).toBe(2)
+    expect(result.stderr).toMatch(/cliente\.ts:\d+: o ClienteSortKey tem 'ativo', que é booleano/)
+  })
+
   it('com uma SortKey sem createdAt e um campo obrigatório fora do pick', async () => {
     const root = await project()
     edit(root, (text) =>

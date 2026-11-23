@@ -493,8 +493,21 @@ describe('a dica do schema que falta, quando há schemas sem repositório', () =
     expect(message).toContain('rode prumo make:schema paes.')
     expect(message).toContain('repita a opção')
     expect(message).toContain('schemas sem repositório: pao')
-    expect(message).toContain('rode prumo make:repository paes --entity pao')
+    expect(message).toContain('repita a opção; schemas sem repositório: pao.')
+    expect(message).not.toContain('make:repository')
     expect(message).not.toContain('usado')
+  })
+
+  it('o uso é pelo nome exato: PedidoItemSchema não esconde o schema item', () => {
+    const root = makeProject({
+      'src/schemas/entities/item.ts': 'export const itemSchema = 1\n',
+      'src/schemas/entities/pedido-item.ts': 'export const pedidoItemSchema = 1\n',
+      'src/repositories/pedido-itens/repository.contract.ts': 'import type { PedidoItemSchema } from "@/schemas"\n',
+    })
+    const plan = new ChangePlan(findProject(root))
+    expect(() => readEntityFields(plan, domainNames('vendas'))).toThrow(
+      /schemas sem repositório: item\.$/,
+    )
   })
 
   it('com --entity explícito (diferente da derivada), não sugere outra entidade', () => {
@@ -534,6 +547,14 @@ export type LivroSortKey =${sortKey}
       input: ['titulo'],
       sort: ['ano', 'createdAt'],
     })
+  })
+
+  it('recusa booleano na SortKey e explica o .pick no lugar do .omit', () => {
+    const withBoolean = SCHEMA('{ titulo: true }', " 'ativo'").replace('  ano: z.number(),', '  ano: z.number(),\n  ativo: z.boolean(),')
+    expect(() => read(withBoolean)).toThrow(/livro\.ts:13: o LivroSortKey tem 'ativo', que é booleano/)
+    expect(() =>
+      read(SCHEMA('{ titulo: true }', " 'titulo'").replace('livroSchema.pick({ titulo: true })', "livroSchema.omit({ id: true, createdAt: true })")),
+    ).toThrow(/só o \.pick\(\{ \.\.\. \}\) é aceito \(o \.omit/)
   })
 
   it('recusa, com o arquivo e a linha, o que não dá para ler', () => {

@@ -104,7 +104,7 @@ describe('generateRepository', () => {
   it('sem o schema, mas com outro sem repositório, a dica manda repetir o --entity', () => {
     const project = projectWithSchema('paes', 'nome:string', 'pao')
     expect(() => generateRepository(project, { name: 'paes' })).toThrow(
-      'rode prumo make:repository paes --entity pao',
+      /repita a opção; schemas sem repositório: pao\./
     )
   })
 

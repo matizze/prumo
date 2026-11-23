@@ -39,7 +39,7 @@ A documentação segue quatro tipos de texto, cada um para um momento:
 
 | Referência                               | Conteúdo                                                                          |
 | ---------------------------------------- | --------------------------------------------------------------------------------- |
-| [CLI](reference/cli.md)                 | Os seis comandos do `prumo`, opções, arquivos criados, saídas e códigos de saída  |
+| [CLI](reference/cli.md)                 | Opções globais, a ajuda e os códigos de saída do `prumo` (os comandos estão sendo reescritos) |
 | [core](reference/core.md)               | `@matizze/prumo-core`: repositórios, query, i18n, erros, dados, mock e auth       |
 | [rules](reference/rules.md)             | `@matizze/prumo-rules`: as regras de ESLint e a análise do `prumo check`          |
 | [testing](reference/testing.md)         | `@matizze/prumo-testing`: render com provedores, DOM e teste de contrato          |

@@ -25,6 +25,12 @@ const fake: RegisterCommand = (program) => {
   program.command('misuse').action(() => {
     throw new UsageError('o nome já existe.')
   })
+  program
+    .command('parse-fail')
+    .option('--fields <campos>', 'Os campos.', (value) => {
+      throw new UsageError(`campo inválido: ${value}.`)
+    })
+    .action(() => {})
   program.command('crash').action(() => {
     throw new Error('quebrou')
   })
@@ -187,6 +193,40 @@ describe('erros de uso (saída 2)', () => {
 
   it('UsageError lançado pelo comando mostra a ajuda do próprio comando', async () => {
     await usageError(['misuse'], 'o nome já existe.', 'prumo misuse')
+  })
+
+  it('UsageError lançado pelo parser de uma opção mostra a ajuda do comando, não a da raiz', async () => {
+    await usageError(
+      ['parse-fail', '--fields', 'x'],
+      'campo inválido: x.',
+      'prumo parse-fail [opções]',
+    )
+  })
+
+  it('UsageError lançado pelo parser num subcomando de um grupo mostra a ajuda dele', async () => {
+    const nested: RegisterCommand = (program) => {
+      program
+        .command('outer')
+        .command('inner')
+        .option('--n <n>', 'Um número.', () => {
+          throw new UsageError('número inválido.')
+        })
+        .action(() => {})
+    }
+    const { code, err } = await exec(['outer', 'inner', '--n', '1'], [nested])
+    expect(code).toBe(2)
+    expect(err.startsWith('prumo: número inválido.\n\nUso: prumo outer inner [opções]')).toBe(true)
+  })
+
+  it('erro ao montar o programa (comando duplicado) sai com 1 e a mensagem de erro inesperado', async () => {
+    const twice: RegisterCommand = (program) => {
+      program.command('dup').action(() => {})
+      program.command('dup').action(() => {})
+    }
+    const { code, out, err } = await exec(['dup'], [twice])
+    expect(code).toBe(1)
+    expect(out).toBe('')
+    expect(err).toContain('prumo: erro inesperado.')
   })
 
   it('grupo chamado sem subcomando sai com 2', async () => {

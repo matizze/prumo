@@ -212,29 +212,37 @@ export async function run(
   io: Io,
   commands: readonly RegisterCommand[] = builtinCommands,
 ): Promise<number> {
-  const program = createProgram(io, commands)
-  if (argv.length === 0) {
-    io.out(program.helpInformation())
-    return 0
-  }
-
-  // O comando que está rodando, para mostrar a ajuda dele num UsageError lançado pela ação
-  let current: Command = program
-  program.hook('preAction', (_program, action) => {
-    current = action
-  })
-
+  // O comando que está rodando, para mostrar a ajuda dele num UsageError (inclusive o lançado pelo
+  // parser de uma opção ou argumento, que roda antes da ação)
+  let current: Command | undefined
   const usage = (message: string, command: Command): number => {
     io.err(`${NAME}: ${message}\n\n${command.helpInformation({ error: true })}`)
     return 2
   }
 
   try {
+    const program = createProgram(io, commands)
+    current = program
+    if (argv.length === 0) {
+      io.out(program.helpInformation())
+      return 0
+    }
+    // O preSubcommand roda antes do parse das opções do subcomando; vale para cada nível da árvore
+    const track = (command: Command): void => {
+      command.hook('preSubcommand', (_command, subcommand) => {
+        current = subcommand
+      })
+      command.commands.forEach(track)
+    }
+    track(program)
+    program.hook('preAction', (_command, action) => {
+      current = action
+    })
     await program.parseAsync([...argv], { from: 'user' })
     return 0
   } catch (error) {
     if (error instanceof ParseUsageError) return usage(error.message, error.command)
-    if (error instanceof UsageError) return usage(error.message, current)
+    if (error instanceof UsageError && current) return usage(error.message, current)
     if (error instanceof ExitError) {
       if (error.message) io.err(`${error.message}\n`)
       return error.code

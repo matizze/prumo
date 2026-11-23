@@ -14,9 +14,16 @@ function section(title: string, files: string[]): string {
 }
 
 /** O que o plano criou e alterou, em texto. `dryRun` troca os verbos para o futuro do pretérito. */
-export function formatSummary({ created, modified }: PlanSummary, dryRun: boolean): string {
-  const [made, changed] = dryRun ? ['Seriam criados', 'Seriam alterados'] : ['Criados', 'Alterados']
-  return [section(made, created), section(changed, modified)].filter(Boolean).join('\n')
+export function formatSummary(
+  { created, modified, removed = [] }: PlanSummary,
+  dryRun: boolean,
+): string {
+  const [made, changed, gone] = dryRun
+    ? ['Seriam criados', 'Seriam alterados', 'Seriam removidos']
+    : ['Criados', 'Alterados', 'Removidos']
+  return [section(made, created), section(changed, modified), section(gone, removed)]
+    .filter(Boolean)
+    .join('\n')
 }
 
 /** Se o projeto tem o script do `package.json` (`test` roda o Vitest do projeto). */

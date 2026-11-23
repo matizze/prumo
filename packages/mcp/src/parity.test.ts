@@ -75,6 +75,7 @@ describe('paridade das ferramentas com a ajuda do prumo', async () => {
       'make:component',
       'make:domain',
       'make:page',
+      'move:component',
       'new',
     ])
   })

@@ -103,7 +103,7 @@ pnpm exec prumo make:component filtro --page clientes
 
 Cria `src/pages/clientes/components/filtro.tsx` e o teste. Componentes da tela recebem dados e textos por props, como a view: quem traduz e busca é o model.
 
-Quando uma segunda tela precisar do mesmo componente, mova-o para `src/components/shared` (ou gere-o lá com `--shared`). O `prumo check` acusa o componente compartilhado que só uma tela usa.
+Quando uma segunda tela precisar do mesmo componente, promova-o a compartilhado com `prumo move:component <nome> --from <tela> --shared`: ele move o componente e o teste para `src/components/shared` e reescreve os imports. Logo depois, o `prumo check` mostra a violação `shared-usage` como esperada (o componente ainda é de uma tela só) até a segunda tela importá-lo. Gerar um segundo componente com `make:component --shared` não é o caminho: o comando avisa quando já existe um de mesmo nome em outra tela.
 
 ## Rotas
 

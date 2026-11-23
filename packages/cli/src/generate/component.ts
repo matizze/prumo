@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { assertValidName, ChangePlan, usableNames, type Names } from '../codemod/index.ts'
 import { UsageError } from '../errors.ts'
@@ -29,6 +29,24 @@ export interface ComponentResult {
   file: string
   /** A tela, quando o componente é dela. */
   page?: Names
+  /** Avisos (não recusas): já existe um componente com o mesmo nome em outro lugar. */
+  warnings: string[]
+}
+
+/** Os componentes de mesmo nome que já existem, em telas e em `shared`, relativos à raiz, em posix. */
+function sameNameElsewhere(project: Project, kebab: string): { file: string; page?: string }[] {
+  const found: { file: string; page?: string }[] = []
+  const sharedFile = path.join(project.src, 'components', 'shared', `${kebab}.tsx`)
+  if (existsSync(sharedFile)) found.push({ file: `src/components/shared/${kebab}.tsx` })
+  if (existsSync(project.pages)) {
+    for (const entry of readdirSync(project.pages, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue
+      if (existsSync(path.join(project.pages, entry.name, 'components', `${kebab}.tsx`))) {
+        found.push({ file: `src/pages/${entry.name}/components/${kebab}.tsx`, page: entry.name })
+      }
+    }
+  }
+  return found
 }
 
 /**
@@ -73,11 +91,20 @@ export function generateComponent(
       renderTemplateFile(template, vars),
     )
   }
+  const file = `${folder}/${names.kebab}.tsx`
+  const warnings = sameNameElsewhere(project, names.kebab)
+    .filter((other) => other.file !== file)
+    .map((other) =>
+      other.page === undefined
+        ? `já existe um componente '${names.kebab}' em ${other.file}: em vez de criar outro, importe-o de '@/components/shared/${names.kebab}'.`
+        : `já existe um componente '${names.kebab}' em ${other.file}: se as duas telas precisam dele, promova o da tela em vez de criar outro (prumo move:component ${names.kebab} --from ${other.page} --shared).`,
+    )
   return {
     plan,
     names,
     folder,
-    file: `${folder}/${names.kebab}.tsx`,
+    file,
+    warnings,
     ...(pageNames ? { page: pageNames } : {}),
   }
 }

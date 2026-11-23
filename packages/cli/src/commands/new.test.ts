@@ -211,6 +211,7 @@ export default function App() {
     for (const text of [
       'pages/<tela>/',
       'make:page',
+      'move:component',
       'make:domain',
       'make:component',
       'pnpm verify',

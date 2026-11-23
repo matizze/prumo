@@ -1,10 +1,11 @@
 import { createInstance } from 'i18next'
+import ICU from 'i18next-icu'
 import { describe, expect, it } from 'vitest'
 import { createErrorMessage, UIError } from './index.ts'
 
 /** Instância i18next só com mensagens de fixture: o teste não depende dos textos de um produto. */
 function createFixture() {
-  const i18n = createInstance()
+  const i18n = createInstance().use(ICU)
   void i18n.init({
     lng: 'pt-BR',
     initAsync: false,
@@ -13,7 +14,12 @@ function createFixture() {
     resources: {
       'pt-BR': {
         translation: {
-          errors: { generic: 'Algo deu errado.', NOT_FOUND: 'Não encontrado.' },
+          errors: {
+            generic: 'Algo deu errado.',
+            NOT_FOUND: 'Não encontrado.',
+            LOAN_LIMIT:
+              'Você já tem {limite, plural, one {# livro emprestado} other {# livros emprestados}}.',
+          },
           falhas: { generica: 'Falha genérica.', NOT_FOUND: 'Item não encontrado.' },
         },
       },
@@ -85,5 +91,31 @@ describe('createErrorMessage', () => {
 
   it('lança na criação com a instância ainda sem inicializar', () => {
     expect(() => createErrorMessage(createInstance())).toThrow(/errors\.generic/)
+  })
+
+  it('o UIError leva params para o texto ICU', () => {
+    const getErrorMessage = createErrorMessage(createFixture())
+
+    expect(getErrorMessage(new UIError('LOAN_LIMIT', 'x', { limite: 3 }))).toBe(
+      'Você já tem 3 livros emprestados.',
+    )
+    expect(getErrorMessage(new UIError('LOAN_LIMIT', 'x', { limite: 1 }))).toBe(
+      'Você já tem 1 livro emprestado.',
+    )
+  })
+
+  it('traduz um código solto, com params, sem montar um UIError', () => {
+    const getErrorMessage = createErrorMessage(createFixture())
+
+    expect(getErrorMessage('LOAN_LIMIT', { limite: 3 })).toBe('Você já tem 3 livros emprestados.')
+    expect(getErrorMessage('NOT_FOUND')).toBe('Não encontrado.')
+    expect(getErrorMessage('SEM_TRADUCAO', { limite: 3 })).toBe('Algo deu errado.')
+  })
+
+  it('params informados valem mais que os do UIError', () => {
+    const getErrorMessage = createErrorMessage(createFixture())
+    const error = new UIError('LOAN_LIMIT', 'x', { limite: 3 })
+
+    expect(getErrorMessage(error, { limite: 5 })).toBe('Você já tem 5 livros emprestados.')
   })
 })

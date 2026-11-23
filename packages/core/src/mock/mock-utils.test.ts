@@ -79,8 +79,7 @@ describe('utilitários de mock', () => {
     expect(sum([])).toBe(0)
   })
 
-  it('addDays soma dias em UTC e devolve AAAA-MM-DD', () => {
+  it('continua exportando addDays, que mora em ../date', () => {
     expect(addDays('2026-02-27', 2)).toBe('2026-03-01')
-    expect(addDays('2026-11-20T15:30:00Z', -20)).toBe('2026-10-31')
   })
 })

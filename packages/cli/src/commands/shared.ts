@@ -14,9 +14,16 @@ function section(title: string, files: string[]): string {
 }
 
 /** O que o plano criou e alterou, em texto. `dryRun` troca os verbos para o futuro do pretérito. */
-export function formatSummary({ created, modified }: PlanSummary, dryRun: boolean): string {
-  const [made, changed] = dryRun ? ['Seriam criados', 'Seriam alterados'] : ['Criados', 'Alterados']
-  return [section(made, created), section(changed, modified)].filter(Boolean).join('\n')
+export function formatSummary(
+  { created, modified, removed = [] }: PlanSummary,
+  dryRun: boolean,
+): string {
+  const [made, changed, gone] = dryRun
+    ? ['Seriam criados', 'Seriam alterados', 'Seriam removidos']
+    : ['Criados', 'Alterados', 'Removidos']
+  return [section(made, created), section(changed, modified), section(gone, removed)]
+    .filter(Boolean)
+    .join('\n')
 }
 
 /** Se o projeto tem o script do `package.json` (`test` roda o Vitest do projeto). */
@@ -72,32 +79,61 @@ export interface ExpectedViolation {
   note: string
 }
 
+/** A identidade de uma violação, para compará-la antes e depois: a regra, o arquivo e o texto. */
+function violationKey({ rule, file, message }: Violation): string {
+  return `${rule}\u0000${file}\u0000${message}`
+}
+
+/**
+ * O `prumo check` do projeto antes de o comando escrever qualquer coisa: o que já estava errado
+ * não é culpa do `make:*`. Chame antes do `plan.commit()` e passe o resultado ao `finishWithCheck`.
+ */
+export function checkBefore(project: Project): Violation[] {
+  return check({ root: project.root })
+}
+
 /**
  * O fim de um comando `make:*`: roda o `prumo check` no projeto e escreve o resultado, seguido do
- * `next` (o que fazer agora). Sem violação, sai normalmente. Com violação, escreve cada uma no
- * stderr e sai com 1, já com os arquivos gerados (`generated`: `a tela foi gerada`). As violações
- * que `expected` reconhece não contam como falha: o comando as mostra e explica.
+ * `next` (o que fazer agora). O comando falha (saída 1, já com os arquivos gerados: `generated`,
+ * `a tela foi gerada`) só pelo que **ele** causou: a violação que já existia no `before` (o check
+ * de antes da geração) é mostrada como preexistente e não muda o código de saída, e a que
+ * `expected` reconhece (do próprio comando) é mostrada e explicada.
  */
 export function finishWithCheck(
   runtime: Runtime,
   project: Project,
-  { generated, next, expected }: { generated: string; next: string; expected?: ExpectedViolation },
+  {
+    generated,
+    next,
+    expected,
+    before = [],
+  }: { generated: string; next: string; expected?: ExpectedViolation; before?: Violation[] },
 ): void {
   const violations = check({ root: project.root })
-  const known = expected ? violations.filter(expected.matches) : []
-  const found = violations.filter((violation) => !known.includes(violation))
+  const existing = new Set(before.map(violationKey))
+  const preexisting = violations.filter((violation) => existing.has(violationKey(violation)))
+  const caused = violations.filter((violation) => !existing.has(violationKey(violation)))
+  const known = expected ? caused.filter(expected.matches) : []
+  const found = caused.filter((violation) => !known.includes(violation))
+
+  const old =
+    preexisting.length === 0
+      ? ''
+      : `\nPreexistentes (${preexisting.length}; já estavam no projeto antes deste comando e não mudam o código de saída):\n${preexisting.map((violation) => `  ${formatViolation(violation)}`).join('\n')}\n`
 
   if (found.length === 0) {
     if (expected && known.length > 0) {
       runtime.out(
-        `prumo check: ${expected.intro}\n${known.map(formatViolation).join('\n')}\n${expected.note}\n\n${next}`,
+        `prumo check: ${expected.intro}\n${known.map(formatViolation).join('\n')}\n${expected.note}\n${old}\n${next}`,
       )
+    } else if (preexisting.length > 0) {
+      runtime.out(`prumo check: nenhuma violação nova.\n${old}\n${next}`)
     } else runtime.out(`prumo check: nenhuma violação.\n\n${next}`)
     return
   }
   const total = found.length === 1 ? '1 violação' : `${found.length} violações`
   runtime.err(
-    `prumo check: ${total} (${generated}, e os arquivos ficaram no projeto):\n${found.map(formatViolation).join('\n')}\n`,
+    `prumo check: ${total} (${generated}, e os arquivos ficaram no projeto):\n${found.map(formatViolation).join('\n')}\n${old}`,
   )
   runtime.out(`\n${next}`)
   throw new ExitError(1)

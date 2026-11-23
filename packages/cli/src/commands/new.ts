@@ -58,8 +58,8 @@ O package.json do app fixa o pnpm em packageManager (pnpm@<versão>): a versão 
 rodou o comando (npm_config_user_agent) ou, na falta dela, de pnpm --version; sem nenhuma das duas,
 o campo fica de fora. Assim o prumo doctor do app não avisa que falta o packageManager.
 
-Os scripts do app são dev, build, typecheck, lint, check, test e verify (typecheck, lint, check e
-test, sem navegador). Os pacotes do Prumo entram como ^<versão>; com --packages, o app instala os
+Os scripts do app são dev, build, typecheck, lint, check, test e verify (typecheck, lint, test e
+check, sem navegador; os testes rodam antes do check, para que uma violação do check não os esconda). Os pacotes do Prumo entram como ^<versão>; com --packages, o app instala os
 tarballs da pasta (pnpm.overrides com file:), o que serve a quem ainda não tem os pacotes num
 registry. Roda git init (sem commit) e pnpm install, a não ser com --no-install.
 
@@ -193,12 +193,13 @@ function nextSteps(runtime: Runtime, destination: string, installed: boolean): s
   const steps = [
     `cd ${folder}`,
     ...(installed ? [] : ['pnpm install']),
-    'pnpm verify                                   # typecheck, lint, check e test',
+    'pnpm verify                                   # typecheck, lint, test e check',
     'pnpm dev                                      # o app em http://localhost:5173',
-    'pnpm exec prumo make:domain clientes          # um domínio de dados (schema, repositório e queries)',
-    'pnpm exec prumo make:page clientes --domain clientes  # uma tela que lista o domínio',
+    'pnpm exec prumo make:domain <domínio>         # um domínio de dados (schema, repositório e queries)',
+    'pnpm exec prumo make:page <tela>              # uma tela (com --domain <domínio>, uma que lista o domínio)',
   ]
   const agent =
     'Um agente de IA (o Claude Code, por exemplo) lê o .mcp.json deste app e ganha o servidor prumo: cada comando da CLI vira uma ferramenta (mcp__prumo__make_page, mcp__prumo__check...).'
-  return `\nPróximos passos:\n${steps.map((step) => `  ${step}`).join('\n')}\n\n${agent}\n`
+  const docs = 'A documentação (tutorial, conceitos e guias): https://docs.prumo.matizze.com.br'
+  return `\nPróximos passos:\n${steps.map((step) => `  ${step}`).join('\n')}\n\n${docs}\n\n${agent}\n`
 }

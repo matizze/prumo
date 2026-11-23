@@ -14,20 +14,23 @@ const {{plural.camel}}Contract = defineContractSuite<I{{plural.pascal}}Repositor
       expect(new Set(items.map((item) => item.id)).size).toBe(MOCK_{{plural.constant}}.length)
     })
 
-    it('busca pelo nome, sem diferenciar maiúsculas e acentos', async () => {
-      const { items } = await repo.list({ search: 'EXEMPLO 2' })
-      expect(items.map((item) => item.name)).toEqual(['Exemplo 2'])
+    it('busca {{fields.searchPhrase}}, sem diferenciar maiúsculas e acentos', async () => {
+      const { items } = await repo.list({ search: {{test.searchTerm}} })
+      expect(items.map((item) => item.{{test.searchField}})).toEqual([{{test.searchHit}}])
       expect((await repo.list({ search: 'nada disso' })).total).toBe(0)
     })
 
     it('ordena e pagina, com o total de antes da página', async () => {
       const page = await repo.list({
-        sort: { key: 'name', direction: 'desc' },
+        sort: { key: '{{test.sortKey}}', direction: 'desc' },
         page: 1,
         page_size: 2,
       })
       expect(page.total).toBe(MOCK_{{plural.constant}}.length)
-      expect(page.items.map((item) => item.name)).toEqual(['Exemplo 3', 'Exemplo 2'])
+      expect(page.items.map((item) => item.{{test.sortKey}})).toEqual([
+        {{test.sortFirst}},
+        {{test.sortSecond}},
+      ])
     })
 
     it('busca um registro e rejeita um id que não existe', async () => {
@@ -39,8 +42,8 @@ const {{plural.camel}}Contract = defineContractSuite<I{{plural.pascal}}Repositor
     })
 
     it('cria um registro com id e data, e ele aparece na lista', async () => {
-      const created = await repo.create({ name: 'Novo' })
-      expect(created).toMatchObject({ name: 'Novo' })
+      const created = await repo.create({{test.newInput}})
+      expect(created).toMatchObject({{test.newInput}})
       expect(created.id).not.toBe('')
       expect(Number.isNaN(Date.parse(created.createdAt))).toBe(false)
       const { items, total } = await repo.list()
@@ -50,12 +53,19 @@ const {{plural.camel}}Contract = defineContractSuite<I{{plural.pascal}}Repositor
     })
 
     it('edita um registro e rejeita um id que não existe', async () => {
-      const updated = await repo.update('{{singular.kebab}}-1', { name: 'Renomeado' })
-      expect(updated).toMatchObject({ id: '{{singular.kebab}}-1', name: 'Renomeado' })
-      expect((await repo.get('{{singular.kebab}}-1')).name).toBe('Renomeado')
-      await expect(repo.update('{{singular.kebab}}-missing', { name: 'x' })).rejects.toMatchObject({
+      const updated = await repo.update('{{singular.kebab}}-1', { {{test.editName}}: {{test.editValue}} })
+      expect(updated).toMatchObject({ id: '{{singular.kebab}}-1', {{test.editName}}: {{test.editValue}} })
+      expect((await repo.get('{{singular.kebab}}-1')).{{test.editName}}).toBe({{test.editValue}})
+      await expect(repo.update('{{singular.kebab}}-missing', { {{test.editName}}: {{test.editValue}} })).rejects.toMatchObject({
         code: '{{singular.constant}}_NOT_FOUND',
       })
+    })
+
+    it('edita só os campos enviados e mantém os outros', async () => {
+      const before = await repo.get('{{singular.kebab}}-1')
+      expect(await repo.update('{{singular.kebab}}-1', {})).toEqual(before)
+      const updated = await repo.update('{{singular.kebab}}-1', { {{test.editName}}: {{test.partialValue}} })
+      expect(updated).toEqual({ ...before, {{test.editName}}: {{test.partialValue}} })
     })
 
     it('remove um registro e rejeita um id que não existe', async () => {

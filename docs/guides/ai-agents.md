@@ -65,7 +65,7 @@ Os campos de cada ferramenta têm o nome do argumento na CLI:
 | Ferramenta       | Campos                                             |
 | ---------------- | -------------------------------------------------- |
 | `new`            | `nome`, `dir`, `packages`, `install`, `dry-run`    |
-| `make_page`      | `nome`, `domain`, `root`, `dry-run`                |
+| `make_page`      | `nome`, `domain`, `path`, `root`, `dry-run`        |
 | `make_domain`    | `nome`, `entity`, `root`, `dry-run`                |
 | `make_component` | `nome`, `page`, `shared`, `root`, `dry-run`        |
 | `check`          | `root`                                             |

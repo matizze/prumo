@@ -1,6 +1,9 @@
+import { parseLocalDate } from '../date/index.ts'
+
 type DateInput = Date | number | string
 
-const toDate = (value: DateInput) => (value instanceof Date ? value : new Date(value))
+/** `AAAA-MM-DD` é a data local (o dia escrito); o resto segue o `Date`. */
+const toDate = parseLocalDate
 
 /** Unidades de `relative`, da maior para a menor, com o tamanho em segundos. */
 const RELATIVE_UNITS: readonly [Intl.RelativeTimeFormatUnit, number][] = [
@@ -64,7 +67,7 @@ export function createFormat<L extends string>(
     /** Moeda padrão do produto (BRL, se nada for configurado); passe o código ISO para outra ("USD"). */
     currency: (value: number, currency = defaultCurrency, options?: Intl.NumberFormatOptions) =>
       number(value, { style: 'currency', currency, ...options }),
-    /** Só a data. Padrão: dia, mês abreviado e ano ("17 de nov. de 2026"). */
+    /** Só a data; texto `AAAA-MM-DD` é o dia escrito, no fuso local. Padrão: dia, mês abreviado e ano ("17 de nov. de 2026"). */
     date: (value: DateInput, options: Intl.DateTimeFormatOptions = { dateStyle: 'medium' }) =>
       cached('d', locale, options, () => new Intl.DateTimeFormat(locale, options)).format(
         toDate(value),

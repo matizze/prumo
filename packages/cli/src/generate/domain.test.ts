@@ -128,7 +128,7 @@ export function createClientesRepository({ latencyMs }: RepositoryOptions): ICli
     expect(queries).toContain("export const clienteKeys = createQueryKeys('clientes', {")
     expect(queries).toContain('export const clienteQueries = {')
     for (const hook of [
-      'useClientesList(query: ClienteListQuery = {})',
+      'useClientesList(',
       'useClienteDetail(id: string)',
       'useCreateCliente()',
       'useUpdateCliente()',
@@ -137,7 +137,13 @@ export function createClientesRepository({ latencyMs }: RepositoryOptions): ICli
       expect(queries).toContain(`export function ${hook}`)
     }
     expect(queries).toContain('useRepositories().clientes')
-    expect(queries.match(/invalidateQueries\(\{ queryKey: clienteKeys\.all \}\)/g)).toHaveLength(3)
+    // criar e editar invalidam o domínio; remover tira o detalhe do cache e invalida só as listas
+    expect(queries.match(/invalidateQueries\(\{ queryKey: clienteKeys\.all \}\)/g)).toHaveLength(2)
+    expect(queries).toContain('queryClient.removeQueries({ queryKey: clienteKeys.detail(id) })')
+    expect(queries).toContain('invalidateQueries({ queryKey: clienteKeys.lists })')
+    // a lista aceita opções e mantém os dados anteriores por padrão
+    expect(queries).toContain('options: ClientesListOptions = {}')
+    expect(queries).toContain('placeholderData: keepPreviousData')
   })
 
   it('registra o domínio nos três índices, no lugar certo de cada um', () => {
@@ -267,5 +273,86 @@ describe('generateDomain, recusas (UsageError, saída 2)', () => {
         `o projeto não tem src/${index}/index.ts.`,
       )
     }
+  })
+})
+
+describe('generateDomain com fields', () => {
+  const FIELDS = 'titulo:string,autor:string,ano:number,disponivel:boolean,publicadoEm:date,apelido?:string'
+
+  it('o schema, a entrada e a chave de ordem têm os campos, no lugar do name', () => {
+    const { plan, fields } = generateDomain(fixtureProject(), { name: 'livros', fields: FIELDS })
+    const schema = textOf(plan, 'src/schemas/entities/livro.ts')
+
+    expect(fields.map((field) => field.name)).toEqual([
+      'titulo',
+      'autor',
+      'ano',
+      'disponivel',
+      'publicadoEm',
+      'apelido',
+    ])
+    expect(schema).toContain(`export const livroSchema = z.object({
+  id: z.string(),
+  titulo: z.string(),
+  autor: z.string(),
+  ano: z.number(),
+  disponivel: z.boolean(),
+  publicadoEm: z.iso.date(),
+  apelido: z.string().optional(),
+  createdAt: z.string(),
+})`)
+    // A linha passaria de 100 colunas: o pick sai uma entrada por linha
+    expect(schema).toContain(
+      'livroSchema.pick({\n  titulo: true,\n  autor: true,\n  ano: true,\n  disponivel: true,\n  publicadoEm: true,\n  apelido: true,\n})',
+    )
+    expect(schema).toContain("export type LivroSortKey = 'titulo' | 'autor' | 'ano' | 'publicadoEm' | 'apelido' | 'createdAt'")
+    expect(schema).toContain('/** Busca pelos campos titulo, autor, apelido, sem')
+    expect(schema).not.toContain('name')
+  })
+
+  it('as fixtures, o mock e o contrato seguem os campos', () => {
+    const { plan } = generateDomain(fixtureProject(), { name: 'livros', fields: FIELDS })
+    const fixtures = textOf(plan, 'src/repositories/livros/fixtures.ts')
+    const mock = textOf(plan, 'src/repositories/livros/repository.mock.ts')
+    const contract = textOf(plan, 'src/repositories/livros/repository.contract.test.ts')
+
+    expect(fixtures).toContain("titulo: 'Titulo 1'")
+    expect(fixtures).toContain('ano: 30')
+    expect(fixtures).toContain('disponivel: true')
+    expect(fixtures).toContain("publicadoEm: '2026-01-14'")
+    expect(mock).toContain("matchesSearch([item.titulo, item.autor, item.apelido ?? ''], query.search)")
+    expect(mock).toContain('      ano: (item) => item.ano,')
+    expect(mock).toContain("      apelido: (item) => item.apelido ?? '',")
+    expect(mock).not.toContain('disponivel: (item)')
+    expect(mock).toContain('      disponivel: input.disponivel,')
+    expect(contract).toContain("search: 'TITULO 2'")
+    expect(contract).toContain("key: 'titulo'")
+    expect(contract).toContain("repo.create({\n        titulo: 'Titulo 4',\n        autor: 'Autor 4',")
+    expect(contract).toContain("{ titulo: 'Titulo editado' }")
+    expect(contract).not.toContain('Exemplo')
+  })
+
+  it('o contrato de um domínio sem texto busca pelo id e ordena pelo createdAt', () => {
+    const { plan } = generateDomain(fixtureProject(), { name: 'avisos', fields: 'ativo:boolean' })
+    const contract = textOf(plan, 'src/repositories/avisos/repository.contract.test.ts')
+
+    expect(contract).toContain("search: 'AVISO-2'")
+    expect(contract).toContain('item.id)).toEqual([\'aviso-2\'])')
+    expect(contract).toContain("key: 'createdAt'")
+  })
+
+  it('campos inválidos são erro de uso e não escrevem nada', () => {
+    const project = fixtureProject()
+    const before = readFileSync(path.join(project.src, 'schemas', 'index.ts'), 'utf8')
+
+    expect(() => generateDomain(project, { name: 'livros', fields: 'id:string' })).toThrow(UsageError)
+    expect(() => generateDomain(project, { name: 'livros', fields: '' })).toThrow(UsageError)
+    expect(readFileSync(path.join(project.src, 'schemas', 'index.ts'), 'utf8')).toBe(before)
+  })
+
+  it('sem fields devolve o campo name', () => {
+    const { fields } = generateDomain(fixtureProject(), { name: 'clientes' })
+
+    expect(fields).toEqual([{ name: 'name', type: 'string', optional: false }])
   })
 })

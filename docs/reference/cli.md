@@ -12,6 +12,7 @@ prumo <comando> [opções]
 | [`make:page`](#prumo-makepage)              | Gera uma tela: index, model, view, teste, mensagens e rota                              |
 | [`make:domain`](#prumo-makedomain)          | Gera um domínio de dados: schema, repositório com mock, queries e teste de contrato     |
 | [`make:component`](#prumo-makecomponent)    | Gera um componente, só com elementos HTML, e o teste dele                               |
+| [`move:component`](#prumo-movecomponent)    | Promove um componente de uma tela a compartilhado, com o teste e os imports              |
 | [`check`](#prumo-check)                     | Analisa o projeto e lista as violações da arquitetura                                   |
 | [`doctor`](#prumo-doctor)                   | Confere o ambiente e o projeto: Node, pnpm, pacotes do Prumo e `.mcp.json`              |
 
@@ -56,14 +57,14 @@ Um nome que vira palavra reservada do JavaScript (`new`, `class`, `default`, `de
 
 **`--root <pasta>`.** Os comandos que agem num projeto aceitam a pasta dele (a que tem `package.json` e `src`). O padrão é a pasta atual. Uma pasta que não existe, não é pasta ou não tem `package.json` e `src` é erro de uso (o `doctor` exige só o `package.json`).
 
-**`prumo check` no fim.** Os geradores `make:*` rodam a análise da arquitetura depois de escrever e mostram o resultado, seguido do próximo passo e do comando dos testes do que foi gerado.
+**`prumo check` no fim.** Os geradores `make:*` rodam a análise da arquitetura depois de escrever e mostram o resultado, seguido do próximo passo e do comando dos testes do que foi gerado. O comando só falha (código 1) pelas violações que **ele** causou: antes de escrever, ele roda o `check` e guarda o resultado, e a violação que já existia (a mesma regra, arquivo e mensagem) aparece rotulada como **preexistente** (`Preexistentes (N; já estavam no projeto antes deste comando...)`) e não muda o código de saída. Sem violação nova, a primeira linha é `prumo check: nenhuma violação nova.` O `prumo check` em si não muda: ele lista tudo.
 
 ### Códigos de saída
 
 | Código | Significado                                                                                                    |
 | ------ | -------------------------------------------------------------------------------------------------------------- |
 | `0`    | Sucesso                                                                                                        |
-| `1`    | O `check` achou violação (também no fim de um `make:*`, com os arquivos já gerados), o `doctor` achou erro, o `pnpm install` do `new` falhou, ou erro inesperado |
+| `1`    | O `check` achou violação (no fim de um `make:*`, só a violação nova, causada pelo comando, com os arquivos já gerados), o `doctor` achou erro, o `pnpm install` do `new` falhou, ou erro inesperado |
 | `2`    | Uso errado: comando ou opção desconhecidos, argumento que falta, nome inválido, pasta que não é projeto, arquivo que já existe, ponto de registro que falta |
 
 A mensagem de erro vai para o stderr; no erro de uso, seguida da ajuda do comando.
@@ -92,9 +93,9 @@ prumo new <nome> [--dir <pasta>] [--packages <pasta>] [--no-install] [--dry-run]
 2. Monta o app numa pasta temporária e só o leva ao destino se tudo deu certo.
 3. Roda `git init`, sem commit (o primeiro commit é seu). Se o git falhar, só avisa.
 4. Roda `pnpm install`, a não ser com `--no-install`. Se a instalação falhar, sai com 1, mantém o app criado e diz como seguir.
-5. Mostra os próximos passos.
+5. Mostra os próximos passos (o `verify`, o `dev`, os geradores com `<domínio>` e `<tela>` no lugar do nome e o endereço da documentação).
 
-**O app criado** tem Vite, React 19, TypeScript, wouter, TanStack Query, zod e i18next; os cinco pacotes do Prumo; a estrutura de pastas; os provedores; a tela inicial `home` na rota `/`; ESLint com o plugin do Prumo; Vitest com jsdom; o `AGENTS.md`, o `README.md` e o `.mcp.json`. Os scripts são `dev`, `build`, `typecheck`, `lint`, `check`, `test` e `verify`. O detalhe de cada arquivo está em [Anatomia do app gerado](../concepts/generated-app.md).
+**O app criado** tem Vite, React 19, TypeScript, wouter, TanStack Query, zod e i18next; os cinco pacotes do Prumo; a estrutura de pastas; os provedores; a tela inicial `home` na rota `/`; ESLint com o plugin do Prumo; Vitest com jsdom; o tratamento de erro ligado (o namespace `errors` nos dois idiomas, o `src/errors.ts` com o `getErrorMessage` e o `providers/app.tsx` usando-o); o `src/test/setup.ts` com o idioma padrão fixado; o `AGENTS.md`, o `README.md` e o `.mcp.json`. Os scripts são `dev`, `build`, `typecheck`, `lint`, `check`, `test` e `verify` (`typecheck && lint && test && check`: os testes rodam antes do `check`, que pode falhar por causa de um componente `shared` recém-gerado). O detalhe de cada arquivo está em [Anatomia do app gerado](../concepts/generated-app.md).
 
 **Versões.** As bibliotecas de terceiros entram com as versões fixadas nos modelos da CLI. Os pacotes do Prumo entram como `^<versão>`, cada um com a própria versão, registrada na CLI a cada lançamento (os pacotes versionam separados). O `packageManager` do `package.json` recebe a versão do pnpm que rodou o comando (pelo `npm_config_user_agent`, ou por `pnpm --version`); sem nenhuma das duas, o campo fica de fora.
 
@@ -115,13 +116,14 @@ pnpm dlx @matizze/prumo-cli new loja --dry-run
 Gera uma tela.
 
 ```text
-prumo make:page <nome> [--domain <domínio>] [--root <pasta>] [--dry-run]
+prumo make:page <nome> [--domain <domínio>] [--path <caminho>] [--root <pasta>] [--dry-run]
 ```
 
 | Argumento ou opção    | Descrição                                                                 |
 | --------------------- | ------------------------------------------------------------------------- |
 | `<nome>`              | O nome da tela, em kebab-case.                                             |
 | `--domain <domínio>`  | Um domínio cuja lista a tela mostra. Padrão: nenhum.                       |
+| `--path <caminho>`    | O caminho da rota, com no máximo um parâmetro (`/clientes/:id`). Padrão: `/<nome>`. |
 | `--root <pasta>`      | A pasta do projeto. Padrão: a atual.                                       |
 | `--dry-run`           | Só lista o que seria criado e alterado.                                    |
 
@@ -140,17 +142,27 @@ Os idiomas do projeto são as pastas de `src/messages` que têm `index.ts`. Os i
 **Altera:**
 
 - `src/messages/<idioma>/index.ts`: o import do JSON e o namespace (`<nome>` em camelCase) no `export default`, em ordem alfabética.
-- `src/App.tsx`: o import da tela (na ordem dos imports de `@/pages`) e a rota `/<nome>`, depois da última `<Route>` com `path` do `<Switch>` mais externo. Uma rota curinga continua por último.
+- `src/App.tsx`: o import da tela (na ordem dos imports de `@/pages`) e a rota (`/<nome>`, ou a de `--path`), depois da última `<Route>` com `path` do `<Switch>` mais externo. Uma rota curinga continua por último.
 
-**Com `--domain <domínio>`**, o model lê a lista com `use<Domínio>List()` de `@/queries/<domínio>` e devolve `{ title, loadingText, failedText, items, loading, failed }`, e a view mostra o carregando, o erro (`role="alert"`) e a lista (`<ul>`). O comando confere antes que `src/queries/<domínio>.ts` existe e tem o hook.
+**Com `--domain <domínio>`**, o model lê a lista com `use<Domínio>List()` de `@/queries/<domínio>` e devolve `{ title, loadingText, failedText, items, loading, failed }`, e a view mostra o carregando, o erro (`role="alert"`) e a lista (`<ul>`), com o **primeiro campo de texto** de cada registro. O comando confere antes que `src/queries/<domínio>.ts` existe e tem o hook.
 
-**Recusa (código 2):** nome inválido ou reservado; tela que já existe; domínio que não existe ou sem o hook de lista; projeto sem `src/messages` ou sem idioma; `index.ts` de mensagens sem `export default { ... }`; namespace já registrado com outro arquivo; `App.tsx` sem `<Switch>`; rota que repete ou conflita com outra.
+O campo vem do schema que o projeto tem hoje (`src/schemas/entities/<entidade>.ts`; o app pode tê-lo editado depois do `make:domain`): o primeiro `z.string()` obrigatório, fora `id` e `createdAt`; se todos os de texto são opcionais, o primeiro deles. Sem campo de texto, ou se o schema não for encontrado, a tela mostra o `id` e o comando avisa na saída (`Aviso: ...`).
+
+**Com `--path <caminho>`**, a rota é a do caminho, em vez de `/<nome>`. O caminho começa com `/`, tem segmentos fixos (letras, números, `-`, `_`, `.`, `~`) e **no máximo um parâmetro** `:nome` (um identificador; sem `?`, `*` nem `+`). Sem parâmetro, só a rota muda. Com parâmetro (`/livros/:id`):
+
+- o model lê o valor com o `useParams` do wouter e devolve `{ title, params: { id } }`, e a view o mostra;
+- o teste renderiza a tela dentro de `<Route path="/livros/:id">`, com o caminho inicial `/livros/exemplo`, e confere que o valor chega à tela (veja [Testes](../guides/test.md#rotas-com-parâmetro));
+- junto de `--domain`, a tela é de **detalhe**: o model busca o registro com o `use<Entidade>Detail(id)` do domínio e devolve `{ title, loadingText, failedText, item, loading, failed }`; a view mostra o carregando, o erro e esse mesmo campo de texto; os textos `loading` e `failed` entram nos JSONs; o teste usa o id do primeiro registro do mock (`<entidade>-1`) e espera o valor desse campo no primeiro registro das fixtures (lido de `src/repositories/<domínio>/fixtures.ts`; num domínio sem `--fields`, `Exemplo 1`). O comando confere antes que `src/queries/<domínio>.ts` tem o hook `use<Entidade>Detail`.
+
+**Recusa (código 2):** nome inválido ou reservado; `--path` inválido (sem `/` no começo, com barra no fim ou `//`, segmento com caracteres fora dos permitidos, parâmetro com modificador ou nome inválido, mais de um parâmetro), ou que repete ou conflita com uma rota do `App.tsx`; tela que já existe; domínio que não existe ou sem o hook de lista; projeto sem `src/messages` ou sem idioma; `index.ts` de mensagens sem `export default { ... }`; namespace já registrado com outro arquivo; `App.tsx` sem `<Switch>`; rota que repete ou conflita com outra.
 
 **Exemplos:**
 
 ```bash
 pnpm exec prumo make:page relatorios
 pnpm exec prumo make:page clientes --domain clientes
+pnpm exec prumo make:page livro --path /livros/:id
+pnpm exec prumo make:page cliente --domain clientes --path /clientes/:id
 pnpm exec prumo make:page pedidos-recentes --dry-run
 ```
 
@@ -161,17 +173,32 @@ pnpm exec prumo make:page pedidos-recentes --dry-run
 Gera um domínio de dados.
 
 ```text
-prumo make:domain <nome> [--entity <singular>] [--root <pasta>] [--dry-run]
+prumo make:domain <nome> [--entity <singular>] [--fields <campos>] [--root <pasta>] [--dry-run]
 ```
 
 | Argumento ou opção     | Descrição                                                                            |
 | ---------------------- | ------------------------------------------------------------------------------------ |
 | `<nome>`               | O nome do domínio, **no plural** e em kebab-case.                                    |
 | `--entity <singular>`  | A entidade, no singular. Padrão: o nome sem o `s` final.                             |
+| `--fields <campos>`    | Os campos da entidade, `nome:tipo` separados por vírgula. Padrão: só `name:string`.  |
 | `--root <pasta>`       | A pasta do projeto. Padrão: a atual.                                                 |
 | `--dry-run`            | Só lista o que seria criado e alterado.                                              |
 
 **A entidade.** Sem `--entity`, o singular é o nome sem o `s` final (`clientes` → `cliente`). O comando recusa, pedindo `--entity`, o nome que não termina em `s` e os plurais em que a regra erra: os terminados em `ies`, `sses`, `xes`, `ches` e `shes` (com o singular provável na mensagem: `categories` sugere `--entity category`) e os terminados em `us` e `ss`, que parecem singulares (`status`, `address`). A entidade precisa diferir do nome do domínio.
+
+**Os campos (`--fields`).** Uma lista `nome:tipo` separada por vírgula, entre aspas: `"titulo:string,ano:number,apelido?:string"`. O nome é camelCase (letra minúscula primeiro; só letras e números); o tipo é `string`, `number`, `int` (inteiro), `boolean`, `date` (`AAAA-MM-DD`), `datetime` (ISO com hora) ou `enum(a|b|c)` (um valor da lista: no mínimo dois, sem repetir, cada um com letras, números e `_`, começando por letra; as aspas do `--fields` protegem o `|` e os parênteses do shell); um `?` depois do nome torna o campo opcional. Sem `--fields`, a entidade tem só `name`, de texto, e a saída é a de sempre.
+
+| Tipo       | Schema (zod)         | Valor de exemplo nas fixtures        |
+| ---------- | -------------------- | ------------------------------------ |
+| `string`   | `z.string()`         | `Titulo 1`, `Titulo 2`, `Titulo 3`   |
+| `number`   | `z.number()`         | `10`, `20`, `30`                     |
+| `int`      | `z.number().int()`   | `10`, `20`, `30`                     |
+| `boolean`  | `z.boolean()`        | `true`, `false`, `true`              |
+| `date`     | `z.iso.date()`       | `2026-01-05`, `2026-01-14`, ...      |
+| `datetime` | `z.iso.datetime()`   | `2026-01-05T12:00:00.000Z`, ...      |
+| `enum(a\|b\|c)` | `z.enum(['a', 'b', 'c'])` | `a`, `b`, `c` (os valores da lista, em ordem) |
+
+Com os campos, saem coerentes: o schema e o `...InputSchema` (todos os campos, sem `id` nem `createdAt`); a `...SortKey` (os campos que ordenam, todos menos `boolean`, e `createdAt`; o `enum` entra, mas o teste de ordem do contrato usa outro campo, porque o enum repete valores); as fixtures; o mock (a busca nos campos de texto, ou no `id` se não há texto; a ordem por cada campo que ordena; `create` e `update` com todos os campos); e o teste de contrato. O `make:page --domain` lê o schema que existe e mostra o primeiro campo de texto obrigatório, e o `enum` não conta como texto: um domínio só com enums mostra o `id`, com um aviso (veja [`make:page`](#prumo-makepage)). Com muitos campos, o código gerado quebra o `pick` do schema de entrada, a busca do mock e a entrada do teste de contrato em várias linhas (2 espaços, vírgula no fim) quando a linha passaria de cerca de 100 colunas; o `prumo make:*` não formata o resto, e vale rodar o formatador do projeto. Recusa (código 2), sem escrever nada: lista vazia, item fora do formato `nome:tipo`, nome que não é camelCase, `id` e `createdAt` (reservados), nome repetido, tipo desconhecido e `enum` mal formado (sem valores, com menos de dois, com valor repetido ou com valor que não é identificador simples).
 
 **Cria** (para `clientes`, entidade `cliente`):
 
@@ -193,6 +220,8 @@ prumo make:domain <nome> [--entity <singular>] [--root <pasta>] [--dry-run]
 
 Os três índices podem começar vazios, como os de um app novo.
 
+**Textos de erro.** Acrescenta `<ENTIDADE>_NOT_FOUND` (para `cliente`, `CLIENTE_NOT_FOUND`: o código que o mock lança) ao `src/messages/<idioma>/errors.json` de cada idioma, com "Registro não encontrado." nos idiomas `pt*` e "Record not found." nos outros, para você ajustar. A chave que já existe não é trocada. Num app criado antes de o `new` gerar o namespace de erros (sem `errors.json`), o comando avisa e segue, sem falhar.
+
 **Aviso:** se o projeto não tem `src/providers/repository` (de onde as queries importam o `useRepositories`), o comando gera o domínio e avisa como criar o provedor.
 
 **Recusa (código 2):** nome ou entidade inválidos ou reservados; singular que não dá para derivar; entidade igual ao nome; domínio que já existe; índice que falta; mapa `factories` que falta; export que já existe.
@@ -203,6 +232,7 @@ Os três índices podem começar vazios, como os de um app novo.
 pnpm exec prumo make:domain clientes
 pnpm exec prumo make:domain categories --entity category
 pnpm exec prumo make:domain pedidos-recentes --entity pedido-recente
+pnpm exec prumo make:domain livros --fields "titulo:string,autor:string,ano:number,disponivel:boolean,publicadoEm:date,apelido?:string"
 ```
 
 ---
@@ -227,7 +257,9 @@ Use exatamente um de `--page` e `--shared`.
 
 **Cria** `<pasta>/<nome>.tsx`, com `<Nome>Props` (`title: string`) e o componente `<Nome>` (uma `<section>` com um `<h2>`), e `<pasta>/<nome>.test.tsx`, que renderiza o componente e confere o título. Não altera nenhum arquivo.
 
-**O `prumo check` e o `--shared`.** A análise cobra que o que está em `shared` seja usado por duas telas ou mais. Um componente compartilhado recém-gerado ainda não é usado, e a violação `shared-usage` dele é **esperada**: o comando a mostra, explica que ela some quando duas telas o importarem e sai com 0. Qualquer outra violação sai com 1.
+**O `prumo check` e o `--shared`.** A análise cobra que o que está em `shared` seja usado por duas telas ou mais. Um componente compartilhado recém-gerado ainda não é usado, e a violação `shared-usage` dele é **esperada**: o comando a mostra, explica que ela some quando duas telas o importarem e sai com 0. Qualquer outra violação nova sai com 1.
+
+**Aviso de nome repetido.** Se já existe um componente com o mesmo nome em outra tela ou em `shared`, o comando gera mesmo assim e escreve `Aviso: ...` (também no `--dry-run`), sugerindo o [`move:component`](#prumo-movecomponent) quando o outro é de uma tela. Não é recusa; o mesmo nome no mesmo lugar é.
 
 **Recusa (código 2):** nome inválido ou reservado; nem `--page` nem `--shared`, ou os dois; tela que não existe; componente que já existe.
 
@@ -236,6 +268,38 @@ Use exatamente um de `--page` e `--shared`.
 ```bash
 pnpm exec prumo make:component resumo --page clientes
 pnpm exec prumo make:component cartao-de-metrica --shared
+```
+
+---
+
+## `prumo move:component`
+
+Promove um componente de uma tela a compartilhado.
+
+```text
+prumo move:component <nome> --from <tela> --shared [--root <pasta>] [--dry-run]
+```
+
+| Argumento ou opção | Descrição                                                                   |
+| ------------------ | --------------------------------------------------------------------------- |
+| `<nome>`           | O nome do componente, em kebab-case.                                        |
+| `--from <tela>`    | A tela de onde ele sai (`src/pages/<tela>/components/`).                    |
+| `--shared`         | O destino: `src/components/shared/`. É o único destino que existe.          |
+| `--root <pasta>`   | A pasta do projeto. Padrão: a atual.                                        |
+| `--dry-run`        | Só lista o que seria movido e alterado.                                     |
+
+**Move** `<nome>.tsx` e `<nome>.test.tsx` (se houver) de `src/pages/<tela>/components/` para `src/components/shared/` e **reescreve** para `@/components/shared/<nome>` todo import que apontava para o componente, em qualquer arquivo de `src`: na tela de origem, em outra tela, em testes, em `export ... from`, `import()` e `vi.mock`. O conteúdo do componente e do teste não muda, a não ser nos imports relativos que saíam da pasta (viram `@/...`). Se a pasta `components` da tela fica vazia, some.
+
+**O `prumo check`.** Logo depois da mudança o componente ainda é de uma tela só, e a violação `shared-usage` dele é **esperada**: o comando a mostra, explica que ela some quando uma segunda tela o importar e sai com 0. Qualquer outra violação nova sai com 1 (a mudança já foi feita); a que já existia antes aparece como preexistente.
+
+**Recusa (código 2), sem mexer em nada:** nome inválido ou reservado; falta `--shared`; tela que não existe; componente que não existe na tela; já existe um componente (ou teste) de mesmo nome em `shared`; o componente importa algo de uma tela (o que está em `shared` não pode depender de tela).
+
+O caminho inverso, de `shared` para uma tela, não existe: um componente que duas telas usam é compartilhado, e tirá-lo de lá é uma decisão que o `prumo check` já cobra.
+
+**Exemplo:**
+
+```bash
+pnpm exec prumo move:component formulario-de-livro --from livros --shared
 ```
 
 ---
@@ -276,11 +340,11 @@ Escreve uma linha por item, com `ok`, `aviso` ou `erro`, e um resumo. Não escre
 ```text
 ok     Node: 24.7.0 (mínimo do Prumo: 24; engines: >=24).
 ok     pnpm: 10.0.0 (packageManager: pnpm@10.0.0).
-ok     @matizze/prumo-core: 0.1.3 (esperado: >=0.1.0 <0.2.0).
-ok     @matizze/prumo-rules: 0.2.1 (esperado: >=0.2.0 <0.3.0).
-ok     @matizze/prumo-testing: 0.2.1 (esperado: >=0.2.0 <0.3.0).
-ok     @matizze/prumo-mcp: 0.1.2 (esperado: >=0.1.0 <0.2.0).
-ok     @matizze/prumo-cli: 0.5.1 (esperado: >=0.5.1 <0.6.0).
+ok     @matizze/prumo-core: 0.2.0 (esperado: >=0.1.0 <0.3.0).
+ok     @matizze/prumo-rules: 0.2.3 (esperado: >=0.2.0 <0.3.0).
+ok     @matizze/prumo-testing: 0.3.0 (esperado: >=0.2.0 <0.4.0).
+ok     @matizze/prumo-mcp: 0.2.0 (esperado: >=0.1.0 <0.3.0).
+ok     @matizze/prumo-cli: 0.6.0 (esperado: >=0.6.0 <0.7.0).
 ok     .mcp.json: existe, com o servidor prumo.
 
 prumo doctor: tudo certo.

@@ -18,23 +18,24 @@ meu-app/
   src/
     main.tsx                      monta o app
     App.tsx                       as rotas                              ← ponto de registro
-    i18n.ts                       o i18n tipado
+    i18n.ts                       o i18n tipado (exporta também a instância i18n)
+    errors.ts                     getErrorMessage: o texto traduzido de um erro
     providers/
       app.tsx                     QueryClient, i18n e repositórios
       repository/index.ts         RepositoryProvider e useRepositories
     pages/home/                   a tela inicial, na rota /
       index.tsx  model.ts  view.tsx  index.test.tsx
     messages/
-      pt-BR/index.ts  pt-BR/home.json                                    ← ponto de registro
-      en/index.ts     en/home.json                                       ← ponto de registro
+      pt-BR/index.ts  pt-BR/errors.json  pt-BR/home.json                 ← ponto de registro
+      en/index.ts     en/errors.json     en/home.json                    ← ponto de registro
     repositories/
       index.ts                    o container                          ← ponto de registro
       options.ts                  as fontes de dados
     schemas/index.ts              índice dos schemas                   ← ponto de registro
     queries/index.ts              índice das queries                   ← ponto de registro
     test/
-      render.tsx                  renderWithProviders do app
-      setup.ts                    setup do Vitest
+      render.tsx                  renderWithProviders e renderHookWithProviders
+      setup.ts                    setup do Vitest (idioma fixado em pt-BR)
 ```
 
 Os arquivos marcados como **ponto de registro** são os que os geradores editam para ligar o que criam (uma rota, um namespace de textos, um domínio). Você pode editá-los, desde que mantenha a forma descrita em [Pontos de registro](#pontos-de-registro).
@@ -54,11 +55,12 @@ Os arquivos marcados como **ponto de registro** são os que os geradores editam 
     "lint": "eslint .",
     "check": "prumo check",
     "test": "vitest run",
-    "verify": "pnpm typecheck && pnpm lint && pnpm check && pnpm test"
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm check"
   }
 }
 ```
 
+- O `verify` roda os testes antes do `check`: um componente `shared` recém-gerado, por exemplo, faz o `check` falhar (a `shared-usage` é esperada), e os testes rodam mesmo assim. O `verify` continua falhando se o `check` falhar.
 - O `packageManager` fixa a versão do pnpm que criou o app (o `prumo doctor` compara com a instalada).
 - As bibliotecas de terceiros entram com versões fixadas pelos modelos do Prumo, e os cinco pacotes `@matizze/prumo-*` como `^<versão>`.
 - Dependências de execução: `@matizze/prumo-core`, React, React DOM, wouter, TanStack Query, zod, i18next, react-i18next, `i18next-icu` e `i18next-browser-languagedetector`.
@@ -110,7 +112,7 @@ export default function App() {
 Liga o i18n ao app com o `defineI18n` do core. As mensagens do idioma padrão (`pt-BR`) são a fonte dos tipos: o `useTranslations` só aceita namespaces e chaves que existem nelas.
 
 ```ts
-export const { I18nProvider, useTranslations } = defineI18n({
+export const { I18nProvider, useTranslations, i18n } = defineI18n({
   messages: { 'pt-BR': ptBR, en },
   defaultLocale: 'pt-BR',
   languages: {
@@ -120,7 +122,17 @@ export const { I18nProvider, useTranslations } = defineI18n({
 })
 ```
 
-O `defineI18n` devolve mais do que o app exporta de início: `useFormat`, `useLocale`, `useChangeLocale`, `useFieldError`, a instância `i18n` e outros. Exporte o que for usar. Veja [Textos e idiomas](../guides/i18n.md).
+O `defineI18n` devolve mais do que o app exporta de início: `useFormat`, `useLocale`, `useChangeLocale`, `useFieldError` e outros (a instância `i18n` já é exportada, para o `src/errors.ts` e o setup dos testes). Exporte o que for usar. Veja [Textos e idiomas](../guides/i18n.md).
+
+### `src/errors.ts` e as mensagens de erro
+
+O tratamento de erro já vem ligado, como o guia [Erros e notificações](../guides/errors-and-notifications.md) manda: o namespace `errors` nos dois idiomas (`src/messages/<idioma>/errors.json`, com o texto genérico `generic`) e o `getErrorMessage` do app, criado com o `createErrorMessage` do core a partir da instância `i18n`:
+
+```ts
+export const getErrorMessage = createErrorMessage(i18n)
+```
+
+O `make:domain` acrescenta ao `errors.json` de cada idioma o texto de `<ENTIDADE>_NOT_FOUND`, o código que o mock gerado lança.
 
 ### `src/providers/app.tsx`
 
@@ -131,12 +143,12 @@ function createClient() {
   return createQueryClient({
     // Sem interface no projeto, o erro vai para o console: troque pela notificação do seu design system
     notify: (message) => console.error(message),
-    getErrorMessage: (error) => (error instanceof Error ? error.message : String(error)),
+    getErrorMessage,
   })
 }
 ```
 
-O `notify` e o `getErrorMessage` são os dois pontos que o produto troca: a notificação do design system e a tradução do erro. Veja [Erros e notificações](../guides/errors-and-notifications.md).
+O `getErrorMessage` vem do `src/errors.ts` e traduz o código do erro (nunca mostra o texto técnico). O `notify` é o ponto que o produto troca: a notificação do design system. Veja [Erros e notificações](../guides/errors-and-notifications.md).
 
 ### `src/providers/repository/index.ts`
 
@@ -170,7 +182,7 @@ O tipo do container sai do mapa, então registrar um domínio é acrescentar uma
 
 ### `src/test/render.tsx` e `setup.ts`
 
-O `renderWithProviders` do app, criado com o `createRenderWithProviders` do `@matizze/prumo-testing`: renderiza com o i18n, um container de repositórios em memória **sem latência**, um `QueryClient` **sem retry** e uma rota em memória. O `setup.ts` desmonta os componentes depois de cada teste. Veja [Testes](../guides/test.md).
+O `renderWithProviders` e o `renderHookWithProviders` (para testar hooks) do app, criados com o `createRenderWithProviders` e o `createRenderHookWithProviders` do `@matizze/prumo-testing`: renderiza com o i18n, um container de repositórios em memória **sem latência**, um `QueryClient` **sem retry** e uma rota em memória. O `setup.ts` fixa o idioma padrão do app (`pt-BR`, já que o jsdom diz `en-US`) e desmonta os componentes depois de cada teste. Veja [Testes](../guides/test.md).
 
 ## O que cada gerador acrescenta
 
@@ -184,9 +196,9 @@ src/pages/<tela>/index.test.tsx    renderiza a tela e confere o título
 src/messages/<idioma>/<tela>.json  os textos, em cada idioma do projeto
 ```
 
-Altera `src/App.tsx` (a rota `/<tela>`) e o `index.ts` de cada idioma (o namespace).
+Altera `src/App.tsx` (a rota `/<tela>`, ou a de `--path`) e o `index.ts` de cada idioma (o namespace).
 
-### `prumo make:domain <domínio>`
+### `prumo make:domain <domínio> [--fields <campos>]`
 
 ```text
 src/schemas/entities/<entidade>.ts                   schema zod e tipos
@@ -198,7 +210,7 @@ src/repositories/<domínio>/repository.contract.test.ts  o teste de contrato
 src/queries/<domínio>.ts                             query keys, queries e hooks
 ```
 
-Altera `src/schemas/index.ts`, `src/repositories/index.ts` (import, `export *` e a entrada no mapa `factories`) e `src/queries/index.ts`.
+Com `--fields "titulo:string,ano:number"`, o schema, as fixtures, o mock e o teste de contrato saem com esses campos em vez de `name` (veja [Domínios](../guides/domains.md#os-campos-do-dominio---fields)). Altera `src/schemas/index.ts`, `src/repositories/index.ts` (import, `export *` e a entrada no mapa `factories`) e `src/queries/index.ts`, e acrescenta `<ENTIDADE>_NOT_FOUND` ao `src/messages/<idioma>/errors.json` de cada idioma (a chave que já existe fica como está). Num app criado por uma versão anterior do `new`, sem o `errors.json`, o comando avisa e segue, sem falhar: veja [Erros e notificações](../guides/errors-and-notifications.md#app-criado-antes-do-tratamento-de-erro).
 
 ### `prumo make:component <nome>`
 
@@ -239,6 +251,6 @@ Quando um ponto de registro falta ou não tem a forma esperada, o gerador recusa
 
 - O conteúdo de qualquer tela, domínio ou componente gerado: o model, a view, o schema, as fixtures, o mock, os testes.
 - O caminho de uma rota no `App.tsx` (`/clientes` para `/clientes/:id`, por exemplo), e envolver o `<Switch>` com a casca do layout.
-- O `providers/app.tsx`: a notificação, a tradução do erro, provedores novos (tema, autenticação).
+- O `providers/app.tsx`: a notificação, a tradução do erro, provedores novos (tema, autenticação: veja [Sessão e login](../guides/auth.md), que põe a sessão em `src/providers/session/`).
 - O `eslint.config.js`, o `vite.config.ts` e o `tsconfig.json`, mantendo o plugin do Prumo e o alias `@/`.
 - O `AGENTS.md`, com as regras do seu time.

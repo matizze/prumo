@@ -29,15 +29,16 @@ Crie com os geradores, não à mão: eles registram a rota, as mensagens e os í
 
 | Comando                                                | O que faz                                                                       |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| `pnpm exec prumo make:domain <nome>`                   | Schema, repositório com mock e contrato, queries e o teste de contrato          |
-| `pnpm exec prumo make:page <nome> [--domain <nome>]`   | Tela com index, model, view, teste, mensagens e rota; com `--domain`, lista dele |
+| `pnpm exec prumo make:domain <nome> [--fields "a:string,b:number"]` | Schema, repositório com mock e contrato, queries e o teste de contrato; `--fields` dá os campos da entidade (tipos: string, number, int, boolean, date, datetime, enum(a\|b\|c); `?` opcional) |
+| `pnpm exec prumo make:page <nome> [--domain <nome>] [--path <caminho>]` | Tela com index, model, view, teste, mensagens e rota; com `--domain`, lista dele; com `--path /x/:id`, rota com parâmetro (com `--domain`, detalhe) |
 | `pnpm exec prumo make:component <nome> --page <tela>`  | Componente só HTML e o teste dele (`--shared` para o `src/components/shared`)   |
+| `pnpm exec prumo move:component <nome> --from <tela> --shared` | Promove um componente da tela a `src/components/shared` (move o teste e reescreve os imports); use quando uma segunda tela precisar dele |
 | `pnpm exec prumo check`                                | Confere a arquitetura do projeto inteiro                                        |
 | `pnpm exec prumo doctor`                               | Confere Node, pnpm e a versão dos pacotes do Prumo                              |
 
 Todos os geradores aceitam `--dry-run` (só lista o que faria). O servidor MCP do Prumo (`.mcp.json`) dá a um agente os mesmos comandos como ferramentas (`make_page`, `make_domain`, `check`...).
 
-Scripts do projeto: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm check`, `pnpm test` e `pnpm verify` (typecheck, lint, check e test; sem navegador). Rode o `pnpm verify` antes de dar uma tarefa por pronta.
+Scripts do projeto: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm check`, `pnpm test` e `pnpm verify` (typecheck, lint, test e check, nessa ordem, para os testes rodarem mesmo que o check falhe; sem navegador). Rode o `pnpm verify` antes de dar uma tarefa por pronta.
 
 ## Regras
 

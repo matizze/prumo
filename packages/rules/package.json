@@ -1,6 +1,6 @@
 {
   "name": "@matizze/prumo-rules",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Regras da arquitetura do Prumo: plugin de ESLint, com aviso no editor, e análise do projeto inteiro para o prumo check.",
   "repository": {
     "type": "git",

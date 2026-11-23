@@ -32,7 +32,7 @@ O app gerado nasce com `pt-BR` e `en`, e o `prumo check` compara os dois. Um pro
 
 ### Onde fica o estado global da aplicação?
 
-O Prumo não decide. Estado de tela fica no model; dado do servidor fica no cache do TanStack Query, por domínio. Se o produto precisar de um store global (sessão, preferências), ele escolhe a biblioteca e o lugar, normalmente um provedor em `src/providers/`.
+O Prumo não decide. Estado de tela fica no model; dado do servidor fica no cache do TanStack Query, por domínio. Se o produto precisar de um store global (sessão, preferências), ele escolhe a biblioteca e o lugar, normalmente um provedor em `src/providers/` (a sessão de login, por exemplo, fica em `src/providers/session/`: veja [Sessão e login](guides/auth.md)).
 
 ### Como atualizo o Prumo num app existente?
 
@@ -51,7 +51,7 @@ O nome do domínio vai no plural, e a entidade sai dele tirando o `s`. Quando a 
 ### Um componente recém-gerado com `--shared` aparece no `prumo check`
 
 ```text
-src/components/shared/cartao.tsx  [shared-usage]  O módulo é usado por nenhuma tela, ...
+src/components/shared/cartao.tsx  [shared-usage]  O módulo não é usado por nenhuma tela, ...
 ```
 
 É esperado: o que está em `shared` precisa ser usado por duas telas ou mais, e o componente novo ainda não é usado. A violação some quando duas telas o importarem. Se só uma tela vai usá-lo, gere-o com `--page <tela>`.

@@ -8,9 +8,12 @@ import {
   registerSchema,
   type DomainNames,
 } from '../codemod/index.ts'
+import { messageLanguages } from '../codemod/messages.ts'
 import { UsageError } from '../errors.ts'
 import type { Project } from '../project.ts'
+import { messagesLanguageOf } from './page.ts'
 import { nameVars, renderTemplate, renderTemplateFile } from '../templates.ts'
+import { DEFAULT_FIELDS, domainFieldVars, parseFields, type Field } from './fields.ts'
 
 /** Um arquivo do domínio: o modelo e onde ele cai no projeto, os dois com marcadores. */
 interface DomainFile {
@@ -57,11 +60,63 @@ export function queriesExports(to: DomainNames): string[] {
   ]
 }
 
+/** O texto de `<ENTIDADE>_NOT_FOUND` em cada língua dos modelos (o mock gerado lança esse código). */
+const NOT_FOUND_TEXT = { 'pt-BR': 'Registro não encontrado.', en: 'Record not found.' } as const
+
+/**
+ * Acrescenta `<ENTIDADE>_NOT_FOUND` ao `src/messages/<idioma>/errors.json` de cada idioma, para a
+ * pessoa ver o texto do erro, não o genérico. Um app criado antes do `new` trazer o namespace de
+ * erros não tem o arquivo (ou o tem inválido): nesse caso o idioma fica sem a chave e o comando
+ * devolve um aviso, sem falhar. A chave que já existe não é trocada.
+ */
+function addNotFoundMessages(plan: ChangePlan, names: DomainNames): string[] {
+  const key = `${nameVars('singular', names.singular)['singular.constant']}_NOT_FOUND`
+  const missing: string[] = []
+  let languages: string[]
+  try {
+    languages = messageLanguages(plan.project)
+  } catch {
+    languages = []
+    missing.push('src/messages (o projeto não tem idioma)')
+  }
+  for (const language of languages) {
+    const file = path.join(plan.project.messages, language, 'errors.json')
+    const relative = `src/messages/${language}/errors.json`
+    if (!plan.hasFile(file)) {
+      missing.push(relative)
+      continue
+    }
+    let messages: unknown
+    try {
+      messages = JSON.parse(plan.readText(file))
+    } catch {
+      missing.push(`${relative} (JSON inválido)`)
+      continue
+    }
+    if (typeof messages !== 'object' || messages === null || Array.isArray(messages)) {
+      missing.push(`${relative} (não é um objeto)`)
+      continue
+    }
+    if (key in messages) continue
+    const text = NOT_FOUND_TEXT[messagesLanguageOf(language)]
+    plan.editText(file, `${JSON.stringify({ ...messages, [key]: text }, null, 2)}\n`)
+  }
+  if (missing.length === 0) return []
+  return [
+    `o texto de ${key} não foi acrescentado: falta o namespace de erros: ${missing.join(', ')}. Sem ele, a tela mostra o texto genérico; veja o guia de erros (docs/guides/errors-and-notifications.md) para criar o errors.json e o src/errors.ts.`,
+  ]
+}
+
 export interface DomainRequest {
   /** O nome do domínio, no plural e em kebab-case: `clientes`. */
   name: string
   /** A entidade, no singular. Sem ela, sai do nome (tira o `s` final). */
   entity?: string | undefined
+  /**
+   * Os campos da entidade, no formato do `--fields` (`titulo:string,ano:number`). Sem eles, o domínio
+   * tem só o campo `name`, de texto.
+   */
+  fields?: string | undefined
 }
 
 /**
@@ -69,13 +124,15 @@ export interface DomainRequest {
  * mock, fixtures, index e teste de contrato, e as queries) e as costuras nos índices de schemas,
  * repositórios (com o mapa `factories`, que é o container) e queries. Nada vai para o disco: o
  * chamador mostra o `summary()` ou faz o `commit()`. Valida o nome e confere o projeto antes de
- * montar qualquer coisa, e todo erro de uso é um `UsageError` (saída 2).
+ * montar qualquer coisa, e todo erro de uso é um `UsageError` (saída 2). Os `fields` dão a forma da
+ * entidade: o schema, as fixtures, o mock e o teste de contrato saem coerentes com eles.
  */
 export function generateDomain(
   project: Project,
-  { name, entity }: DomainRequest,
-): { plan: ChangePlan; names: DomainNames } {
+  { name, entity, fields: fieldsText }: DomainRequest,
+): { plan: ChangePlan; names: DomainNames; fields: Field[]; warnings: string[] } {
   const names = domainNames(name, entity)
+  const fields = fieldsText === undefined ? [...DEFAULT_FIELDS] : parseFields(fieldsText)
   const folder = path.join(project.src, 'repositories', names.plural.kebab)
   if (existsSync(folder)) {
     throw new UsageError(
@@ -83,7 +140,11 @@ export function generateDomain(
     )
   }
 
-  const vars = { ...nameVars('plural', names.plural), ...nameVars('singular', names.singular) }
+  const vars = {
+    ...nameVars('plural', names.plural),
+    ...nameVars('singular', names.singular),
+    ...domainFieldVars(fields, names.singular.kebab),
+  }
   const plan = new ChangePlan(project)
   for (const { template, to } of DOMAIN_FILES) {
     plan.createSource(
@@ -95,5 +156,6 @@ export function generateDomain(
   registerSchema(plan, names)
   registerRepository(plan, names)
   registerQueriesEntry(plan, { module: names.plural.kebab, exports: queriesExports(names) })
-  return { plan, names }
+  const warnings = addNotFoundMessages(plan, names)
+  return { plan, names, fields, warnings }
 }

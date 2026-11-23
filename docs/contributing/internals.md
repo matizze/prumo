@@ -61,7 +61,7 @@ O `runMain` do citty não serve de porta de entrada: ele sai com 1 em qualquer e
 
 Cada gerador (`src/generate/<nome>.ts`) monta um **`ChangePlan`** (`src/codemod/plan.ts`): um plano de mudanças em memória, sobre um `Project` do [ts-morph](https://ts-morph.com) sem tsconfig e sem checagem de tipos. O plano recebe os arquivos novos e as costuras (as edições nos pontos de registro), lista o que seria criado e alterado (`summary()`, o `--dry-run`) e só grava no `commit()`. Um erro em qualquer etapa lança antes do `commit`, e o projeto não fica pela metade.
 
-Os comandos (`src/commands/make-*.ts`) chamam o gerador, mostram o resumo, fazem o `commit` e terminam com o `finishWithCheck` (`src/commands/shared.ts`), que roda o `prumo check`, separa as violações esperadas (o `shared-usage` de um componente compartilhado novo) e escreve o próximo passo.
+Os comandos (`src/commands/make-*.ts`) chamam o gerador, mostram o resumo, fazem o `commit` e terminam com o `finishWithCheck` (`src/commands/shared.ts`), que roda o `prumo check`, separa as violações esperadas (o `shared-usage` de um componente compartilhado novo) e as preexistentes (as que o `checkBefore`, chamado antes do `commit`, já tinha achado: mesma regra, arquivo e mensagem), falha só pelas que o comando causou e escreve o próximo passo. O `make:domain --fields` lê os campos com `parseFields` (`src/generate/fields.ts`) e calcula, deles, os marcadores `fields.*` e `test.*` dos modelos do domínio (schema, fixtures, busca, ordem e casos do contrato); sem `--fields`, o campo é o `name` de texto (`DEFAULT_FIELDS`) e a saída é a de sempre. O `make:page --domain` não recebe os campos: o `domainShapeOf` os lê do schema e das fixtures que existem no projeto (o app pode tê-los editado), e cai no `id`, com aviso, se não achar campo de texto. O `make:domain` também acrescenta `<ENTIDADE>_NOT_FOUND` ao `errors.json` de cada idioma (`addNotFoundMessages`, em `src/generate/domain.ts`), com aviso, sem falha, quando o app não tem o arquivo.
 
 ### As costuras (`src/codemod/`)
 
@@ -117,7 +117,7 @@ O `scripts/verify-new.sh` prova de ponta a ponta o que o Prumo entrega, sem nave
 
 1. **pack:** compila e empacota os cinco pacotes (`pnpm pack:all`).
 2. **new:** cria um app com `prumo new --packages <tarballs>` numa pasta temporária fora do monorepo.
-3. **cli:** gera um domínio, uma tela com `--domain` e um componente pela CLI.
+3. **cli:** gera um domínio, uma tela com `--domain`, uma tela de detalhe com `--path` e um componente pela CLI.
 4. **mcp:** gera outro domínio, outra tela e outro componente só por ferramentas MCP, com um cliente de verdade por stdio (`packages/mcp/scripts/drive-mcp.mjs`) contra o `prumo-mcp` do app.
 5. **verify:** roda o `pnpm verify` do app (typecheck, lint, `prumo check` e testes).
 6. **clean:** apaga a pasta temporária, também em caso de falha.

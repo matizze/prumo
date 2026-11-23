@@ -1,5 +1,54 @@
 # @matizze/prumo-cli
 
+## 0.6.0
+
+### Minor Changes
+
+- 7565ccd: Achados da revalidação do app de exemplo:
+  
+  - O `--fields` do `make:domain` (e o campo `fields` da ferramenta MCP) ganha os tipos `int` (`z.number().int()`, fixtures com inteiros) e `enum(a|b|c)` (`z.enum([...])`, fixtures com os valores da lista, na ordem). Os valores precisam ser identificadores simples (letras, números e `_`, começando por letra), sem repetir, e são no mínimo dois; o resto é recusado com código 2. O enum entra na `SortKey` e na ordem do mock, mas o teste de ordem do contrato usa outro campo, porque o enum repete valores. O `make:page --domain` não trata o enum como texto de exibição (sem outro campo de texto, mostra o `id`, com o aviso de sempre). Sem os tipos novos, o `--fields` se comporta como antes.
+  - O código gerado pelo `make:domain` quebra em várias linhas (2 espaços, vírgula no fim) o `pick` do schema de entrada, a busca do mock e a entrada do teste de contrato quando a linha passaria de cerca de 100 colunas, e a frase da busca vira "pelos campos de texto" quando listar os campos estouraria a linha. Domínios pequenos saem iguais aos de antes.
+  - A mensagem da regra `shared-usage` do `prumo check` passa a dizer "O módulo não é usado por nenhuma tela" (antes, "O módulo é usado por nenhuma tela") e "O módulo é usado só pela tela 'x'".
+- 857c809: Correções do `new` e dos `make:*`, vindas de um app real:
+  
+  - Os `make:page`, `make:domain` e `make:component` só saem com código 1 pelas violações do `prumo check` que **eles** causaram. O `check` roda antes de escrever, e a violação que já existia (a `shared-usage` de um componente `--shared` anterior, por exemplo) aparece como "Preexistentes" e não muda o código de saída. O `prumo check` em si não muda.
+  - O `verify` do app novo passa a ser `typecheck && lint && test && check`: os testes rodam mesmo quando o `check` falha, e o `verify` continua falhando se o `check` falhar. Apps já criados não mudam sozinhos; troque a ordem no `package.json` se quiser.
+  - O `new` gera o tratamento de erro ligado: o namespace `errors` nos dois idiomas, o `src/errors.ts` com o `getErrorMessage`, o `i18n` exportado e o `providers/app.tsx` usando o `getErrorMessage` (antes, o texto técnico do erro).
+  - O `make:domain` acrescenta o texto de `<ENTIDADE>_NOT_FOUND` ao `errors.json` de cada idioma. Num app criado antes, sem o `errors.json`, avisa e segue, sem falhar.
+  - O `src/test/setup.ts` do app novo fixa o idioma padrão (`pt-BR`), em vez de rodar os testes em inglês no jsdom.
+  - Os "Próximos passos" do `new` usam `<domínio>` e `<tela>` no lugar de um nome inventado e apontam para a documentação.
+- 375644a: Modelos de domínio corrigidos, vindos de um app real. Vale para os domínios gerados daqui em diante; um domínio já gerado não muda sozinho (o contrato dele continua o mesmo e nada quebra):
+  
+  - `use<Domínio>List(query, options)` aceita as opções do `useQuery` (`enabled`, `staleTime`, `select`...) e mantém por padrão os dados da consulta anterior enquanto a nova carrega (`placeholderData: keepPreviousData`): ao buscar, filtrar ou paginar, a tela não volta para "Carregando…". Num domínio antigo, acrescente o segundo parâmetro e o `placeholderData` ao hook.
+  - `useRemove<Entidade>` tira do cache o detalhe do registro removido e invalida só as listas (nova chave `<entidade>Keys.lists`), em vez de buscar o detalhe de novo e notificar "não encontrado". Num domínio antigo, troque o `onSuccess` do remove por `removeQueries({ queryKey: keys.detail(id) })` e `invalidateQueries({ queryKey: keys.lists })` (com `lists: ['list']` nas keys).
+  - `update` do contrato, do mock e do hook passa a aceitar entrada parcial (`Partial<Input>`): só os campos enviados mudam, e o teste de contrato ganha o caso. Para mudar um ou dois campos não é mais preciso reenviar o registro. Num domínio antigo, troque o tipo do `input` por `Partial<...Input>` no contrato, no mock (`{ ...item, ...input }`) e no hook; a implementação HTTP passa a usar `PATCH`.
+  - A tela de detalhe gerada com `--domain` já fica certa com isso (ela só lê o registro).
+  - Documentação: o guia de domínios ganha as seções "Onde o `name` aparece", "Filtros na consulta da lista" e "Consultas que dependem de hoje", e a "Mudar a forma do dado" lista todos os pontos que citam o `name`.
+- eccafa4: `make:domain --fields` gera o domínio com os campos da entidade, em vez de só `name`:
+  
+  ```sh
+  pnpm exec prumo make:domain livros --fields "titulo:string,autor:string,ano:number,disponivel:boolean,publicadoEm:date,apelido?:string"
+  ```
+  
+  - Sintaxe `nome:tipo` separados por vírgula: nome em camelCase; tipos `string`, `number`, `boolean`, `date` (`AAAA-MM-DD`) e `datetime` (ISO); `?` depois do nome torna o campo opcional. `id` e `createdAt` (reservados), nomes repetidos, tipos desconhecidos e listas mal formadas são recusados (código 2), sem escrever nada.
+  - O schema, o schema de entrada, as fixtures (três registros), o mock (busca nos campos de texto, ordem pelos campos, `create` e `update` com todos os campos) e o teste de contrato saem coerentes com os campos. Datas viram `z.iso.date()` e `z.iso.datetime()`.
+  - `make:page --domain` (lista e detalhe) mostra o primeiro campo de texto obrigatório do schema que existe no projeto (o app pode tê-lo editado depois), no lugar de `name`, e o teste da tela de detalhe espera o valor desse campo na primeira fixture. Sem campo de texto, ou sem achar o schema, a tela mostra o `id` e o comando avisa na saída. Num domínio sem `--fields` (só `name`), o resultado é o de antes.
+  - Sem `--fields`, o `make:domain` gera exatamente o que gerava. O servidor MCP ganha o campo `fields` na ferramenta `make_domain`.
+- ef60741: `make:page` ganha `--path <caminho>` (e a ferramenta `make_page` do MCP, o campo `path`): a rota da tela deixa de ser sempre `/<nome>`. O caminho é validado (começa com `/`, segmentos válidos, no máximo um parâmetro `:nome`, sem `?`, `*` nem `+`) e recusado se repete ou conflita com uma rota do `App.tsx`. Com parâmetro (`--path /livros/:id`), o model gerado lê o valor com o `useParams` do wouter, a view o mostra e o teste renderiza a tela dentro de `<Route path="...">` com um valor de exemplo, então um descompasso entre a rota e a tela passa a falhar. Junto de `--domain`, a tela é de detalhe: o model busca o registro com o `use<Entidade>Detail` do domínio. Sem `--path`, nada muda.
+- d8312c8: Promover um componente de tela a compartilhado agora é um comando:
+  
+  - `prumo move:component <nome> --from <tela> --shared` (ferramenta MCP `move_component`) move o componente e o teste dele de `src/pages/<tela>/components/` para `src/components/shared/` e reescreve para `@/components/shared/<nome>` todo import que apontava para ele (na tela de origem e em qualquer outro arquivo de `src`, inclusive `vi.mock` e `import()`). Aceita `--dry-run`. Recusa, sem mexer em nada, o nome inválido, a tela ou o componente que não existe, o homônimo já em `shared` e o componente que importa algo de uma tela. No fim roda o `prumo check`: a `shared-usage` do componente movido, ainda de uma tela só, é mostrada como esperada e não faz o comando falhar. O caminho inverso (de `shared` para uma tela) não existe.
+  - `make:component` avisa (`Aviso: ...`, sem recusar) quando já existe um componente de mesmo nome em outra tela ou em `shared`, e sugere o `move:component`. O mesmo nome no mesmo lugar continua recusado.
+  - O `AGENTS.md` do app novo lista o comando novo, e `docs/reference/cli.md`, `docs/reference/mcp.md` e o guia de telas descrevem o caminho "o componente passou a ser usado por duas telas".
+- 1b79171: O `@matizze/prumo-testing` ganha `createRenderHookWithProviders`, que cria o `renderHookWithProviders` do app: o `renderHook` do Testing Library com os mesmos provedores, repositórios, `QueryClient` e rota em memória do `renderWithProviders`, para testar um hook de query ou de mutation sem montar um componente de mentira (devolve também `queryClient`, `repositories`, `history`, `navigate` e `currentPath`). O `createRenderWithProviders` (e o novo `createRenderHookWithProviders`) aceita um segundo parâmetro de tipo com as opções extras de cada teste, passadas na opção `providerProps` e repassadas aos `Providers` do app (a sessão de cada teste, por exemplo), tipadas pelo app. Sem o segundo parâmetro, nada muda para quem já usa. O `src/test/render.tsx` que o `prumo new` gera passa a exportar o `renderHookWithProviders` e traz, comentado, o passo a passo para acrescentar um provedor do app.
+
+### Patch Changes
+
+- 0eb8d2b: O README de cada pacote, que é a página dele no npm, foi reescrito: instalação, uso essencial e links para a documentação completa do Prumo (tutorial, guias e referência). A descrição do `@matizze/prumo-cli` no npm passa a citar todos os comandos.
+- Updated dependencies [7565ccd]
+- Updated dependencies [0eb8d2b]
+  - @matizze/prumo-rules@0.2.3
+
 ## 0.5.2
 
 ### Patch Changes

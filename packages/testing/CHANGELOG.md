@@ -1,5 +1,15 @@
 # @matizze/prumo-testing
 
+## 0.3.0
+
+### Minor Changes
+
+- 1b79171: O `@matizze/prumo-testing` ganha `createRenderHookWithProviders`, que cria o `renderHookWithProviders` do app: o `renderHook` do Testing Library com os mesmos provedores, repositórios, `QueryClient` e rota em memória do `renderWithProviders`, para testar um hook de query ou de mutation sem montar um componente de mentira (devolve também `queryClient`, `repositories`, `history`, `navigate` e `currentPath`). O `createRenderWithProviders` (e o novo `createRenderHookWithProviders`) aceita um segundo parâmetro de tipo com as opções extras de cada teste, passadas na opção `providerProps` e repassadas aos `Providers` do app (a sessão de cada teste, por exemplo), tipadas pelo app. Sem o segundo parâmetro, nada muda para quem já usa. O `src/test/render.tsx` que o `prumo new` gera passa a exportar o `renderHookWithProviders` e traz, comentado, o passo a passo para acrescentar um provedor do app.
+
+### Patch Changes
+
+- 0eb8d2b: O README de cada pacote, que é a página dele no npm, foi reescrito: instalação, uso essencial e links para a documentação completa do Prumo (tutorial, guias e referência). A descrição do `@matizze/prumo-cli` no npm passa a citar todos os comandos.
+
 ## 0.2.2
 
 ### Patch Changes

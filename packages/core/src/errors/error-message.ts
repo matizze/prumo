@@ -1,5 +1,5 @@
 import type { i18n as I18nInstance } from 'i18next'
-import { UIError } from './ui-error.ts'
+import { UIError, type ErrorParams } from './ui-error.ts'
 
 /** Opções de `createErrorMessage`; os padrões são as convenções do app de referência. */
 export interface ErrorMessageOptions {
@@ -8,6 +8,13 @@ export interface ErrorMessageOptions {
   /** Chave do texto genérico, para o que não tem tradução (padrão `errors.generic`). */
   fallbackKey?: string
 }
+
+/**
+ * O texto de um erro: recebe um `UIError`, ou um **código solto** (`'LOAN_LIMIT'`, o motivo de um
+ * botão desligado, sem montar um `UIError` de mentira), e `params` com os valores do texto. Os
+ * `params` informados valem mais que os do `UIError`.
+ */
+export type GetErrorMessage = (error: unknown, params?: ErrorParams) => string
 
 /**
  * Cria o `getErrorMessage` de um produto: o texto do erro que pode ir para a interface, no idioma
@@ -24,7 +31,7 @@ export interface ErrorMessageOptions {
 export function createErrorMessage(
   i18n: I18nInstance,
   { prefix = 'errors.', fallbackKey = 'errors.generic' }: ErrorMessageOptions = {},
-): (error: unknown) => string {
+): GetErrorMessage {
   if (!i18n.exists(fallbackKey)) {
     throw new Error(
       `A chave de reserva '${fallbackKey}' não existe nas mensagens da instância i18next. ` +
@@ -32,9 +39,13 @@ export function createErrorMessage(
         'já inicializada: sem esse texto, a tela mostraria a própria chave.',
     )
   }
-  return function getErrorMessage(error: unknown): string {
-    const key = error instanceof UIError ? `${prefix}${error.code}` : null
-    if (key && i18n.exists(key)) return i18n.t(key)
+  return function getErrorMessage(error: unknown, params?: ErrorParams): string {
+    const code = error instanceof UIError ? error.code : typeof error === 'string' ? error : null
+    const key = code ? `${prefix}${code}` : null
+    if (key && i18n.exists(key)) {
+      const values = { ...(error instanceof UIError ? error.params : undefined), ...params }
+      return i18n.t(key, values)
+    }
     return i18n.t(fallbackKey)
   }
 }

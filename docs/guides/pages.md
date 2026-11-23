@@ -16,7 +16,7 @@ Para uma tela que lista um domínio de dados, passe `--domain`:
 pnpm exec prumo make:page pedidos --domain pedidos
 ```
 
-O model passa a ler a lista pelo hook do domínio (`usePedidosList`) e a view mostra o carregando, o erro e a lista. O domínio precisa existir (`prumo make:domain pedidos`).
+O model passa a ler a lista pelo hook do domínio (`usePedidosList`) e a view mostra o carregando, o erro e a lista. A view mostra o primeiro campo de texto de cada registro, lido do schema que o projeto tem (o `name` num domínio sem `--fields`; o primeiro campo `string` obrigatório num domínio criado com [`--fields`](domains.md#os-campos-do-dominio---fields)). Se o schema não tem campo de texto, ou o Prumo não o encontra, a view mostra o `id` e o comando avisa. O domínio precisa existir (`prumo make:domain pedidos`).
 
 Use `--dry-run` para ver o que seria criado e alterado sem escrever nada.
 
@@ -93,7 +93,7 @@ export function ClientesView(m: ClientesModel) {
 
 Os textos novos (`search` e `remove`) entram em `src/messages/pt-BR/clientes.json` e em `src/messages/en/clientes.json`; o `prumo check` acusa o que faltar num dos idiomas.
 
-A mutation `useRemoveCliente` invalida as queries do domínio ao terminar, então a lista se atualiza sozinha.
+A mutation `useRemoveCliente` tira do cache o detalhe do registro removido e invalida as listas do domínio ao terminar, então a lista se atualiza sozinha e uma tela de detalhe aberta não busca de novo o registro que acabou de sumir (o que viraria uma notificação de "não encontrado").
 
 ## Componentes da tela
 
@@ -103,19 +103,21 @@ pnpm exec prumo make:component filtro --page clientes
 
 Cria `src/pages/clientes/components/filtro.tsx` e o teste. Componentes da tela recebem dados e textos por props, como a view: quem traduz e busca é o model.
 
-Quando uma segunda tela precisar do mesmo componente, mova-o para `src/components/shared` (ou gere-o lá com `--shared`). O `prumo check` acusa o componente compartilhado que só uma tela usa.
+Quando uma segunda tela precisar do mesmo componente, promova-o a compartilhado com `prumo move:component <nome> --from <tela> --shared`: ele move o componente e o teste para `src/components/shared` e reescreve os imports. Logo depois, o `prumo check` mostra a violação `shared-usage` como esperada (o componente ainda é de uma tela só) até a segunda tela importá-lo. Gerar um segundo componente com `make:component --shared` não é o caminho: o comando avisa quando já existe um de mesmo nome em outra tela.
 
 ## Rotas
 
-O `make:page` registra a rota `/<tela>` no `src/App.tsx`. O caminho é seu: edite-o à vontade.
+O `make:page` registra a rota `/<tela>` no `src/App.tsx`. Para outro caminho, use `--path` (veja abaixo); o caminho continua seu, e você pode editá-lo depois.
 
 ### Rotas com parâmetro
 
-Para uma tela de detalhe, gere a tela e troque o caminho:
+Para uma tela de detalhe, peça o caminho com `--path`:
 
 ```bash
-pnpm exec prumo make:page cliente
+pnpm exec prumo make:page cliente --path /clientes/:id
 ```
+
+A rota entra no `App.tsx` já com o parâmetro:
 
 ```tsx
 // src/App.tsx
@@ -124,7 +126,27 @@ pnpm exec prumo make:page cliente
 </Route>
 ```
 
-O model lê o parâmetro com o `useParams` do wouter e busca o registro:
+O model gerado lê o parâmetro com o `useParams` do wouter e o devolve, a view o mostra, e os textos continuam nos dois idiomas:
+
+```ts
+// src/pages/cliente/model.ts
+import { useParams } from 'wouter'
+import { useTranslations } from '@/i18n'
+
+export function useClienteModel() {
+  const t = useTranslations('cliente')
+  const { id } = useParams<{ id: string }>()
+  return { title: t('title'), params: { id } }
+}
+```
+
+O caminho tem **no máximo um parâmetro** (`:nome`, sem `?`, `*` nem `+`); o `make:page` recusa o resto, e o caminho que repete ou conflita com uma rota do `App.tsx`. Precisa de um segundo parâmetro? Gere com um e acrescente o outro ao model à mão.
+
+Com `--domain`, a tela é de **detalhe**: o model busca o registro com o `use<Entidade>Detail` do domínio.
+
+```bash
+pnpm exec prumo make:page cliente --domain clientes --path /clientes/:id
+```
 
 ```ts
 // src/pages/cliente/model.ts
@@ -139,18 +161,38 @@ export function useClienteModel() {
 
   return {
     title: t('title'),
-    name: detail.data?.name,
+    loadingText: t('loading'),
+    failedText: t('failed'),
+    item: detail.data,
     loading: detail.isPending,
     failed: detail.isError,
   }
 }
 ```
 
-O parâmetro só existe dentro da `<Route>`. No teste, renderize a tela dentro da rota (veja [Testes](test.md#rotas-com-parâmetro)).
+O parâmetro só existe dentro da `<Route>`, e por isso o teste gerado renderiza a tela dentro dela, com um valor de exemplo (o id do primeiro registro do mock, na tela de detalhe), e confere que o valor chega à tela: se a rota e a tela se descasarem, o teste falha. Veja [Testes](test.md#rotas-com-parâmetro).
 
 ### Ordem das rotas
 
 O `<Switch>` do wouter mostra a **primeira** rota que casa com o endereço. Por isso o `make:page` recusa uma rota que repete ou conflita com outra, e uma rota curinga (sem `path`, a de "página não encontrada") deve ficar por último, onde o gerador a mantém.
+
+### A rota `/`
+
+O `prumo new` gera a tela `home` na rota `/`. Se o app não tem uma tela `home` (você a apagou, ou o produto começa em outra tela), o `/` fica sem rota e cai na página "não encontrada". Faça-o redirecionar, com o `Redirect` do wouter, para a tela em que o app começa, trocando a entrada do histórico:
+
+```tsx
+// src/App.tsx
+import { Redirect, Route, Switch } from 'wouter'
+
+<Switch>
+  <Route path="/">
+    <Redirect to="/painel" replace />
+  </Route>
+  {/* ... as outras rotas */}
+</Switch>
+```
+
+Se a tela inicial é protegida, o redirecionamento pode ficar fora do guarda: o `/` manda para `/painel`, e o `AuthGuard` dele manda para o login quando falta sessão.
 
 ## Navegação
 
@@ -176,12 +218,12 @@ const onSave = (input: ClienteInput) =>
 
 ## Rotas protegidas
 
-O `AuthGuard` do core mostra o conteúdo só com a sessão aberta e, sem ela, redireciona para o login (trocando a entrada do histórico, para o "voltar" não cair de novo na rota protegida). Ele não conhece a sua autenticação: você passa o estado da sessão.
+O `AuthGuard` do core mostra o conteúdo só com a sessão aberta e, sem ela, redireciona para o login (trocando a entrada do histórico, para o "voltar" não cair de novo na rota protegida). Ele não conhece a sua autenticação: você passa o estado da sessão. Onde a sessão mora, como o login e o logout funcionam e como proteger por perfil estão em [Sessão e login](auth.md).
 
 ```tsx
 // src/App.tsx
 import { AuthGuard } from '@matizze/prumo-core/auth'
-import { useSession } from '@/auth' // o hook de sessão do seu produto
+import { useSession } from '@/providers/session' // o hook de sessão do app (veja Sessão e login)
 
 export default function App() {
   const session = useSession()
@@ -206,7 +248,40 @@ export default function App() {
 | `isAuthenticated` | (obrigatória) | Há sessão aberta                                        |
 | `isLoading`       | (obrigatória) | A sessão ainda está sendo verificada                    |
 | `redirectTo`      | `'/login'` | Para onde ir sem sessão                                    |
+| `keepOrigin`      | `false`    | Leva a rota pedida até o login, em `?next=` (veja abaixo)  |
 | `fallback`        | `null`     | O que mostrar enquanto a sessão carrega (um spinner, por exemplo) |
+
+### Voltar para a rota pedida depois de entrar
+
+Com `keepOrigin`, o guarda manda a pessoa para `/login?next=%2Fclientes%3Fpage%3D2` (caminho e query da rota que ela pediu). O login lê a origem com `useAuthOrigin` e volta para ela depois de entrar:
+
+```tsx
+// src/App.tsx: o guarda guarda a origem
+<AuthGuard isAuthenticated={session.isAuthenticated} isLoading={session.isLoading} keepOrigin>
+  <ClientesPage />
+</AuthGuard>
+```
+
+```tsx
+// a tela de login: depois de entrar, volta para a origem (ou para /painel)
+import { useLocation } from 'wouter'
+import { useAuthOrigin } from '@matizze/prumo-core/auth'
+
+function LoginPage() {
+  const [, navigate] = useLocation()
+  const origin = useAuthOrigin('/painel')
+
+  const onSignIn = async (credentials: Credentials) => {
+    await session.signIn(credentials)
+    navigate(origin, { replace: true })
+  }
+  // ...
+}
+```
+
+O `useAuthOrigin` só devolve **caminho relativo do próprio app** (começa com `/`, nunca `//`, sem esquema nem barra invertida); qualquer outra coisa em `?next=` (`https://outro.site`, `//outro.site`) é ignorada e vale o fallback. Isso fecha o redirecionamento aberto: não leia o `next` por conta própria e navegue direto para ele. Fora do React, use `safeRedirectPath` ou `readOrigin` (`@matizze/prumo-core/auth`). Sem `keepOrigin`, o guarda faz o que sempre fez: vai para `redirectTo`.
+
+Para a casca do app (cabeçalho e menu) só nas rotas protegidas, de modo que o login fique sem menu, veja [Design system](design-system.md#a-casca-só-nas-rotas-protegidas).
 
 ## Apagar ou renomear uma tela
 

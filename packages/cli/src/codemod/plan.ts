@@ -1,4 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmdirSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import path from 'node:path'
 import { IndentationText, Project as MorphProject, QuoteKind, ts, type SourceFile } from 'ts-morph'
 import { UsageError } from '../errors.ts'
@@ -8,6 +17,8 @@ import type { Project } from '../project.ts'
 export interface PlanSummary {
   created: string[]
   modified: string[]
+  /** Os arquivos que o plano apaga (os de origem de um `moveSource`); a chave só existe se houver algum. */
+  removed?: string[]
 }
 
 /**
@@ -26,6 +37,7 @@ export class ChangePlan {
   readonly #createdSources = new Map<string, SourceFile>()
   readonly #loadedSources = new Map<string, { file: SourceFile; original: string }>()
   readonly #createdFiles = new Map<string, string>()
+  readonly #removed = new Set<string>()
   readonly #editedTexts = new Map<string, { original: string; content: string }>()
 
   constructor(project: Project) {
@@ -68,6 +80,16 @@ export class ChangePlan {
     this.#assertNew(file)
     const source = this.morph.createSourceFile(file, text)
     this.#createdSources.set(file, source)
+    return source
+  }
+
+  /**
+   * Move um arquivo de código existente: cria `to` com o texto atual de `from` (que o chamador
+   * pode editar no plano) e apaga `from` no `commit()`. Devolve o arquivo novo.
+   */
+  moveSource(from: string, to: string): SourceFile {
+    const source = this.createSource(to, this.#readExisting(from))
+    this.#removed.add(from)
     return source
   }
 
@@ -118,7 +140,12 @@ export class ChangePlan {
         .map(([f]) => f),
       ...[...this.#editedTexts].filter(([, t]) => t.content !== t.original).map(([f]) => f),
     ].map(relative)
-    return { created: created.sort(), modified: modified.sort() }
+    const removed = [...this.#removed].map(relative).sort()
+    return {
+      created: created.sort(),
+      modified: modified.sort(),
+      ...(removed.length > 0 ? { removed } : {}),
+    }
   }
 
   /**
@@ -138,6 +165,12 @@ export class ChangePlan {
     }
     for (const [file, { original, content }] of this.#editedTexts) {
       if (content !== original) write(file, content)
+    }
+    for (const file of this.#removed) {
+      unlinkSync(file)
+      // A pasta que ficou vazia (a `components` de uma tela sem mais componentes) some junto
+      const folder = path.dirname(file)
+      if (readdirSync(folder).length === 0) rmdirSync(folder)
     }
     return summary
   }

@@ -28,6 +28,8 @@ O `code` é o que importa para a interface. A `message` serve para logs e testes
 
 ## Traduzir o erro
 
+> O `prumo new` já gera tudo isto: o namespace `errors` nos dois idiomas (com o texto genérico), o `src/errors.ts` com o `getErrorMessage`, o `i18n` exportado e o `src/providers/app.tsx` usando o `getErrorMessage`. O `make:domain` acrescenta o texto de `<ENTIDADE>_NOT_FOUND` aos dois `errors.json`. Os passos abaixo são para entender o que existe e para um [app criado antes](#app-criado-antes-do-tratamento-de-erro).
+
 **1. Crie os textos dos erros**, um namespace `errors` nos dois idiomas, com o texto genérico e um por código:
 
 ```json
@@ -67,11 +69,35 @@ O `getErrorMessage(erro)` devolve:
 | `UIError` com código sem tradução            | `errors.generic`                                       |
 | Qualquer outro erro (rede, bug, validação)   | `errors.generic`, sem vazar texto técnico              |
 
+### App criado antes do tratamento de erro
+
+Um app criado por uma versão anterior do `new` não tem o namespace `errors`, o `src/errors.ts` nem o `i18n` exportado, e o `providers/app.tsx` usa o texto técnico do erro. Faça os três passos acima à mão (os textos, o registro do namespace e o `src/errors.ts`) e troque o `getErrorMessage` do `providers/app.tsx` pelo do `@/errors`. Enquanto isso, o `make:domain` continua funcionando: ele avisa que não acrescentou o texto de `<ENTIDADE>_NOT_FOUND` (falta o `errors.json`) e segue, sem falhar. Depois de criar os `errors.json`, acrescente você mesmo as chaves dos domínios já gerados.
+
+### Valores no texto e códigos soltos
+
+Um texto que precisa de um valor usa uma variável ICU, e o `UIError` leva o valor em `params` (o terceiro argumento, opcional) em vez de fixar o número no JSON:
+
+```json
+{ "LOAN_LIMIT": "Você já tem {limite, plural, one {# livro emprestado} other {# livros emprestados}}." }
+```
+
+```ts
+throw new UIError('LOAN_LIMIT', 'limite de empréstimos', { limite: 3 })
+```
+
+O `getErrorMessage(error)` passa os `params` ao `t`. Também aceita um **código solto**, para o motivo de um botão desligado, que é só um código, e um segundo argumento com os valores (que valem mais que os do `UIError`):
+
+```ts
+getErrorMessage('LOAN_LIMIT', { limite: 3 }) // "Você já tem 3 livros emprestados."
+```
+
+Um texto solto sem tradução na chave `errors.<texto>` continua virando `errors.generic`.
+
 O `createErrorMessage` confere, ao ser criado, que a chave `errors.generic` existe, e lança um erro se não existir: sem ela, a tela mostraria a própria chave. O prefixo e a chave de reserva são configuráveis (`createErrorMessage(i18n, { prefix: 'erros.', fallbackKey: 'erros.generico' })`).
 
 ## Ligar a notificação global
 
-O `src/providers/app.tsx` gerado manda o erro para o console e mostra a mensagem técnica. Troque pelos dois pontos do produto:
+O `src/providers/app.tsx` gerado manda o erro para o console, com o texto traduzido pelo `getErrorMessage` do app. Troque só a notificação pelo ponto do produto (o `getErrorMessage` já está ligado):
 
 ```tsx
 // src/providers/app.tsx

@@ -43,7 +43,7 @@ Criados (28):
 
 Próximos passos:
   cd loja
-  pnpm verify                                   # typecheck, lint, check e test
+  pnpm verify                                   # typecheck, lint, test e check
   pnpm dev                                      # o app em http://localhost:5173
   ...
 ```
@@ -118,7 +118,7 @@ Essa separação é o centro da arquitetura: a view pode ser trocada inteira (po
 pnpm verify
 ```
 
-O `verify` roda, em sequência, o `tsc`, o ESLint (com as regras do Prumo), o `prumo check` (a análise da arquitetura do projeto inteiro) e os testes do Vitest. Nada disso precisa de navegador. Use-o antes de dar qualquer tarefa por pronta.
+O `verify` roda, em sequência, o `tsc`, o ESLint (com as regras do Prumo), os testes do Vitest e, por último, o `prumo check` (a análise da arquitetura do projeto inteiro). Os testes vêm antes do `check` para que uma violação dele não os esconda, mas o `verify` continua falhando se o `check` falhar. Nada disso precisa de navegador. Use-o antes de dar qualquer tarefa por pronta.
 
 ## 4. Gere um domínio de dados
 
@@ -148,7 +148,7 @@ Alterados (3):
 prumo check: nenhuma violação.
 ```
 
-O nome do domínio vai no plural; a entidade (`cliente`) sai dele, tirando o `s`. O comando criou:
+O nome do domínio vai no plural; a entidade (`cliente`) sai dele, tirando o `s`. Sem `--fields`, a entidade tem só o campo `name`; para os campos do seu produto, peça-os na criação, por exemplo `--fields "nome:string,email:string,ativo:boolean"` (veja [Domínios](guides/domains.md#os-campos-do-dominio---fields)). O comando criou:
 
 - o **schema** zod da entidade (`id`, `name` e `createdAt`), com os tipos de entrada e de consulta;
 - o **contrato** do repositório, a interface `IClientesRepository` (`list`, `get`, `create`, `update` e `remove`);

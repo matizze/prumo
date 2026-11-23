@@ -1,14 +1,14 @@
 # Testes
 
-Cada gerador do Prumo cria o teste do que gerou, e o `pnpm test` roda todos com o Vitest e o jsdom, sem navegador. Este guia mostra como testar os estados de uma tela, trocar um repositório num teste, testar rotas e navegação e escrever o contrato de um repositório.
+Cada gerador do Prumo cria o teste do que gerou, e o `pnpm test` roda todos com o Vitest e o jsdom, sem navegador. Este guia mostra como testar os estados de uma tela, trocar um repositório num teste, testar rotas e navegação, um hook de query ou mutation e escrever o contrato de um repositório.
 
 ## O que o app já traz
 
 | Arquivo               | O que faz                                                                                     |
 | --------------------- | --------------------------------------------------------------------------------------------- |
 | `vite.config.ts`      | Vitest com `environment: 'jsdom'`, `setupFiles: ['./src/test/setup.ts']` e os testes em `src/**/*.test.{ts,tsx}` |
-| `src/test/setup.ts`   | Desmonta os componentes depois de cada teste                                                  |
-| `src/test/render.tsx` | O `renderWithProviders` do app                                                                |
+| `src/test/setup.ts`   | Fixa o idioma padrão do app (`pt-BR`) e desmonta os componentes depois de cada teste           |
+| `src/test/render.tsx` | O `renderWithProviders` e o `renderHookWithProviders` do app                                  |
 
 O `renderWithProviders` renderiza o componente com os provedores do app (i18n e repositórios), um `QueryClient` só do teste e uma rota em memória do wouter:
 
@@ -31,19 +31,10 @@ Além desses campos, o resultado tem tudo o que o `render` do Testing Library de
 
 ## O idioma dos testes
 
-O i18n do app detecta o idioma pelo `localStorage` e pelo navegador. No jsdom, o navegador diz `en-US`, então **os testes rodam em inglês** se nada for configurado. Os testes gerados procuram o título da tela, que o `make:page` escreve igual nos dois idiomas, e passam de qualquer jeito; os seus testes podem depender do idioma.
-
-Para fixar o idioma, exporte a instância do i18n e troque o idioma no setup:
+O i18n do app detecta o idioma pelo `localStorage` e pelo navegador. No jsdom, o navegador diz `en-US`, então os testes rodariam em inglês se nada fosse configurado. **O app novo já vem com o idioma fixado**: o `src/i18n.ts` exporta a instância `i18n`, e o `src/test/setup.ts` troca o idioma para o padrão do app (`pt-BR`) antes dos testes:
 
 ```ts
-// src/i18n.ts
-export const { I18nProvider, useTranslations, i18n } = defineI18n({
-  // ...
-})
-```
-
-```ts
-// src/test/setup.ts
+// src/test/setup.ts (como o `prumo new` gera)
 import { cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
 import { i18n } from '@/i18n'
@@ -52,6 +43,8 @@ await i18n.changeLanguage('pt-BR')
 
 afterEach(cleanup)
 ```
+
+Num app criado por uma versão anterior do `new`, sem isso, exporte a instância (`export const { I18nProvider, useTranslations, i18n } = defineI18n({ ... })` no `src/i18n.ts`) e acrescente essas linhas ao setup.
 
 Os exemplos deste guia supõem os testes em português. Para testar outro idioma num teste específico, chame `await i18n.changeLanguage('en')` nele.
 
@@ -157,7 +150,7 @@ expect((await repositories.clientes.list()).total).toBe(2)
 
 ### Rotas com parâmetro
 
-O parâmetro de rota só existe dentro de uma `<Route>`. Renderize a tela dentro da rota, com o caminho inicial já com o parâmetro:
+O parâmetro de rota só existe dentro de uma `<Route>`. Renderize a tela dentro da rota, com o caminho inicial já com o parâmetro. O teste que o `make:page --path /clientes/:id` gera já é assim (e, sem `--domain`, confere que o valor do parâmetro aparece na tela):
 
 ```tsx
 // src/pages/cliente/index.test.tsx
@@ -198,6 +191,90 @@ it('vai da tela inicial para a lista de clientes', async () => {
 ```
 
 O `history` lista as rotas visitadas; navegar com `{ replace: true }` troca a última entrada, como o `AuthGuard` faz ao redirecionar para o login.
+
+## Testar um hook de query ou mutation
+
+Para testar um hook sem montar um componente de mentira, use o `renderHookWithProviders` de `@/test/render`. Ele roda o hook com os mesmos provedores, repositórios em memória, `QueryClient` sem retry e rota em memória do `renderWithProviders`, e aceita as mesmas opções (`path`, `repositories`, `queryClient`, `providerProps`). O resultado traz o `result.current` do Testing Library e os campos `repositories`, `queryClient`, `navigate`, `history` e `currentPath`.
+
+Uma query:
+
+```tsx
+import { waitFor } from '@testing-library/react'
+import { expect, it } from 'vitest'
+import { renderHookWithProviders } from '@/test/render'
+import { useClientes } from '@/queries/clientes'
+
+it('lista os clientes', async () => {
+  const { result } = renderHookWithProviders(() => useClientes())
+
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  expect(result.current.data?.total).toBeGreaterThan(0)
+})
+```
+
+Uma mutation: chame `mutateAsync` dentro do `act` e confira o repositório, que o resultado devolve, ou o cache:
+
+```tsx
+import { act } from '@testing-library/react'
+import { useCreateCliente } from '@/queries/clientes'
+
+it('cria um cliente', async () => {
+  const { result, repositories } = renderHookWithProviders(() => useCreateCliente())
+  const antes = (await repositories.clientes.list()).total
+
+  await act(() => result.current.mutateAsync({ name: 'Ana Souza' }))
+
+  expect((await repositories.clientes.list()).total).toBe(antes + 1)
+})
+```
+
+Uma operação que envolve mais de um domínio (veja [Regras de negócio e operações entre domínios](domains.md#regras-de-negócio-e-operações-entre-domínios)) testa-se melhor como função, chamando-a com os repositórios em memória; o hook só precisa de um teste de que invalida o que deve.
+
+Para uma mutation que falha, troque o método do repositório com `vi.spyOn(...).mockRejectedValue(...)` (como em [Estado de erro](#estado-de-erro)) e espere `await expect(act(() => result.current.mutateAsync(valor))).rejects.toThrow()`. Se o hook recebe argumentos que mudam, use `initialProps` e o `rerender` do resultado.
+
+## Provedores do app nos testes
+
+O `Providers` gerado só conhece o i18n e os repositórios. Se o app tem um provedor que muda de teste para teste, como a sessão (logado como bibliotecário, como membro, sem ninguém), declare as opções dele no `src/test/render.tsx`, aceite-as no `Providers` e passe o tipo como segundo parâmetro aos dois criadores. O arquivo gerado traz esse passo a passo comentado.
+
+```tsx
+// src/test/render.tsx
+interface TestProviderProps {
+  session?: Session
+}
+
+function Providers({
+  children,
+  repositories,
+  session = createAnonymousSession(),
+}: { children: ReactNode; repositories: RepositoryContainer } & TestProviderProps) {
+  return (
+    <I18nProvider>
+      <RepositoryProvider value={repositories}>
+        <SessionProvider session={session}>{children}</SessionProvider>
+      </RepositoryProvider>
+    </I18nProvider>
+  )
+}
+
+export const renderWithProviders = createRenderWithProviders<RepositoryContainer, TestProviderProps>(binding)
+export const renderHookWithProviders = createRenderHookWithProviders<RepositoryContainer, TestProviderProps>(binding)
+```
+
+Cada teste escolhe a sessão na opção `providerProps`, tipada pelo app:
+
+```tsx
+it('mostra o menu do bibliotecário', async () => {
+  renderWithProviders(<PainelPage />, { providerProps: { session: await openSession(BIBLIOTECARIA) } })
+
+  expect(await screen.findByRole('link', { name: 'Empréstimos' })).toBeDefined()
+})
+
+it('usa a sessão do membro no hook', () => {
+  renderHookWithProviders(() => useMeusEmprestimos(), { providerProps: { session: membroSession } })
+})
+```
+
+`createAnonymousSession` e `openSession` são funções do app (uma sessão sem ninguém e uma já aberta, com uma API de autenticação falsa e um storage em memória), e ficam em `src/test/`. O `Providers` roda por dentro do `QueryClientProvider` e do `Router` que o pacote põe, então um provedor de sessão que limpa o cache ao sair pode usar o `useQueryClient`.
 
 ## Testar um componente
 
@@ -251,11 +328,11 @@ runContractSuite(clientesContract, {
 - **`dispose`**, opcional na implementação, roda depois de cada teste, também quando ele falha: é onde se apaga um banco ou se restaura uma API de teste.
 - O título de cada grupo é `<contrato>: <implementação>`, então a saída do Vitest mostra qual implementação falhou.
 
-Para rodar o mesmo contrato contra a implementação HTTP, veja [Ligar uma API real](real-api.md#6-rode-o-contrato-contra-a-api).
+Para rodar o mesmo contrato contra a implementação HTTP, veja [Ligar uma API real](real-api.md#6-rode-o-contrato-contra-a-api). Se a API de teste só simula as escritas (a leitura seguinte não vê a mudança), rode o contrato contra uma [API falsa em memória pelo `fetch` injetável](real-api.md#quando-a-api-de-teste-não-persiste-escritas).
 
 ## Setup mais completo do DOM
 
-O `setup.ts` gerado só desmonta os componentes. O `setupDom` do `@matizze/prumo-testing/dom` faz mais, para apps que usam APIs do navegador que o jsdom não tem:
+O `setup.ts` gerado fixa o idioma e desmonta os componentes. O `setupDom` do `@matizze/prumo-testing/dom` faz mais, para apps que usam APIs do navegador que o jsdom não tem:
 
 ```ts
 // src/test/setup.ts
@@ -288,5 +365,5 @@ Toda media query começa sem casar (`matches: false`), o equivalente a desktop e
 pnpm test                          # todos
 pnpm test src/pages/clientes       # uma pasta
 pnpm exec vitest                   # modo observação
-pnpm verify                        # typecheck, lint, check e testes
+pnpm verify                        # typecheck, lint, testes e check
 ```

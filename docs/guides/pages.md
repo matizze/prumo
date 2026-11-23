@@ -206,7 +206,38 @@ export default function App() {
 | `isAuthenticated` | (obrigatória) | Há sessão aberta                                        |
 | `isLoading`       | (obrigatória) | A sessão ainda está sendo verificada                    |
 | `redirectTo`      | `'/login'` | Para onde ir sem sessão                                    |
+| `keepOrigin`      | `false`    | Leva a rota pedida até o login, em `?next=` (veja abaixo)  |
 | `fallback`        | `null`     | O que mostrar enquanto a sessão carrega (um spinner, por exemplo) |
+
+### Voltar para a rota pedida depois de entrar
+
+Com `keepOrigin`, o guarda manda a pessoa para `/login?next=%2Fclientes%3Fpage%3D2` (caminho e query da rota que ela pediu). O login lê a origem com `useAuthOrigin` e volta para ela depois de entrar:
+
+```tsx
+// src/App.tsx: o guarda guarda a origem
+<AuthGuard isAuthenticated={session.isAuthenticated} isLoading={session.isLoading} keepOrigin>
+  <ClientesPage />
+</AuthGuard>
+```
+
+```tsx
+// a tela de login: depois de entrar, volta para a origem (ou para /painel)
+import { useLocation } from 'wouter'
+import { useAuthOrigin } from '@matizze/prumo-core/auth'
+
+function LoginPage() {
+  const [, navigate] = useLocation()
+  const origin = useAuthOrigin('/painel')
+
+  const onSignIn = async (credentials: Credentials) => {
+    await session.signIn(credentials)
+    navigate(origin, { replace: true })
+  }
+  // ...
+}
+```
+
+O `useAuthOrigin` só devolve **caminho relativo do próprio app** (começa com `/`, nunca `//`, sem esquema nem barra invertida); qualquer outra coisa em `?next=` (`https://outro.site`, `//outro.site`) é ignorada e vale o fallback. Isso fecha o redirecionamento aberto: não leia o `next` por conta própria e navegue direto para ele. Fora do React, use `safeRedirectPath` ou `readOrigin` (`@matizze/prumo-core/auth`). Sem `keepOrigin`, o guarda faz o que sempre fez: vai para `redirectTo`.
 
 ## Apagar ou renomear uma tela
 

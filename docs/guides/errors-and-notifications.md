@@ -67,6 +67,26 @@ O `getErrorMessage(erro)` devolve:
 | `UIError` com código sem tradução            | `errors.generic`                                       |
 | Qualquer outro erro (rede, bug, validação)   | `errors.generic`, sem vazar texto técnico              |
 
+### Valores no texto e códigos soltos
+
+Um texto que precisa de um valor usa uma variável ICU, e o `UIError` leva o valor em `params` (o terceiro argumento, opcional) em vez de fixar o número no JSON:
+
+```json
+{ "LOAN_LIMIT": "Você já tem {limite, plural, one {# livro emprestado} other {# livros emprestados}}." }
+```
+
+```ts
+throw new UIError('LOAN_LIMIT', 'limite de empréstimos', { limite: 3 })
+```
+
+O `getErrorMessage(error)` passa os `params` ao `t`. Também aceita um **código solto**, para o motivo de um botão desligado, que é só um código, e um segundo argumento com os valores (que valem mais que os do `UIError`):
+
+```ts
+getErrorMessage('LOAN_LIMIT', { limite: 3 }) // "Você já tem 3 livros emprestados."
+```
+
+Um texto solto sem tradução na chave `errors.<texto>` continua virando `errors.generic`.
+
 O `createErrorMessage` confere, ao ser criado, que a chave `errors.generic` existe, e lança um erro se não existir: sem ela, a tela mostraria a própria chave. O prefixo e a chave de reserva são configuráveis (`createErrorMessage(i18n, { prefix: 'erros.', fallbackKey: 'erros.generico' })`).
 
 ## Ligar a notificação global

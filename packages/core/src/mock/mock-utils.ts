@@ -58,10 +58,3 @@ export function paginate<T>(items: readonly T[], page = 1, pageSize?: number): P
 export function sum(values: readonly number[]) {
   return values.reduce((total, value) => total + value, 0)
 }
-
-/** Soma `days` dias a uma data ISO (AAAA-MM-DD) e devolve AAAA-MM-DD, em UTC. */
-export function addDays(isoDate: string, days: number) {
-  const date = new Date(`${isoDate.slice(0, 10)}T00:00:00.000Z`)
-  date.setUTCDate(date.getUTCDate() + days)
-  return date.toISOString().slice(0, 10)
-}

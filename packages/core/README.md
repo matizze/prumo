@@ -25,8 +25,9 @@ Cada módulo tem um subcaminho próprio: importar um não traz as dependências 
 | `@matizze/prumo-core/i18n`         | `defineI18n` (instância, provedor e hooks tipados pelas mensagens, com ICU), `createFormat` e `resolveLocale` |
 | `@matizze/prumo-core/errors`       | `UIError` (erro com código estável) e `createErrorMessage` (o texto do erro no idioma ativo)     |
 | `@matizze/prumo-core/data`         | `pageSchema` e os tipos `Page`, `PageQuery`, `Sort`, `SortDirection` e `DateRange`           |
-| `@matizze/prumo-core/mock`         | `wait`, `normalize`, `matchesSearch`, `sortBy`, `paginate`, `sum` e `addDays`, para repositórios em memória |
-| `@matizze/prumo-core/auth`         | `AuthGuard`, a guarda de rota que redireciona sem sessão                                         |
+| `@matizze/prumo-core/date`         | `addDays`, `daysBetween` e `parseLocalDate`: datas `AAAA-MM-DD` sem depender do fuso, para regras de negócio e mocks |
+| `@matizze/prumo-core/mock`         | `wait`, `normalize`, `matchesSearch`, `sortBy`, `paginate` e `sum`, para repositórios em memória (e `addDays`, por compatibilidade) |
+| `@matizze/prumo-core/auth`         | `AuthGuard` (guarda de rota que redireciona sem sessão, com a opção de voltar à rota pedida) e `useAuthOrigin` |
 
 ## Exemplo
 

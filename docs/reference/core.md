@@ -12,9 +12,10 @@ pnpm add @matizze/prumo-core
 | [`@matizze/prumo-core/query`](#query)               | `createQueryKeys`, `createQueryClient`, `QueryProvider`, `ErrorMeta`               |
 | [`@matizze/prumo-core/i18n`](#i18n)                 | `defineI18n`, `createFormat`, `resolveLocale` e os tipos de mensagens              |
 | [`@matizze/prumo-core/errors`](#errors)             | `UIError`, `createErrorMessage`                                                    |
+| [`@matizze/prumo-core/date`](#date)                 | `addDays`, `daysBetween`, `parseLocalDate`                                        |
 | [`@matizze/prumo-core/data`](#data)                 | `pageSchema`, `Page`, `PageQuery`, `Sort`, `SortDirection`, `DateRange`           |
 | [`@matizze/prumo-core/mock`](#mock)                 | `wait`, `normalize`, `matchesSearch`, `sortBy`, `paginate`, `sum`, `addDays`      |
-| [`@matizze/prumo-core/auth`](#auth)                 | `AuthGuard`                                                                       |
+| [`@matizze/prumo-core/auth`](#auth)                 | `AuthGuard`, `useAuthOrigin`, `safeRedirectPath`, `buildLoginRedirect`, `readOrigin` |
 
 **Peer dependencies:** `react` ^19.3, `@tanstack/react-query` ^5.105, `zod` ^4.6, `i18next` ^26.4, `react-i18next` ^17.0, `i18next-icu` ^2.5, `i18next-browser-languagedetector` ^8.2 e `wouter` ^3.13. O projeto instala as que os módulos que usa pedem.
 
@@ -245,7 +246,7 @@ Formatadores `Intl` ligados a um idioma, com as instâncias reaproveitadas por i
 | `time(value, options?)`                 | `14:30`                                             |
 | `relative(value, now?)`                 | `há 1 hora`, `amanhã`: a maior unidade que cabe     |
 
-Os formatadores de data aceitam `Date`, número ou texto ISO.
+Os formatadores de data aceitam `Date`, número ou texto ISO. Texto só com a data (`AAAA-MM-DD`) é lido como **data local** (o dia escrito, em qualquer fuso; uma data que não existe, como `2026-02-31`, é inválida); texto com hora, `Date` e número são um instante, mostrado no fuso local.
 
 ### `resolveLocale(code, supported)`
 
@@ -276,11 +277,14 @@ Converte um código do navegador ou do `localStorage` num idioma suportado: prim
 ```ts
 class UIError extends Error {
   code: string
-  constructor(code: string, message: string)
+  params?: Record<string, unknown>
+  constructor(code: string, message: string, params?: Record<string, unknown>)
 }
 ```
 
 Um erro que pode chegar à interface. O repositório lança um `UIError` com um código estável (`CLIENTE_NOT_FOUND`), e a interface mostra o texto da chave `errors.<CODE>` no idioma ativo. A `message` é para logs e testes, nunca para a tela. O `name` é `'UIError'`.
+
+`params` (opcional) leva os valores que o texto precisa: `new UIError('LOAN_LIMIT', 'limite', { limite: 3 })` com `"LOAN_LIMIT": "Você já tem {limite} livros emprestados"`. Quem cria `new UIError(code, message)` não muda nada.
 
 ### `createErrorMessage(i18n, options?)`
 
@@ -288,15 +292,16 @@ Um erro que pode chegar à interface. O repositório lança um `UIError` com um 
 function createErrorMessage(
   i18n: i18n,
   options?: { prefix?: string; fallbackKey?: string },
-): (error: unknown) => string
+): (error: unknown, params?: Record<string, unknown>) => string
 ```
 
-Cria o `getErrorMessage` do app: o texto de um erro no idioma ativo da instância.
+Cria o `getErrorMessage` do app: o texto de um erro no idioma ativo da instância. Aceita um `UIError` **ou um código solto** (`getErrorMessage('LOAN_LIMIT', { limite: 3 })`, para o motivo de um botão desligado, sem montar um `UIError`). O segundo argumento são os valores do texto (variáveis ICU); eles valem mais que os `params` do `UIError`.
 
 | Erro                                  | Texto                                       |
 | ------------------------------------- | ------------------------------------------- |
 | `UIError` cuja chave `<prefix><code>` existe | A tradução dessa chave               |
-| `UIError` sem tradução, ou outro erro | A tradução de `fallbackKey`                 |
+| Texto (código solto) cuja chave `<prefix><texto>` existe | A tradução dessa chave  |
+| `UIError` ou texto sem tradução, ou outro erro | A tradução de `fallbackKey`        |
 
 Padrões: `prefix: 'errors.'` e `fallbackKey: 'errors.generic'`. Na criação, confere que a `fallbackKey` existe nas mensagens da instância e **lança um erro** se não existir. A instância precisa estar inicializada (a do `defineI18n` já está).
 
@@ -324,6 +329,25 @@ O schema zod de uma página de listagem: `{ items, total }`, com `total` inteiro
 
 ---
 
+## date
+
+Datas `AAAA-MM-DD` sem depender do fuso, para o código de produção (as regras de negócio) e para os mocks.
+
+| Função                       | Descrição                                                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `addDays(isoDate, days)`     | Soma dias a uma data ISO e devolve `AAAA-MM-DD`, em UTC (`days` negativo volta no tempo).                      |
+| `daysBetween(from, to)`      | Quantos dias há de `from` até `to`: positivo quando `to` é depois. Só a data conta; o horário de verão não interfere. |
+| `parseLocalDate(value)`      | O `Date` à meia-noite **local** quando `value` é `AAAA-MM-DD`; `Date`, número e texto com hora seguem o `Date`. Data inexistente vira `Invalid Date`. É o que o `format.date` usa. |
+
+```ts
+import { addDays, daysBetween } from '@matizze/prumo-core/date'
+
+const dueDate = addDays('2026-11-22', 14) // '2026-12-06'
+const lateDays = daysBetween(dueDate, '2026-12-10') // 4
+```
+
+---
+
 ## mock
 
 Utilitários para os repositórios em memória.
@@ -336,7 +360,7 @@ Utilitários para os repositórios em memória.
 | `sortBy(items, sort, accessors, { locale? })`   | Uma cópia ordenada; sem `sort`, a ordem original. Números pelo valor; texto pelo idioma (padrão `'pt-BR'`), com números naturais ("Item 9" antes de "Item 10"). |
 | `paginate(items, page?, pageSize?)`             | Um `Page<T>`: a fatia da página (que começa em 1) e o `total` de antes da fatia. Sem `pageSize`, tudo.     |
 | `sum(values)`                                   | A soma de uma lista de números.                                                                             |
-| `addDays(isoDate, days)`                        | Soma dias a uma data ISO e devolve `AAAA-MM-DD`, em UTC.                                                   |
+| `addDays(isoDate, days)`                        | Soma dias a uma data ISO e devolve `AAAA-MM-DD`, em UTC. Mora em [`/date`](#date); segue exportado aqui por compatibilidade. |
 
 ```ts
 async list(query: ClienteListQuery = {}): Promise<Page<ClienteSchema>> {
@@ -364,6 +388,7 @@ interface AuthGuardProps {
   isAuthenticated: boolean
   isLoading: boolean
   redirectTo?: string   // padrão: '/login'
+  keepOrigin?: boolean  // padrão: false
   fallback?: ReactNode  // padrão: null
 }
 ```
@@ -374,3 +399,27 @@ Guarda de rota: mostra `children` só com a sessão aberta.
 - Sem sessão, não mostra nada e navega para `redirectTo` **trocando** a entrada atual do histórico, para o "voltar" não cair de novo na rota protegida.
 
 O guarda não conhece a autenticação do produto: o produto passa o estado da sessão. Usa o `useLocation` do wouter. Veja [Telas](../guides/pages.md#rotas-protegidas).
+
+Com `keepOrigin`, o guarda leva a rota pedida (caminho e query) até o login, no parâmetro `next`: de `/clientes?page=2` para `/login?next=%2Fclientes%3Fpage%3D2`. Sem ele, o redirecionamento é só `redirectTo`, como sempre foi. Se o guarda já está na rota do login, não anexa a origem de novo.
+
+### `useAuthOrigin(fallback?, param?)`
+
+```ts
+function useAuthOrigin(fallback = '/', param = 'next'): string
+```
+
+Para a tela de login: a rota guardada em `?next=`, já conferida, ou `fallback` quando não há ou não é segura. Só vale caminho relativo do próprio app.
+
+### `safeRedirectPath(value, fallback?)`, `buildLoginRedirect(redirectTo, origin, param?)`, `readOrigin(search, fallback?, param?)`
+
+```ts
+function safeRedirectPath(value: string | null | undefined, fallback = '/'): string
+function buildLoginRedirect(redirectTo: string, origin: string, param = 'next'): string
+function readOrigin(search: string, fallback = '/', param = 'next'): string
+```
+
+Os ajudantes puros por trás do guarda e do hook, para quem lê a origem fora do React.
+
+- `safeRedirectPath` devolve `value` só se começar com `/` e for do próprio app; recusa `https://…`, `//…`, barra invertida, `javascript:` e caracteres de controle (redirecionamento aberto) e devolve `fallback`.
+- `buildLoginRedirect` anexa a origem codificada ao `redirectTo` (descarta uma origem insegura).
+- `readOrigin` lê o parâmetro de uma query (com ou sem `?`) e devolve um caminho seguro ou `fallback`.

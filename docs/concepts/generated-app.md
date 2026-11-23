@@ -34,7 +34,7 @@ meu-app/
     schemas/index.ts              índice dos schemas                   ← ponto de registro
     queries/index.ts              índice das queries                   ← ponto de registro
     test/
-      render.tsx                  renderWithProviders do app
+      render.tsx                  renderWithProviders e renderHookWithProviders
       setup.ts                    setup do Vitest (idioma fixado em pt-BR)
 ```
 
@@ -182,7 +182,7 @@ O tipo do container sai do mapa, então registrar um domínio é acrescentar uma
 
 ### `src/test/render.tsx` e `setup.ts`
 
-O `renderWithProviders` do app, criado com o `createRenderWithProviders` do `@matizze/prumo-testing`: renderiza com o i18n, um container de repositórios em memória **sem latência**, um `QueryClient` **sem retry** e uma rota em memória. O `setup.ts` fixa o idioma padrão do app (`pt-BR`, já que o jsdom diz `en-US`) e desmonta os componentes depois de cada teste. Veja [Testes](../guides/test.md).
+O `renderWithProviders` e o `renderHookWithProviders` (para testar hooks) do app, criados com o `createRenderWithProviders` e o `createRenderHookWithProviders` do `@matizze/prumo-testing`: renderiza com o i18n, um container de repositórios em memória **sem latência**, um `QueryClient` **sem retry** e uma rota em memória. O `setup.ts` fixa o idioma padrão do app (`pt-BR`, já que o jsdom diz `en-US`) e desmonta os componentes depois de cada teste. Veja [Testes](../guides/test.md).
 
 ## O que cada gerador acrescenta
 

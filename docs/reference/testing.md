@@ -1,6 +1,6 @@
 # Referência do `@matizze/prumo-testing`
 
-Utilitários de teste sem interface, para o Vitest com jsdom: o `renderWithProviders` com rota em memória, o setup do DOM, um `matchMedia` controlável, a promise controlada pelo teste e o teste de contrato de repositórios.
+Utilitários de teste sem interface, para o Vitest com jsdom: o `renderWithProviders` e o `renderHookWithProviders` com rota em memória, o setup do DOM, um `matchMedia` controlável, a promise controlada pelo teste e o teste de contrato de repositórios.
 
 ```bash
 pnpm add -D @matizze/prumo-testing
@@ -8,7 +8,7 @@ pnpm add -D @matizze/prumo-testing
 
 | Subcaminho                         | Conteúdo                                                                                      |
 | ---------------------------------- | --------------------------------------------------------------------------------------------- |
-| `@matizze/prumo-testing`           | `createRenderWithProviders`, `createTestQueryClient`, `createTestRepositories`, `createDeferred` |
+| `@matizze/prumo-testing`           | `createRenderWithProviders`, `createRenderHookWithProviders`, `createTestQueryClient`, `createTestRepositories`, `createDeferred` |
 | `@matizze/prumo-testing/dom`       | `setupDom`, `installMatchMedia`, `setMediaQuery`, `resetMatchMedia`                            |
 | `@matizze/prumo-testing/contract`  | `defineContractSuite`, `runContractSuite`                                                      |
 
@@ -21,18 +21,18 @@ pnpm add -D @matizze/prumo-testing
 ### `createRenderWithProviders(binding)`
 
 ```ts
-function createRenderWithProviders<C extends object>(binding: {
-  Providers: ComponentType<{ children: ReactNode; repositories: C }>
+function createRenderWithProviders<C extends object, P extends object = {}>(binding: {
+  Providers: ComponentType<{ children: ReactNode; repositories: C } & P>
   createRepositories: (overrides?: Partial<C>) => C
   createQueryClient: () => QueryClient
-}): (ui: ReactElement, options?: RenderWithProvidersOptions<C>) => RenderWithProvidersResult<C>
+}): (ui: ReactElement, options?: RenderWithProvidersOptions<C, P>) => RenderWithProvidersResult<C>
 ```
 
 Cria o `renderWithProviders` do app. O pacote põe o que é comum a todo app (o `QueryClientProvider` e o `Router` em memória do wouter), e o app liga o resto:
 
 | Campo                 | O que o app passa                                                                       |
 | --------------------- | --------------------------------------------------------------------------------------- |
-| `Providers`           | Os provedores do app (i18n, tema, repositórios), que recebem o container em `repositories` |
+| `Providers`           | Os provedores do app (i18n, tema, repositórios), que recebem o container em `repositories` e as `providerProps` do teste |
 | `createRepositories`  | Cria o container em memória, aplicando os `overrides` do teste                          |
 | `createQueryClient`   | Cria o `QueryClient` de um teste                                                        |
 
@@ -52,13 +52,14 @@ export const renderWithProviders = createRenderWithProviders<RepositoryContainer
 
 ### `renderWithProviders(ui, options?)`
 
-**Opções** (`RenderWithProvidersOptions<C>`): as do `render` do Testing Library, menos `wrapper`, e mais:
+**Opções** (`RenderWithProvidersOptions<C, P>`): as do `render` do Testing Library, menos `wrapper`, e mais:
 
 | Opção          | Padrão                         | Descrição                                     |
 | -------------- | ------------------------------ | --------------------------------------------- |
 | `path`         | `'/'`                          | A rota inicial do Router em memória           |
 | `repositories` | `{}`                           | Os repositórios que trocam os do container    |
 | `queryClient`  | um novo, de `createQueryClient` | O `QueryClient` do teste                     |
+| `providerProps` | `{}`                          | As opções do app para este teste, do tipo `P`, repassadas aos `Providers` (a sessão, por exemplo) |
 
 **Resultado** (`RenderWithProvidersResult<C>`): o resultado do `render` do Testing Library, e mais:
 
@@ -70,7 +71,36 @@ export const renderWithProviders = createRenderWithProviders<RepositoryContainer
 | `navigate`     | Navega na rota em memória (`navigate(path, { replace? })`)                          |
 | `currentPath`  | Devolve a última rota do `history`                                                  |
 
-A ordem dos provedores, de fora para dentro: `Providers` do app, `QueryClientProvider`, `Router`.
+A ordem dos provedores, de fora para dentro: `QueryClientProvider`, `Router`, `Providers` do app. Assim, um provedor do app pode usar o `QueryClient` e a rota (a sessão que limpa o cache ao sair, por exemplo).
+
+**Opções do app por teste (`P`).** O segundo parâmetro de tipo, opcional, declara o que muda de teste para teste e só o app conhece, como a sessão. O `Providers` do app passa a receber essas props junto de `repositories`, e cada teste as escolhe em `providerProps`. O pacote não lê esse objeto, só o repassa; sem `P`, o `Providers` recebe apenas `repositories`, como antes. Veja [Provedores do app nos testes](../guides/test.md#provedores-do-app-nos-testes).
+
+```tsx
+interface TestProviderProps {
+  session?: Session
+}
+
+export const renderWithProviders = createRenderWithProviders<RepositoryContainer, TestProviderProps>(binding)
+
+renderWithProviders(<EmprestimosPage />, { providerProps: { session } })
+```
+
+### `createRenderHookWithProviders(binding)`
+
+```ts
+function createRenderHookWithProviders<C extends object, P extends object = {}>(
+  binding: RenderWithProvidersBinding<C, P>,
+): <Result, Props = undefined>(
+  hook: (props: Props) => Result,
+  options?: RenderHookWithProvidersOptions<C, Props, P>,
+) => RenderHookWithProvidersResult<C, Result, Props>
+```
+
+Cria o `renderHookWithProviders` do app, com a **mesma ligação** do `createRenderWithProviders` (guarde-a numa constante e passe às duas funções): os mesmos `Providers`, repositórios em memória, `QueryClient` sem retry e rota em memória. Serve para testar um hook de query ou de mutation sem montar um componente de mentira.
+
+**Opções** (`RenderHookWithProvidersOptions<C, Props, P>`): as do `renderHook` do Testing Library (`initialProps`, `reactStrictMode`), menos `wrapper`, mais `path`, `repositories`, `queryClient` e `providerProps`, que valem como no `renderWithProviders`.
+
+**Resultado** (`RenderHookWithProvidersResult<C, Result, Props>`): o do `renderHook` (`result`, `rerender`, `unmount`) e os campos `queryClient`, `repositories`, `history`, `navigate` e `currentPath` do `renderWithProviders`.
 
 ### `createTestQueryClient(createQueryClient)`
 

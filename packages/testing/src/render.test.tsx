@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { QueryClient, useQuery, useQueryClient, type DefaultOptions } from '@tanstack/react-query'
-import { act, cleanup, screen } from '@testing-library/react'
+import { QueryClient, useMutation, useQuery, useQueryClient, type DefaultOptions } from '@tanstack/react-query'
+import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useLocation } from 'wouter'
 import {
+  createRenderHookWithProviders,
   createRenderWithProviders,
   createTestQueryClient,
   createTestRepositories,
@@ -213,5 +214,153 @@ describe('renderWithProviders', () => {
     expect(second.history).toEqual(['/dois'])
     expect(first.repositories).not.toBe(second.repositories)
     expect(first.queryClient).not.toBe(second.queryClient)
+  })
+})
+
+// Opções do app por teste: a sessão, repassada aos Providers
+interface FakeSessionProps {
+  session?: string
+}
+
+const SessionContext = createContext('ninguém')
+
+function SessionProviders({
+  children,
+  repositories,
+  session = 'ninguém',
+}: { children: ReactNode; repositories: FakeContainer } & FakeSessionProps) {
+  return (
+    <SessionContext.Provider value={session}>
+      <RepositoryContext.Provider value={repositories}>{children}</RepositoryContext.Provider>
+    </SessionContext.Provider>
+  )
+}
+
+const bindingWithSession = {
+  Providers: SessionProviders,
+  createRepositories: (overrides?: Partial<FakeContainer>) =>
+    createTestRepositories(createInMemory, overrides),
+  createQueryClient: () =>
+    createTestQueryClient((options) => new QueryClient({ defaultOptions: options })),
+}
+
+const renderWithSession = createRenderWithProviders<FakeContainer, FakeSessionProps>(
+  bindingWithSession,
+)
+const renderHookWithSession = createRenderHookWithProviders<FakeContainer, FakeSessionProps>(
+  bindingWithSession,
+)
+
+function SessionProbe() {
+  return <p>{useContext(SessionContext)}</p>
+}
+
+describe('providerProps', () => {
+  it('repassa as opções do teste aos Providers, tipadas pelo app', () => {
+    renderWithSession(<SessionProbe />, { providerProps: { session: 'bibliotecária' } })
+
+    expect(screen.getByText('bibliotecária')).toBeTruthy()
+  })
+
+  it('sem providerProps, os Providers usam o próprio padrão', () => {
+    renderWithSession(<SessionProbe />)
+
+    expect(screen.getByText('ninguém')).toBeTruthy()
+  })
+
+  it('não vaza a opção para o render do Testing Library', () => {
+    const { container } = renderWithSession(<SessionProbe />, {
+      providerProps: { session: 'membro' },
+    })
+
+    expect(container.querySelector('[session]')).toBeNull()
+  })
+})
+
+describe('ordem dos provedores', () => {
+  it('os Providers do app ficam por dentro do QueryClientProvider e do Router', () => {
+    function NeedsBoth({ children }: { children: ReactNode }) {
+      const client = useQueryClient()
+      const [location] = useLocation()
+      return (
+        <p>
+          {`${client.getQueryCache().getAll().length}|${location}`}
+          {children}
+        </p>
+      )
+    }
+    const render = createRenderWithProviders({
+      Providers: NeedsBoth,
+      createRepositories,
+      createQueryClient,
+    })
+
+    render(<span />, { path: '/dentro' })
+
+    expect(screen.getByText('0|/dentro')).toBeTruthy()
+  })
+})
+
+describe('renderHookWithProviders', () => {
+  const renderHookWithProviders = createRenderHookWithProviders({
+    Providers: FakeProviders,
+    createRepositories,
+    createQueryClient,
+  })
+
+  it('roda o hook dentro dos providers, da rota e do QueryClient', async () => {
+    const { result, queryClient, repositories } = renderHookWithProviders(
+      () => {
+        const [location] = useLocation()
+        const container = useFakeRepositories()
+        const { data } = useQuery({ queryKey: ['tasks'], queryFn: () => container.tasks.list() })
+        return { location, theme: useContext(ThemeContext), data }
+      },
+      { path: '/tarefas' },
+    )
+
+    await waitFor(() => expect(result.current.data).toEqual(['em memória']))
+    expect(result.current.location).toBe('/tarefas')
+    expect(result.current.theme).toBe('escuro')
+    expect(queryClient.getQueryData(['tasks'])).toEqual(['em memória'])
+    expect(repositories.users.name()).toBe('Ana')
+  })
+
+  it('troca os repositórios e testa uma mutation', async () => {
+    const rename = vi.fn((name: string) => name)
+    const { result } = renderHookWithProviders(
+      () => {
+        const users = useFakeRepositories().users as { name: () => string; rename: typeof rename }
+        return useMutation({ mutationFn: async (name: string) => users.rename(name) })
+      },
+      { repositories: { users: { name: () => 'Bia', rename } as FakeContainer['users'] } },
+    )
+
+    await act(() => result.current.mutateAsync('Caio'))
+
+    expect(rename).toHaveBeenCalledWith('Caio')
+  })
+
+  it('repassa initialProps e permite rerender', () => {
+    const { result, rerender } = renderHookWithProviders(
+      ({ n }: { n: number }) => n * 2,
+      { initialProps: { n: 2 } },
+    )
+
+    expect(result.current).toBe(4)
+    rerender({ n: 5 })
+    expect(result.current).toBe(10)
+  })
+
+  it('aceita providerProps e navigate', () => {
+    const { result, navigate, currentPath } = renderHookWithSession(
+      () => ({ session: useContext(SessionContext), location: useLocation()[0] }),
+      { providerProps: { session: 'membro' }, path: '/a' },
+    )
+
+    expect(result.current.session).toBe('membro')
+    act(() => navigate('/b'))
+    expect(result.current.location).toBe('/b')
+    expect(currentPath()).toBe('/b')
   })
 })

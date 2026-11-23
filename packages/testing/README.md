@@ -1,6 +1,6 @@
 # @matizze/prumo-testing
 
-Utilitários de teste do [Prumo](https://github.com/matizze/prumo), sem interface, para o Vitest com jsdom: `renderWithProviders` com rota em memória, setup do DOM, `matchMedia` controlável, `createDeferred` e o teste de contrato de repositórios.
+Utilitários de teste do [Prumo](https://github.com/matizze/prumo), sem interface, para o Vitest com jsdom: `renderWithProviders` e `renderHookWithProviders` com rota em memória, setup do DOM, `matchMedia` controlável, `createDeferred` e o teste de contrato de repositórios.
 
 **[Documentação](https://github.com/matizze/prumo/blob/main/docs/README.md)** · **[Referência deste pacote](https://github.com/matizze/prumo/blob/main/docs/reference/testing.md)** · **[Guia de testes](https://github.com/matizze/prumo/blob/main/docs/guides/test.md)** · **[Changelog](https://github.com/matizze/prumo/blob/main/packages/testing/CHANGELOG.md)**
 
@@ -18,7 +18,7 @@ pnpm add -D @matizze/prumo-testing
 
 | Subcaminho                        | O que tem                                                                                         |
 | --------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `@matizze/prumo-testing`          | `createRenderWithProviders`, `createTestQueryClient`, `createTestRepositories` e `createDeferred` |
+| `@matizze/prumo-testing`          | `createRenderWithProviders`, `createRenderHookWithProviders`, `createTestQueryClient`, `createTestRepositories` e `createDeferred` |
 | `@matizze/prumo-testing/dom`      | `setupDom` e o `matchMedia` controlável (`installMatchMedia`, `setMediaQuery`, `resetMatchMedia`) |
 | `@matizze/prumo-testing/contract` | `defineContractSuite` e `runContractSuite`: o mesmo contrato contra cada implementação de um repositório |
 

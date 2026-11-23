@@ -69,7 +69,7 @@ Um domínio (clientes, pedidos, produtos) tem três partes, cada uma numa pasta:
 
 - **Schema** (`src/schemas/entities/<entidade>.ts`): o schema zod da entidade e os tipos derivados dele (a entidade, a entrada de criar e editar, a consulta da lista). É a fonte da verdade sobre a forma do dado.
 - **Repositório** (`src/repositories/<domínio>/`): o **contrato** (`IClientesRepository`, uma interface com `list`, `get`, `create`, `update` e `remove`), uma implementação em memória com fixtures e o teste do contrato. A implementação real (HTTP, IndexedDB) é outra classe que cumpre o mesmo contrato.
-- **Queries** (`src/queries/<domínio>.ts`): as query keys, as queries e os hooks do TanStack Query. Os hooks pegam o repositório do container (`useRepositories()`), nunca de um import direto, e as mutations invalidam as queries do domínio.
+- **Queries** (`src/queries/<domínio>.ts`): as query keys, as queries e os hooks do TanStack Query. Os hooks pegam o repositório do container (`useRepositories()`), nunca de um import direto, e as mutations atualizam o cache do domínio (invalidam as queries afetadas).
 
 O **container** (`src/repositories/index.ts`) é um mapa de fábricas: cada domínio registra uma função que cria o repositório dele. Os testes trocam um repositório pelo container, sem mock de módulo.
 

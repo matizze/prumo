@@ -12,6 +12,7 @@ prumo <comando> [opções]
 | [`make:page`](#prumo-makepage)              | Gera uma tela: index, model, view, teste, mensagens e rota                              |
 | [`make:domain`](#prumo-makedomain)          | Gera um domínio de dados: schema, repositório com mock, queries e teste de contrato     |
 | [`make:component`](#prumo-makecomponent)    | Gera um componente, só com elementos HTML, e o teste dele                               |
+| [`move:component`](#prumo-movecomponent)    | Promove um componente de uma tela a compartilhado, com o teste e os imports              |
 | [`check`](#prumo-check)                     | Analisa o projeto e lista as violações da arquitetura                                   |
 | [`doctor`](#prumo-doctor)                   | Confere o ambiente e o projeto: Node, pnpm, pacotes do Prumo e `.mcp.json`              |
 
@@ -256,6 +257,8 @@ Use exatamente um de `--page` e `--shared`.
 
 **O `prumo check` e o `--shared`.** A análise cobra que o que está em `shared` seja usado por duas telas ou mais. Um componente compartilhado recém-gerado ainda não é usado, e a violação `shared-usage` dele é **esperada**: o comando a mostra, explica que ela some quando duas telas o importarem e sai com 0. Qualquer outra violação nova sai com 1.
 
+**Aviso de nome repetido.** Se já existe um componente com o mesmo nome em outra tela ou em `shared`, o comando gera mesmo assim e escreve `Aviso: ...` (também no `--dry-run`), sugerindo o [`move:component`](#prumo-movecomponent) quando o outro é de uma tela. Não é recusa; o mesmo nome no mesmo lugar é.
+
 **Recusa (código 2):** nome inválido ou reservado; nem `--page` nem `--shared`, ou os dois; tela que não existe; componente que já existe.
 
 **Exemplos:**
@@ -263,6 +266,38 @@ Use exatamente um de `--page` e `--shared`.
 ```bash
 pnpm exec prumo make:component resumo --page clientes
 pnpm exec prumo make:component cartao-de-metrica --shared
+```
+
+---
+
+## `prumo move:component`
+
+Promove um componente de uma tela a compartilhado.
+
+```text
+prumo move:component <nome> --from <tela> --shared [--root <pasta>] [--dry-run]
+```
+
+| Argumento ou opção | Descrição                                                                   |
+| ------------------ | --------------------------------------------------------------------------- |
+| `<nome>`           | O nome do componente, em kebab-case.                                        |
+| `--from <tela>`    | A tela de onde ele sai (`src/pages/<tela>/components/`).                    |
+| `--shared`         | O destino: `src/components/shared/`. É o único destino que existe.          |
+| `--root <pasta>`   | A pasta do projeto. Padrão: a atual.                                        |
+| `--dry-run`        | Só lista o que seria movido e alterado.                                     |
+
+**Move** `<nome>.tsx` e `<nome>.test.tsx` (se houver) de `src/pages/<tela>/components/` para `src/components/shared/` e **reescreve** para `@/components/shared/<nome>` todo import que apontava para o componente, em qualquer arquivo de `src`: na tela de origem, em outra tela, em testes, em `export ... from`, `import()` e `vi.mock`. O conteúdo do componente e do teste não muda, a não ser nos imports relativos que saíam da pasta (viram `@/...`). Se a pasta `components` da tela fica vazia, some.
+
+**O `prumo check`.** Logo depois da mudança o componente ainda é de uma tela só, e a violação `shared-usage` dele é **esperada**: o comando a mostra, explica que ela some quando uma segunda tela o importar e sai com 0. Qualquer outra violação nova sai com 1 (a mudança já foi feita); a que já existia antes aparece como preexistente.
+
+**Recusa (código 2), sem mexer em nada:** nome inválido ou reservado; falta `--shared`; tela que não existe; componente que não existe na tela; já existe um componente (ou teste) de mesmo nome em `shared`; o componente importa algo de uma tela (o que está em `shared` não pode depender de tela).
+
+O caminho inverso, de `shared` para uma tela, não existe: um componente que duas telas usam é compartilhado, e tirá-lo de lá é uma decisão que o `prumo check` já cobra.
+
+**Exemplo:**
+
+```bash
+pnpm exec prumo move:component formulario-de-livro --from livros --shared
 ```
 
 ---

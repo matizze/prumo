@@ -47,7 +47,7 @@ try {
   await client.connect(transport)
   const { tools } = await client.listTools()
   const names = tools.map((tool) => tool.name)
-  for (const expected of ['make_page', 'make_domain', 'make_component', 'check']) {
+  for (const expected of ['make_page', 'make_domain', 'make_component', 'move_component', 'check']) {
     if (!names.includes(expected)) {
       throw new Error(`o servidor não expõe a ferramenta ${expected} (expõe: ${names.join(', ')})`)
     }
@@ -59,6 +59,8 @@ try {
   await call('make_page', { nome: 'fornecedores', domain: 'fornecedores' })
   await call('make_page', { nome: 'ficha', path: '/fornecedores/:codigo' })
   await call('make_component', { nome: 'detalhe', page: 'fornecedores' })
+  // Em simulação, pelo mesmo motivo do verify-new.sh: de verdade, o check do app acusaria o shared sem uso
+  await call('move_component', { nome: 'detalhe', from: 'fornecedores', shared: true, 'dry-run': true })
   await call('check', {})
 } catch (error) {
   console.error(`drive-mcp: ${error instanceof Error ? error.message : String(error)}`)

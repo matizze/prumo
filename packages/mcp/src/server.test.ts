@@ -26,6 +26,7 @@ describe('o servidor MCP', () => {
       'make_component',
       'make_domain',
       'make_page',
+      'move_component',
       'new',
     ])
     const check = tools.find((tool) => tool.name === 'check')

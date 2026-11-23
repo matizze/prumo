@@ -128,6 +128,31 @@ Para rodar os testes do componente novo:
     expect(next.stdout).toContain('cartao.tsx  [shared-usage]')
   })
 
+  it('avisa, sem recusar, do homônimo em outra tela e em shared, e sugere o move:component', async () => {
+    const { root } = fixtureProject()
+    withPage(root)
+    mkdirSync(path.join(root, 'src/pages/outra'), { recursive: true })
+    for (const file of ['index.tsx', 'model.ts', 'view.tsx'])
+      writeFileSync(path.join(root, 'src/pages/outra', file), 'export {}\n')
+    expect((await run(['make:component', 'form', '--page', 'outra'], root)).code).toBe(0)
+
+    const shared = await run(['make:component', 'form', '--shared'], root)
+    expect(shared.code, shared.stderr).toBe(0)
+    expect(shared.stdout).toContain(
+      "Aviso: já existe um componente 'form' em src/pages/outra/components/form.tsx",
+    )
+    expect(shared.stdout).toContain('prumo move:component form --from outra --shared')
+    expect(existsSync(path.join(root, 'src/components/shared/form.tsx'))).toBe(true)
+
+    const page = await run(['make:component', 'form', '--page', 'clientes', '--dry-run'], root)
+    expect(page.code, page.stderr).toBe(0)
+    expect(page.stdout).toContain(
+      "em src/components/shared/form.tsx: em vez de criar outro, importe-o de '@/components/shared/form'",
+    )
+    expect(page.stdout).toContain('em src/pages/outra/components/form.tsx')
+    expect(page.stdout).toContain('Simulação (--dry-run)')
+  })
+
   it('aparece na lista de comandos do prumo', async () => {
     const help = await run(['--help'], fixtureProject().root)
 

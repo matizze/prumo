@@ -61,7 +61,7 @@ A pasta de componentes tem só três subpastas, cada uma com um papel:
 | `shared/` | Componentes do produto usados por **duas ou mais** telas.                                          |
 | `layout/` | A casca do app: cabeçalho, menu, rodapé. Aparece em todas as telas.                                |
 
-Um componente que só uma tela usa não é compartilhado: mora na pasta da tela. Assim o `shared` não vira uma gaveta de tudo, e apagar uma tela leva junto o que era só dela.
+Um componente que só uma tela usa não é compartilhado: mora na pasta da tela. Assim o `shared` não vira uma gaveta de tudo, e apagar uma tela leva junto o que era só dela. Quando uma segunda tela passa a usar o componente, ele sobe para o `shared` com `prumo move:component <nome> --from <tela> --shared`, que move os arquivos e reescreve os imports.
 
 ### Domínios de dados
 

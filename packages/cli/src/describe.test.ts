@@ -39,6 +39,7 @@ describe('describeCommands: a árvore real do prumo', () => {
       'make:component',
       'make:domain',
       'make:page',
+      'move:component',
       'new',
     ])
     expect(commands.map((command) => command.toolName)).toEqual([
@@ -47,6 +48,7 @@ describe('describeCommands: a árvore real do prumo', () => {
       'make_component',
       'make_domain',
       'make_page',
+      'move_component',
       'new',
     ])
     for (const command of commands) expect(command.path).toEqual([command.name])

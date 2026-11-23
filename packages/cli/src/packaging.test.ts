@@ -442,6 +442,7 @@ describe('@matizze/prumo-cli empacotado', () => {
         'make_component',
         'make_domain',
         'make_page',
+        'move_component',
         'new',
       ])
       // O produto vazio não tem src: o check recusa com 2, e a mensagem veio pelo resultado
@@ -509,6 +510,7 @@ describe('@matizze/prumo-cli empacotado', () => {
         'make_component',
         'make_domain',
         'make_page',
+        'move_component',
         'new',
       ])
     }, 60_000)

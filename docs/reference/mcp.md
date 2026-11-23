@@ -44,6 +44,7 @@ Uma ferramenta por comando da CLI. O nome é o do comando com `:` trocado por `_
 | `make_component` | `prumo make:component` | `nome`, `page?`, `shared?`, `root?`, `dry-run?`           |
 | `make_domain`    | `prumo make:domain`    | `nome`, `entity?`, `fields?`, `root?`, `dry-run?`            |
 | `make_page`      | `prumo make:page`      | `nome`, `domain?`, `path?`, `root?`, `dry-run?`            |
+| `move_component` | `prumo move:component` | `nome`, `from`, `shared?`, `root?`, `dry-run?`            |
 | `new`            | `prumo new`            | `nome`, `dir?`, `packages?`, `install?`, `dry-run?`       |
 
 O significado de cada campo é o da opção de mesmo nome na [referência da CLI](cli.md).

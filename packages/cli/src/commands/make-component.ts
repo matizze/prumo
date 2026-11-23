@@ -24,7 +24,9 @@ duas ou mais telas usam. Use um dos dois.
 
 O nome é o do componente, em kebab-case (resumo-do-pedido): o arquivo é <nome>.tsx e o componente
 exportado, em PascalCase. O prumo check cobra que o que está em shared seja usado por 2 ou mais
-telas; um componente shared recém-gerado ainda não é, e o comando avisa isso sem falhar.
+telas; um componente shared recém-gerado ainda não é, e o comando avisa isso sem falhar. Se já
+existe um componente com o mesmo nome em outra tela ou em shared, o comando avisa (sem recusar) e
+sugere o prumo move:component, que promove o da tela em vez de criar um segundo.
 
 Valida tudo antes de escrever e recusa sobrescrever. Sai com código 1 se o check achar outra
 violação nova, causada por ele (o componente já foi gerado; a violação que já existia antes
@@ -58,23 +60,26 @@ nem --page nem --shared (ou os dois), tela que não existe, componente que já e
     },
     run({ args }) {
       const project = findProject(path.resolve(runtime.cwd, args.root ?? '.'))
-      const { plan, names, folder, file, page } = generateComponent(project, {
+      const { plan, names, folder, file, page, warnings } = generateComponent(project, {
         name: args.nome,
         page: args.page,
         shared: args.shared,
       })
       const heading = `prumo make:component: ${names.kebab} (${folder}).`
+      const warningsText =
+        warnings.map((warning) => `Aviso: ${warning}\n`).join('') +
+        (warnings.length > 0 ? '\n' : '')
 
       if (args['dry-run']) {
         runtime.out(
-          `${heading}\n\n${formatSummary(plan.summary(), true)}\nSimulação (--dry-run): nada foi escrito.\n`,
+          `${heading}\n\n${formatSummary(plan.summary(), true)}\n${warningsText}Simulação (--dry-run): nada foi escrito.\n`,
         )
         return
       }
 
       const before = checkBefore(project)
       const summary = plan.commit()
-      runtime.out(`${heading}\n\n${formatSummary(summary, false)}\n`)
+      runtime.out(`${heading}\n\n${formatSummary(summary, false)}\n${warningsText}`)
 
       const use = page
         ? `Use-o na view da tela: import { ${names.pascal} } from './components/${names.kebab}'.`

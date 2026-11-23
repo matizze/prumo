@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { accessSync, constants, existsSync, readdirSync, rmSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { ExitError, UsageError } from '../errors.ts'
 import { generateApp } from '../generators/app.ts'
@@ -16,8 +16,8 @@ export interface NewDeps {
   env?: Readonly<Record<string, string | undefined>>
   /** Pergunta a versão ao pnpm quando o user agent não diz. Padrão: `pnpm --version`. */
   askPnpm?: () => string | undefined
-  /** Roda o `pnpm install` na pasta e devolve o código de saída. Padrão: o pnpm de verdade. */
-  install?: (io: Io, cwd: string) => number
+  /** Roda o `pnpm install` na pasta e devolve o código de saída (e o motivo, se não chegou a rodar). Padrão: o pnpm de verdade. */
+  install?: (io: Io, cwd: string) => { status: number; reason?: string }
 }
 
 type NewOptions = {
@@ -33,8 +33,18 @@ type NewOptions = {
  */
 function resolveDestination(io: Io, dir: string | undefined, name: string): string {
   const parent = path.resolve(io.cwd, dir ?? '.')
-  if (existsSync(parent) && !statSync(parent).isDirectory()) {
-    throw new UsageError(`'${parent}' não é uma pasta (--dir).`)
+  // O ancestral mais próximo que existe: é nele que a pasta nova vai nascer
+  let existing = parent
+  while (!existsSync(existing) && path.dirname(existing) !== existing) existing = path.dirname(existing)
+  if (!statSync(existing).isDirectory()) {
+    throw new UsageError(
+      `'${existing}' não é uma pasta${existing === parent ? '' : `, e '${parent}' (--dir) ficaria dentro dela`} (--dir).`,
+    )
+  }
+  try {
+    accessSync(existing, constants.W_OK)
+  } catch {
+    throw new UsageError(`não posso escrever em '${existing}' (--dir): sem permissão.`)
   }
   const destination = path.join(parent, name)
   if (existsSync(destination)) {
@@ -72,9 +82,10 @@ function initGit(io: Io, destination: string): void {
   }
 }
 
-function pnpmInstall(io: Io, cwd: string): number {
+function pnpmInstall(io: Io, cwd: string): { status: number; reason?: string } {
   const result = runChild(io, 'pnpm', ['install'], { cwd })
-  return result.error ? 1 : (result.status ?? 1)
+  if (result.error) return { status: 1, reason: result.error.message }
+  return { status: result.status ?? 1 }
 }
 
 /** O caminho como o shell o lê: entre aspas simples se tem espaço ou outro caractere especial. */
@@ -174,11 +185,11 @@ Valida antes de escrever: o nome (kebab-case), a pasta de destino (não pode exi
         initGit(io, destination)
         if (install) {
           io.out('\nInstalando as dependências (pnpm install)...\n')
-          const code = (deps.install ?? pnpmInstall)(io, destination)
-          if (code !== 0) {
+          const { status, reason } = (deps.install ?? pnpmInstall)(io, destination)
+          if (status !== 0) {
             throw new ExitError(
               1,
-              `o pnpm install falhou. O app foi criado em '${destination}': corrija o que o pnpm disse e rode pnpm install ali.`,
+              `o pnpm install falhou${reason ? ` (${reason})` : ''}. O app foi criado em '${destination}': corrija o que o pnpm disse e rode pnpm install ali.`,
             )
           }
         }

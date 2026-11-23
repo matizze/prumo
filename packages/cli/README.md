@@ -14,11 +14,13 @@ pnpm add -D @matizze/prumo-cli
 
 ## Uso
 
-A CLI está sendo reescrita com o commander, um comando por vez. Por enquanto ela tem a ajuda e a versão; os comandos (`new`, `make:schema`, `make:repository`, `make:query`, `make:page` e `check`) voltam nas próximas versões.
+A CLI está sendo reescrita com o commander, um comando por vez. Por enquanto ela tem a ajuda, a versão e os comandos `new` (cria um app) e `check` (confere a arquitetura); os `make:schema`, `make:repository`, `make:query` e `make:page` voltam nas próximas versões.
 
 ```bash
 pnpm exec prumo --help       # a ajuda, em português
 pnpm exec prumo --version    # a versão
+pnpm exec prumo new <nome>   # cria um app
+pnpm exec prumo check        # confere a arquitetura
 ```
 
 Códigos de saída: `0` sucesso, `1` erro inesperado (ou violação, no `check`) e `2` uso errado (comando, opção ou argumento que não existe). A ajuda e as mensagens são em português.

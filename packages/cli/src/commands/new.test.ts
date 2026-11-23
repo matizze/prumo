@@ -305,7 +305,7 @@ export default function App() {
     const result = await run(['new', 'app-instala'], cwd, {
       install: (_io, folder) => {
         calls.push(folder)
-        return 0
+        return { status: 0 }
       },
     })
 
@@ -326,12 +326,22 @@ export default function App() {
 
   it('se o pnpm install falha, sai com 1 e deixa o app criado', async () => {
     const cwd = makeDir()
-    const result = await run(['new', 'app-falha'], cwd, { install: () => 1 })
+    const result = await run(['new', 'app-falha'], cwd, { install: () => ({ status: 1 }) })
 
     expect(result.code).toBe(1)
     expect(result.stderr).toContain('o pnpm install falhou')
     expect(result.stderr).toContain(path.join(cwd, 'app-falha'))
     expect(existsSync(path.join(cwd, 'app-falha/package.json'))).toBe(true)
+  })
+
+  it('se o pnpm install nem começa, o motivo aparece na mensagem', async () => {
+    const cwd = makeDir()
+    const result = await run(['new', 'app-enoent'], cwd, {
+      install: () => ({ status: 1, reason: 'spawnSync pnpm ENOENT' }),
+    })
+
+    expect(result.code).toBe(1)
+    expect(result.stderr).toContain('o pnpm install falhou (spawnSync pnpm ENOENT)')
   })
 
   it('o app gerado confere com o check e o --root do check aponta para ele', async () => {
@@ -400,6 +410,17 @@ export default function App() {
       expect(incomplete.code).toBe(2)
       expect(incomplete.stderr).toContain('não tem o tarball de @matizze/prumo-testing')
       expect(readdirSync(cwd)).toEqual([])
+    })
+
+    it('recusa um --dir cujo ancestral existente é um arquivo, sem pilha', async () => {
+      const cwd = makeDir()
+      writeFileSync(path.join(cwd, 'arquivo.txt'), '')
+      const result = await run(['new', 'app', '--dir', 'arquivo.txt/sub', '--no-install'], cwd)
+
+      expect(result.code).toBe(2)
+      expect(result.stderr).toContain('não é uma pasta')
+      expect(result.stderr).toContain('(--dir)')
+      expect(result.stderr).not.toContain('    at ')
     })
 
     it('exige o nome', async () => {

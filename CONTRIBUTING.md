@@ -38,9 +38,10 @@ Não há CI de verificação: **a verificação é local**, e todo pull request 
 | ------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
 | `pnpm verify`      | Typecheck, lint e testes dos quatro pacotes, sem navegador (cerca de 1 minuto)                                | Sempre                                                       |
 | `pnpm build`       | Compila os pacotes (`dist/`)                                                                                 | Para inspecionar o que vai para o npm                        |
-| `pnpm pack:all`    | Compila e empacota os quatro pacotes em `.packs/`                                                             | Para testar um app com os tarballs (o `prumo new --packages .packs` volta no passo 2) |
+| `pnpm pack:all`    | Compila e empacota os quatro pacotes em `.packs/`                                                             | Para testar um app com os tarballs (`prumo new <nome> --packages .packs`) |
+| `pnpm verify:new`  | Empacota, cria um app com `prumo new --packages` fora do monorepo, roda nele os comandos já prontos e o `pnpm verify` dele | Ao mudar os modelos (`packages/cli/templates`), o `new` ou os geradores |
 
-Rode um comando pesado por vez: `tsc`, `eslint` e `vitest` juntos pesam, e em máquinas com pouca memória dois ao mesmo tempo atrapalham um ao outro. (O `pnpm verify:new`, que cria um app e roda o `verify` dele, volta no passo 2 da reescrita da CLI.)
+Rode um comando pesado por vez: `tsc`, `eslint` e `vitest` juntos pesam, e em máquinas com pouca memória dois ao mesmo tempo atrapalham um ao outro.
 
 ## Fluxo de trabalho
 

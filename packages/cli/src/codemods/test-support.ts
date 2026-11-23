@@ -45,6 +45,43 @@ export {
 export * from './entities/ai'
 `
 
+/** O `src/repositories/index.ts` do projeto de fixture: o container, com quatro domínios. */
+const REPOSITORIES_INDEX = `import {
+  createRepositoryContainer,
+  resolveDataSource,
+  type RepositoryContainerOf,
+} from '@matizze/prumo-core/repositories'
+import { createAccountRepository } from './account'
+import { createCustomersRepository } from './customers'
+import { DATA_SOURCES, type RepositoryOptions } from './options'
+import { createSupportRepository } from './support'
+import { createTaskRepository } from './task'
+
+export * from './account'
+export * from './customers'
+export * from './support'
+export * from './task'
+export { DATA_SOURCES, type DataSource, type RepositoryOptions } from './options'
+
+/**
+ * Mapa de fábricas: cada domínio exporta \`create<Dominio>Repository(options)\` e entra aqui com
+ * uma linha, em ordem alfabética.
+ */
+const factories = {
+  account: createAccountRepository,
+  customers: createCustomersRepository,
+  support: createSupportRepository,
+  tasks: createTaskRepository,
+}
+
+export type RepositoryContainer = RepositoryContainerOf<typeof factories>
+
+export function createRepositories(options: Partial<RepositoryOptions> = {}): RepositoryContainer {
+  const dataSource = options.dataSource ?? resolveDataSource(undefined, DATA_SOURCES, 'mock')
+  return createRepositoryContainer(factories, { ...options, dataSource })
+}
+`
+
 /** Os arquivos de um idioma do projeto de fixture: o índice e um JSON por namespace. */
 function messagesOf(language: string): Record<string, string> {
   return {
@@ -90,6 +127,7 @@ export function fixtureProject(): Project {
       ...messagesOf('en'),
       ...messagesOf('pt-BR'),
       'src/schemas/index.ts': SCHEMAS_INDEX,
+      'src/repositories/index.ts': REPOSITORIES_INDEX,
     }),
   )
 }

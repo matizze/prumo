@@ -76,6 +76,10 @@ stage_cli() {
   prumo make:schema clientes
   prumo make:schema livros --fields "titulo:string,autor:string,ano:number,paginas:int,situacao:enum(lido|lendo|desejado),disponivel:boolean,publicadoEm:date,lidoEm?:datetime,apelido?:string"
   prumo make:schema paes --entity pao
+  # passo 4: make:repository com o mock, lendo os campos de cada schema (o livros tem todos os tipos)
+  prumo make:repository clientes
+  prumo make:repository livros
+  prumo make:repository paes --entity pao
 }
 
 stage_verify() {

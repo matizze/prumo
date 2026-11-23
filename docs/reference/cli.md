@@ -2,7 +2,7 @@
 
 O comando `prumo`, do pacote [`@matizze/prumo-cli`](https://www.npmjs.com/package/@matizze/prumo-cli).
 
-> **Os comandos estão sendo reescritos.** A CLI foi refeita com o commander, e os comandos voltam um a um nas próximas versões. Por enquanto ela tem o `new`, o `make:schema`, o `check`, a ajuda, a versão e os códigos de saída descritos aqui.
+> **Os comandos estão sendo reescritos.** A CLI foi refeita com o commander, e os comandos voltam um a um nas próximas versões. Por enquanto ela tem o `new`, o `make:schema`, o `make:repository`, o `check`, a ajuda, a versão e os códigos de saída descritos aqui.
 
 ```text
 prumo [opções] [comando]
@@ -12,6 +12,7 @@ prumo [opções] [comando]
 | ---------------------------------- | ----------------------------------------------------- |
 | [`new <nome>`](#prumo-new)         | Cria um app React organizado em camadas               |
 | [`make:schema <domínio>`](#prumo-makeschema) | Cria o schema (zod) de uma entidade, com os campos |
+| [`make:repository <domínio>`](#prumo-makerepository) | Cria o repositório de um domínio (contrato, mock e teste de contrato) |
 | [`check`](#prumo-check)            | Confere a arquitetura do projeto                      |
 
 ## Como rodar
@@ -100,6 +101,37 @@ prumo make:schema livros --fields "titulo:string,ano:int,situacao:enum(lido|lend
 O comando valida tudo antes de escrever: o nome (kebab-case, no plural, sem palavra reservada do JavaScript nem nome global como `Date`), a entidade, cada campo e o schema que já existe (nunca sobrescreve). Qualquer erro sai com 2, em português, sem deixar nada pela metade. No fim, mostra o que criou e alterou e o próximo passo: `prumo make:repository <domínio>`.
 
 Quem lê os campos depois é o `make:repository`, direto do schema gerado. O leitor lê a árvore do arquivo (o enum pode ter várias linhas e vírgula no fim) e exige o que o `--fields` geraria: `id` e `createdAt` como `z.string()`, nomes de campo em camelCase sem aspas e enum com dois valores ou mais, simples e sem repetição. Um campo que o Prumo não reconhece (o schema foi editado à mão com outro tipo, como `z.string().min(3)`) é erro de uso, com o arquivo, a linha e o nome do campo.
+
+## `prumo make:repository`
+
+```text
+prumo make:repository <domínio> [--entity <singular>] [--root <pasta>] [--dry-run]
+```
+
+Cria o repositório do domínio com a fonte `mock` e o registra. Precisa do schema (`prumo make:schema`): os campos (busca, ordem, dados de exemplo e teste de contrato) saem do schema gerado, lido da árvore do arquivo, e por isso o comando não tem `--fields`. Um campo que o Prumo não reconhece (veja o fim da seção do `make:schema`) é erro de uso, com a linha do campo.
+
+O comando também lê, do mesmo arquivo, o `.pick` do `<entidade>InputSchema` e os membros do `<Entidade>SortKey`: o `create`, o `update` e os dados de entrada do teste usam só os campos do `pick`, e os acessores de ordem e o teste de ordem só os da `SortKey`. Assim, um campo acrescentado à mão só ao `z.object` (ou tirado do `pick`, como um campo calculado pelo backend) gera um repositório que compila; o campo fora do `pick` recebe um valor de exemplo no mock. Só o `.pick({ campo: true, ... })` é aceito: um `<entidade>InputSchema` escrito com `.omit({ ... })` é erro de uso, e se reescreve listando no `.pick` os campos que sobram. A `SortKey` não pode ter campo booleano (o `--fields` também não ordena por booleano). Um `pick` ou uma `SortKey` que o comando não lê, ou com nome que não é campo, é erro de uso, com a linha.
+
+- `src/repositories/<domínio>/repository.contract.ts`: o `I<Domínio>Repository`, o contrato único de todas as fontes (`list`, `get`, `create`, `update` e `remove`; id que não existe rejeita com `UIError('<ENTIDADE>_NOT_FOUND')`);
+- `repository.mock.ts`: o `Mock<Domínio>Repository`, em memória, com latência simulada (300 ms; o teste usa 0). A busca olha os campos de texto, e a ordem aceita todos os campos, menos os booleanos, e o `createdAt`;
+- `fixtures.ts`: três registros de exemplo, com valores coerentes com o tipo de cada campo;
+- `repository.contract.test.ts`: o teste de contrato, que roda contra o mock;
+- `index.ts`: a fábrica `create<Domínio>Repository`, que devolve o mock.
+
+Também altera:
+
+- `src/repositories/index.ts` (o container): o `import` da fábrica, o `export *` da pasta e a entrada no mapa `factories`, cada um em ordem alfabética;
+- `src/messages/<idioma>/errors.json` de cada idioma: o texto de `<ENTIDADE>_NOT_FOUND` (`CLIENTE_NOT_FOUND`), para a tela mostrar a mensagem do erro e não a genérica. A chave que já existe não é trocada, e num app sem o `errors.json` o comando avisa e segue.
+
+O `<domínio>` e o `--entity` são os do `make:schema`: se o schema saiu com `--entity pao`, o repositório também leva `--entity pao`.
+
+| Opção                 | O que faz                                                                           |
+| --------------------- | ----------------------------------------------------------------------------------- |
+| `--entity <singular>` | A entidade, no singular, a mesma do `make:schema`. Padrão: o nome sem o `s` final   |
+| `--root <pasta>`      | A pasta do projeto, a que tem o `src` (padrão: a pasta atual)                       |
+| `--dry-run`           | Lista o que seria criado e alterado, sem escrever nada                              |
+
+O comando valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada pela metade: o schema que falta (a mensagem traz o `prumo make:schema` com o `--entity` certo e, se há schemas sem repositório, lembra de repetir o `--entity` e lista os nomes deles), o repositório que já existe, um campo do schema que não se lê e um container (`src/repositories/index.ts`) sem o mapa `factories`. No fim, mostra o que criou e alterou e o próximo passo: `prumo make:query <domínio>`.
 
 ## `prumo check`
 

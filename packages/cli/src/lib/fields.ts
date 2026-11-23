@@ -1,7 +1,8 @@
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { Node, type ObjectLiteralExpression, type PropertyAssignment } from 'ts-morph'
 import { UsageError } from '../errors.ts'
-import { entityFlag, type DomainNames } from './names.ts'
+import { deriveNames, entityFlag, type DomainNames } from './names.ts'
 import type { ChangePlan } from './plan.ts'
 
 /** Os tipos que o `--fields` aceita, e o que cada um vira no schema zod. */
@@ -236,9 +237,19 @@ export function domainFieldVars(
   fields: readonly Field[],
   /** O id base dos registros (`livro`): o `id` da fixture 2 é `livro-2`. */
   idBase: string,
+  /**
+   * O que o schema deixa entrar e ordenar, quando foi editado à mão: os nomes dos campos do
+   * `<entidade>InputSchema` (o `.pick`) e os membros do `<Entidade>SortKey`. Sem isto, valem todos
+   * os campos no `pick` e os ordenáveis (fora o booleano) mais `createdAt` na chave de ordem.
+   */
+  shape?: { input: readonly string[]; sort: readonly string[] },
 ): Record<string, string> {
   const texts = fields.filter(isText)
-  const sortable = fields.filter(isSortable)
+  const inputs = shape ? fields.filter((field) => shape.input.includes(field.name)) : fields
+  const sortable = shape
+    ? fields.filter((field) => shape.sort.includes(field.name))
+    : fields.filter(isSortable)
+  const sortsByDate = shape ? shape.sort.includes('createdAt') : true
   const searchFields = texts.map((field) => `item.${field.name}${field.optional ? " ?? ''" : ''}`)
   const onlyName = texts.length === 1 && texts[0] !== undefined && isLegacy(texts[0])
   const searchPhrase =
@@ -251,10 +262,10 @@ export function domainFieldVars(
           : listOf(texts.map((field) => field.name))
   const searchBy = texts[0]
   // O enum repete valores entre os registros de exemplo: não serve para o teste de ordem
-  const sortBy = sortable.find((field) => field.type !== 'enum')
+  const sortBy = sortable.find((field) => field.type !== 'enum' && field.type !== 'boolean')
   const sortValue = (n: number) =>
     literal(sortBy ? sampleValue(sortBy, n) : `2026-01-${['05', '14', '23'][n - 1]}T12:00:00.000Z`)
-  const edit = fields[0]!
+  const edit = inputs[0] ?? fields[0]!
   const records = [1, 2, 3].map((n) => {
     const entries = [
       `id: '${idBase}-${n}'`,
@@ -279,9 +290,18 @@ export function domainFieldVars(
     'fields.search': searchStatement(searchFields.length > 0 ? searchFields : ['item.id']),
     'fields.sortAccessors': [
       ...sortable.map(accessor),
-      '      createdAt: (item) => item.createdAt,',
+      ...(sortsByDate ? ['      createdAt: (item) => item.createdAt,'] : []),
     ].join('\n'),
-    'fields.create': fields.map((field) => `      ${field.name}: input.${field.name},`).join('\n'),
+    // O campo fora do `pick` não vem na entrada: o mock dá um valor de exemplo (os opcionais ficam sem)
+    'fields.create': fields
+      .flatMap((field) =>
+        inputs.includes(field)
+          ? [`      ${field.name}: input.${field.name},`]
+          : field.optional
+            ? []
+            : [`      ${field.name}: ${literal(sampleValue(field, 4))},`],
+      )
+      .join('\n'),
     'fields.fixtures': records.join('\n'),
     'test.searchField': searchBy ? searchBy.name : 'id',
     'test.searchTerm': literal(String(searchHit).toUpperCase()),
@@ -290,7 +310,7 @@ export function domainFieldVars(
     'test.sortFirst': sortValue(3),
     'test.sortSecond': sortValue(2),
     'test.newInput': object(
-      fields.map((field) => `${field.name}: ${literal(sampleValue(field, 4))}`),
+      inputs.map((field) => `${field.name}: ${literal(sampleValue(field, 4))}`),
       '      ',
       // `expect(created).toMatchObject(` e o `)`
       { max: WIDE, prefix: 'expect(created).toMatchObject()'.length },
@@ -455,7 +475,7 @@ export function readEntityFields(plan: ChangePlan, names: DomainNames): Field[] 
   const file = path.join(plan.project.root, relative)
   if (!plan.hasFile(file)) {
     throw new UsageError(
-      `falta o schema ${names.plural.kebab} (${relative}); rode prumo make:schema ${names.plural.kebab}${entityFlag(names)}.`,
+      `falta o schema ${names.plural.kebab} (${relative}); rode prumo make:schema ${names.plural.kebab}${entityFlag(names)}.${unusedSchemasHint(plan, names)}`,
     )
   }
   const object = schemaObject(plan, names, file)
@@ -509,4 +529,124 @@ export function readEntityFields(plan: ChangePlan, names: DomainNames): Field[] 
     fail(object.getStartLineNumber(), `o ${names.singular.camel}Schema não tem nenhum campo além de id e createdAt`)
   }
   return fields
+}
+
+/**
+ * Os schemas de `src/schemas/entities/` que nenhum repositório usa, quando a entidade pedida é a
+ * derivada do domínio: o schema pode ter saído do `make:schema` com `--entity`, e a pessoa esqueceu
+ * de repetir a opção. Sem candidatos (ou com `--entity` explícito diferente da derivada), `''`.
+ */
+function unusedSchemasHint(plan: ChangePlan, names: DomainNames): string {
+  if (entityFlag(names) !== '') return ''
+  const entities = path.join(plan.project.src, 'schemas', 'entities')
+  if (!existsSync(entities)) return ''
+  const repositories = path.join(plan.project.src, 'repositories')
+  const contracts = existsSync(repositories)
+    ? readdirSync(repositories, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => path.join(repositories, entry.name, 'repository.contract.ts'))
+        .filter((file) => existsSync(file))
+        .map((file) => readFileSync(file, 'utf8'))
+    : []
+  const candidates = readdirSync(entities)
+    .filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))
+    .map((file) => file.slice(0, -3))
+    .filter((kebab) => /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(kebab))
+    .filter((kebab) => {
+      // O nome exato (`PedidoSchema`, com limite de palavra): `PedidoItemSchema` não esconde `item`
+      const used = new RegExp(`\\b${deriveNames(kebab).pascal}Schema\\b`)
+      return !contracts.some((text) => used.test(text))
+    })
+  if (candidates.length === 0) return ''
+  return ` Se o schema saiu do make:schema com --entity, repita a opção; schemas sem repositório: ${candidates.join(', ')}.`
+}
+
+/** O que o schema deixa entrar (o `.pick` do `<entidade>InputSchema`) e ordenar (o `<Entidade>SortKey`). */
+export interface EntityShape {
+  /** Os nomes dos campos do `pick`, na ordem do arquivo. */
+  input: string[]
+  /** Os membros da chave de ordem: nomes de campos e `createdAt`. */
+  sort: string[]
+}
+
+/**
+ * Lê o `<entidade>InputSchema = <entidade>Schema.pick({ campo: true, ... })` e o `export type
+ * <Entidade>SortKey = 'a' | 'b'` do schema, pela árvore, para o repositório gerar o `create` e a
+ * ordem só com o que o schema aceita (a pessoa pode ter acrescentado um campo só ao `z.object`, ou
+ * tirado um do `pick`). `fields` são os campos que `readEntityFields` já leu. `UsageError` com
+ * arquivo e linha: `pick` ou `SortKey` que não dá para ler, nome que não é campo, `id`/`createdAt`
+ * no `pick`, `pick` vazio ou `SortKey` sem campo que se ordene no teste.
+ */
+export function readEntityShape(
+  plan: ChangePlan,
+  names: DomainNames,
+  fields: readonly Field[],
+): EntityShape {
+  const relative = schemaFile(names)
+  const source = plan.source(path.join(plan.project.root, relative))
+  const fail = (line: number, reason: string): never => {
+    throw new UsageError(`${relative}:${line}: ${reason}.`)
+  }
+  const known = new Set(fields.map((field) => field.name))
+
+  const inputName = `${names.singular.camel}InputSchema`
+  const declaration = source.getVariableDeclaration(inputName)
+  const pick = declaration?.getInitializer()
+  const expected = `${names.singular.camel}Schema.pick`
+  const [argument] =
+    pick && Node.isCallExpression(pick) && pick.getExpression().getText().replace(/\s+/g, '') === expected
+      ? pick.getArguments()
+      : []
+  if (!declaration || !argument || !Node.isObjectLiteralExpression(argument)) {
+    return fail(
+      declaration?.getStartLineNumber() ?? 1,
+      `não achei 'export const ${inputName} = ${expected}({ campo: true, ... })': só o .pick({ ... }) é aceito (o .omit({ ... }) não), então liste no .pick os campos que entram na criação`,
+    )
+  }
+  const input: string[] = []
+  for (const property of argument.getProperties()) {
+    const line = property.getStartLineNumber()
+    if (
+      !Node.isPropertyAssignment(property) ||
+      !Node.isIdentifier(property.getNameNode()) ||
+      property.getInitializer()?.getText() !== 'true'
+    ) {
+      fail(line, `não reconheço '${property.getText().split('\n')[0]}' no pick do ${inputName} (só 'campo: true')`)
+    }
+    const name = (property as PropertyAssignment).getName()
+    if (!known.has(name)) fail(line, `o pick do ${inputName} tem '${name}', que não é campo do ${names.singular.camel}Schema`)
+    input.push(name)
+  }
+  if (input.length === 0) fail(argument.getStartLineNumber(), `o pick do ${inputName} está vazio`)
+
+  const sortName = `${names.singular.pascal}SortKey`
+  const alias = source.getTypeAlias(sortName)
+  const node = alias?.getTypeNode()
+  if (!alias || !node) {
+    return fail(1, `não achei 'export type ${sortName} = ...': não sei por quais campos a lista ordena`)
+  }
+  const members = Node.isUnionTypeNode(node) ? node.getTypeNodes() : [node]
+  const sort: string[] = []
+  for (const member of members) {
+    const line = member.getStartLineNumber()
+    const literal = Node.isLiteralTypeNode(member) ? member.getLiteral() : undefined
+    if (!literal || !Node.isStringLiteral(literal)) {
+      fail(line, `não reconheço '${member.getText()}' no ${sortName} (só nomes de campo entre aspas)`)
+    }
+    const name = (literal as { getLiteralText(): string }).getLiteralText()
+    if (!known.has(name) && name !== 'createdAt') {
+      fail(line, `o ${sortName} tem '${name}', que não é campo do ${names.singular.camel}Schema (nem createdAt)`)
+    }
+    if (fields.some((field) => field.name === name && field.type === 'boolean')) {
+      fail(line, `o ${sortName} tem '${name}', que é booleano: a lista não ordena por booleano (o --fields também não gera essa chave)`)
+    }
+    sort.push(name)
+  }
+  const testable = sort.some(
+    (name) => name === 'createdAt' || fields.some((field) => field.name === name && field.type !== 'enum' && field.type !== 'boolean'),
+  )
+  if (!testable) {
+    fail(alias.getStartLineNumber(), `o ${sortName} não tem createdAt nem campo que não seja enum ou booleano: o teste de ordem não tem por onde ordenar`)
+  }
+  return { input, sort }
 }

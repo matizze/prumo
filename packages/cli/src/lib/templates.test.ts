@@ -3,6 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { APP_FILES } from '../generators/app.ts'
 import { MESSAGE_LANGUAGES, PAGE_FILES } from '../generators/page.ts'
+import { REPOSITORY_FILES } from '../generators/repository.ts'
 import { SCHEMA_FILE } from '../generators/schema.ts'
 import { deriveNames } from './names.ts'
 import {
@@ -63,6 +64,7 @@ const GENERATED: { template: string; to: string }[] = [
   ...APP_FILES,
   ...PAGE_FILES,
   SCHEMA_FILE,
+  ...REPOSITORY_FILES,
   ...MESSAGE_LANGUAGES.map((language) => ({
     template: `page/messages.${language}.json.tpl`,
     to: `${language}.json`,
@@ -70,10 +72,9 @@ const GENERATED: { template: string; to: string }[] = [
 ]
 
 /**
- * Os modelos que ainda esperam o gerador dos passos seguintes da reescrita (schema, repositório,
- * query e as outras variações da tela). Cada passo tira o seu daqui ao ligar o modelo.
+ * Os modelos que ainda esperam o gerador dos passos seguintes da reescrita (a query e as outras variações da tela). Cada passo tira o seu daqui ao ligar o modelo.
  */
-const WAITING = [/^domain\/(?!schema)/, /^page\/(index|model|view)-(domain|param|detail)/, /^page\/messages-domain/]
+const WAITING = [/^domain\/queries/, /^page\/(index|model|view)-(domain|param|detail)/, /^page\/messages-domain/]
 
 describe('os modelos', () => {
   const files = (dir: string): string[] =>
@@ -129,8 +130,10 @@ describe('os modelos', () => {
       'app.title': 'Clientes',
       'route.path': '/clientes',
     }
-    // O schema depende dos campos: o teste do gerador (schema.test.ts) o renderiza
-    for (const { template } of GENERATED.filter(({ template }) => template !== SCHEMA_FILE.template)) {
+    // O schema e o repositório dependem dos campos: os testes dos geradores os renderizam
+    const needsFields = (template: string) =>
+      template === SCHEMA_FILE.template || REPOSITORY_FILES.some((file) => file.template === template)
+    for (const { template } of GENERATED.filter(({ template }) => !needsFields(template))) {
       const text = renderTemplateFile(template, vars)
       // O app tem `undefined` de verdade no código (resolveDataSource(undefined, ...))
       expect(text, template).not.toMatch(template.startsWith('app/') ? /\{\{/ : /\{\{|undefined/)

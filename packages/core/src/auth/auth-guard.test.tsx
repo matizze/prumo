@@ -4,13 +4,17 @@ import type { ReactNode } from 'react'
 import { Router } from 'wouter'
 import { memoryLocation } from 'wouter/memory-location'
 import { afterEach, describe, expect, it } from 'vitest'
-import { AuthGuard, type AuthGuardProps } from './index.ts'
+import { AuthGuard, useAuthOrigin, type AuthGuardProps } from './index.ts'
 
 afterEach(cleanup)
 
 function renderGuard(props: Partial<AuthGuardProps> = {}, path = '/tasks') {
-  const { hook, history } = memoryLocation({ path, record: true })
-  const wrapper = ({ children }: { children: ReactNode }) => <Router hook={hook}>{children}</Router>
+  const { hook, searchHook, history } = memoryLocation({ path, record: true })
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <Router hook={hook} searchHook={searchHook}>
+      {children}
+    </Router>
+  )
   render(
     <AuthGuard isAuthenticated={false} isLoading={false} {...props}>
       <p>conteúdo protegido</p>
@@ -54,5 +58,62 @@ describe('AuthGuard', () => {
 
     expect(screen.queryByText('conteúdo protegido')).toBeNull()
     expect(history).toEqual(['/tasks'])
+  })
+
+  it('por padrão não leva a origem para o login', () => {
+    const { history } = renderGuard({}, '/clientes?page=2')
+
+    expect(history.at(-1)).toBe('/login')
+  })
+
+  it('com keepOrigin, leva caminho e query da rota pedida em ?next=', () => {
+    const { history } = renderGuard({ keepOrigin: true }, '/clientes?page=2&q=ana')
+
+    expect(history.at(-1)).toBe('/login?next=%2Fclientes%3Fpage%3D2%26q%3Dana')
+  })
+
+  it('com keepOrigin e redirectTo próprio, anexa ao redirectTo', () => {
+    const { history } = renderGuard({ keepOrigin: true, redirectTo: '/entrar' }, '/clientes')
+
+    expect(history.at(-1)).toBe('/entrar?next=%2Fclientes')
+  })
+
+  it('com keepOrigin, não se guarda a si mesmo quando já está no login', () => {
+    const { history } = renderGuard({ keepOrigin: true }, '/login?next=%2Fclientes')
+
+    expect(history).toEqual(['/login?next=%2Fclientes'])
+  })
+})
+
+describe('useAuthOrigin', () => {
+  function Origin({ fallback }: { fallback?: string }) {
+    return <p>{useAuthOrigin(fallback)}</p>
+  }
+
+  function renderOrigin(path: string, fallback?: string) {
+    const { hook, searchHook } = memoryLocation({ path })
+    render(
+      <Router hook={hook} searchHook={searchHook}>
+        <Origin fallback={fallback} />
+      </Router>,
+    )
+  }
+
+  it('devolve a origem guardada pelo guarda', () => {
+    renderOrigin('/login?next=%2Fclientes%3Fpage%3D2')
+
+    expect(screen.getByText('/clientes?page=2')).toBeTruthy()
+  })
+
+  it('sem origem, devolve o fallback', () => {
+    renderOrigin('/login', '/painel')
+
+    expect(screen.getByText('/painel')).toBeTruthy()
+  })
+
+  it('recusa redirecionamento aberto', () => {
+    renderOrigin('/login?next=https%3A%2F%2Foutro.site', '/painel')
+
+    expect(screen.getByText('/painel')).toBeTruthy()
   })
 })

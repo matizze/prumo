@@ -16,4 +16,9 @@ describe('UIError', () => {
     expect(error).toBeInstanceOf(Error)
     expect(error).toBeInstanceOf(UIError)
   })
+
+  it('guarda params opcionais, sem exigir nem inventar quando faltam', () => {
+    expect(new UIError('LOAN_LIMIT', 'limite', { limite: 3 }).params).toEqual({ limite: 3 })
+    expect(new UIError('TASK_NOT_FOUND', 'x').params).toBeUndefined()
+  })
 })

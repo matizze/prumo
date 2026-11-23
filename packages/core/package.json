@@ -13,6 +13,7 @@
     "./errors": "./src/errors/index.ts",
     "./data": "./src/data/index.ts",
     "./mock": "./src/mock/index.ts",
+    "./date": "./src/date/index.ts",
     "./query": "./src/query/index.ts",
     "./auth": "./src/auth/index.ts",
     "./repositories": "./src/repositories/index.ts",
@@ -41,6 +42,10 @@
       "./mock": {
         "types": "./dist/mock/index.d.ts",
         "default": "./dist/mock/index.js"
+      },
+      "./date": {
+        "types": "./dist/date/index.d.ts",
+        "default": "./dist/date/index.js"
       },
       "./query": {
         "types": "./dist/query/index.d.ts",

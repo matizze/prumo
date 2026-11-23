@@ -128,7 +128,7 @@ export function createClientesRepository({ latencyMs }: RepositoryOptions): ICli
     expect(queries).toContain("export const clienteKeys = createQueryKeys('clientes', {")
     expect(queries).toContain('export const clienteQueries = {')
     for (const hook of [
-      'useClientesList(query: ClienteListQuery = {})',
+      'useClientesList(',
       'useClienteDetail(id: string)',
       'useCreateCliente()',
       'useUpdateCliente()',
@@ -137,7 +137,13 @@ export function createClientesRepository({ latencyMs }: RepositoryOptions): ICli
       expect(queries).toContain(`export function ${hook}`)
     }
     expect(queries).toContain('useRepositories().clientes')
-    expect(queries.match(/invalidateQueries\(\{ queryKey: clienteKeys\.all \}\)/g)).toHaveLength(3)
+    // criar e editar invalidam o domínio; remover tira o detalhe do cache e invalida só as listas
+    expect(queries.match(/invalidateQueries\(\{ queryKey: clienteKeys\.all \}\)/g)).toHaveLength(2)
+    expect(queries).toContain('queryClient.removeQueries({ queryKey: clienteKeys.detail(id) })')
+    expect(queries).toContain('invalidateQueries({ queryKey: clienteKeys.lists })')
+    // a lista aceita opções e mantém os dados anteriores por padrão
+    expect(queries).toContain('options: ClientesListOptions = {}')
+    expect(queries).toContain('placeholderData: keepPreviousData')
   })
 
   it('registra o domínio nos três índices, no lugar certo de cada um', () => {

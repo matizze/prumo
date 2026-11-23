@@ -99,7 +99,7 @@ const TSCONFIG = {
 
 /** Cada hook gerado roda de verdade: lista, detalhe e as três mutations, que invalidam a lista. */
 const HOOKS_TEST = `// @vitest-environment jsdom
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { expect, it } from 'vitest'
@@ -148,6 +148,69 @@ it('lista, busca, cria, edita e remove pelos hooks, e a lista acompanha as mutat
 
   result.current.remove.mutate('cliente-3')
   await waitFor(() => expect(result.current.list.data?.total).toBe(3))
+})
+
+it('edita só os campos enviados', async () => {
+  const { result } = renderHook(
+    () => ({ detail: useClienteDetail('cliente-1'), update: useUpdateCliente() }),
+    { wrapper },
+  )
+  await waitFor(() => expect(result.current.detail.data?.name).toBe('Exemplo 1'))
+  result.current.update.mutate({ id: 'cliente-1', input: {} })
+  await waitFor(() => expect(result.current.update.isSuccess).toBe(true))
+  expect(result.current.update.data?.name).toBe('Exemplo 1')
+})
+
+it('a lista mantém os dados anteriores ao mudar a consulta e aceita opções', async () => {
+  const { result, rerender } = renderHook(
+    ({ search, enabled }: { search: string; enabled: boolean }) =>
+      useClientesList({ search }, { enabled }),
+    { wrapper, initialProps: { search: '', enabled: true } },
+  )
+  await waitFor(() => expect(result.current.data?.total).toBe(3))
+
+  rerender({ search: 'Exemplo 2', enabled: true })
+  expect(result.current.isPending).toBe(false)
+  expect(result.current.isPlaceholderData).toBe(true)
+  await waitFor(() => expect(result.current.data?.total).toBe(1))
+
+  rerender({ search: 'Exemplo 3', enabled: false })
+  expect(result.current.fetchStatus).toBe('idle')
+})
+
+it('remover um registro não busca o detalhe dele de novo (nada de erro de refetch)', async () => {
+  const refetchErrors: unknown[] = []
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+    // como o createQueryClient do core: só o erro de uma consulta que já tinha dados é notificado
+    queryCache: new QueryCache({
+      onError: (error, query) => {
+        if (query.state.data !== undefined) refetchErrors.push(error)
+      },
+    }),
+  })
+  const repositories = createRepositories({ latencyMs: 0 })
+  const sharedWrapper = ({ children }: { children: ReactNode }) => (
+    <RepositoryProvider value={repositories}>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    </RepositoryProvider>
+  )
+  const { result } = renderHook(
+    () => ({
+      list: useClientesList(),
+      detail: useClienteDetail('cliente-3'),
+      remove: useRemoveCliente(),
+    }),
+    { wrapper: sharedWrapper },
+  )
+  await waitFor(() => expect(result.current.detail.data?.name).toBe('Exemplo 3'))
+
+  result.current.remove.mutate('cliente-3')
+  await waitFor(() => expect(result.current.list.data?.total).toBe(2))
+  await new Promise((resolve) => setTimeout(resolve, 20))
+
+  expect(refetchErrors).toEqual([])
+  expect(client.getQueryData(['clientes', 'detail', 'cliente-3'])).toBeUndefined()
 })
 `
 
@@ -230,8 +293,8 @@ describe('o domínio gerado, num projeto de verdade', () => {
       expect(output).toContain(`src/repositories/${folder}/repository.contract.test.ts`)
     }
     expect(output).toContain('src/queries/hooks.test.tsx')
-    // Sete casos de contrato por domínio, mais o dos hooks
-    expect(output).toMatch(/Tests {2}22 passed \(22\)/)
+    // Oito casos de contrato por domínio, mais os quatro dos hooks
+    expect(output).toMatch(/Tests {2}28 passed \(28\)/)
   }, 120_000)
 
   it('o tsc de fato confere: um tipo errado no domínio gerado seria pego', () => {

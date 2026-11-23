@@ -93,7 +93,7 @@ export function ClientesView(m: ClientesModel) {
 
 Os textos novos (`search` e `remove`) entram em `src/messages/pt-BR/clientes.json` e em `src/messages/en/clientes.json`; o `prumo check` acusa o que faltar num dos idiomas.
 
-A mutation `useRemoveCliente` invalida as queries do domínio ao terminar, então a lista se atualiza sozinha.
+A mutation `useRemoveCliente` tira do cache o detalhe do registro removido e invalida as listas do domínio ao terminar, então a lista se atualiza sozinha e uma tela de detalhe aberta não busca de novo o registro que acabou de sumir (o que viraria uma notificação de "não encontrado").
 
 ## Componentes da tela
 

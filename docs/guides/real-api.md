@@ -2,7 +2,7 @@
 
 O `make:domain` gera um repositório em memória para você construir e testar as telas antes de a API existir. Este guia mostra como escrever a implementação HTTP do mesmo contrato, escolher a fonte de dados por ambiente e provar, com o teste de contrato, que as duas implementações se comportam igual.
 
-O exemplo usa o domínio `clientes` e uma API REST com as rotas `GET /clientes`, `GET /clientes/:id`, `POST /clientes`, `PUT /clientes/:id` e `DELETE /clientes/:id`. Adapte os caminhos e o formato à sua API: o que não muda é o contrato.
+O exemplo usa o domínio `clientes` e uma API REST com as rotas `GET /clientes`, `GET /clientes/:id`, `POST /clientes`, `PATCH /clientes/:id` e `DELETE /clientes/:id`. Adapte os caminhos e o formato à sua API: o que não muda é o contrato.
 
 ## Como as peças se encaixam
 
@@ -130,9 +130,9 @@ export class HttpClientesRepository implements IClientesRepository {
     return clienteSchema.parse(await this.http('/clientes', { method: 'POST', body: input }))
   }
 
-  async update(id: string, input: ClienteInput): Promise<ClienteSchema> {
+  async update(id: string, input: Partial<ClienteInput>): Promise<ClienteSchema> {
     const path = `/clientes/${encodeURIComponent(id)}`
-    return clienteSchema.parse(await this.existing(path, { method: 'PUT', body: input }))
+    return clienteSchema.parse(await this.existing(path, { method: 'PATCH', body: input }))
   }
 
   async remove(id: string): Promise<void> {

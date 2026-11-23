@@ -41,14 +41,15 @@ export interface IClientesRepository {
   /** Rejeita com `UIError('CLIENTE_NOT_FOUND')` quando o id não existe. */
   get(id: string): Promise<ClienteSchema>
   create(input: ClienteInput): Promise<ClienteSchema>
-  /** Rejeita com `UIError('CLIENTE_NOT_FOUND')` quando o id não existe. */
-  update(id: string, input: ClienteInput): Promise<ClienteSchema>
+  /** Muda só os campos enviados e devolve o registro inteiro. Rejeita com `UIError('CLIENTE_NOT_FOUND')` quando o id não existe. */
+  update(id: string, input: Partial<ClienteInput>): Promise<ClienteSchema>
   /** Rejeita com `UIError('CLIENTE_NOT_FOUND')` quando o id não existe. */
   remove(id: string): Promise<void>
 }
 ```
 
 - `list` aceita busca (`search`, sem diferenciar maiúsculas e acentos), ordem (`sort: { key, direction }`) e página (`page`, a partir de 1, e `page_size`). Devolve `{ items, total }`, em que `total` conta todos os itens que casam com a busca, antes de paginar. Sem `page_size`, devolve tudo.
+- `update` é **parcial**: muda só os campos enviados e mantém os outros (um `PATCH`, na API real). Para mudar um ou dois campos (devolver, cancelar, quitar), envie só eles: `update.mutate({ id, input: { status: 'cancelado' } })`. Não há um método `patch` à parte.
 - Um registro que não existe é um `UIError` com o código `<ENTIDADE>_NOT_FOUND`, que a interface traduz (veja [Erros e notificações](errors-and-notifications.md)).
 
 O **teste de contrato** (`repository.contract.test.ts`) descreve esse comportamento uma vez, com o `defineContractSuite` do `@matizze/prumo-testing`, e o roda contra cada implementação com o `runContractSuite`. Hoje, contra o mock:
@@ -115,11 +116,95 @@ const item: ClienteSchema = {
 const updated = { ...item, ...input }
 ```
 
-**4. O contrato:** `pnpm typecheck` aponta as chamadas de `create` e `update` que agora precisam do `email`. Se você trocou os nomes das fixtures, ajuste também os casos que dependem deles (a busca por `'EXEMPLO 2'` e a ordem esperada). **As fixtures e o contrato andam juntos.**
+**4. O contrato:** `pnpm typecheck` aponta as chamadas de `create` que agora precisam do `email` (o `update` é parcial e não reclama). Se você trocou os nomes das fixtures, ajuste também os casos que dependem deles (a busca por `'EXEMPLO 2'` e a ordem esperada). **As fixtures e o contrato andam juntos.**
 
-**5.** Se quiser ordenar pelo campo novo, acrescente a chave em `ClienteSortKey` e o acessor no `sortBy` do mock.
+**5. A busca e a ordem do `list`**, no mock, que hoje supõem o `name`:
 
-Rode `pnpm verify`. Telas que usam o domínio continuam compilando, e as que precisam do campo novo o recebem já tipado.
+```ts
+// src/repositories/clientes/repository.mock.ts
+const filtered = this.items.filter((item) => matchesSearch([item.name, item.email], query.search))
+const sorted = sortBy(filtered, query.sort, {
+  name: (item) => item.name,
+  email: (item) => item.email, // a chave nova também entra em ClienteSortKey
+  createdAt: (item) => item.createdAt,
+})
+```
+
+Se quiser buscar ou ordenar pelo campo novo, acrescente-o nessas duas listas e a chave em `ClienteSortKey`.
+
+### Onde o `name` aparece
+
+Trocar ou tirar o `name` (em vez de só acrescentar campos) mexe em todos estes lugares, e o `tsc` nem sempre acusa todos:
+
+| Onde                                                                        | O que o cita                                                        |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `src/schemas/entities/cliente.ts`                                           | `clienteSchema` e o `pick` do `clienteInputSchema`                  |
+| `src/repositories/clientes/fixtures.ts`                                     | o `name` de cada fixture                                            |
+| `repository.mock.ts`, `create`                                              | `name: input.name`, se você não usa `...input`                      |
+| `repository.mock.ts`, `list`                                                | a busca (`matchesSearch([item.name], ...)`) e o acessor `name` do `sortBy` |
+| `repository.contract.test.ts`                                               | a busca por `'EXEMPLO 2'`, a ordem esperada, o `name` do `create` e do `update` |
+| `src/pages/<tela>/view.tsx`, das telas geradas com `--domain`               | `item.name` na lista (e no detalhe, se a tela é de detalhe)         |
+| `src/pages/<tela>/index.test.tsx`, das telas de detalhe geradas com `--domain`  | o texto `Exemplo 1`, que é o `name` da primeira fixture              |
+| `src/queries/clientes.ts`                                                   | `ClienteListQuery` e `ClienteSortKey`, se citam o campo             |
+
+O `pnpm verify` (com o `typecheck` e os testes) mostra o que sobrou.
+
+Rode `pnpm verify`. **Só campo acrescentado** deixa as telas que usam o domínio compilando, e as que precisam do campo novo o recebem já tipado. Trocar ou tirar um campo quebra o que o citava: as views geradas com `--domain` (`item.name`), por exemplo.
+
+## Filtros na consulta da lista
+
+A consulta (`ClienteListQuery`) vem com `search`, `sort`, `page` e `page_size`. Um domínio sem texto para buscar (empréstimos, reservas) precisa de outros filtros, e o caminho é sempre o mesmo, de baixo para cima:
+
+**1. O campo na consulta**, em `src/schemas/entities/cliente.ts`:
+
+```ts
+export interface ClienteListQuery extends PageQuery {
+  /** Busca pelo nome, sem diferenciar maiúsculas e acentos. */
+  search?: string
+  status?: 'ativo' | 'inativo' // novo
+  sort?: Sort<ClienteSortKey>
+}
+```
+
+**2. O filtro no mock**, antes de ordenar e paginar:
+
+```ts
+const filtered = this.items
+  .filter((item) => matchesSearch([item.name], query.search))
+  .filter((item) => !query.status || item.status === query.status)
+```
+
+Se o domínio não tem texto, tire a linha da busca (e o `search` da consulta) em vez de deixá-la sem efeito.
+
+**3. O caso no contrato**, que a implementação HTTP também vai cumprir:
+
+```ts
+it('filtra pelo status', async () => {
+  const { items, total } = await repo.list({ status: 'ativo' })
+  expect(total).toBe(2)
+  expect(items.every((item) => item.status === 'ativo')).toBe(true)
+})
+```
+
+A query key já leva a consulta inteira (`['list', query]`), então o filtro novo entra na chave e na busca sem mais nada. Na API real, o campo vira um parâmetro da URL no `list` do repositório HTTP (veja [Ligar uma API real](real-api.md)).
+
+### Consultas que dependem de "hoje"
+
+Uma consulta como "atrasados" ou "vencem esta semana" depende da data de hoje, e um mock que chama `new Date()` dá um resultado que muda com o dia, o que quebra o teste de contrato. Passe a data **na consulta**, e o mock e o contrato ficam determinísticos:
+
+```ts
+// no ClienteListQuery
+today?: string // data ISO (yyyy-mm-dd); o chamador informa
+
+// no mock
+.filter((item) => !query.today || item.dueDate < query.today)
+
+// no contrato, com as datas das fixtures
+const { items } = await repo.list({ today: '2026-03-01' })
+expect(items.map((item) => item.id)).toEqual(['cliente-2'])
+```
+
+A tela passa a data de verdade (`today: new Date().toISOString().slice(0, 10)`); o teste, uma data fixa. Para somar dias a uma data no mock e nas fixtures, há o `addDays` do `@matizze/prumo-core/mock`, e para formatar a data sem erro de fuso, o `@matizze/prumo-core/date`.
 
 ## Queries
 
@@ -148,13 +233,26 @@ await queryClient.prefetchQuery(clienteQueries.detail(repositories.clientes, id)
 
 | Hook                      | O que faz                                                                     |
 | ------------------------- | ----------------------------------------------------------------------------- |
-| `useClientesList(query?)` | A lista, com busca, ordem e página                                            |
+| `useClientesList(query?, options?)` | A lista, com busca, ordem, página e filtros; `options` vai para o `useQuery` |
 | `useClienteDetail(id)`    | Um registro                                                                   |
 | `useCreateCliente()`      | Mutation de criar; recebe um `ClienteInput`                                   |
-| `useUpdateCliente()`      | Mutation de editar; recebe `{ id, input }`                                    |
+| `useUpdateCliente()`      | Mutation de editar; recebe `{ id, input }`, com `input` parcial               |
 | `useRemoveCliente()`      | Mutation de remover; recebe o `id`                                            |
 
-As três mutations invalidam `clienteKeys.all` ao terminar, então as listas e os detalhes do domínio se atualizam sozinhos.
+**A lista mantém os dados anteriores** enquanto uma consulta nova carrega (`placeholderData: keepPreviousData`): ao buscar, filtrar ou paginar, `list.isPending` só é `true` na primeira carga, e a tela não volta para "Carregando…". `list.isPlaceholderData` diz que o que aparece ainda é o da consulta anterior (use para esmaecer a lista ou desligar o botão da página). O segundo parâmetro aceita as opções do `useQuery` (`enabled`, `staleTime`, `select`...) e vale mais que o padrão:
+
+```ts
+const list = useClientesList({ search }, { enabled: search.length >= 3 })
+```
+
+Para voltar ao carregando a cada consulta, tire a linha `placeholderData` do hook gerado.
+
+**As mutations** atualizam o cache ao terminar:
+
+- `useCreateCliente` e `useUpdateCliente` invalidam `clienteKeys.all`: as listas e os detalhes do domínio se atualizam sozinhos.
+- `useRemoveCliente` tira do cache o detalhe do registro removido (`removeQueries`) e invalida só as listas (`clienteKeys.lists`). Invalidar tudo faria o detalhe aberto do registro removido ser buscado de novo, falhar com `CLIENTE_NOT_FOUND` e virar uma notificação de erro.
+
+`useUpdateCliente` recebe `{ id, input }` com `input` parcial (só o que mudou).
 
 Os hooks pegam o repositório de `useRepositories()`, nunca de um import. É isso que permite ao teste e à configuração de ambiente trocar a implementação sem mudar a tela.
 

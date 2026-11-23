@@ -46,11 +46,11 @@ export class Mock{{plural.pascal}}Repository implements I{{plural.pascal}}Reposi
     return item
   }
 
-  async update(id: string, input: {{singular.pascal}}Input): Promise<{{singular.pascal}}Schema> {
+  async update(id: string, input: Partial<{{singular.pascal}}Input>): Promise<{{singular.pascal}}Schema> {
     await wait(this.latencyMs)
     const { at, item } = this.find(id)
     // Troca o objeto em vez de mexer nele: as fixtures e o que já foi devolvido não mudam
-    const updated = { ...item, name: input.name }
+    const updated = { ...item, ...input }
     this.items[at] = updated
     return updated
   }

@@ -72,7 +72,10 @@ stage_new() {
 #   passo 7  make:page        (título, lista com --query, parâmetro e detalhe)
 # O `new` já gera a tela inicial (home), que o `check` e os testes do verify do app cobrem.
 stage_cli() {
-  :
+  # passo 3: make:schema com o campo padrão, com campos de todos os tipos e com --entity
+  prumo make:schema clientes
+  prumo make:schema livros --fields "titulo:string,autor:string,ano:number,paginas:int,situacao:enum(lido|lendo|desejado),disponivel:boolean,publicadoEm:date,lidoEm?:datetime,apelido?:string"
+  prumo make:schema paes --entity pao
 }
 
 stage_verify() {

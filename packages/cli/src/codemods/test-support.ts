@@ -33,6 +33,18 @@ const NAMESPACES = [
   'blank',
 ]
 
+/** O `src/schemas/index.ts` do projeto de fixture: exports de estilos variados, em ordem de chegada. */
+const SCHEMAS_INDEX = `export * from './entities/user'
+export * from '@matizze/prumo-core/data'
+export * from './entities/customer'
+export * from './forms/sign-in'
+export {
+  profileSchema,
+  type ProfileSchema,
+} from './entities/account'
+export * from './entities/ai'
+`
+
 /** Os arquivos de um idioma do projeto de fixture: o índice e um JSON por namespace. */
 function messagesOf(language: string): Record<string, string> {
   return {
@@ -77,6 +89,7 @@ export function fixtureProject(): Project {
       'src/App.tsx': APP,
       ...messagesOf('en'),
       ...messagesOf('pt-BR'),
+      'src/schemas/index.ts': SCHEMAS_INDEX,
     }),
   )
 }

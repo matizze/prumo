@@ -5,9 +5,12 @@ import {
   assertNotReserved,
   assertValidName,
   deriveNames,
+  domainNames,
+  entityFlag,
   GLOBAL_NAMES,
   isValidName,
   RESERVED_WORDS,
+  singularOf,
   usableNames,
 } from './names.ts'
 
@@ -155,5 +158,105 @@ describe('palavras reservadas', () => {
     expect(() => assertNotReserved(deriveNames('date'), 'o nome da tela')).not.toThrow()
     expect(GLOBAL_NAMES.has('Record')).toBe(true)
     expect(GLOBAL_NAMES.has('Customer')).toBe(false)
+  })
+})
+
+describe('singularOf', () => {
+  it('tira o s final, em inglês e em português', () => {
+    expect(singularOf('suppliers')).toBe('supplier')
+    expect(singularOf('customers')).toBe('customer')
+    expect(singularOf('pedidos')).toBe('pedido')
+    expect(singularOf('order-items')).toBe('order-item')
+  })
+
+  it('não adivinha o que não termina em s e pede o singular explícito', () => {
+    expect(() => singularOf('inventory')).toThrow(/--entity/)
+    expect(() => singularOf('s')).toThrow(UsageError)
+  })
+
+  it.each([
+    ['categories', 'category'],
+    ['companies', 'company'],
+    ['classes', 'class'],
+    ['boxes', 'box'],
+    ['matches', 'match'],
+    ['wishes', 'wish'],
+  ])('recusa %s e sugere --entity %s, em vez de derivar um singular errado', (plural, entity) => {
+    expect(() => singularOf(plural)).toThrow(UsageError)
+    expect(() => singularOf(plural)).toThrow(new RegExp(`--entity ${entity}\\b`))
+    expect(() => singularOf(plural)).toThrow(`'${plural.slice(0, -1)}'`)
+  })
+
+  it.each(['status', 'campus', 'address', 'access'])(
+    'recusa %s, que já parece singular, sem sugerir um palpite',
+    (plural) => {
+      expect(() => singularOf(plural)).toThrow(UsageError)
+      expect(() => singularOf(plural)).toThrow(/já estar no singular.*--entity/)
+      expect(() => singularOf(plural)).not.toThrow(/provavelmente/)
+    },
+  )
+
+  it.each(['items', 'orders', 'pedidos', 'purchase-orders', 'users', 'taxes-rates', 'aliases'])(
+    'não incomoda o plural comum: %s',
+    (plural) => {
+      // `taxes-rates` termina em `rates` e `aliases` em `ases`: nada da lista de suspeitos
+      expect(singularOf(plural)).toBe(plural.slice(0, -1))
+    },
+  )
+})
+
+describe('singularOf, a regra do s final', () => {
+  it.each([
+    ['screens', 'screen'],
+    ['cores', 'core'],
+    ['herois', 'heroi'],
+    ['maes', 'mae'],
+    ['paes', 'pae'],
+    ['fornecedores', 'fornecedore'],
+    ['clientes', 'cliente'],
+    ['livros', 'livro'],
+    ['pedidos-itens', 'pedidos-iten'],
+  ])('%s vira %s (só tira o s; o --entity corrige o resto)', (plural, singular) => {
+    expect(singularOf(plural)).toBe(singular)
+  })
+
+  it('entityFlag só traz o --entity quando a entidade difere da derivada', () => {
+    expect(entityFlag(domainNames('paes'))).toBe('')
+    expect(entityFlag(domainNames('paes', 'pao'))).toBe(' --entity pao')
+    expect(entityFlag(domainNames('categories', 'category'))).toBe(' --entity category')
+    expect(entityFlag(domainNames('clientes', 'cli'))).toBe(' --entity cli')
+  })
+})
+
+describe('domainNames', () => {
+  it('deriva o singular do plural', () => {
+    const names = domainNames('suppliers')
+    expect(names.plural).toEqual({ kebab: 'suppliers', pascal: 'Suppliers', camel: 'suppliers' })
+    expect(names.singular).toEqual({ kebab: 'supplier', pascal: 'Supplier', camel: 'supplier' })
+  })
+
+  it('aceita um singular explícito para o que a regra erra', () => {
+    expect(domainNames('categories', 'category').singular.pascal).toBe('Category')
+    expect(domainNames('inventory', 'product').singular.camel).toBe('product')
+  })
+
+  it('recusa singular inválido ou igual ao plural', () => {
+    expect(() => domainNames('suppliers', 'Supplier')).toThrow(/a entidade 'Supplier' é inválido/)
+    expect(() => domainNames('status', 'status')).toThrow(/igual ao nome do domínio/)
+    expect(() => domainNames('Suppliers')).toThrow(/o nome do domínio/)
+  })
+})
+
+describe('nomes reservados do domínio', () => {
+  it('domainNames recusa singular ou plural reservado ou global', () => {
+    expect(() => domainNames('classes', 'class')).toThrow(
+      /a entidade 'class' vira o identificador 'class', que é palavra reservada/,
+    )
+    expect(() => domainNames('records', 'record')).toThrow(
+      /a entidade 'record' vira o identificador 'Record', que é um nome global/,
+    )
+    expect(() => domainNames('dates', 'date')).toThrow(/'Date'/)
+    expect(() => domainNames('new', 'new-item')).toThrow(/o nome do domínio 'new'.*reservada/)
+    expect(() => domainNames('maps', 'map')).toThrow(/'Map'/)
   })
 })

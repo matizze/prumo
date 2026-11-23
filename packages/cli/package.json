@@ -1,6 +1,6 @@
 {
   "name": "@matizze/prumo-cli",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "O comando prumo: cria apps React organizados em camadas, gera telas, domínios e componentes por modelos e confere a arquitetura.",
   "repository": {
     "type": "git",

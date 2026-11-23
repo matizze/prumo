@@ -1,6 +1,6 @@
 {
   "name": "@matizze/prumo-core",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Infraestrutura comum dos produtos do Prumo: container de repositórios, query keys, tipo Page, utilitários de mock, i18n, erros com código, guarda de login e provedor de query.",
   "repository": {
     "type": "git",

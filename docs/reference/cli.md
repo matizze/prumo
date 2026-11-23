@@ -340,11 +340,11 @@ Escreve uma linha por item, com `ok`, `aviso` ou `erro`, e um resumo. Não escre
 ```text
 ok     Node: 24.7.0 (mínimo do Prumo: 24; engines: >=24).
 ok     pnpm: 10.0.0 (packageManager: pnpm@10.0.0).
-ok     @matizze/prumo-core: 0.1.3 (esperado: >=0.1.0 <0.2.0).
-ok     @matizze/prumo-rules: 0.2.1 (esperado: >=0.2.0 <0.3.0).
-ok     @matizze/prumo-testing: 0.2.1 (esperado: >=0.2.0 <0.3.0).
-ok     @matizze/prumo-mcp: 0.1.2 (esperado: >=0.1.0 <0.2.0).
-ok     @matizze/prumo-cli: 0.5.1 (esperado: >=0.5.1 <0.6.0).
+ok     @matizze/prumo-core: 0.2.0 (esperado: >=0.1.0 <0.3.0).
+ok     @matizze/prumo-rules: 0.2.3 (esperado: >=0.2.0 <0.3.0).
+ok     @matizze/prumo-testing: 0.3.0 (esperado: >=0.2.0 <0.4.0).
+ok     @matizze/prumo-mcp: 0.2.0 (esperado: >=0.1.0 <0.3.0).
+ok     @matizze/prumo-cli: 0.6.0 (esperado: >=0.6.0 <0.7.0).
 ok     .mcp.json: existe, com o servidor prumo.
 
 prumo doctor: tudo certo.

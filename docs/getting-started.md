@@ -29,9 +29,8 @@ O comando cria a pasta `loja`, roda `git init` (sem commit: o primeiro commit é
 prumo new: loja.
 Destino: /home/voce/loja
 
-Criados (28):
+Criados (30):
   .gitignore
-  .mcp.json
   AGENTS.md
   README.md
   eslint.config.js
@@ -75,7 +74,6 @@ loja/
     schemas/  queries/   os índices dos domínios (vazios por enquanto)
     test/                o renderWithProviders e o setup do Vitest
   AGENTS.md              o guia do projeto para agentes de IA
-  .mcp.json              liga o servidor MCP do Prumo ao agente
   eslint.config.js       com o plugin de arquitetura do Prumo
 ```
 

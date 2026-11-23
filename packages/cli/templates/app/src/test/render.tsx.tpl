@@ -27,7 +27,7 @@ function Providers({
 const binding = {
   Providers,
   createRepositories: (overrides?: Partial<RepositoryContainer>) => ({
-    ...createRepositories({ dataSource: 'memory', latencyMs: 0 }),
+    ...createRepositories({ dataSource: 'mock', latencyMs: 0 }),
     ...overrides,
   }),
   createQueryClient: () =>

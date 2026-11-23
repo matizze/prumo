@@ -38,9 +38,10 @@ Não há CI de verificação: **a verificação é local**, e todo pull request 
 | ------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
 | `pnpm verify`      | Typecheck, lint e testes dos quatro pacotes, sem navegador (cerca de 1 minuto)                                | Sempre                                                       |
 | `pnpm build`       | Compila os pacotes (`dist/`)                                                                                 | Para inspecionar o que vai para o npm                        |
-| `pnpm pack:all`    | Compila e empacota os quatro pacotes em `.packs/`                                                             | Para testar um app com os tarballs (o `prumo new --packages .packs` volta no passo 2) |
+| `pnpm pack:all`    | Compila e empacota os quatro pacotes em `.packs/`                                                             | Para testar um app com os tarballs (`prumo new <nome> --packages .packs`) |
+| `pnpm verify:new`  | Empacota, cria um app com `prumo new --packages` fora do monorepo, roda nele os comandos já prontos e o `pnpm verify` dele | Ao mudar os modelos (`packages/cli/templates`), o `new` ou os geradores |
 
-Rode um comando pesado por vez: `tsc`, `eslint` e `vitest` juntos pesam, e em máquinas com pouca memória dois ao mesmo tempo atrapalham um ao outro. (O `pnpm verify:new`, que cria um app e roda o `verify` dele, volta no passo 2 da reescrita da CLI.)
+Rode um comando pesado por vez: `tsc`, `eslint` e `vitest` juntos pesam, e em máquinas com pouca memória dois ao mesmo tempo atrapalham um ao outro.
 
 ## Fluxo de trabalho
 
@@ -111,7 +112,7 @@ Escolha os pacotes, o tipo de versão e descreva a mudança **do ponto de vista 
 
 **Para lançar uma versão** (decisão de uma pessoa do time):
 
-1. Um pull request para a `develop` roda `pnpm changeset version`: sobe as versões, escreve os CHANGELOGs e apaga os changesets. (O mapa de versões do app novo volta com o `new`, no passo 2 da reescrita da CLI, e então também se atualiza nesta etapa.)
+1. Um pull request para a `develop` roda `pnpm changeset version`: sobe as versões, escreve os CHANGELOGs e apaga os changesets. Nesse pull request, atualize também o mapa de versões do app novo (`packages/cli/src/lib/versions.ts`): o teste `versions.test.ts` falha até ele acompanhar os `package.json` de `packages/*`.
 2. Um pull request leva a `develop` para a `main`.
 3. O workflow de publicação publica no npm as versões que faltam, autenticado pelo Trusted Publishing.
 

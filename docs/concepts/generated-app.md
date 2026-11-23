@@ -7,7 +7,6 @@ Este documento descreve, arquivo por arquivo, o app que o `prumo new` cria e o q
 ```text
 meu-app/
   .gitignore
-  .mcp.json                       servidor MCP do Prumo para agentes
   AGENTS.md                       guia do projeto para agentes de IA
   README.md
   eslint.config.js                ESLint com o plugin do Prumo
@@ -61,10 +60,10 @@ Os arquivos marcados como **ponto de registro** são os que os geradores editam 
 ```
 
 - O `verify` roda os testes antes do `check`: um componente `shared` recém-gerado, por exemplo, faz o `check` falhar (a `shared-usage` é esperada), e os testes rodam mesmo assim. O `verify` continua falhando se o `check` falhar.
-- O `packageManager` fixa a versão do pnpm que criou o app (o `prumo doctor` compara com a instalada).
-- As bibliotecas de terceiros entram com versões fixadas pelos modelos do Prumo, e os cinco pacotes `@matizze/prumo-*` como `^<versão>`.
+- O `packageManager` fixa a versão do pnpm que criou o app.
+- As bibliotecas de terceiros entram com versões fixadas pelos modelos do Prumo, e os quatro pacotes `@matizze/prumo-*` como `^<versão>`.
 - Dependências de execução: `@matizze/prumo-core`, React, React DOM, wouter, TanStack Query, zod, i18next, react-i18next, `i18next-icu` e `i18next-browser-languagedetector`.
-- Dependências de desenvolvimento: os outros quatro pacotes do Prumo (`cli`, `mcp`, `rules`, `testing`), Vite, Vitest, jsdom, Testing Library, ESLint, typescript-eslint e TypeScript.
+- Dependências de desenvolvimento: os outros três pacotes do Prumo (`cli`, `rules`, `testing`), Vite, Vitest, jsdom, Testing Library, ESLint, typescript-eslint e TypeScript.
 
 ### `tsconfig.json`
 
@@ -82,9 +81,9 @@ O plugin do React, o alias `@` e a configuração do Vitest: ambiente `jsdom`, `
 
 As configurações recomendadas do ESLint, do typescript-eslint e do `react-hooks`, mais `prumo.configs.recommended`, que liga as regras `prumo/no-cross-page-import` e `prumo/page-structure`.
 
-### `.mcp.json` e `AGENTS.md`
+### `AGENTS.md`
 
-O `.mcp.json` registra o servidor `prumo` (`pnpm exec prumo-mcp`) para clientes MCP como o Claude Code. O `AGENTS.md` descreve as camadas, os comandos e as regras do projeto para agentes de IA. Veja o guia [Agentes de IA](../guides/ai-agents.md).
+O `AGENTS.md` descreve as camadas, os comandos e as regras do projeto para agentes de IA. Veja o guia [Agentes de IA](../guides/ai-agents.md).
 
 ## O código
 
@@ -173,16 +172,16 @@ const factories = {
 export type RepositoryContainer = RepositoryContainerOf<typeof factories>
 
 export function createRepositories(options: Partial<RepositoryOptions> = {}): RepositoryContainer {
-  const dataSource = options.dataSource ?? resolveDataSource(undefined, DATA_SOURCES, 'memory')
+  const dataSource = options.dataSource ?? resolveDataSource(undefined, DATA_SOURCES, 'mock')
   return createRepositoryContainer(factories, { ...options, dataSource })
 }
 ```
 
-O tipo do container sai do mapa, então registrar um domínio é acrescentar uma linha. O `options.ts` declara as fontes de dados (`DATA_SOURCES = ['memory']`): é onde entra a API real (veja [Ligar uma API real](../guides/real-api.md)).
+O tipo do container sai do mapa, então registrar um domínio é acrescentar uma linha. O `options.ts` declara as fontes de dados (`DATA_SOURCES = ['mock']`): é onde entra a API real (veja [Ligar uma API real](../guides/real-api.md)).
 
 ### `src/test/render.tsx` e `setup.ts`
 
-O `renderWithProviders` e o `renderHookWithProviders` (para testar hooks) do app, criados com o `createRenderWithProviders` e o `createRenderHookWithProviders` do `@matizze/prumo-testing`: renderiza com o i18n, um container de repositórios em memória **sem latência**, um `QueryClient` **sem retry** e uma rota em memória. O `setup.ts` fixa o idioma padrão do app (`pt-BR`, já que o jsdom diz `en-US`) e desmonta os componentes depois de cada teste. Veja [Testes](../guides/test.md).
+O `renderWithProviders` e o `renderHookWithProviders` (para testar hooks) do app, criados com o `createRenderWithProviders` e o `createRenderHookWithProviders` do `@matizze/prumo-testing`: renderiza com o i18n, um container de repositórios `mock` (em memória) **sem latência**, um `QueryClient` **sem retry** e uma rota em memória. O `setup.ts` fixa o idioma padrão do app (`pt-BR`, já que o jsdom diz `en-US`) e desmonta os componentes depois de cada teste. Veja [Testes](../guides/test.md).
 
 ## O que cada gerador acrescenta
 

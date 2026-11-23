@@ -8,4 +8,6 @@ export type Io = {
   err: (text: string) => void
   /** A largura do terminal, para quebrar a ajuda. Padrão: 80. */
   columns?: number
+  /** O processo é o `prumo` do terminal: um subprocesso (o `pnpm install` do `new`) herda os fluxos e mostra o progresso direto. Só o `bin.ts` liga. */
+  inheritStdio?: boolean
 }

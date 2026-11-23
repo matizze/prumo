@@ -40,7 +40,6 @@ const sidebars: SidebarsConfig = {
         { type: 'doc', id: 'reference/core', label: 'core' },
         { type: 'doc', id: 'reference/rules', label: 'rules' },
         { type: 'doc', id: 'reference/testing', label: 'testing' },
-        { type: 'doc', id: 'reference/mcp', label: 'MCP' },
       ],
     },
     { type: 'doc', id: 'faq', label: 'Perguntas frequentes' },

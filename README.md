@@ -40,7 +40,6 @@ O Prumo transforma o combinado em ferramenta:
 - **Gera do jeito certo.** `make:page`, `make:domain` e `make:component` criam os arquivos a partir de modelos e fazem os registros (rota, textos, índices, container de repositórios). Ninguém copia uma tela antiga para começar outra.
 - **Confere sempre.** Um plugin de ESLint avisa no editor, e o `prumo check` analisa o projeto inteiro: estrutura das telas, imports entre telas, uso real dos componentes compartilhados e textos completos em todos os idiomas.
 - **Não amarra a interface.** As camadas de dados, textos e testes são as mesmas com qualquer design system. Trocar de biblioteca visual não muda a arquitetura.
-- **Fala com agentes de IA.** O servidor MCP expõe os mesmos comandos como ferramentas, e cada app novo já vem com o `.mcp.json` e um `AGENTS.md`. O agente gera com os mesmos modelos e passa pela mesma verificação que uma pessoa.
 
 ## Começando
 
@@ -92,12 +91,12 @@ A view não busca dado nem guarda estado de dados; o model não tem JSX; uma tel
 
 | Comando                                               | O que faz                                                                                           |
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `prumo new <nome>`                                    | Cria um app mínimo com a estrutura, os provedores, uma tela inicial, ESLint, Vitest e o `.mcp.json` |
+| `prumo new <nome>`                                    | Cria um app mínimo com a estrutura, os provedores, uma tela inicial, ESLint e Vitest |
 | `prumo make:page <nome> [--domain <domínio>] [--path <caminho>]` | Gera a tela (index, model, view, teste), os textos nos idiomas do projeto e a rota                  |
 | `prumo make:domain <nome> [--entity <singular>] [--fields <campos>]` | Gera schema, contrato, repositório em memória, fixtures, queries e o teste de contrato              |
 | `prumo make:component <nome> (--page <tela> \| --shared)` | Gera um componente e o teste dele, na pasta da tela ou em `components/shared`                   |
 | `prumo check`                                         | Analisa o projeto e lista as violações da arquitetura                                               |
-| `prumo doctor`                                        | Confere Node, pnpm, a versão dos pacotes do Prumo e o `.mcp.json`                                   |
+| `prumo doctor`                                        | Confere Node, pnpm e a versão dos pacotes do Prumo                                                  |
 
 Os geradores validam tudo antes de escrever, nunca sobrescrevem um arquivo, aceitam `--dry-run` e rodam o `prumo check` no fim. Opções, saídas e códigos de saída estão na [referência da CLI](docs/reference/cli.md).
 
@@ -105,13 +104,12 @@ Os geradores validam tudo antes de escrever, nunca sobrescrevem um arquivo, acei
 
 | Pacote                                       | Versão                                                                                                         | O que entrega                                                                                     |
 | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| [`@matizze/prumo-cli`](packages/cli)         | [![npm](https://img.shields.io/npm/v/@matizze/prumo-cli?label=)](https://www.npmjs.com/package/@matizze/prumo-cli)         | O comando `prumo` e a API para rodar os comandos em processo                                      |
+| [`@matizze/prumo-cli`](packages/cli)         | [![npm](https://img.shields.io/npm/v/@matizze/prumo-cli?label=)](https://www.npmjs.com/package/@matizze/prumo-cli)         | O comando `prumo`                                      |
 | [`@matizze/prumo-core`](packages/core)       | [![npm](https://img.shields.io/npm/v/@matizze/prumo-core?label=)](https://www.npmjs.com/package/@matizze/prumo-core)       | Container de repositórios, query keys, i18n tipado, erros com código, utilitários de mock e guarda de rota |
 | [`@matizze/prumo-rules`](packages/rules)     | [![npm](https://img.shields.io/npm/v/@matizze/prumo-rules?label=)](https://www.npmjs.com/package/@matizze/prumo-rules)     | O plugin de ESLint e a análise do projeto que o `prumo check` roda                                |
 | [`@matizze/prumo-testing`](packages/testing) | [![npm](https://img.shields.io/npm/v/@matizze/prumo-testing?label=)](https://www.npmjs.com/package/@matizze/prumo-testing) | `renderWithProviders` com rota em memória, setup do DOM e o teste de contrato de repositórios     |
-| [`@matizze/prumo-mcp`](packages/mcp)         | [![npm](https://img.shields.io/npm/v/@matizze/prumo-mcp?label=)](https://www.npmjs.com/package/@matizze/prumo-mcp)         | O servidor MCP: os comandos da CLI como ferramentas para agentes de IA                            |
 
-Os pacotes versionam separados. Um app criado pelo `prumo new` já tem os cinco.
+Os pacotes versionam separados. Um app criado pelo `prumo new` já tem os quatro.
 
 ## Documentação
 
@@ -120,7 +118,7 @@ A documentação completa está em [`docs/`](docs/README.md):
 - **Tutorial:** [Primeiros passos](docs/getting-started.md)
 - **Conceitos:** [Arquitetura](docs/concepts/architecture.md) e [Anatomia do app gerado](docs/concepts/generated-app.md)
 - **Guias:** [telas](docs/guides/pages.md), [domínios de dados](docs/guides/domains.md), [ligar uma API real](docs/guides/real-api.md), [textos e idiomas](docs/guides/i18n.md), [erros e notificações](docs/guides/errors-and-notifications.md), [testes](docs/guides/test.md), [design system](docs/guides/design-system.md), [agentes de IA](docs/guides/ai-agents.md) e [projeto existente](docs/guides/existing-project.md)
-- **Referência:** [CLI](docs/reference/cli.md), [core](docs/reference/core.md), [rules](docs/reference/rules.md), [testing](docs/reference/testing.md) e [MCP](docs/reference/mcp.md)
+- **Referência:** [CLI](docs/reference/cli.md), [core](docs/reference/core.md), [rules](docs/reference/rules.md), [testing](docs/reference/testing.md)
 - [Perguntas frequentes e solução de problemas](docs/faq.md)
 
 ## Situação do projeto

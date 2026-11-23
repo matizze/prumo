@@ -32,7 +32,7 @@ A documentação segue quatro tipos de texto, cada um para um momento:
 | [Erros e notificações](guides/errors-and-notifications.md)    | Erros com código, tradução do erro, notificação global e o `meta` das queries             |
 | [Testes](guides/test.md)                                | Testar telas, hooks de query e mutation, provedores do app (a sessão) e repositórios |
 | [Design system](guides/design-system.md)                  | Ligar a interface do produto: a pasta `ui`, a casca do layout e as notificações           |
-| [Agentes de IA](guides/ai-agents.md)                  | Usar o servidor MCP e o `AGENTS.md` com o Claude Code ou outro cliente MCP                |
+| [Agentes de IA](guides/ai-agents.md)                  | Usar o `AGENTS.md` do app com agentes de IA                |
 | [Projeto existente](guides/existing-project.md)          | Adotar as regras e os geradores num app React que já existe                               |
 
 ## Referência
@@ -43,7 +43,6 @@ A documentação segue quatro tipos de texto, cada um para um momento:
 | [core](reference/core.md)               | `@matizze/prumo-core`: repositórios, query, i18n, erros, dados, mock e auth       |
 | [rules](reference/rules.md)             | `@matizze/prumo-rules`: as regras de ESLint e a análise do `prumo check`          |
 | [testing](reference/testing.md)         | `@matizze/prumo-testing`: render com provedores, DOM e teste de contrato          |
-| [MCP](reference/mcp.md)                 | `@matizze/prumo-mcp`: o servidor, as ferramentas e os limites de segurança        |
 
 ## Mais
 

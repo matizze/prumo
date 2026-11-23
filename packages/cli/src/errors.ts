@@ -1,21 +1,18 @@
-/**
- * Fim de comando com um código de saída. A mensagem, se houver, vai para o stderr; sem mensagem, o
- * comando já escreveu o que tinha a dizer (como o `check`, que lista as violações).
- */
+/** Termina o comando com um código de saída próprio (1 para violação, por exemplo). A mensagem, se houver, vai para o stderr. */
 export class ExitError extends Error {
   readonly code: number
 
-  constructor(code: number, message = '') {
-    super(message)
+  constructor(code: number, message?: string) {
+    super(message ?? '')
     this.name = 'ExitError'
     this.code = code
   }
 }
 
-/** Uso errado do comando: opção inexistente, argumento que falta, pasta que não é projeto. Sai com 2. */
-export class UsageError extends ExitError {
+/** Uso errado do comando: sai com 2, escreve `prumo: <mensagem>` e a ajuda do comando no stderr. */
+export class UsageError extends Error {
   constructor(message: string) {
-    super(2, message)
+    super(message)
     this.name = 'UsageError'
   }
 }

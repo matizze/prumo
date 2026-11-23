@@ -36,19 +36,18 @@ Não há CI de verificação: **a verificação é local**, e todo pull request 
 
 | Comando            | O que roda                                                                                                   | Quando                                                       |
 | ------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| `pnpm verify`      | Typecheck, lint e testes dos cinco pacotes, sem navegador (cerca de 1 minuto)                                | Sempre                                                       |
-| `pnpm verify:new`  | Empacota os pacotes, cria um app numa pasta temporária, gera tela, domínio e componente pela CLI e pelo MCP e roda o `pnpm verify` do app | Ao mudar os modelos (`packages/cli/templates`), o `new`, os `make:*` ou o servidor MCP |
+| `pnpm verify`      | Typecheck, lint e testes dos quatro pacotes, sem navegador (cerca de 1 minuto)                                | Sempre                                                       |
 | `pnpm build`       | Compila os pacotes (`dist/`)                                                                                 | Para inspecionar o que vai para o npm                        |
-| `pnpm pack:all`    | Compila e empacota os cinco pacotes em `.packs/`                                                             | Para testar um app com os tarballs (`prumo new --packages .packs`) |
+| `pnpm pack:all`    | Compila e empacota os quatro pacotes em `.packs/`                                                             | Para testar um app com os tarballs (`prumo new --packages .packs`) |
 
-Rode um comando pesado por vez: o `verify:new` instala dependências e roda `tsc`, `eslint` e `vitest` no app gerado, e em máquinas com pouca memória dois ao mesmo tempo atrapalham um ao outro.
+Rode um comando pesado por vez: `tsc`, `eslint` e `vitest` juntos pesam, e em máquinas com pouca memória dois ao mesmo tempo atrapalham um ao outro. (O `pnpm verify:new`, que cria um app e roda o `verify` dele, volta no passo 2 da reescrita da CLI.)
 
 ## Fluxo de trabalho
 
 1. Crie uma branch a partir da `develop` (`feat/...`, `fix/...`, `docs/...`).
 2. Faça a mudança com os testes. Todo comportamento novo tem teste.
 3. Se a mudança toca `packages/*`, crie um changeset (veja [Versões](#versões)).
-4. Rode `pnpm verify` (e o `pnpm verify:new`, se couber).
+4. Rode `pnpm verify`.
 5. Abra o pull request **contra a `develop`**. A `main` recebe só as versões.
 
 ### Commits
@@ -59,7 +58,7 @@ Mensagens em português, no padrão [Conventional Commits](https://www.conventio
 feat(cli): prumo make:page aceita --domain
 fix: o app do prumo new fixa o pnpm em packageManager
 docs: guia de testes
-chore: versões cli 0.5.1 e mcp 0.1.2
+chore: versões cli 0.5.1 e core 0.1.2
 refactor!: regras sem interface
 ```
 

@@ -1,10 +1,4 @@
-/**
- * Ponto de entrada do @matizze/prumo-cli.
- *
- * O conteúdo do pacote é o comando `prumo`, o bin em `src/bin.ts`, montado pelo `src/root.ts`, que
- * lista os comandos. A API em processo (rodar um comando e descrever a árvore) está em `src/api.ts`,
- * reexportada aqui e publicada também como `@matizze/prumo-cli/api`.
- */
-export const PACKAGE_NAME = '@matizze/prumo-cli'
-
-export * from './api.ts'
+export { ExitError, UsageError } from './errors.ts'
+export type { Io } from './io.ts'
+export { createProgram, run } from './program.ts'
+export type { RegisterCommand } from './commands/index.ts'

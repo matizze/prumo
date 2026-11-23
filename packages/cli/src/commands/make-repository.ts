@@ -30,7 +30,7 @@ export const registerMakeRepository: RegisterCommand = (program, io) => {
     .description(
       `Cria o repositório de um domínio, com a fonte mock.
 
-Precisa do schema (prumo make:schema). Os campos do repositório (busca, ordem, dados de exemplo e teste de contrato) saem do schema gerado: não há --fields aqui. Um campo que o comando não reconhece (o schema foi editado à mão com algo fora dos tipos do --fields) é erro de uso, com a linha do campo.
+Precisa do schema (prumo make:schema). Os campos do repositório (busca, ordem, dados de exemplo e teste de contrato) saem do schema gerado: não há --fields aqui. Um campo que o comando não reconhece (o schema foi editado à mão com algo fora dos tipos do --fields) é erro de uso, com a linha do campo. O .pick do schema de entrada e a SortKey também são lidos: o create e o teste de entrada usam só os campos do pick, e a ordem só os da SortKey.
 
 Cria src/repositories/<domínio>/ com repository.contract.ts (o contrato), repository.mock.ts (em memória, com latência simulada), fixtures.ts (os dados de exemplo), repository.contract.test.ts (o teste de contrato, que roda contra o mock) e index.ts (a fábrica). Registra o domínio no container src/repositories/index.ts (o import, o export * e a entrada do mapa factories, em ordem alfabética) e acrescenta o texto de <ENTIDADE>_NOT_FOUND ao errors.json de cada idioma; num app sem esse arquivo, avisa e segue.
 

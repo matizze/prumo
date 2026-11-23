@@ -64,10 +64,10 @@ describe('prumo make:repository', () => {
     expect(existsSync(path.join(root, 'src/repositories/clientes'))).toBe(false)
   })
 
-  it('um campo novo de tipo reconhecido, posto à mão no schema, entra no mock', async () => {
+  it('um campo novo de tipo reconhecido, posto à mão no schema (objeto, pick e SortKey), entra no mock (a compilação está em repository.compile.test.ts)', async () => {
     const root = await withSchema()
     const file = path.join(root, 'src/schemas/entities/cliente.ts')
-    writeFileSync(file, read(root, 'src/schemas/entities/cliente.ts').replace('  name: z.string(),', '  name: z.string(),\n  idade: z.number().int(),'))
+    writeFileSync(file, read(root, 'src/schemas/entities/cliente.ts').replace('  name: z.string(),', '  name: z.string(),\n  idade: z.number().int(),').replace('.pick({ ', '.pick({ idade: true, ').replace(/(export type ClienteSortKey =[^\n]*)/, "$1 | 'idade'"))
 
     const result = await exec(['make:repository', 'clientes'], root)
 

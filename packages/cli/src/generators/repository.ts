@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { messageLanguages, registerRepository } from '../codemods/index.ts'
 import { UsageError } from '../errors.ts'
-import { domainFieldVars, readEntityFields, type Field } from '../lib/fields.ts'
+import { domainFieldVars, readEntityFields, readEntityShape, type Field } from '../lib/fields.ts'
 import { domainNames, type DomainNames } from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'
@@ -102,7 +102,7 @@ function addNotFoundMessages(plan: ChangePlan, names: DomainNames): string[] {
  * Monta o plano do repositório (fonte `mock`) de um domínio: os arquivos de `src/repositories/<domínio>/`
  * e o registro no container `src/repositories/index.ts`, com o texto de `<ENTIDADE>_NOT_FOUND` nos
  * `errors.json`. Os campos (busca, ordem, fixtures e teste de contrato) saem do schema gerado, lido
- * com `readEntityFields`. Nada vai para o disco: quem chama mostra o `summary()` ou faz o `commit()`.
+ * com `readEntityFields`, e o `create` e a ordem seguem o `pick` e a `SortKey` (`readEntityShape`). Nada vai para o disco: quem chama mostra o `summary()` ou faz o `commit()`.
  * Valida tudo antes de montar o plano; todo erro de uso é um `UsageError` (saída 2).
  */
 export function generateRepository(
@@ -112,6 +112,7 @@ export function generateRepository(
   const names = domainNames(name, entity)
   const plan = new ChangePlan(project)
   const fields = readEntityFields(plan, names)
+  const shape = readEntityShape(plan, names, fields)
   const folder = path.join(project.src, 'repositories', names.plural.kebab)
   if (plan.has(folder)) {
     throw new UsageError(
@@ -122,7 +123,7 @@ export function generateRepository(
   const vars = {
     ...nameVars('plural', names.plural),
     ...nameVars('singular', names.singular),
-    ...domainFieldVars(fields, names.singular.kebab),
+    ...domainFieldVars(fields, names.singular.kebab, shape),
   }
   for (const { template, to } of REPOSITORY_FILES) {
     plan.createSource(

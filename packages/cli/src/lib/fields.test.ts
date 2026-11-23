@@ -15,6 +15,7 @@ import {
   literal,
   parseFields,
   readEntityFields,
+  readEntityShape,
   sampleValue,
   zodOf,
 } from './fields.ts'
@@ -470,5 +471,85 @@ describe('readEntityFields', () => {
       /não tem 'export const livroSchema = z\.object/,
     )
     expect(() => readEntityFields(planWith(SCHEMA('')), names)).toThrow(/não tem nenhum campo/)
+  })
+})
+
+describe('a dica do schema que falta, quando há schemas sem repositório', () => {
+  it('sem --entity, lista os schemas que nenhum repositório usa e manda repetir a opção', () => {
+    const root = makeProject({
+      'src/schemas/entities/pao.ts': 'export const paoSchema = 1\n',
+      'src/schemas/entities/usado.ts': 'export const usadoSchema = 1\n',
+      'src/repositories/usados/repository.contract.ts': 'import type { UsadoSchema } from "@/schemas"\n',
+    })
+    const plan = new ChangePlan(findProject(root))
+    const message = (() => {
+      try {
+        readEntityFields(plan, domainNames('paes'))
+      } catch (error) {
+        return (error as Error).message
+      }
+      return ''
+    })()
+    expect(message).toContain('rode prumo make:schema paes.')
+    expect(message).toContain('repita a opção')
+    expect(message).toContain('schemas sem repositório: pao')
+    expect(message).toContain('rode prumo make:repository paes --entity pao')
+    expect(message).not.toContain('usado')
+  })
+
+  it('com --entity explícito (diferente da derivada), não sugere outra entidade', () => {
+    const root = makeProject({ 'src/schemas/entities/pao.ts': 'export const paoSchema = 1\n' })
+    const plan = new ChangePlan(findProject(root))
+    expect(() => readEntityFields(plan, domainNames('paes', 'paozinho'))).toThrow(/--entity paozinho\.$/)
+  })
+})
+
+describe('readEntityShape', () => {
+  const SCHEMA = (pick: string, sortKey: string) =>
+    `import { z } from 'zod'
+
+export const livroSchema = z.object({
+  id: z.string(),
+  titulo: z.string(),
+  ano: z.number(),
+  createdAt: z.string(),
+})
+
+export const livroInputSchema = livroSchema.pick(${pick})
+
+export type LivroSortKey =${sortKey}
+`
+  const names = domainNames('livros')
+  const read = (source: string) => {
+    const plan = new ChangePlan(findProject(makeProject({ 'src/schemas/entities/livro.ts': source })))
+    return readEntityShape(plan, names, readEntityFields(plan, names))
+  }
+
+  it('lê o pick e a SortKey, numa linha ou em várias, com barra inicial e vírgula final', () => {
+    expect(read(SCHEMA("{ titulo: true, ano: true }", " 'titulo' | 'createdAt'"))).toEqual({
+      input: ['titulo', 'ano'],
+      sort: ['titulo', 'createdAt'],
+    })
+    expect(read(SCHEMA("{\n  titulo: true,\n}", "\n  | 'ano'\n  | 'createdAt'"))).toEqual({
+      input: ['titulo'],
+      sort: ['ano', 'createdAt'],
+    })
+  })
+
+  it('recusa, com o arquivo e a linha, o que não dá para ler', () => {
+    expect(() => read(SCHEMA('{ semNome: true }', " 'titulo'"))).toThrow(
+      /livro\.ts:10: o pick do livroInputSchema tem 'semNome'/,
+    )
+    expect(() => read(SCHEMA('{ id: true }', " 'titulo'"))).toThrow(/livro\.ts:10: o pick .* tem 'id'/)
+    expect(() => read(SCHEMA('{ titulo: false }', " 'titulo'"))).toThrow(/livro\.ts:10: não reconheço 'titulo: false'/)
+    expect(() => read(SCHEMA('{}', " 'titulo'"))).toThrow(/está vazio/)
+    expect(() => read(SCHEMA('{ titulo: true }', " 'nada'"))).toThrow(/livro\.ts:12: o LivroSortKey tem 'nada'/)
+    expect(() => read(SCHEMA('{ titulo: true }', " keyof Foo"))).toThrow(/não reconheço 'keyof Foo'/)
+    expect(() =>
+      read(SCHEMA('{ titulo: true }', " 'titulo'").replace('livroSchema.pick(', 'outro.pick(')),
+    ).toThrow(/não achei 'export const livroInputSchema = livroSchema\.pick/)
+    expect(() => read(SCHEMA('{ titulo: true }', " 'titulo'").replace('export type LivroSortKey', 'type X'))).toThrow(
+      /não achei 'export type LivroSortKey/,
+    )
   })
 })

@@ -76,7 +76,11 @@ describe('generateRepository', () => {
     const project = projectWithSchema('clientes', 'name:string')
     const file = path.join(project.root, 'src/schemas/entities/cliente.ts')
     const text = readFileSync(file, 'utf8')
-    writeFileSync(file, text.replace('  name: z.string(),', '  name: z.string(),\n  idade: z.number().int(),'))
+    writeFileSync(file, text
+        .replace('  name: z.string(),', '  name: z.string(),\n  idade: z.number().int(),')
+        .replace('.pick({ ', '.pick({ idade: true, ')
+        .replace(/(export type ClienteSortKey =[^\n]*)/, "$1 | 'idade'"),
+    )
     const { plan, fields } = generateRepository(project, { name: 'clientes' })
     expect(fields.map((f) => f.name)).toEqual(['name', 'idade'])
     const fixtures = plan
@@ -94,6 +98,13 @@ describe('generateRepository', () => {
     )
     expect(() => generateRepository(project, { name: 'paes', entity: 'pao' })).toThrow(
       'rode prumo make:schema paes --entity pao.',
+    )
+  })
+
+  it('sem o schema, mas com outro sem repositório, a dica manda repetir o --entity', () => {
+    const project = projectWithSchema('paes', 'nome:string', 'pao')
+    expect(() => generateRepository(project, { name: 'paes' })).toThrow(
+      'rode prumo make:repository paes --entity pao',
     )
   })
 

@@ -16,7 +16,7 @@ Para uma tela que lista um domínio de dados, passe `--domain`:
 pnpm exec prumo make:page pedidos --domain pedidos
 ```
 
-O model passa a ler a lista pelo hook do domínio (`usePedidosList`) e a view mostra o carregando, o erro e a lista. A view mostra o primeiro campo de texto de cada registro, lido do schema que o projeto tem (o `name` num domínio sem `--fields`; o primeiro campo `string` obrigatório num domínio criado com [`--fields`](domains.md#os-campos-do-dominio---fields)). Se o schema não tem campo de texto, ou o Prumo não o encontra, a view mostra o `id` e o comando avisa. O domínio precisa existir (`prumo make:domain pedidos`).
+O model passa a ler a lista pelo hook do domínio (`usePedidosList`) e a view mostra o carregando, o erro e a lista. A view mostra o primeiro campo de texto de cada registro, lido do schema que o projeto tem (o `name` num domínio sem `--fields`; o primeiro campo `string` obrigatório num domínio criado com [`--fields`](domains.md#os-campos-do-domínio---fields)). Se o schema não tem campo de texto, ou o Prumo não o encontra, a view mostra o `id` e o comando avisa. O domínio precisa existir (`prumo make:domain pedidos`).
 
 Use `--dry-run` para ver o que seria criado e alterado sem escrever nada.
 

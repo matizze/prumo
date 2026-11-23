@@ -37,7 +37,7 @@ Crie com os geradores, não à mão: eles registram a rota, as mensagens e os í
 
 Todos os geradores aceitam `--dry-run` (só lista o que faria). O servidor MCP do Prumo (`.mcp.json`) dá a um agente os mesmos comandos como ferramentas (`make_page`, `make_domain`, `check`...).
 
-Scripts do projeto: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm check`, `pnpm test` e `pnpm verify` (typecheck, lint, check e test; sem navegador). Rode o `pnpm verify` antes de dar uma tarefa por pronta.
+Scripts do projeto: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm check`, `pnpm test` e `pnpm verify` (typecheck, lint, test e check, nessa ordem, para os testes rodarem mesmo que o check falhe; sem navegador). Rode o `pnpm verify` antes de dar uma tarefa por pronta.
 
 ## Regras
 

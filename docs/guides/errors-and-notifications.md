@@ -28,6 +28,8 @@ O `code` é o que importa para a interface. A `message` serve para logs e testes
 
 ## Traduzir o erro
 
+> O `prumo new` já gera tudo isto: o namespace `errors` nos dois idiomas (com o texto genérico), o `src/errors.ts` com o `getErrorMessage`, o `i18n` exportado e o `src/providers/app.tsx` usando o `getErrorMessage`. O `make:domain` acrescenta o texto de `<ENTIDADE>_NOT_FOUND` aos dois `errors.json`. Os passos abaixo são para entender o que existe e para um [app criado antes](#app-criado-antes-do-tratamento-de-erro).
+
 **1. Crie os textos dos erros**, um namespace `errors` nos dois idiomas, com o texto genérico e um por código:
 
 ```json
@@ -67,6 +69,10 @@ O `getErrorMessage(erro)` devolve:
 | `UIError` com código sem tradução            | `errors.generic`                                       |
 | Qualquer outro erro (rede, bug, validação)   | `errors.generic`, sem vazar texto técnico              |
 
+### App criado antes do tratamento de erro
+
+Um app criado por uma versão anterior do `new` não tem o namespace `errors`, o `src/errors.ts` nem o `i18n` exportado, e o `providers/app.tsx` usa o texto técnico do erro. Faça os três passos acima à mão (os textos, o registro do namespace e o `src/errors.ts`) e troque o `getErrorMessage` do `providers/app.tsx` pelo do `@/errors`. Enquanto isso, o `make:domain` continua funcionando: ele avisa que não acrescentou o texto de `<ENTIDADE>_NOT_FOUND` (falta o `errors.json`) e segue, sem falhar. Depois de criar os `errors.json`, acrescente você mesmo as chaves dos domínios já gerados.
+
 ### Valores no texto e códigos soltos
 
 Um texto que precisa de um valor usa uma variável ICU, e o `UIError` leva o valor em `params` (o terceiro argumento, opcional) em vez de fixar o número no JSON:
@@ -91,7 +97,7 @@ O `createErrorMessage` confere, ao ser criado, que a chave `errors.generic` exis
 
 ## Ligar a notificação global
 
-O `src/providers/app.tsx` gerado manda o erro para o console e mostra a mensagem técnica. Troque pelos dois pontos do produto:
+O `src/providers/app.tsx` gerado manda o erro para o console, com o texto traduzido pelo `getErrorMessage` do app. Troque só a notificação pelo ponto do produto (o `getErrorMessage` já está ligado):
 
 ```tsx
 // src/providers/app.tsx

@@ -27,7 +27,7 @@ pnpm exec prumo make:domain clientes       # schema, contrato, repositório em m
 pnpm exec prumo make:page clientes --domain clientes   # tela que lista o domínio, textos e rota
 pnpm exec prumo make:component resumo --page clientes  # componente da tela e o teste
 pnpm exec prumo check                      # análise da arquitetura
-pnpm verify                                # typecheck, lint, check e testes
+pnpm verify                                # typecheck, lint, testes e check
 ```
 
 | Comando                                                   | O que faz                                                                                  |

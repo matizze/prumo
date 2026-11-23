@@ -105,15 +105,27 @@ Para rodar os testes do componente novo:
     expect(again.stderr).toContain('já existe')
   })
 
-  it('uma violação que não é a esperada sai com 1, com o componente já gerado', async () => {
+  it('uma violação que já existia antes é preexistente, e a esperada do componente não falha', async () => {
     const { root } = fixtureProject()
     mkdirSync(path.join(root, 'src/components/estranha'), { recursive: true })
     const result = await run(['make:component', 'cartao', '--shared'], root)
 
-    expect(result.code).toBe(1)
-    expect(result.stderr).toContain('(o componente foi gerado, e os arquivos ficaram no projeto)')
-    expect(result.stderr).toContain('[components-folders]')
-    expect(result.stderr).not.toContain('cartao.tsx  [shared-usage]')
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).toContain('cartao.tsx  [shared-usage]')
+    expect(result.stdout).toContain('Preexistentes (1;')
+    expect(result.stdout).toContain('[components-folders]')
+  })
+
+  it('o comando seguinte não sai com 1 pela shared-usage do componente anterior', async () => {
+    const { root } = fixtureProject()
+    expect((await run(['make:component', 'cartao', '--shared'], root)).code).toBe(0)
+
+    const next = await run(['make:component', 'resumo', '--shared'], root)
+
+    expect(next.code, next.stderr).toBe(0)
+    expect(next.stdout).toContain('resumo.tsx  [shared-usage]')
+    expect(next.stdout).toContain('Preexistentes (1;')
+    expect(next.stdout).toContain('cartao.tsx  [shared-usage]')
   })
 
   it('aparece na lista de comandos do prumo', async () => {

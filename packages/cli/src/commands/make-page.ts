@@ -3,7 +3,7 @@ import path from 'node:path'
 import { generatePage } from '../generate/page.ts'
 import { findProject } from '../project.ts'
 import type { Runtime } from '../runtime.ts'
-import { finishWithCheck, formatSummary, testCommandFor } from './shared.ts'
+import { checkBefore, finishWithCheck, formatSummary, testCommandFor } from './shared.ts'
 
 /**
  * `prumo make:page <nome> [--domain <domínio>]`: gera uma tela a partir dos modelos do pacote
@@ -30,7 +30,8 @@ a lista do domínio (use<Domínio>List, de @/queries, criado por make:domain) e 
 carregando, o erro e a lista; sem ele, a tela só tem o título.
 
 Valida tudo antes de escrever e recusa sobrescrever. Ao terminar, roda o prumo check e mostra o
-comando dos testes da tela nova. Sai com código 1 se o check achar violação (a tela já foi gerada)
+comando dos testes da tela nova. Sai com código 1 se o check achar violação nova, causada por ela (a tela já foi gerada; a
+violação que já existia antes aparece como preexistente e não conta)
 e com 2 se o uso está errado: nome inválido ou reservado, tela que já existe, domínio que falta,
 App.tsx ou índice de mensagens que falta.`,
     },
@@ -70,11 +71,12 @@ App.tsx ou índice de mensagens que falta.`,
         return
       }
 
+      const before = checkBefore(project)
       const summary = plan.commit()
       runtime.out(`${heading}\n\n${formatSummary(summary, false)}\n`)
 
       const next = `Edite o model (src/pages/${names.kebab}/model.ts), a view (view.tsx) e os textos (src/messages/<idioma>/${names.kebab}.json); o teste acompanha.\n\nPara rodar os testes da tela nova:\n  ${testCommandFor(project, runtime.cwd, `src/pages/${names.kebab}`)}\n`
-      finishWithCheck(runtime, project, { generated: 'a tela foi gerada', next })
+      finishWithCheck(runtime, project, { generated: 'a tela foi gerada', next, before })
     },
   })
 }

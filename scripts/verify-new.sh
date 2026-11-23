@@ -4,7 +4,7 @@
 # Prova de ponta a ponta o que o Prumo entrega: empacota os pacotes, cria um app com `prumo new`
 # numa pasta temporária fora do monorepo, gera nele um domínio, uma tela com --domain e um componente
 # pela CLI, gera outro domínio e outra tela só por ferramentas MCP (um cliente de verdade, por stdio,
-# contra o prumo-mcp do app) e roda o `pnpm verify` do app (typecheck, lint, check e testes).
+# contra o prumo-mcp do app) e roda o `pnpm verify` do app (typecheck, lint, testes e check).
 #
 # O script não edita arquivo do app: quem muda o app é a CLI e o servidor MCP. Se o verify do app
 # falha, o achado é dos modelos, da CLI ou dos pacotes, não do script. A pasta temporária some no fim,

@@ -7,7 +7,7 @@ Cada gerador do Prumo cria o teste do que gerou, e o `pnpm test` roda todos com 
 | Arquivo               | O que faz                                                                                     |
 | --------------------- | --------------------------------------------------------------------------------------------- |
 | `vite.config.ts`      | Vitest com `environment: 'jsdom'`, `setupFiles: ['./src/test/setup.ts']` e os testes em `src/**/*.test.{ts,tsx}` |
-| `src/test/setup.ts`   | Desmonta os componentes depois de cada teste                                                  |
+| `src/test/setup.ts`   | Fixa o idioma padrão do app (`pt-BR`) e desmonta os componentes depois de cada teste           |
 | `src/test/render.tsx` | O `renderWithProviders` do app                                                                |
 
 O `renderWithProviders` renderiza o componente com os provedores do app (i18n e repositórios), um `QueryClient` só do teste e uma rota em memória do wouter:
@@ -31,19 +31,10 @@ Além desses campos, o resultado tem tudo o que o `render` do Testing Library de
 
 ## O idioma dos testes
 
-O i18n do app detecta o idioma pelo `localStorage` e pelo navegador. No jsdom, o navegador diz `en-US`, então **os testes rodam em inglês** se nada for configurado. Os testes gerados procuram o título da tela, que o `make:page` escreve igual nos dois idiomas, e passam de qualquer jeito; os seus testes podem depender do idioma.
-
-Para fixar o idioma, exporte a instância do i18n e troque o idioma no setup:
+O i18n do app detecta o idioma pelo `localStorage` e pelo navegador. No jsdom, o navegador diz `en-US`, então os testes rodariam em inglês se nada fosse configurado. **O app novo já vem com o idioma fixado**: o `src/i18n.ts` exporta a instância `i18n`, e o `src/test/setup.ts` troca o idioma para o padrão do app (`pt-BR`) antes dos testes:
 
 ```ts
-// src/i18n.ts
-export const { I18nProvider, useTranslations, i18n } = defineI18n({
-  // ...
-})
-```
-
-```ts
-// src/test/setup.ts
+// src/test/setup.ts (como o `prumo new` gera)
 import { cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
 import { i18n } from '@/i18n'
@@ -52,6 +43,8 @@ await i18n.changeLanguage('pt-BR')
 
 afterEach(cleanup)
 ```
+
+Num app criado por uma versão anterior do `new`, sem isso, exporte a instância (`export const { I18nProvider, useTranslations, i18n } = defineI18n({ ... })` no `src/i18n.ts`) e acrescente essas linhas ao setup.
 
 Os exemplos deste guia supõem os testes em português. Para testar outro idioma num teste específico, chame `await i18n.changeLanguage('en')` nele.
 
@@ -255,7 +248,7 @@ Para rodar o mesmo contrato contra a implementação HTTP, veja [Ligar uma API r
 
 ## Setup mais completo do DOM
 
-O `setup.ts` gerado só desmonta os componentes. O `setupDom` do `@matizze/prumo-testing/dom` faz mais, para apps que usam APIs do navegador que o jsdom não tem:
+O `setup.ts` gerado fixa o idioma e desmonta os componentes. O `setupDom` do `@matizze/prumo-testing/dom` faz mais, para apps que usam APIs do navegador que o jsdom não tem:
 
 ```ts
 // src/test/setup.ts
@@ -288,5 +281,5 @@ Toda media query começa sem casar (`matches: false`), o equivalente a desktop e
 pnpm test                          # todos
 pnpm test src/pages/clientes       # uma pasta
 pnpm exec vitest                   # modo observação
-pnpm verify                        # typecheck, lint, check e testes
+pnpm verify                        # typecheck, lint, testes e check
 ```

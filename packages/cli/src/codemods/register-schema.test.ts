@@ -67,6 +67,14 @@ export * from './entities/supplier'
         "export * from './entities/ai' /* nota */\nexport * from './entities/supplier'\n// fim\n",
       ],
       [
+        "export * from './entities/ai' /* nota\ncontinua */\nexport * from './entities/x'\n",
+        "export * from './entities/ai' /* nota\ncontinua */\nexport * from './entities/x'\nexport * from './entities/supplier'\n",
+      ],
+      [
+        "export * from './entities/ai' /* nota\ncontinua */\n// fim\n",
+        "export * from './entities/ai' /* nota\ncontinua */\nexport * from './entities/supplier'\n// fim\n",
+      ],
+      [
         "export * from './entities/ai' // sem quebra no fim",
         "export * from './entities/ai' // sem quebra no fim\nexport * from './entities/supplier'\n",
       ],

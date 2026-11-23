@@ -218,9 +218,7 @@ const IRREGULAR_PLURALS: { suffix: string; singular: (plural: string) => string 
 
 /**
  * O singular de um plural, pela regra simples que serve ao inglês e ao português: tira o `s`
- * final (`suppliers` vira `supplier`, `pedidos` vira `pedido`), com as exceções do português na
- * última palavra do nome (`fornecedores` vira `fornecedor`, `paes` vira `pao`, `itens` vira `item`;
- * veja `PORTUGUESE_PLURALS`). Onde a regra erra, recusa em vez
+ * final (`suppliers` vira `supplier`, `pedidos` vira `pedido`). Onde a regra erra, recusa em vez
  * de derivar um nome errado em silêncio (`status` viraria `statu`, `categories`, `categorie`):
  * o plural que termina em `ies`, `us`, `ss`, `xes`, `ches`, `shes` ou `sses` pede o singular
  * explícito (`--entity`), e a mensagem sugere o provável (`categories`: `--entity category`).
@@ -241,57 +239,7 @@ export function singularOf(plural: string): string {
         : `tirar o 's' de '${plural}' daria '${singular}', que provavelmente não é o singular: informe a entidade com --entity (provavelmente --entity ${guess}).`,
     )
   }
-  return portugueseSingular(plural) ?? singular
-}
-
-/**
- * Os plurais do português (em kebab-case, sem acento) que a regra de tirar o `s` erra, pelo final
- * da última palavra do nome (`pedidos-itens` olha `itens`): o sufixo, o que ele vira e quantas
- * letras a palavra precisa ter antes dele (para `leis`, `reis` e `bois` não virarem `lel`, `rel`
- * e `bol`). Só entram os finais que o inglês quase não usa: `-ns` geral (`icons`, `options`,
- * `sessions`) e `-res`, `-zes` e `-oes` gerais (`features`, `sizes`, `shoes`) trariam singulares
- * errados, então valem `-ens`, `-ores`, `-eres`, `-uzes`, `-ezes` e `-ozes`.
- */
-const PORTUGUESE_PLURALS: { suffix: string; singular: string; stem: number }[] = [
-  { suffix: 'ores', singular: 'or', stem: 1 },
-  { suffix: 'eres', singular: 'er', stem: 1 },
-  { suffix: 'uzes', singular: 'uz', stem: 1 },
-  { suffix: 'ezes', singular: 'ez', stem: 1 },
-  { suffix: 'ozes', singular: 'oz', stem: 1 },
-  { suffix: 'oes', singular: 'ao', stem: 2 },
-  { suffix: 'aes', singular: 'ao', stem: 1 },
-  { suffix: 'ais', singular: 'al', stem: 2 },
-  { suffix: 'eis', singular: 'el', stem: 3 },
-  { suffix: 'ois', singular: 'ol', stem: 3 },
-  { suffix: 'ens', singular: 'em', stem: 1 },
-]
-
-/** Últimas palavras que parecem plural do português e são do inglês: ficam com a regra do `s`. */
-const ENGLISH_LOOKALIKES: ReadonlySet<string> = new Set([
-  'shoes',
-  'toes',
-  'heroes',
-  'potatoes',
-  'tomatoes',
-  'echoes',
-  'canoes',
-  'stores',
-  'scores',
-  'tokens',
-  'citizens',
-])
-
-/** O singular do português para a última palavra do plural, ou `undefined` se nenhuma regra vale. */
-function portugueseSingular(plural: string): string | undefined {
-  const cut = plural.lastIndexOf('-') + 1
-  const word = plural.slice(cut)
-  if (ENGLISH_LOOKALIKES.has(word)) return undefined
-  for (const { suffix, singular, stem } of PORTUGUESE_PLURALS) {
-    if (word.endsWith(suffix) && word.length - suffix.length >= stem) {
-      return plural.slice(0, plural.length - suffix.length) + singular
-    }
-  }
-  return undefined
+  return singular
 }
 
 /**

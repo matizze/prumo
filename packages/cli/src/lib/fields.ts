@@ -484,7 +484,8 @@ export function readEntityFields(plan: ChangePlan, names: DomainNames): Field[] 
     if (!initializer) fail(line, `o campo '${name}' não tem tipo`)
     const { inner, optional } = withoutOptional(initializer!)
     if (RESERVED_FIELDS.has(name)) {
-      if (optional || inner.getText() !== 'z.string()') {
+      const parsedType = typeOfZod(inner)
+      if (optional || typeof parsedType === 'string' || parsedType.type !== 'string') {
         fail(line, `o campo '${name}' precisa ser z.string(): o repositório dá ${name} a todo registro`)
       }
       continue

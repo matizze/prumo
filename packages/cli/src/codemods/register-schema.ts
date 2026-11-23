@@ -23,12 +23,16 @@ function appendLine(file: SourceFile, line: string): TextEdit {
 }
 
 /**
- * A edição que acrescenta `line` na linha de baixo de onde termina o último export: depois do fim
- * da linha, para um comentário na mesma linha (`export * from './a' // nota`) ficar com o export dele.
+ * A edição que acrescenta `line` na linha de baixo do último export: depois do fim da linha e dos
+ * comentários que começam nela (`// nota`, `/* nota *\/`, até um de bloco que passa para as
+ * linhas seguintes), para o export novo nunca cair dentro de um comentário e o comentário ficar
+ * com o export dele.
  */
-function afterLine(file: SourceFile, end: number, line: string): TextEdit {
+function afterLine(file: SourceFile, last: ExportDeclaration, line: string): TextEdit {
   const text = file.getFullText()
-  const newline = text.indexOf('\n', end)
+  const comments = last.getTrailingCommentRanges()
+  const from = comments.length > 0 ? Math.max(last.getEnd(), comments[comments.length - 1]!.getEnd()) : last.getEnd()
+  const newline = text.indexOf('\n', from)
   if (newline === -1) return { pos: text.length, end: text.length, text: `\n${line}\n` }
   return { pos: newline, end: newline, text: `\n${line}` }
 }
@@ -61,5 +65,5 @@ export function registerSchema(plan: ChangePlan, to: DomainNames): void {
   const last = exports[exports.length - 1]
   const { quote, semicolon } = styleOf(last)
   const line = `export * from ${quote}${specifier}${quote}${semicolon}`
-  applyEdits(index, [last ? afterLine(index, last.getEnd(), line) : appendLine(index, line)])
+  applyEdits(index, [last ? afterLine(index, last, line) : appendLine(index, line)])
 }

@@ -57,10 +57,10 @@ Valida tudo antes de escrever (nome, entidade, campos, schema que já existe e o
       const dryRun = options.dryRun === true
       const summary = dryRun ? plan.summary() : plan.commit()
       const heading = `prumo make:schema: ${names.plural.kebab} (entidade ${names.singular.kebab})${dryRun ? ' (simulação)' : ''}.`
-      const derived = options.entity === undefined
-      const entityLine = derived
-        ? `Entidade: ${names.singular.kebab}, derivada do nome (tira o s final; o português tem exceções, como -ores, -oes, -aes e -ens). Use --entity <singular> para trocá-la.`
-        : `Entidade: ${names.singular.kebab} (--entity).`
+      const entityLine =
+        options.entity === undefined
+          ? `Entidade: ${names.singular.kebab} (derivada de ${names.plural.kebab}; use --entity para trocar).`
+          : `Entidade: ${names.singular.kebab} (--entity).`
       const fieldsLine = `Campos: ${fields.map(describeField).join(', ')}.`
       const ending = dryRun
         ? 'Simulação (--dry-run): nada foi escrito.\n'

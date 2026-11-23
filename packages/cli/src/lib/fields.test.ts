@@ -383,16 +383,30 @@ describe('readEntityFields', () => {
     expect(() => readEntityFields(plan, domainNames('categories', 'category'))).toThrow(
       'rode prumo make:schema categories --entity category.',
     )
-    // paes e pao: o automático já é pao, sem --entity
     expect(() => readEntityFields(plan, domainNames('paes', 'pao'))).toThrow(
-      /make:schema paes\.$/,
+      'rode prumo make:schema paes --entity pao.',
     )
+    // paes deriva pae: sem --entity
+    expect(() => readEntityFields(plan, domainNames('paes'))).toThrow(/make:schema paes\.$/)
     expect(() => readEntityFields(plan, domainNames('paes'))).toThrow(
       'rode prumo make:schema paes.',
     )
     expect(() => readEntityFields(plan, domainNames('paes', 'paozinho'))).toThrow(
       '--entity paozinho.',
     )
+  })
+
+  it('reconhece id e createdAt pela árvore, também em várias linhas', () => {
+    const plan = planWith(
+      "export const livroSchema = z.object({\n  id: z\n    .string(),\n  titulo: z.string(),\n  createdAt: z\n    .string(),\n})\n",
+    )
+    expect(readEntityFields(plan, names)).toEqual([
+      { name: 'titulo', type: 'string', optional: false },
+    ])
+    const optional = planWith(
+      "export const livroSchema = z.object({\n  id: z.string().optional(),\n  titulo: z.string(),\n  createdAt: z.string(),\n})\n",
+    )
+    expect(() => readEntityFields(optional, names)).toThrow(/o campo 'id' precisa ser z\.string\(\)/)
   })
 
   it('não altera os valores do enum: espaços dentro das aspas são recusados, não apagados', () => {

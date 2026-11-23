@@ -193,3 +193,74 @@ export function titleOf(name: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
 }
+
+/** Os nomes de um domínio: o plural (`suppliers`) e o singular da entidade (`supplier`). */
+export interface DomainNames {
+  plural: Names
+  singular: Names
+}
+
+/**
+ * Os plurais cujo singular a regra de tirar o `s` erra, e o que costuma ser o singular. Terminam
+ * em `ies` (`categories`, de `category`), `sses`, `xes`, `ches` e `shes` (`classes`, `boxes`,
+ * `matches`, `wishes`: o singular perde o `es`), ou em `us` e `ss`, que já parecem singulares
+ * (`status`, `address`) e não têm um palpite.
+ */
+const IRREGULAR_PLURALS: { suffix: string; singular: (plural: string) => string | undefined }[] = [
+  { suffix: 'ies', singular: (plural) => `${plural.slice(0, -3)}y` },
+  { suffix: 'sses', singular: (plural) => plural.slice(0, -2) },
+  { suffix: 'xes', singular: (plural) => plural.slice(0, -2) },
+  { suffix: 'ches', singular: (plural) => plural.slice(0, -2) },
+  { suffix: 'shes', singular: (plural) => plural.slice(0, -2) },
+  { suffix: 'us', singular: () => undefined },
+  { suffix: 'ss', singular: () => undefined },
+]
+
+/**
+ * O singular de um plural, pela regra simples que serve ao inglês e ao português: tira o `s`
+ * final (`suppliers` vira `supplier`, `pedidos` vira `pedido`). Onde a regra erra, recusa em vez
+ * de derivar um nome errado em silêncio (`status` viraria `statu`, `categories`, `categorie`):
+ * o plural que termina em `ies`, `us`, `ss`, `xes`, `ches`, `shes` ou `sses` pede o singular
+ * explícito (`--entity`), e a mensagem sugere o provável (`categories`: `--entity category`).
+ */
+export function singularOf(plural: string): string {
+  const singular = plural.slice(0, -1)
+  if (!plural.endsWith('s') || singular.length < 2 || singular.endsWith('-')) {
+    throw new UsageError(
+      `não consegui derivar o singular de '${plural}': o nome do domínio é o plural e termina em 's'. Informe o singular com --entity.`,
+    )
+  }
+  const irregular = IRREGULAR_PLURALS.find(({ suffix }) => plural.endsWith(suffix))
+  if (irregular) {
+    const guess = irregular.singular(plural)
+    throw new UsageError(
+      guess === undefined
+        ? `'${plural}' parece já estar no singular, e tirar o 's' daria '${singular}': informe a entidade com --entity (ela tem que diferir do nome do domínio).`
+        : `tirar o 's' de '${plural}' daria '${singular}', que provavelmente não é o singular: informe a entidade com --entity (provavelmente --entity ${guess}).`,
+    )
+  }
+  return singular
+}
+
+/**
+ * Deriva os nomes de um domínio. `plural` é o nome do domínio (`suppliers`); `singular` é a
+ * entidade (`supplier`) e, quando falta, sai da regra de `singularOf`. O singular não pode ser
+ * igual ao plural, senão o tipo da entidade e o da lista teriam o mesmo nome.
+ */
+export function domainNames(plural: string, singular?: string): DomainNames {
+  assertValidName(plural, 'o nome do domínio')
+  if (singular !== undefined) assertValidName(singular, 'a entidade')
+  // O singular e o plural viram tipos, constantes e variáveis locais: nenhum pode ser palavra
+  // reservada nem um nome global
+  const pluralNames = usableNames(plural, 'o nome do domínio', { globals: true })
+  const entity = singular ?? singularOf(plural)
+  if (entity === plural) {
+    throw new UsageError(
+      `a entidade '${entity}' é igual ao nome do domínio: o singular tem que diferir do plural.`,
+    )
+  }
+  return {
+    plural: pluralNames,
+    singular: usableNames(entity, 'a entidade', { globals: true }),
+  }
+}

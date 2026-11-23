@@ -2,7 +2,7 @@
 
 O comando `prumo`, do pacote [`@matizze/prumo-cli`](https://www.npmjs.com/package/@matizze/prumo-cli).
 
-> **Os comandos estão sendo reescritos.** A CLI foi refeita com o commander, e os comandos voltam um a um nas próximas versões. Por enquanto ela tem o `new`, o `check`, a ajuda, a versão e os códigos de saída descritos aqui.
+> **Os comandos estão sendo reescritos.** A CLI foi refeita com o commander, e os comandos voltam um a um nas próximas versões. Por enquanto ela tem o `new`, o `make:schema`, o `check`, a ajuda, a versão e os códigos de saída descritos aqui.
 
 ```text
 prumo [opções] [comando]
@@ -11,6 +11,7 @@ prumo [opções] [comando]
 | Comando                            | O que faz                                             |
 | ---------------------------------- | ----------------------------------------------------- |
 | [`new <nome>`](#prumo-new)         | Cria um app React organizado em camadas               |
+| [`make:schema <domínio>`](#prumo-makeschema) | Cria o schema (zod) de uma entidade, com os campos |
 | [`check`](#prumo-check)            | Confere a arquitetura do projeto                      |
 
 ## Como rodar
@@ -52,6 +53,53 @@ O que o comando faz, nesta ordem:
 5. Escreve os próximos passos (`pnpm verify`, `pnpm dev`, `prumo make:page`).
 
 O `package.json` do app tem os scripts `dev`, `build`, `typecheck`, `lint`, `check`, `test` e `verify`, e fixa o pnpm em `packageManager` (`pnpm@<versão>`, lida do pnpm que rodou o comando; sem versão, o campo fica de fora). Os pacotes do Prumo entram como `^<versão>`.
+
+## `prumo make:schema`
+
+```text
+prumo make:schema <domínio> [--entity <singular>] [--fields <campos>] [--root <pasta>] [--dry-run]
+```
+
+Cria o schema zod de uma entidade e o registra:
+
+- `src/schemas/entities/<entidade>.ts`, com o `<entidade>Schema` (`id`, os campos e `createdAt`), o `<Entidade>Schema` (o tipo), o `<entidade>InputSchema` e o `<Entidade>Input` (o que se envia para criar ou editar), o `<Entidade>SortKey` e o `<Entidade>ListQuery`;
+- `export * from './entities/<entidade>'` no fim de `src/schemas/index.ts`.
+
+O `<domínio>` é o nome do domínio, no plural e em kebab-case (`clientes`, `pedidos-recentes`). A entidade é o singular, que sai do nome (tira o `s` final). Onde a regra erra (o plural termina em `ies`, `us`, `ss`, `xes`, `ches`, `shes` ou `sses`), o comando recusa e pede o `--entity`: `categories` daria `categorie`, e o certo é `--entity category`.
+
+| Opção                 | O que faz                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| `--entity <singular>` | A entidade, no singular (`paes` com `--entity pao`). Padrão: o nome sem o `s` final        |
+| `--fields <campos>`   | Os campos da entidade (formato abaixo). Padrão: só `name:string`                           |
+| `--root <pasta>`      | A pasta do projeto, a que tem o `src` (padrão: a pasta atual)                              |
+| `--dry-run`           | Lista o que seria criado e alterado, sem escrever nada                                     |
+
+### O formato do `--fields`
+
+`nome:tipo` separados por vírgula:
+
+```bash
+prumo make:schema livros --fields "titulo:string,ano:int,situacao:enum(lido|lendo|desejado),lidoEm?:datetime,apelido?:string"
+```
+
+| Tipo           | Vira no schema          | Observação                                                      |
+| -------------- | ----------------------- | --------------------------------------------------------------- |
+| `string`       | `z.string()`            | Texto                                                           |
+| `number`       | `z.number()`            | Número qualquer                                                 |
+| `int`          | `z.number().int()`      | Número inteiro                                                  |
+| `boolean`      | `z.boolean()`           |                                                                 |
+| `date`         | `z.iso.date()`          | Data, `AAAA-MM-DD`                                              |
+| `datetime`     | `z.iso.datetime()`      | Data e hora em ISO, `2026-01-05T12:00:00.000Z`                  |
+| `enum(a\|b\|c)` | `z.enum(['a', 'b', 'c'])` | Um valor da lista: dois ou mais, letras, números e `_`, começando por letra |
+
+- O nome do campo é camelCase: começa com letra minúscula e tem só letras e números.
+- O `?` depois do nome torna o campo opcional (`apelido?:string` vira `z.string().optional()`).
+- `id` e `createdAt` são reservados (o repositório os dá a todo registro), e um nome repetido é recusado.
+- Espaços em volta dos nomes e dos tipos são aceitos.
+
+O comando valida tudo antes de escrever: o nome (kebab-case, no plural, sem palavra reservada do JavaScript nem nome global como `Date`), a entidade, cada campo e o schema que já existe (nunca sobrescreve). Qualquer erro sai com 2, em português, sem deixar nada pela metade. No fim, mostra o que criou e alterou e o próximo passo: `prumo make:repository <domínio>`.
+
+Quem lê os campos depois é o `make:repository`, direto do schema gerado. Um campo que o Prumo não reconhece (o schema foi editado à mão com outro tipo, como `z.string().min(3)`) é erro de uso, com o arquivo, a linha e o nome do campo.
 
 ## `prumo check`
 
@@ -100,9 +148,12 @@ Opções:
   -h, --help           Mostra esta ajuda.
 
 Comandos:
-  new [opções] <nome>  Cria um app React mínimo do Prumo, sem CSS e sem design
-                       system.
-  check [opções]       Analisa o projeto e lista as violações da arquitetura.
+  new [opções] <nome>             Cria um app React mínimo do Prumo, sem CSS e
+                                  sem design system.
+  make:schema [opções] <domínio>  Cria o schema (zod) de uma entidade, com os
+                                  campos.
+  check [opções]                  Analisa o projeto e lista as violações da
+                                  arquitetura.
 ```
 
 ## Códigos de saída

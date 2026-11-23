@@ -159,7 +159,8 @@ describe('bin prumo', () => {
   it('lista o new e o check na ajuda da raiz', () => {
     const result = node(['--help'])
     expect(result.status).toBe(0)
-    expect(result.stdout).toMatch(/check \[opções\]\s+Analisa o projeto e lista as violações da arquitetura\./)
+    expect(result.stdout).toMatch(/check \[opções\]\s+Analisa o projeto e lista as violações\s+da\s+arquitetura\./)
+    expect(result.stdout).toMatch(/make:schema \[opções\] <domínio>\s+Cria o schema/)
     expect(result.stdout).toMatch(/new \[opções\] <nome>\s+Cria um app React mínimo do Prumo/)
   })
 })

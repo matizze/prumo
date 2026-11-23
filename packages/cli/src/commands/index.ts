@@ -1,6 +1,7 @@
 import type { Command } from 'commander'
 import type { Io } from '../io.ts'
 import { registerCheck } from './check.ts'
+import { registerMakeSchema } from './make-schema.ts'
 import { registerNew } from './new.ts'
 
 /**
@@ -12,4 +13,4 @@ import { registerNew } from './new.ts'
 export type RegisterCommand = (program: Command, io: Io) => void
 
 /** Os comandos do prumo, na ordem em que aparecem na ajuda. Cada passo da reescrita acrescenta o seu. */
-export const commands: readonly RegisterCommand[] = [registerNew, registerCheck]
+export const commands: readonly RegisterCommand[] = [registerNew, registerMakeSchema, registerCheck]

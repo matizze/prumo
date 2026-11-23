@@ -196,7 +196,7 @@ src/pages/<tela>/index.test.tsx    renderiza a tela e confere o título
 src/messages/<idioma>/<tela>.json  os textos, em cada idioma do projeto
 ```
 
-Altera `src/App.tsx` (a rota `/<tela>`) e o `index.ts` de cada idioma (o namespace).
+Altera `src/App.tsx` (a rota `/<tela>`, ou a de `--path`) e o `index.ts` de cada idioma (o namespace).
 
 ### `prumo make:domain <domínio>`
 

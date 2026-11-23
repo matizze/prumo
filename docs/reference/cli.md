@@ -115,13 +115,14 @@ pnpm dlx @matizze/prumo-cli new loja --dry-run
 Gera uma tela.
 
 ```text
-prumo make:page <nome> [--domain <domínio>] [--root <pasta>] [--dry-run]
+prumo make:page <nome> [--domain <domínio>] [--path <caminho>] [--root <pasta>] [--dry-run]
 ```
 
 | Argumento ou opção    | Descrição                                                                 |
 | --------------------- | ------------------------------------------------------------------------- |
 | `<nome>`              | O nome da tela, em kebab-case.                                             |
 | `--domain <domínio>`  | Um domínio cuja lista a tela mostra. Padrão: nenhum.                       |
+| `--path <caminho>`    | O caminho da rota, com no máximo um parâmetro (`/clientes/:id`). Padrão: `/<nome>`. |
 | `--root <pasta>`      | A pasta do projeto. Padrão: a atual.                                       |
 | `--dry-run`           | Só lista o que seria criado e alterado.                                    |
 
@@ -140,17 +141,25 @@ Os idiomas do projeto são as pastas de `src/messages` que têm `index.ts`. Os i
 **Altera:**
 
 - `src/messages/<idioma>/index.ts`: o import do JSON e o namespace (`<nome>` em camelCase) no `export default`, em ordem alfabética.
-- `src/App.tsx`: o import da tela (na ordem dos imports de `@/pages`) e a rota `/<nome>`, depois da última `<Route>` com `path` do `<Switch>` mais externo. Uma rota curinga continua por último.
+- `src/App.tsx`: o import da tela (na ordem dos imports de `@/pages`) e a rota (`/<nome>`, ou a de `--path`), depois da última `<Route>` com `path` do `<Switch>` mais externo. Uma rota curinga continua por último.
 
 **Com `--domain <domínio>`**, o model lê a lista com `use<Domínio>List()` de `@/queries/<domínio>` e devolve `{ title, loadingText, failedText, items, loading, failed }`, e a view mostra o carregando, o erro (`role="alert"`) e a lista (`<ul>`). O comando confere antes que `src/queries/<domínio>.ts` existe e tem o hook.
 
-**Recusa (código 2):** nome inválido ou reservado; tela que já existe; domínio que não existe ou sem o hook de lista; projeto sem `src/messages` ou sem idioma; `index.ts` de mensagens sem `export default { ... }`; namespace já registrado com outro arquivo; `App.tsx` sem `<Switch>`; rota que repete ou conflita com outra.
+**Com `--path <caminho>`**, a rota é a do caminho, em vez de `/<nome>`. O caminho começa com `/`, tem segmentos fixos (letras, números, `-`, `_`, `.`, `~`) e **no máximo um parâmetro** `:nome` (um identificador; sem `?`, `*` nem `+`). Sem parâmetro, só a rota muda. Com parâmetro (`/livros/:id`):
+
+- o model lê o valor com o `useParams` do wouter e devolve `{ title, params: { id } }`, e a view o mostra;
+- o teste renderiza a tela dentro de `<Route path="/livros/:id">`, com o caminho inicial `/livros/exemplo`, e confere que o valor chega à tela (veja [Testes](../guides/test.md#rotas-com-parâmetro));
+- junto de `--domain`, a tela é de **detalhe**: o model busca o registro com o `use<Entidade>Detail(id)` do domínio e devolve `{ title, loadingText, failedText, item, loading, failed }`; a view mostra o carregando, o erro e o `name`; os textos `loading` e `failed` entram nos JSONs; o teste usa o id do primeiro registro do mock (`<entidade>-1`) e espera o `Exemplo 1`. O comando confere antes que `src/queries/<domínio>.ts` tem o hook `use<Entidade>Detail`.
+
+**Recusa (código 2):** nome inválido ou reservado; `--path` inválido (sem `/` no começo, com barra no fim ou `//`, segmento com caracteres fora dos permitidos, parâmetro com modificador ou nome inválido, mais de um parâmetro), ou que repete ou conflita com uma rota do `App.tsx`; tela que já existe; domínio que não existe ou sem o hook de lista; projeto sem `src/messages` ou sem idioma; `index.ts` de mensagens sem `export default { ... }`; namespace já registrado com outro arquivo; `App.tsx` sem `<Switch>`; rota que repete ou conflita com outra.
 
 **Exemplos:**
 
 ```bash
 pnpm exec prumo make:page relatorios
 pnpm exec prumo make:page clientes --domain clientes
+pnpm exec prumo make:page livro --path /livros/:id
+pnpm exec prumo make:page cliente --domain clientes --path /clientes/:id
 pnpm exec prumo make:page pedidos-recentes --dry-run
 ```
 

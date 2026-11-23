@@ -30,7 +30,7 @@ Crie com os geradores, não à mão: eles registram a rota, as mensagens e os í
 | Comando                                                | O que faz                                                                       |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------- |
 | `pnpm exec prumo make:domain <nome>`                   | Schema, repositório com mock e contrato, queries e o teste de contrato          |
-| `pnpm exec prumo make:page <nome> [--domain <nome>]`   | Tela com index, model, view, teste, mensagens e rota; com `--domain`, lista dele |
+| `pnpm exec prumo make:page <nome> [--domain <nome>] [--path <caminho>]` | Tela com index, model, view, teste, mensagens e rota; com `--domain`, lista dele; com `--path /x/:id`, rota com parâmetro (com `--domain`, detalhe) |
 | `pnpm exec prumo make:component <nome> --page <tela>`  | Componente só HTML e o teste dele (`--shared` para o `src/components/shared`)   |
 | `pnpm exec prumo check`                                | Confere a arquitetura do projeto inteiro                                        |
 | `pnpm exec prumo doctor`                               | Confere Node, pnpm e a versão dos pacotes do Prumo                              |

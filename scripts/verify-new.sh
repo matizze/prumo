@@ -66,6 +66,7 @@ stage_new() {
 stage_cli() {
   prumo make:domain clientes
   prumo make:page clientes --domain clientes
+  prumo make:page cliente --domain clientes --path /clientes/:id
   prumo make:component resumo --page clientes
 }
 

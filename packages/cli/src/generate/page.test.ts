@@ -3,7 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemod/test-support.ts'
 import { UsageError } from '../errors.ts'
-import { generatePage } from './page.ts'
+import { generatePage, parseRoutePath } from './page.ts'
 
 /** Dá ao projeto o domínio `clientes`, como o `make:domain` o deixa (só o que a tela confere). */
 function withDomain(root: string, hook = 'useClientesList') {
@@ -211,5 +211,115 @@ export type ClientesModel = ReturnType<typeof useClientesModel>
     )
 
     expect(() => generatePage(project, { name: 'clientes' })).toThrow(UsageError)
+  })
+
+  describe('com --path (route)', () => {
+    it('sem parâmetro: só troca a rota, e o teste continua no caminho dela', () => {
+      const project = fixtureProject()
+      const { plan, route } = generatePage(project, { name: 'clientes', route: '/gente/lista' })
+
+      expect(route).toBe('/gente/lista')
+      expect(plan.source(project.app).getFullText()).toContain('<Route path="/gente/lista">')
+      expect(
+        plan.source(path.join(project.root, 'src/pages/clientes/model.ts')).getFullText(),
+      ).not.toContain('useParams')
+    })
+
+    it('com parâmetro: o model lê o useParams, a view o mostra e o teste renderiza dentro da <Route>', () => {
+      const project = fixtureProject()
+      const { plan } = generatePage(project, { name: 'livro', route: '/livros/:id' })
+      const at = (file: string) => plan.source(path.join(project.root, file)).getFullText()
+
+      expect(at('src/pages/livro/model.ts')).toBe(`import { useParams } from 'wouter'
+import { useTranslations } from '@/i18n'
+
+export function useLivroModel() {
+  const t = useTranslations('livro')
+  const { id } = useParams<{ id: string }>()
+  return { title: t('title'), params: { id } }
+}
+
+export type LivroModel = ReturnType<typeof useLivroModel>
+`)
+      expect(at('src/pages/livro/view.tsx')).toContain('<p>{m.params.id}</p>')
+      const test = at('src/pages/livro/index.test.tsx')
+      expect(test).toContain('<Route path="/livros/:id">')
+      expect(test).toContain("{ path: '/livros/exemplo' }")
+      expect(test).toContain("screen.getByText('exemplo')")
+      expect(at('src/App.tsx')).toContain('<Route path="/livros/:id">')
+    })
+
+    it('com --domain e parâmetro: é a tela de detalhe, que busca o registro pelo hook do domínio', () => {
+      const project = fixtureProject()
+      withDomain(project.root, 'useClientesList')
+      writeFileSync(
+        path.join(project.root, 'src/queries/clientes.ts'),
+        'export function useClientesList() {\n  return null\n}\nexport function useClienteDetail(id: string) {\n  return id\n}\n',
+      )
+      const { plan } = generatePage(project, {
+        name: 'cliente',
+        domain: 'clientes',
+        route: '/clientes/:id',
+      })
+      const at = (file: string) => plan.source(path.join(project.root, file)).getFullText()
+
+      const model = at('src/pages/cliente/model.ts')
+      expect(model).toContain("import { useClienteDetail } from '@/queries/clientes'")
+      expect(model).toContain('const detail = useClienteDetail(id)')
+      expect(at('src/pages/cliente/view.tsx')).toContain('m.item.name')
+      const test = at('src/pages/cliente/index.test.tsx')
+      expect(test).toContain("{ path: '/clientes/cliente-1' }")
+      expect(test).toContain("findByText('Exemplo 1')")
+      plan.commit()
+      expect(
+        readFileSync(path.join(project.root, 'src/messages/pt-BR/cliente.json'), 'utf8'),
+      ).toContain('"loading"')
+    })
+
+    it('com --domain e parâmetro, recusa o domínio sem o hook de detalhe', () => {
+      const project = fixtureProject()
+      withDomain(project.root)
+
+      expect(() =>
+        generatePage(project, { name: 'cliente', domain: 'clientes', route: '/clientes/:id' }),
+      ).toThrow('não tem o hook use<Entidade>Detail')
+    })
+
+    it('recusa a rota que o App.tsx já tem', () => {
+      const project = fixtureProject()
+
+      expect(() => generatePage(project, { name: 'livro', route: '/blank' })).toThrow(
+        "já tem uma rota '/blank'",
+      )
+      expect(() => generatePage(project, { name: 'livro', route: '/blank/:id' })).not.toThrow()
+    })
+  })
+})
+
+describe('parseRoutePath', () => {
+  it('aceita a raiz, caminhos fixos e um parâmetro', () => {
+    expect(parseRoutePath('/').param).toBeUndefined()
+    expect(parseRoutePath('/a/b-c_d.e').param).toBeUndefined()
+    const route = parseRoutePath('/livros/:livroId/capas')
+    expect(route.param).toBe('livroId')
+    expect(route.example('x')).toBe('/livros/x/capas')
+  })
+
+  it.each([
+    ['livros', 'precisa começar com /'],
+    ['/livros/', 'barra no fim'],
+    ['/livros//x', 'barra no fim nem //'],
+    ['', 'precisa começar com /'],
+    ['/livros/:id?', 'modificador do wouter'],
+    ['/livros/:id*', 'modificador do wouter'],
+    ['/livros/*', 'só pode ter'],
+    ['/livros/:', 'não é um parâmetro válido'],
+    ['/livros/:1a', 'não é um parâmetro válido'],
+    ['/livros/:class', 'não é um parâmetro válido'],
+    ['/livros/ação', 'só pode ter'],
+    ['/a/:x/b/:y', '2 parâmetros'],
+  ])('recusa %j', (route, reason) => {
+    expect(() => parseRoutePath(route)).toThrow(UsageError)
+    expect(() => parseRoutePath(route)).toThrow(reason)
   })
 })

@@ -107,15 +107,17 @@ Quando uma segunda tela precisar do mesmo componente, mova-o para `src/component
 
 ## Rotas
 
-O `make:page` registra a rota `/<tela>` no `src/App.tsx`. O caminho é seu: edite-o à vontade.
+O `make:page` registra a rota `/<tela>` no `src/App.tsx`. Para outro caminho, use `--path` (veja abaixo); o caminho continua seu, e você pode editá-lo depois.
 
 ### Rotas com parâmetro
 
-Para uma tela de detalhe, gere a tela e troque o caminho:
+Para uma tela de detalhe, peça o caminho com `--path`:
 
 ```bash
-pnpm exec prumo make:page cliente
+pnpm exec prumo make:page cliente --path /clientes/:id
 ```
+
+A rota entra no `App.tsx` já com o parâmetro:
 
 ```tsx
 // src/App.tsx
@@ -124,7 +126,27 @@ pnpm exec prumo make:page cliente
 </Route>
 ```
 
-O model lê o parâmetro com o `useParams` do wouter e busca o registro:
+O model gerado lê o parâmetro com o `useParams` do wouter e o devolve, a view o mostra, e os textos continuam nos dois idiomas:
+
+```ts
+// src/pages/cliente/model.ts
+import { useParams } from 'wouter'
+import { useTranslations } from '@/i18n'
+
+export function useClienteModel() {
+  const t = useTranslations('cliente')
+  const { id } = useParams<{ id: string }>()
+  return { title: t('title'), params: { id } }
+}
+```
+
+O caminho tem **no máximo um parâmetro** (`:nome`, sem `?`, `*` nem `+`); o `make:page` recusa o resto, e o caminho que repete ou conflita com uma rota do `App.tsx`. Precisa de um segundo parâmetro? Gere com um e acrescente o outro ao model à mão.
+
+Com `--domain`, a tela é de **detalhe**: o model busca o registro com o `use<Entidade>Detail` do domínio.
+
+```bash
+pnpm exec prumo make:page cliente --domain clientes --path /clientes/:id
+```
 
 ```ts
 // src/pages/cliente/model.ts
@@ -139,14 +161,16 @@ export function useClienteModel() {
 
   return {
     title: t('title'),
-    name: detail.data?.name,
+    loadingText: t('loading'),
+    failedText: t('failed'),
+    item: detail.data,
     loading: detail.isPending,
     failed: detail.isError,
   }
 }
 ```
 
-O parâmetro só existe dentro da `<Route>`. No teste, renderize a tela dentro da rota (veja [Testes](test.md#rotas-com-parâmetro)).
+O parâmetro só existe dentro da `<Route>`, e por isso o teste gerado renderiza a tela dentro dela, com um valor de exemplo (o id do primeiro registro do mock, na tela de detalhe), e confere que o valor chega à tela: se a rota e a tela se descasarem, o teste falha. Veja [Testes](test.md#rotas-com-parâmetro).
 
 ### Ordem das rotas
 

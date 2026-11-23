@@ -45,7 +45,7 @@ const factories = {
 export type RepositoryContainer = RepositoryContainerOf<typeof factories>
 // { clientes: IClientesRepository; pedidos: IPedidosRepository }
 
-const repositories = createRepositoryContainer(factories, { dataSource: 'memory' })
+const repositories = createRepositoryContainer(factories, { dataSource: 'mock' })
 ```
 
 ### `resolveDataSource(value, sources, fallback, name?)`
@@ -62,7 +62,7 @@ function resolveDataSource<S extends string>(
 Converte um texto de configuração (uma variável de ambiente, por exemplo) numa fonte de dados válida. Valor vazio ou ausente devolve o `fallback`. Valor fora de `sources` **lança um erro** (`Invalid <name> "<valor>". Expected one of: ...`), para a inicialização falhar em vez de cair em silêncio em outra fonte.
 
 ```ts
-resolveDataSource(import.meta.env.VITE_DATA_SOURCE, ['memory', 'http'], 'memory', 'VITE_DATA_SOURCE')
+resolveDataSource(import.meta.env.VITE_DATA_SOURCE, ['mock', 'http'], 'mock', 'VITE_DATA_SOURCE')
 ```
 
 ### `createRepositoryContext(createDefault?)`

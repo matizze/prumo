@@ -13,7 +13,7 @@ src/
     components/    componentes usados só por esta tela
   components/shared/       componentes usados por duas ou mais telas
   schemas/entities/        schemas zod das entidades
-  repositories/<domínio>/  contrato, implementação mock e fixtures
+  repositories/<domínio>/  contrato, implementações (mock, http, storage) e fixtures
   queries/<domínio>.ts     hooks de query e mutation (TanStack Query)
   messages/<idioma>/       textos em pt-BR e en, um JSON por tela
 ```
@@ -25,18 +25,17 @@ src/
 
 ## Comandos
 
-Crie com os geradores, não à mão: eles registram a rota, as mensagens e os índices, e rodam o `prumo check` no fim.
+Crie com os geradores, não à mão: eles registram a rota, as mensagens e os índices.
 
-| Comando                                                | O que faz                                                                       |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| `pnpm exec prumo make:domain <nome> [--fields "a:string,b:number"]` | Schema, repositório com mock e contrato, queries e o teste de contrato; `--fields` dá os campos da entidade (tipos: string, number, int, boolean, date, datetime, enum(a\|b\|c); `?` opcional) |
-| `pnpm exec prumo make:page <nome> [--domain <nome>] [--path <caminho>]` | Tela com index, model, view, teste, mensagens e rota; com `--domain`, lista dele; com `--path /x/:id`, rota com parâmetro (com `--domain`, detalhe) |
-| `pnpm exec prumo make:component <nome> --page <tela>`  | Componente só HTML e o teste dele (`--shared` para o `src/components/shared`)   |
-| `pnpm exec prumo move:component <nome> --from <tela> --shared` | Promove um componente da tela a `src/components/shared` (move o teste e reescreve os imports); use quando uma segunda tela precisar dele |
-| `pnpm exec prumo check`                                | Confere a arquitetura do projeto inteiro                                        |
-| `pnpm exec prumo doctor`                               | Confere Node, pnpm e a versão dos pacotes do Prumo                              |
+| Comando                                                                            | O que faz                                                                                                                       |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm exec prumo make:schema <domínio> [--entity <singular>] [--fields "a:string,b:int"]` | O schema zod da entidade (tipos: string, number, int, boolean, date, datetime, enum(a\|b\|c); `?` torna o campo opcional)          |
+| `pnpm exec prumo make:repository <domínio> [--data-source mock\|http\|storage]`      | O contrato, a implementação mock, as fixtures e o teste de contrato do domínio (precisa do schema)                              |
+| `pnpm exec prumo make:query <domínio>`                                             | As query keys, os hooks e as mutations do domínio (precisa do repositório)                                                      |
+| `pnpm exec prumo make:page <nome> [--query <domínio>] [--path <caminho>]`          | Tela com index, model, view, teste, mensagens e rota; com `--query`, a lista do domínio; com `--path /x/:id`, rota com parâmetro |
+| `pnpm exec prumo check`                                                            | Confere a arquitetura do projeto inteiro                                                                                        |
 
-Todos os geradores aceitam `--dry-run` (só lista o que faria). O servidor MCP do Prumo (`.mcp.json`) dá a um agente os mesmos comandos como ferramentas (`make_page`, `make_domain`, `check`...).
+Todos os geradores aceitam `--dry-run` (só lista o que faria).
 
 Scripts do projeto: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm check`, `pnpm test` e `pnpm verify` (typecheck, lint, test e check, nessa ordem, para os testes rodarem mesmo que o check falhe; sem navegador). Rode o `pnpm verify` antes de dar uma tarefa por pronta.
 

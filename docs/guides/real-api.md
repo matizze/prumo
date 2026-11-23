@@ -10,7 +10,7 @@ O exemplo usa o domínio `clientes` e uma API REST com as rotas `GET /clientes`,
 flowchart LR
   env["VITE_DATA_SOURCE"] --> create["createRepositories()"]
   create --> factory["createClientesRepository()"]
-  factory -- memory --> mock["MockClientesRepository"]
+  factory -- mock --> mock["MockClientesRepository"]
   factory -- http --> http["HttpClientesRepository"]
   http --> client["cliente HTTP<br/>(src/repositories/http.ts)"]
   client --> api[("API")]
@@ -22,10 +22,10 @@ As telas e as queries não mudam: elas usam a interface `IClientesRepository`, e
 
 ```ts
 // src/repositories/options.ts
-export const DATA_SOURCES = ['memory', 'http'] as const
+export const DATA_SOURCES = ['mock', 'http'] as const
 ```
 
-O tipo `DataSource` passa a ser `'memory' | 'http'`, e toda fábrica de repositório recebe a fonte escolhida em `options.dataSource`.
+O tipo `DataSource` passa a ser `'mock' | 'http'`, e toda fábrica de repositório recebe a fonte escolhida em `options.dataSource`.
 
 ## 2. Escreva o cliente HTTP
 
@@ -270,14 +270,14 @@ Domínios que ainda não têm API continuam devolvendo o mock para qualquer font
 
 ## 5. Escolha a fonte por ambiente
 
-O `createRepositories` lê a fonte de uma variável de ambiente do Vite. O `resolveDataSource` do core usa `memory` quando a variável falta e **lança um erro** quando ela tem um valor desconhecido, para a inicialização falhar em vez de cair em silêncio em outra fonte:
+O `createRepositories` lê a fonte de uma variável de ambiente do Vite. O `resolveDataSource` do core usa `mock` quando a variável falta e **lança um erro** quando ela tem um valor desconhecido, para a inicialização falhar em vez de cair em silêncio em outra fonte:
 
 ```ts
 // src/repositories/index.ts
 export function createRepositories(options: Partial<RepositoryOptions> = {}): RepositoryContainer {
   const dataSource =
     options.dataSource ??
-    resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'memory', 'VITE_DATA_SOURCE')
+    resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')
   return createRepositoryContainer(factories, { ...options, dataSource })
 }
 ```
@@ -289,7 +289,7 @@ Declare as variáveis para o TypeScript:
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** De onde os repositórios leem: memory (padrão) ou http. */
+  /** De onde os repositórios leem: mock (padrão) ou http. */
   readonly VITE_DATA_SOURCE?: string
   /** O endereço da API, para a fonte http. */
   readonly VITE_API_URL?: string
@@ -304,7 +304,7 @@ VITE_DATA_SOURCE=http
 VITE_API_URL=http://localhost:3000
 ```
 
-Os testes não mudam: o `renderWithProviders` do app cria o container com `dataSource: 'memory'` explícito, então continuam rodando contra o mock, sem rede.
+Os testes não mudam: o `renderWithProviders` do app cria o container com `dataSource: 'mock'` explícito, então continuam rodando contra o mock, sem rede.
 
 > O `make:domain` continua funcionando depois dessas mudanças: ele só edita os imports, os `export *` e o mapa `factories` do `src/repositories/index.ts`.
 

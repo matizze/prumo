@@ -1,5 +1,7 @@
 import type { Command } from 'commander'
 import type { Io } from '../io.ts'
+import { registerCheck } from './check.ts'
+import { registerNew } from './new.ts'
 
 /**
  * Um comando do prumo: um arquivo em `commands/` que exporta uma função destas. Ela registra o comando
@@ -10,4 +12,4 @@ import type { Io } from '../io.ts'
 export type RegisterCommand = (program: Command, io: Io) => void
 
 /** Os comandos do prumo, na ordem em que aparecem na ajuda. Cada passo da reescrita acrescenta o seu. */
-export const commands: readonly RegisterCommand[] = []
+export const commands: readonly RegisterCommand[] = [registerNew, registerCheck]

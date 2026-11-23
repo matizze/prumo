@@ -132,4 +132,4 @@ Os geradores supõem o wouter como roteador e o `@/` como alias; projetos com ou
 pnpm exec prumo doctor
 ```
 
-O `doctor` confere a versão do Node e do pnpm, a versão de cada pacote do Prumo instalado contra a faixa que a CLI espera e o `.mcp.json`. Avisos não falham; erros saem com código 1.
+O `doctor` confere a versão do Node e do pnpm, a versão de cada pacote do Prumo instalado contra a faixa que a CLI espera. Avisos não falham; erros saem com código 1.

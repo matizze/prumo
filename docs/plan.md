@@ -6,7 +6,7 @@ O Prumo é uma **ferramenta** para criar e manter aplicações React organizadas
 
 Este plano substitui o de 22/11/2026 (Fases A, B e C, já concluídas, exceto o repositório público). A `cli` é reescrita do zero com o commander; a arquitetura do app gerado não muda.
 
-**Situação:** plano fechado em 23/11/2026; execução pela seção 11. Passos concluídos: 1.
+**Situação:** plano fechado em 23/11/2026; execução pela seção 11. Passos concluídos: 1, 2.
 
 ## 1. Por que recomeçar a CLI
 
@@ -150,7 +150,7 @@ Dependências da `cli`: `commander`, `ts-morph` e `@matizze/prumo-rules`. Nenhum
 - Um PR por passo, de um branch a partir da `develop`, contra a `develop`.
 - Os testes vêm no mesmo PR do código: unitários nos geradores e codemods, e de ponta a ponta nos comandos, num app temporário.
 - `pnpm verify` verde antes do PR, um por vez (a máquina tem pouca memória).
-- O `pnpm verify:new` volta no passo 2 e cresce a cada comando: cria um app com os tarballs, roda os comandos já prontos e o `pnpm verify` do app.
+- O `pnpm verify:new` voltou no passo 2 e cresce a cada comando: cria um app com os tarballs, roda os comandos já prontos e o `pnpm verify` do app.
 - Cada comando atualiza a sua parte em `docs/reference/cli.md` no mesmo PR.
 - Changeset nos PRs que mudam `packages/*`.
 - A `main` só recebe a v1 completa (passo 9), por decisão de uma pessoa.
@@ -160,13 +160,13 @@ Dependências da `cli`: `commander`, `ts-morph` e `@matizze/prumo-rules`. Nenhum
 | #   | Entrega                                                                                                                                                                                                        | Pronto quando                                                                                                                         |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Base: sai o `mcp` (o pacote e as menções no `pack:all`, no `publish-npm.sh`, no lint, no `website/sidebars.ts`, no `README.md`, em `docs/` e no `AGENTS.md`) e o código da cli antiga (os `templates/` ficam para os passos seguintes); sai o `verify:new` até o passo 2; entra a cli nova com commander, `--help`, `--version`, erros e códigos de saída | `prumo --help` e `prumo --version` funcionam; comando ou opção desconhecidos saem com 2 e mensagem em português; nenhum link para arquivo apagado; `pnpm verify` verde |
-| 2   | `new`                                                                                                                                                                                                          | O app criado passa no `pnpm verify` dele; o `verify:new` está de volta                                                                |
+| 2   | `check` e `new`                                                                                                                                                                                                          | O app criado passa no `pnpm verify` dele; o `verify:new` está de volta                                                                |
 | 3   | `make:schema`, com `--entity` e `--fields`                                                                                                                                                                     | O `verify:new` gera um schema com campos de todos os tipos e o app passa no `pnpm verify`                                             |
 | 4   | `make:repository`, com o `mock` e os campos lidos do schema                                                                                                                                                    | O teste de contrato do mock passa no app gerado, com os campos do `--fields`                                                          |
 | 5   | `--data-source http` e `storage`                                                                                                                                                                               | O app compila com as três fontes, e o teste de contrato do `storage` passa                                                            |
 | 6   | `make:query`                                                                                                                                                                                                   | O `verify:new` gera a query e o app passa no `pnpm verify`                                                                            |
 | 7   | `make:page`, com `--query` e `--path`                                                                                                                                                                          | As quatro variações (título, lista, parâmetro e detalhe) passam no teste da tela no app gerado                                        |
-| 8   | `check`                                                                                                                                                                                                        | Acusa as violações das fixtures do `rules`, e o app gerado não tem nenhuma                                                            |
+| 8   | `check` (entrou no passo 2)                                                                                                                                                                                    | Acusa as violações das fixtures do `rules`, e o app gerado não tem nenhuma                                                            |
 | 9   | Fechamento: guias, tutorial e README revistos, changeset da `cli` 0.7.0                                                                                                                                        | O `verify:new` completo está verde, a documentação bate com os comandos e o site da documentação compila (`website/`)                 |
 
 ## 9. Depois da v1

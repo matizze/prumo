@@ -111,7 +111,7 @@ Escolha os pacotes, o tipo de versão e descreva a mudança **do ponto de vista 
 
 **Para lançar uma versão** (decisão de uma pessoa do time):
 
-1. Um pull request para a `develop` roda `pnpm changeset version`: sobe as versões, escreve os CHANGELOGs e apaga os changesets. (O mapa de versões do app novo volta com o `new`, no passo 2 da reescrita da CLI, e então também se atualiza nesta etapa.)
+1. Um pull request para a `develop` roda `pnpm changeset version`: sobe as versões, escreve os CHANGELOGs e apaga os changesets. Nesse pull request, atualize também o mapa de versões do app novo (`packages/cli/src/lib/versions.ts`): o teste `versions.test.ts` falha até ele acompanhar os `package.json` de `packages/*`.
 2. Um pull request leva a `develop` para a `main`.
 3. O workflow de publicação publica no npm as versões que faltam, autenticado pelo Trusted Publishing.
 

@@ -1,1 +1,1 @@
-// Schemas das entidades, um por domínio (prumo make:domain). O comando registra cada um aqui.
+// Schemas das entidades, um por domínio (prumo make:schema). O comando registra cada um aqui.

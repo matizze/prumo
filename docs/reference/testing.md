@@ -42,7 +42,7 @@ O app liga uma vez, num arquivo próprio (o `prumo new` cria `src/test/render.ts
 export const renderWithProviders = createRenderWithProviders<RepositoryContainer>({
   Providers,
   createRepositories: (overrides) => ({
-    ...createRepositories({ dataSource: 'memory', latencyMs: 0 }),
+    ...createRepositories({ dataSource: 'mock', latencyMs: 0 }),
     ...overrides,
   }),
   createQueryClient: () =>

@@ -251,6 +251,6 @@ Quando um ponto de registro falta ou não tem a forma esperada, o gerador recusa
 
 - O conteúdo de qualquer tela, domínio ou componente gerado: o model, a view, o schema, as fixtures, o mock, os testes.
 - O caminho de uma rota no `App.tsx` (`/clientes` para `/clientes/:id`, por exemplo), e envolver o `<Switch>` com a casca do layout.
-- O `providers/app.tsx`: a notificação, a tradução do erro, provedores novos (tema, autenticação).
+- O `providers/app.tsx`: a notificação, a tradução do erro, provedores novos (tema, autenticação: veja [Sessão e login](../guides/auth.md), que põe a sessão em `src/providers/session/`).
 - O `eslint.config.js`, o `vite.config.ts` e o `tsconfig.json`, mantendo o plugin do Prumo e o alias `@/`.
 - O `AGENTS.md`, com as regras do seu time.

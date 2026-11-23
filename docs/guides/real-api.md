@@ -29,7 +29,7 @@ O tipo `DataSource` passa a ser `'memory' | 'http'`, e toda fábrica de reposit�
 
 ## 2. Escreva o cliente HTTP
 
-Um cliente pequeno, comum a todos os domínios, concentra o endereço da API, os cabeçalhos e o tratamento da resposta:
+Um cliente pequeno, comum a todos os domínios, concentra o endereço da API, o token da sessão, o tratamento do 401 e a resposta. Ele recebe tudo de fora (o `fetch` e a sessão), então os testes o exercitam sem rede:
 
 ```ts
 // src/repositories/http.ts
@@ -41,10 +41,25 @@ export interface HttpRequest {
 /** Faz uma chamada à API e devolve o corpo da resposta (sem validar). */
 export type Http = (path: string, request?: HttpRequest) => Promise<unknown>
 
+/** A sessão vista pelo cliente HTTP: o token da vez e a renovação depois de um 401. */
+export interface HttpAuth {
+  /** O token de acesso da sessão, ou `null` sem sessão. */
+  getToken: () => string | null
+  /**
+   * Renova a sessão depois de um 401 do token `usedToken`. Devolve `true` quando há token novo
+   * para repetir a chamada e `false` quando a renovação falhou (a sessão já foi encerrada).
+   */
+  refresh: (usedToken: string) => Promise<boolean>
+}
+
 export interface HttpOptions {
   baseUrl: string
-  /** Cabeçalhos de toda chamada, como o token da sessão. */
+  /** Cabeçalhos de toda chamada. */
   headers?: () => Record<string, string>
+  /** O Bearer da sessão e o tratamento do 401: renova uma vez e repete a chamada. */
+  auth?: HttpAuth
+  /** Troca o `fetch` (testes, sem rede). */
+  fetch?: typeof fetch
 }
 
 /** Resposta da API com status de erro. O repositório decide o que ela significa no domínio. */
@@ -58,37 +73,110 @@ export class HttpError extends Error {
   }
 }
 
-export function createHttp({ baseUrl, headers }: HttpOptions): Http {
-  return async (path, { method = 'GET', body } = {}) => {
-    const response = await fetch(`${baseUrl}${path}`, {
+export function createHttp({ baseUrl, headers, auth, fetch: fetchOverride }: HttpOptions): Http {
+  const send = (path: string, { method = 'GET', body }: HttpRequest, token: string | null) =>
+    (fetchOverride ?? fetch)(`${baseUrl}${path}`, {
       method,
-      headers: { 'Content-Type': 'application/json', ...headers?.() },
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers?.(),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
-    if (!response.ok) throw new HttpError(response.status, `${method} ${path}: HTTP ${response.status}`)
+
+  return async (path, request = {}) => {
+    const token = auth?.getToken() ?? null
+    let response = await send(path, request, token)
+    // 401 com sessão: renova o token (uma vez) e repete a chamada com o token novo
+    if (response.status === 401 && auth && token !== null && (await auth.refresh(token))) {
+      response = await send(path, request, auth.getToken())
+    }
+    if (!response.ok) {
+      throw new HttpError(response.status, `${request.method ?? 'GET'} ${path}: HTTP ${response.status}`)
+    }
     return response.status === 204 ? undefined : response.json()
   }
 }
 ```
 
-E a instância do app, com o endereço que vem do ambiente:
+Três pontos do tratamento do 401:
+
+- **Renova uma vez.** Se a chamada repetida também falha com 401, o erro sobe: não há laço de renovação.
+- **Chamadas simultâneas esperam a mesma renovação.** Quem decide isso é a sessão (`refresh(usedToken)` guarda a promessa em andamento): se cinco chamadas levam 401 juntas, a API de renovação recebe um pedido só, e as cinco repetem com o token novo. Um refresh token costuma valer uma vez, então dois pedidos seriam um erro.
+- **Renovação recusada encerra a sessão.** Quando o `refresh` devolve `false`, o cliente lança o `HttpError` 401, e a sessão já está anônima (o provedor limpa o cache e as rotas protegidas redirecionam para o login). Veja [Sessão e login](auth.md).
+
+E a instância do app, com o endereço que vem do ambiente e o token que vem da sessão (que é lida fora do React, por isso é um módulo puro):
 
 ```ts
 // src/repositories/api.ts
+import { appSession } from '@/providers/session/app-session'
 import { createHttp } from './http'
 
 export const api = createHttp({
   baseUrl: import.meta.env.VITE_API_URL ?? '/api',
-  // headers: () => ({ Authorization: `Bearer ${getToken()}` }),
+  auth: {
+    getToken: () => appSession.getAccessToken(),
+    refresh: (usedToken) => appSession.refresh(usedToken),
+  },
 })
 ```
+
+Sem login, omita o `auth`: o cliente só envia o corpo e os `headers`.
+
+### Testar o cliente HTTP sem rede
+
+O `fetch` injetável é o que torna o cliente testável: o teste passa um `fetch` falso e confere o que foi chamado, sem servidor. Uma `Response` do Node basta como resposta:
+
+```ts
+// src/repositories/http.test.ts
+import { expect, it, vi } from 'vitest'
+import { createHttp, HttpError } from './http'
+
+const json = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+
+it('renova o token no 401 e repete a chamada com o token novo', async () => {
+  let token = 'velho'
+  const fetchFalso = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+    const bearer = new Headers(init?.headers).get('Authorization')
+    return bearer === 'Bearer novo' ? json(200, { ok: true }) : json(401, {})
+  })
+  const http = createHttp({
+    baseUrl: 'https://api.exemplo.test',
+    fetch: fetchFalso as typeof fetch,
+    auth: {
+      getToken: () => token,
+      refresh: async () => {
+        token = 'novo'
+        return true
+      },
+    },
+  })
+
+  expect(await http('/clientes')).toEqual({ ok: true })
+  expect(fetchFalso).toHaveBeenCalledTimes(2)
+})
+
+it('refresh recusado: a chamada falha com o 401', async () => {
+  const http = createHttp({
+    baseUrl: 'https://api.exemplo.test',
+    fetch: (async () => json(401, {})) as typeof fetch,
+    auth: { getToken: () => 'velho', refresh: async () => false },
+  })
+
+  await expect(http('/clientes')).rejects.toBeInstanceOf(HttpError)
+})
+```
+
+Para o caso das chamadas simultâneas, teste a sessão (o `refresh` dela é quem junta os pedidos) com uma `AuthApi` falsa que conta as chamadas a `refresh`.
 
 ## 3. Implemente o contrato
 
 A implementação HTTP mora ao lado do mock e implementa a mesma interface. Três cuidados:
 
 - **Valide a resposta** com o schema do domínio. Se a API mudar o formato, o erro aparece na fronteira, e não numa tela.
-- **Traduza os erros do domínio** para `UIError`. O contrato diz que um id inexistente rejeita com `UIError('CLIENTE_NOT_FOUND')`; o 404 da API vira esse erro. Os outros erros seguem como estão, e a interface mostra a mensagem genérica.
+- **Traduza os erros do domínio** para `UIError`. O contrato diz que um id inexistente rejeita com `UIError('CLIENTE_NOT_FOUND')`; o 404 da API vira esse erro. Um 403 pode virar `UIError('SEM_PERMISSAO')` e a rede fora do ar, `UIError('API_INDISPONIVEL')`, cada um com texto em `errors.<CÓDIGO>`. Os outros erros seguem como estão, e a interface mostra a mensagem genérica.
 - **Codifique o que vai na URL** (`encodeURIComponent`).
 
 ```ts
@@ -246,12 +334,76 @@ CONTRACT_API_URL=http://localhost:3000 pnpm test src/repositories/clientes
 
 Um cuidado com os dados: parte dos casos depende das fixtures do mock ("lista as 3 fixtures", "busca por 'Exemplo 2'") e cria ou remove registros. Contra uma API, esses casos só valem se ela partir dos mesmos dados a cada teste. Use o `dispose` (ou o `create`) para restaurar a API de teste, por exemplo com uma rota de reset do ambiente de teste, ou separe os casos que dependem dos dados num contrato só do mock. Os casos que não dependem dos dados (ordenação, paginação, erro de id inexistente) valem para qualquer implementação. A referência do [`runContractSuite`](../reference/testing.md#teste-de-contrato) detalha o ciclo de vida de cada teste.
 
+### Quando a API de teste não persiste escritas
+
+Muitas APIs públicas de demonstração (a DummyJSON, por exemplo) só **simulam** as escritas: o `POST` responde como se tivesse criado, mas a leitura seguinte não vê o registro. Os casos do contrato que criam, editam ou removem e depois leem (`create` e depois `get`, `remove` e depois `list`) falham contra uma API assim, sem que o repositório tenha erro.
+
+O caminho é rodar o contrato contra uma **API falsa em memória**, ligada pelo `fetch` injetável do cliente (passo 2). Ela implementa só as rotas do domínio e **grava de verdade**, então o contrato inteiro roda, sem rede, junto com os testes do app, e o repositório HTTP (a montagem da URL, a validação das respostas, o 404 que vira `CLIENTE_NOT_FOUND`) é exercitado de ponta a ponta:
+
+```ts
+// src/test/fake-api.ts
+import { MOCK_CLIENTES } from '@/repositories'
+import type { ClienteSchema } from '@/schemas'
+
+const json = (status: number, body?: unknown) =>
+  new Response(body === undefined ? null : JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+
+/** Uma API de clientes na memória, com as mesmas rotas da real e escrita que persiste. */
+export function createFakeApi(initial: ClienteSchema[] = MOCK_CLIENTES) {
+  const items = initial.map((item) => ({ ...item }))
+  let nextId = items.length + 1
+
+  const fetchFalso = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(String(input))
+    const method = init?.method ?? 'GET'
+    const body = init?.body ? JSON.parse(String(init.body)) : undefined
+    const id = /^\/clientes\/([^/]+)$/.exec(url.pathname)?.[1]
+
+    if (url.pathname === '/clientes' && method === 'GET') {
+      const search = (url.searchParams.get('search') ?? '').toLowerCase()
+      const found = items.filter((item) => item.name.toLowerCase().includes(search))
+      return json(200, { items: found, total: found.length })
+    }
+    if (url.pathname === '/clientes' && method === 'POST') {
+      const created = { id: `cliente-${nextId++}`, createdAt: new Date().toISOString(), ...body }
+      items.push(created)
+      return json(201, created)
+    }
+    const index = items.findIndex((item) => item.id === id)
+    if (id === undefined || index === -1) return json(404)
+    if (method === 'GET') return json(200, items[index])
+    if (method === 'PATCH') return json(200, Object.assign(items[index]!, body))
+    items.splice(index, 1) // DELETE
+    return json(204)
+  }) as typeof fetch
+
+  return { fetch: fetchFalso }
+}
+```
+
+```ts
+// src/repositories/clientes/repository.contract.test.ts (no mesmo arquivo do contrato)
+import { createFakeApi } from '@/test/fake-api'
+import { createHttp } from '../http'
+import { HttpClientesRepository } from './repository.http'
+
+runContractSuite(clientesContract, {
+  name: 'HttpClientesRepository (API falsa)',
+  create: () => new HttpClientesRepository(createHttp({ baseUrl: 'https://api.exemplo.test', fetch: createFakeApi().fetch })),
+})
+```
+
+Cada `create()` cria uma API falsa nova, com as fixtures, e por isso os testes não compartilham estado. A diferença para a API real fica registrada no próprio arquivo da API falsa (por exemplo, a busca que olha só o nome): se a real se comportar diferente nesse ponto, o contrato contra `CONTRACT_API_URL` (acima) mostra, nos casos que não dependem de escrita. Mantenha os dois: o falso prova o repositório, e o real prova que a API é o que o falso diz que é.
+
 ## Checklist
 
 - [ ] `DATA_SOURCES` com a fonte nova
-- [ ] Cliente HTTP comum e a instância do app
+- [ ] Cliente HTTP comum (com o token da sessão, a renovação no 401 e o `fetch` injetável) e a instância do app
 - [ ] `Http<Domínio>Repository` implementando o contrato, validando as respostas e traduzindo o 404
 - [ ] A fábrica do domínio escolhendo pela fonte
 - [ ] `createRepositories` lendo `VITE_DATA_SOURCE`, com as variáveis declaradas em `vite-env.d.ts`
-- [ ] O contrato rodando contra a API de teste
+- [ ] O contrato rodando contra a API de teste, ou contra uma API falsa em memória quando ela não persiste escritas
 - [ ] `pnpm verify` verde

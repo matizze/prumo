@@ -311,6 +311,125 @@ Para uma operação que o CRUD não cobre (por exemplo, `listByCity`), siga as c
 3. Crie a **chave** (`byCity: (city: string) => ['by-city', city] as const`), a **query** e o **hook** em `src/queries/clientes.ts`.
 4. Exporte o hook em `src/queries/index.ts`, se quiser usá-lo pelo índice.
 
+## Regras de negócio e operações entre domínios
+
+O CRUD de um domínio não sabe de regra: "um cliente pode ter no máximo 3 pedidos em aberto" e "cancelar um pedido devolve o item ao estoque" não são `list` nem `create`. O Prumo não gera nem cobra um lugar para elas; a convenção que funciona tem três peças, de baixo para cima.
+
+**1. Regras como funções puras, em `src/rules/`.** Recebem os dados (e "hoje") como argumento e devolvem uma decisão: nada de hook, repositório, `new Date()` nem `fetch`. Por serem puras, o teste é uma chamada de função:
+
+```ts
+// src/rules/pedido.ts
+import { daysBetween } from '@matizze/prumo-core/date'
+import type { PedidoSchema } from '@/schemas'
+
+/** Códigos estáveis de recusa: cada um tem texto em `errors.<CODE>` nos dois idiomas. */
+export type CodigoDeRecusa = 'PEDIDO_LIMITE_ATINGIDO' | 'CLIENTE_COM_ATRASO'
+
+export const LIMITE_DE_PEDIDOS_EM_ABERTO = 3
+
+/** Devolve o código da recusa, ou `null` quando o cliente pode fazer um pedido novo. */
+export function verificarPedido(emAberto: PedidoSchema[], hoje: string): CodigoDeRecusa | null {
+  if (emAberto.some((pedido) => daysBetween(pedido.vencimento, hoje) > 0)) return 'CLIENTE_COM_ATRASO'
+  if (emAberto.length >= LIMITE_DE_PEDIDOS_EM_ABERTO) return 'PEDIDO_LIMITE_ATINGIDO'
+  return null
+}
+```
+
+```ts
+// src/rules/pedido.test.ts
+it('recusa o quarto pedido em aberto', () => {
+  const emAberto = [pedido('1'), pedido('2'), pedido('3')]
+  expect(verificarPedido(emAberto, '2026-11-22')).toBe('PEDIDO_LIMITE_ATINGIDO')
+})
+```
+
+Para onde "hoje" vem, veja [Consultas que dependem de "hoje"](#consultas-que-dependem-de-hoje): a regra recebe a data, e quem chama decide se é a de verdade ou uma fixa do teste. Os valores que o texto da recusa precisa (o limite) vão nos `params` do `UIError`.
+
+**2. Operações entre domínios como mutations em `src/queries/<nome>.ts`.** Uma operação que lê ou grava em mais de um domínio (fazer um pedido olha pedidos e clientes; cancelar mexe em pedidos e estoque) não pertence à `queries/<domínio>.ts` de nenhum deles. Ela ganha um arquivo próprio, que **pega os repositórios do container**, aplica as regras e **invalida os domínios afetados**:
+
+```ts
+// src/queries/vendas.ts
+import { UIError } from '@matizze/prumo-core/errors'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRepositories } from '@/providers/repository'
+import type { RepositoryContainer } from '@/repositories'
+import { verificarPedido, LIMITE_DE_PEDIDOS_EM_ABERTO } from '@/rules'
+import { clienteKeys } from './clientes'
+import { pedidoKeys } from './pedidos'
+
+type Repositorios = Pick<RepositoryContainer, 'clientes' | 'pedidos'>
+
+export interface FazerPedidoInput {
+  clienteId: string
+  produto: string
+  /** O dia de hoje (`AAAA-MM-DD`); sem ele, vale o dia da máquina. */
+  hoje?: string
+}
+
+/** A operação em si, sem React: recebe os repositórios, então o teste não precisa de provedor. */
+export async function fazerPedido(repositorios: Repositorios, input: FazerPedidoInput) {
+  const hoje = input.hoje ?? new Date().toISOString().slice(0, 10)
+  await repositorios.clientes.get(input.clienteId) // CLIENTE_NOT_FOUND, se não existir
+  const { items } = await repositorios.pedidos.list({ clienteId: input.clienteId, emAberto: true })
+
+  const recusa = verificarPedido(items, hoje)
+  if (recusa) throw new UIError(recusa, 'Pedido recusado.', { limite: LIMITE_DE_PEDIDOS_EM_ABERTO })
+
+  return repositorios.pedidos.create({ clienteId: input.clienteId, produto: input.produto, criadoEm: hoje })
+}
+
+/** O hook: pega os repositórios do container e invalida o que a operação mexeu. */
+export function useFazerPedido() {
+  const repositories = useRepositories()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: FazerPedidoInput) => fazerPedido(repositories, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: pedidoKeys.all })
+      void queryClient.invalidateQueries({ queryKey: clienteKeys.all })
+    },
+  })
+}
+```
+
+A recusa é um `UIError` com código, como qualquer erro de domínio (veja [Erros e notificações](errors-and-notifications.md)): a mutation falha, o `createQueryClient` notifica o texto traduzido e a tela pode mostrá-lo no formulário. O texto leva o valor: `"PEDIDO_LIMITE_ATINGIDO": "Você já tem {limite} pedidos em aberto"`. Os repositórios continuam sem saber de regra: só leem e gravam.
+
+**3. O model liga e desliga as ações com as mesmas regras.** A tela não precisa tentar a operação para saber que ela vai ser recusada: o model chama a regra e mostra o motivo, traduzido pelo `getErrorMessage`, que aceita o código solto:
+
+```ts
+// src/pages/cliente/model.ts
+const t = useTranslations('cliente')
+const pedidos = usePedidosList({ clienteId: id, emAberto: true })
+const fazerPedido = useFazerPedido()
+
+const recusa = verificarPedido(pedidos.data?.items ?? [], new Date().toISOString().slice(0, 10))
+
+return {
+  canOrder: recusa === null,
+  // o motivo do botão desligado, no idioma ativo e com o limite no texto
+  orderBlockedReason: recusa ? getErrorMessage(recusa, { limite: LIMITE_DE_PEDIDOS_EM_ABERTO }) : undefined,
+  onOrder: (produto: string) => fazerPedido.mutate({ clienteId: id, produto }),
+}
+```
+
+A regra roda duas vezes, na tela (para o botão) e na operação (para valer de verdade), e é a **mesma função**: por isso a regra mora fora dos dois. Se a API também confere a regra, a conferência do servidor é a que protege os dados; a do app é conveniência.
+
+**Os testes.** A regra, sem React. A operação, com os repositórios em memória (`fazerPedido(createRepositories(), { ... })` ou os do `renderHookWithProviders`), conferindo a recusa e o efeito nos dois domínios:
+
+```ts
+it('recusa o pedido e não grava nada', async () => {
+  const repositorios = createRepositories({ latencyMs: 0 })
+  // ... deixa o cliente com 3 pedidos em aberto
+
+  await expect(
+    fazerPedido(repositorios, { clienteId: 'cliente-1', produto: 'Caneta', hoje: '2026-11-22' }),
+  ).rejects.toMatchObject({ code: 'PEDIDO_LIMITE_ATINGIDO' })
+})
+```
+
+O `prumo check` e o ESLint não olham `src/rules` (a pasta é livre), nem a regra de camadas se aplica a ela: o único cuidado é manter as regras puras, sem importar de `@/queries` nem de `@/pages`. O `make:domain` nunca mexe nessas pastas.
+
 ## Validar a entrada
 
 O `clienteInputSchema` é um schema zod. Use-o no model para validar um formulário antes de chamar a mutation:

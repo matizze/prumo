@@ -228,6 +228,8 @@ it('cria um cliente', async () => {
 })
 ```
 
+Uma operação que envolve mais de um domínio (veja [Regras de negócio e operações entre domínios](domains.md#regras-de-negócio-e-operações-entre-domínios)) testa-se melhor como função, chamando-a com os repositórios em memória; o hook só precisa de um teste de que invalida o que deve.
+
 Para uma mutation que falha, troque o método do repositório com `vi.spyOn(...).mockRejectedValue(...)` (como em [Estado de erro](#estado-de-erro)) e espere `await expect(act(() => result.current.mutateAsync(valor))).rejects.toThrow()`. Se o hook recebe argumentos que mudam, use `initialProps` e o `rerender` do resultado.
 
 ## Provedores do app nos testes
@@ -326,7 +328,7 @@ runContractSuite(clientesContract, {
 - **`dispose`**, opcional na implementação, roda depois de cada teste, também quando ele falha: é onde se apaga um banco ou se restaura uma API de teste.
 - O título de cada grupo é `<contrato>: <implementação>`, então a saída do Vitest mostra qual implementação falhou.
 
-Para rodar o mesmo contrato contra a implementação HTTP, veja [Ligar uma API real](real-api.md#6-rode-o-contrato-contra-a-api).
+Para rodar o mesmo contrato contra a implementação HTTP, veja [Ligar uma API real](real-api.md#6-rode-o-contrato-contra-a-api). Se a API de teste só simula as escritas (a leitura seguinte não vê a mudança), rode o contrato contra uma [API falsa em memória pelo `fetch` injetável](real-api.md#quando-a-api-de-teste-não-persiste-escritas).
 
 ## Setup mais completo do DOM
 

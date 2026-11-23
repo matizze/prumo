@@ -111,6 +111,51 @@ export default function App() {
 
 O `make:page` continua registrando as rotas: ele procura o `<Switch>` mais externo do arquivo, esteja onde estiver.
 
+### A casca só nas rotas protegidas
+
+Envolver o `<Switch>` inteiro põe o menu em **todas** as rotas, inclusive no `/login`, que não deve ter menu. Quando algumas telas ficam sem a casca, ponha-a dentro de um componente de rota protegida, que junta o `AuthGuard` e o `AppShell`, e deixe o login fora dele:
+
+```tsx
+// src/App.tsx
+import { AuthGuard } from '@matizze/prumo-core/auth'
+import type { ReactNode } from 'react'
+import { Redirect, Route, Switch } from 'wouter'
+import { AppShell } from '@/components/layout/app-shell'
+import LoginPage from '@/pages/login'
+import PedidosPage from '@/pages/pedidos'
+import { useSession } from '@/providers/session'
+
+/** Rota que exige sessão aberta e vem dentro da casca do app. */
+function Autenticada({ children }: { children: ReactNode }) {
+  const session = useSession()
+  return (
+    <AuthGuard isAuthenticated={session.isAuthenticated} isLoading={session.isLoading} keepOrigin>
+      <AppShell>{children}</AppShell>
+    </AuthGuard>
+  )
+}
+
+export default function App() {
+  return (
+    <Switch>
+      <Route path="/">
+        <Redirect to="/pedidos" replace />
+      </Route>
+      <Route path="/login">
+        <LoginPage />
+      </Route>
+      <Route path="/pedidos">
+        <Autenticada>
+          <PedidosPage />
+        </Autenticada>
+      </Route>
+    </Switch>
+  )
+}
+```
+
+O `Switch` continua sendo o mais externo, e o `make:page` continua registrando as rotas nele; a rota nova que você gerar entra sem o `Autenticada`, e envolvê-la é um passo seu. O `/` sem tela `home` redireciona, como em [Telas](pages.md#a-rota-). A sessão e o guarda estão em [Sessão e login](auth.md).
+
 O texto do menu segue a mesma regra das telas: um namespace próprio (`layout.json`, por exemplo) nos dois idiomas, registrado no `index.ts` de cada idioma.
 
 Para o `prumo check`, a casca conta como **duas telas**: ela aparece em todas, então um componente de `shared` usado por ela já é compartilhado.

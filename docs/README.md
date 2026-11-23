@@ -25,11 +25,12 @@ A documentação segue quatro tipos de texto, cada um para um momento:
 | Guia                                                     | Para                                                                                      |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | [Telas](guides/pages.md)                                  | Criar telas, separar model e view, rotas com parâmetro, navegação e rotas protegidas      |
-| [Domínios de dados](guides/domains.md)                   | Criar um domínio, mudar o schema, as fixtures e o contrato, usar queries e mutations      |
-| [Ligar uma API real](guides/real-api.md)                  | Escrever o repositório HTTP, escolher a fonte de dados por ambiente e validar o contrato   |
+| [Domínios de dados](guides/domains.md)                   | Criar um domínio, mudar o schema, as fixtures e o contrato, usar queries e mutations, regras de negócio e operações entre domínios |
+| [Ligar uma API real](guides/real-api.md)                  | Escrever o repositório HTTP, escolher a fonte de dados por ambiente e validar o contrato, inclusive contra uma API que não grava |
+| [Sessão e login](guides/auth.md)                          | A sessão dentro e fora do React, o login, o logout, o `AuthGuard` com origem e a guarda por perfil |
 | [Textos e idiomas](guides/i18n.md)            | Textos por tela, ICU (plural, select), formatação de números e datas, trocar e criar idiomas |
 | [Erros e notificações](guides/errors-and-notifications.md)    | Erros com código, tradução do erro, notificação global e o `meta` das queries             |
-| [Testes](guides/test.md)                                | Testar telas, estados de carregamento e erro, navegação e repositórios                    |
+| [Testes](guides/test.md)                                | Testar telas, hooks de query e mutation, provedores do app (a sessão) e repositórios |
 | [Design system](guides/design-system.md)                  | Ligar a interface do produto: a pasta `ui`, a casca do layout e as notificações           |
 | [Agentes de IA](guides/ai-agents.md)                  | Usar o servidor MCP e o `AGENTS.md` com o Claude Code ou outro cliente MCP                |
 | [Projeto existente](guides/existing-project.md)          | Adotar as regras e os geradores num app React que já existe                               |

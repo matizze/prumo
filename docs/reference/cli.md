@@ -65,7 +65,7 @@ Cria o schema zod de uma entidade e o registra:
 - `src/schemas/entities/<entidade>.ts`, com o `<entidade>Schema` (`id`, os campos e `createdAt`), o `<Entidade>Schema` (o tipo), o `<entidade>InputSchema` e o `<Entidade>Input` (o que se envia para criar ou editar), o `<Entidade>SortKey` e o `<Entidade>ListQuery`;
 - `export * from './entities/<entidade>'` no fim de `src/schemas/index.ts`.
 
-O `<domínio>` é o nome do domínio, no plural e em kebab-case (`clientes`, `pedidos-recentes`). A entidade é o singular, que sai do nome (tira o `s` final). Onde a regra erra (o plural termina em `ies`, `us`, `ss`, `xes`, `ches`, `shes` ou `sses`), o comando recusa e pede o `--entity`: `categories` daria `categorie`, e o certo é `--entity category`.
+O `<domínio>` é o nome do domínio, no plural e em kebab-case (`clientes`, `pedidos-recentes`). A entidade é o singular, que sai do nome (tira o `s` final). Na última palavra do nome, o comando também reconhece plurais do português (sem acento): `-ores` e `-eres` viram `-or` e `-er` (`fornecedores` vira `fornecedor`), `-uzes`, `-ezes` e `-ozes` viram `-uz`, `-ez` e `-oz`, `-oes` e `-aes` viram `-ao` (`cartoes` vira `cartao`, `paes` vira `pao`), `-ais` vira `-al`, `-eis` vira `-el`, `-ois` vira `-ol` e `-ens` vira `-em` (`itens` vira `item`). Plurais do inglês parecidos (`stores`, `shoes`, `tokens`) seguem a regra do `s`. A saída mostra a entidade derivada; o `--entity` a troca. Onde a regra erra (o plural termina em `ies`, `us`, `ss`, `xes`, `ches`, `shes` ou `sses`), o comando recusa e pede o `--entity`: `categories` daria `categorie`, e o certo é `--entity category`.
 
 | Opção                 | O que faz                                                                                  |
 | --------------------- | ------------------------------------------------------------------------------------------ |
@@ -99,7 +99,7 @@ prumo make:schema livros --fields "titulo:string,ano:int,situacao:enum(lido|lend
 
 O comando valida tudo antes de escrever: o nome (kebab-case, no plural, sem palavra reservada do JavaScript nem nome global como `Date`), a entidade, cada campo e o schema que já existe (nunca sobrescreve). Qualquer erro sai com 2, em português, sem deixar nada pela metade. No fim, mostra o que criou e alterou e o próximo passo: `prumo make:repository <domínio>`.
 
-Quem lê os campos depois é o `make:repository`, direto do schema gerado. Um campo que o Prumo não reconhece (o schema foi editado à mão com outro tipo, como `z.string().min(3)`) é erro de uso, com o arquivo, a linha e o nome do campo.
+Quem lê os campos depois é o `make:repository`, direto do schema gerado. O leitor lê a árvore do arquivo (o enum pode ter várias linhas e vírgula no fim) e exige o que o `--fields` geraria: `id` e `createdAt` como `z.string()`, nomes de campo em camelCase sem aspas e enum com dois valores ou mais, simples e sem repetição. Um campo que o Prumo não reconhece (o schema foi editado à mão com outro tipo, como `z.string().min(3)`) é erro de uso, com o arquivo, a linha e o nome do campo.
 
 ## `prumo check`
 

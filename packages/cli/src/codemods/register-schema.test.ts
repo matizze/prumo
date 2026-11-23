@@ -56,6 +56,27 @@ export * from './entities/supplier'
     }
   })
 
+  it('um comentário na linha do último export fica com ele', () => {
+    for (const [before, after] of [
+      [
+        "export * from './entities/ai' // nota\n",
+        "export * from './entities/ai' // nota\nexport * from './entities/supplier'\n",
+      ],
+      [
+        "export * from './entities/ai' /* nota */\n// fim\n",
+        "export * from './entities/ai' /* nota */\nexport * from './entities/supplier'\n// fim\n",
+      ],
+      [
+        "export * from './entities/ai' // sem quebra no fim",
+        "export * from './entities/ai' // sem quebra no fim\nexport * from './entities/supplier'\n",
+      ],
+    ] as const) {
+      const plan = new ChangePlan(findProject(makeProject({ 'src/schemas/index.ts': before })))
+      registerSchema(plan, domainNames('suppliers'))
+      expect(text(plan)).toBe(after)
+    }
+  })
+
   it('recusa a entidade que já está exportada e o índice que não existe', () => {
     expect(() => registerSchema(fixturePlan(), domainNames('customers'))).toThrow(
       /src\/schemas\/index\.ts já exporta '.\/entities\/customer'/,

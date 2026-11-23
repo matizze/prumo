@@ -6,6 +6,7 @@ import {
   assertValidName,
   deriveNames,
   domainNames,
+  entityFlag,
   GLOBAL_NAMES,
   isValidName,
   RESERVED_WORDS,
@@ -202,6 +203,49 @@ describe('singularOf', () => {
       expect(singularOf(plural)).toBe(plural.slice(0, -1))
     },
   )
+})
+
+describe('singularOf, plurais do português', () => {
+  it.each([
+    ['clientes', 'cliente'],
+    ['livros', 'livro'],
+    ['pedidos', 'pedido'],
+    ['categorias', 'categoria'],
+    ['fornecedores', 'fornecedor'],
+    ['cores', 'cor'],
+    ['autores', 'autor'],
+    ['mulheres', 'mulher'],
+    ['luzes', 'luz'],
+    ['vezes', 'vez'],
+    ['cartoes', 'cartao'],
+    ['paes', 'pao'],
+    ['animais', 'animal'],
+    ['papeis', 'papel'],
+    ['lencois', 'lencol'],
+    ['itens', 'item'],
+    ['ordens', 'ordem'],
+    ['pedidos-itens', 'pedidos-item'],
+  ])('%s vira %s', (plural, singular) => {
+    expect(singularOf(plural)).toBe(singular)
+  })
+
+  it.each(['leis', 'reis', 'bois', 'stores', 'shoes', 'tokens', 'icons', 'options', 'sizes', 'features'])(
+    'mantém a regra do s em %s, que não é plural do português',
+    (plural) => {
+      expect(singularOf(plural)).toBe(plural.slice(0, -1))
+    },
+  )
+
+  it('a regra olha a última palavra do nome com hífen', () => {
+    expect(singularOf('tipos-de-ordens')).toBe('tipos-de-ordem')
+    expect(singularOf('itens-pedidos')).toBe('itens-pedido')
+  })
+
+  it('entityFlag só traz o --entity quando a entidade difere da derivada', () => {
+    expect(entityFlag(domainNames('paes'))).toBe('')
+    expect(entityFlag(domainNames('categories', 'category'))).toBe(' --entity category')
+    expect(entityFlag(domainNames('clientes', 'cli'))).toBe(' --entity cli')
+  })
 })
 
 describe('domainNames', () => {

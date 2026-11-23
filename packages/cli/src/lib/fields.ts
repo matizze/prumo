@@ -1,7 +1,7 @@
 import path from 'node:path'
-import { Node, type ObjectLiteralExpression } from 'ts-morph'
+import { Node, type ObjectLiteralExpression, type PropertyAssignment } from 'ts-morph'
 import { UsageError } from '../errors.ts'
-import type { DomainNames } from './names.ts'
+import { entityFlag, type DomainNames } from './names.ts'
 import type { ChangePlan } from './plan.ts'
 
 /** Os tipos que o `--fields` aceita, e o que cada um vira no schema zod. */
@@ -382,46 +382,80 @@ function schemaObject(
     .getVariableDeclaration(`${names.singular.camel}Schema`)
     ?.getInitializer()
   if (!initializer || !Node.isCallExpression(initializer)) return undefined
-  if (initializer.getExpression().getText() !== 'z.object') return undefined
+  if (initializer.getExpression().getText().replace(/\s+/g, '') !== 'z.object') return undefined
   const [argument] = initializer.getArguments()
   return argument && Node.isObjectLiteralExpression(argument) ? argument : undefined
 }
 
-/** O tipo do campo a partir do texto do zod, sem espaços nem o `.optional()` do fim; `undefined` se não é um dos tipos do `--fields`. */
-function fieldOfZod(zod: string): Omit<Field, 'name' | 'optional'> | undefined {
-  const optionalless = zod.replace(/\s+/g, '')
-  const simple = {
-    'z.string()': 'string',
-    'z.number()': 'number',
-    'z.number().int()': 'int',
-    'z.boolean()': 'boolean',
-    'z.iso.date()': 'date',
-    'z.iso.datetime()': 'datetime',
-  } as const
-  const type = (simple as Record<string, FieldType | undefined>)[optionalless]
-  if (type) return { type }
-  const list = /^z\.enum\(\[(.*)\]\)$/.exec(optionalless)?.[1]
-  if (list === undefined) return undefined
-  const values = list.split(',').map((item) => /^(['"])([A-Za-z][A-Za-z0-9_]*)\1$/.exec(item)?.[2])
-  if (values.length < 2 || values.some((value) => value === undefined)) return undefined
-  return { type: 'enum', values: values as string[] }
+const SIMPLE_ZOD: Record<string, FieldType> = {
+  'z.string()': 'string',
+  'z.number()': 'number',
+  'z.number().int()': 'int',
+  'z.boolean()': 'boolean',
+  'z.iso.date()': 'date',
+  'z.iso.datetime()': 'datetime',
+}
+
+/** Um valor de enum que o `--fields` aceita: letras, números e `_`, começando por letra. */
+const ENUM_VALUE = /^[A-Za-z][A-Za-z0-9_]*$/
+
+/**
+ * O tipo do campo a partir da expressão do zod (sem o `.optional()` do fim), lida da árvore. Devolve
+ * o tipo, ou o motivo (texto) se não é um dos tipos do `--fields` ou se o enum tem um valor que o
+ * `--fields` não aceitaria.
+ */
+function typeOfZod(expression: Node): Omit<Field, 'name' | 'optional'> | string {
+  const simple = SIMPLE_ZOD[expression.getText().replace(/\s+/g, '')]
+  if (simple) return { type: simple }
+  const unknown = `não reconheço o tipo (${expression.getText().replace(/\s+/g, ' ')}). O Prumo lê string, number, int, boolean, date, datetime e enum, com .optional() (z.string(), z.number().int(), z.iso.date(), z.enum([...])...)`
+  if (!Node.isCallExpression(expression) || expression.getExpression().getText().replace(/\s+/g, '') !== 'z.enum') {
+    return unknown
+  }
+  const [list, ...rest] = expression.getArguments()
+  if (rest.length > 0 || !list || !Node.isArrayLiteralExpression(list)) return unknown
+  const values: string[] = []
+  for (const element of list.getElements()) {
+    if (!Node.isStringLiteral(element)) return unknown
+    const value = element.getLiteralText()
+    if (!ENUM_VALUE.test(value)) {
+      return `o valor '${value}' do enum não é válido (letras, números e _, começando por letra)`
+    }
+    if (values.includes(value)) return `o valor '${value}' aparece mais de uma vez no enum`
+    values.push(value)
+  }
+  if (values.length < 2) return 'o enum precisa de pelo menos dois valores'
+  return { type: 'enum', values }
+}
+
+/** Tira o `.optional()` do fim da expressão: devolve a expressão de dentro e se havia o `.optional()`. */
+function withoutOptional(expression: Node): { inner: Node; optional: boolean } {
+  if (Node.isCallExpression(expression) && expression.getArguments().length === 0) {
+    const callee = expression.getExpression()
+    if (Node.isPropertyAccessExpression(callee) && callee.getName() === 'optional') {
+      return { inner: callee.getExpression(), optional: true }
+    }
+  }
+  return { inner: expression, optional: false }
 }
 
 /**
  * Lê os campos da entidade em `src/schemas/entities/<entidade>.ts`, com o ts-morph: acha o
  * `z.object({ ... })` do `<entidade>Schema` e reconhece cada campo (fora `id` e `createdAt`) pelos
- * tipos do `--fields`, com o `.optional()`. Devolve os mesmos `Field[]` que o `parseFields` leu na
- * hora de gerar o schema, na ordem do arquivo. É o contrato do `make:repository` e do `make:query`
- * com o `make:schema`. Erro de uso (`UsageError`, saída 2): o schema não existe (com a dica do
- * `make:schema`), não tem o `z.object` ou tem um campo que não é dos tipos do `--fields`
- * (o schema foi editado à mão), com o arquivo, a linha e o nome do campo.
+ * tipos do `--fields`, com o `.optional()`, lendo a árvore (os valores do enum são os literais do
+ * array, com a vírgula final ou não). Devolve os mesmos `Field[]` que o `parseFields` leu na hora
+ * de gerar o schema, na ordem do arquivo. É o contrato do `make:repository` e do `make:query` com
+ * o `make:schema`. Erro de uso (`UsageError`, saída 2): o schema não existe (com a dica do
+ * `make:schema`, e o `--entity` se a entidade não é a derivada), não tem o `z.object`, não tem
+ * `id` e `createdAt` como `z.string()`, ou tem um campo que o `--fields` não geraria (nome que
+ * não é um identificador em camelCase, repetido, tipo fora dos tipos, enum com valor inválido,
+ * repetido ou menos de dois valores), com o arquivo, a linha e o nome do campo.
  */
 export function readEntityFields(plan: ChangePlan, names: DomainNames): Field[] {
   const relative = schemaFile(names)
   const file = path.join(plan.project.root, relative)
   if (!plan.hasFile(file)) {
     throw new UsageError(
-      `falta o schema ${names.plural.kebab} (${relative}); rode prumo make:schema ${names.plural.kebab}.`,
+      `falta o schema ${names.plural.kebab} (${relative}); rode prumo make:schema ${names.plural.kebab}${entityFlag(names)}.`,
     )
   }
   const object = schemaObject(plan, names, file)
@@ -430,28 +464,48 @@ export function readEntityFields(plan: ChangePlan, names: DomainNames): Field[] 
       `${relative} não tem 'export const ${names.singular.camel}Schema = z.object({ ... })': não sei ler os campos.`,
     )
   }
+  const fail = (line: number, reason: string): never => {
+    throw new UsageError(`${relative}:${line}: ${reason}.`)
+  }
   const fields: Field[] = []
+  const seen = new Set<string>()
   for (const property of object.getProperties()) {
     const line = property.getStartLineNumber()
-    if (!Node.isPropertyAssignment(property)) {
-      throw new UsageError(
-        `${relative}:${line}: não reconheço '${property.getText().split('\n')[0]}' no ${names.singular.camel}Schema (só campos 'nome: z.tipo()', nos tipos do --fields).`,
+    if (!Node.isPropertyAssignment(property) || !Node.isIdentifier(property.getNameNode())) {
+      fail(
+        line,
+        `não reconheço '${property.getText().split('\n')[0]}' no ${names.singular.camel}Schema (só campos 'nome: z.tipo()', com o nome sem aspas, nos tipos do --fields)`,
       )
     }
-    const name = property.getName()
-    if (RESERVED_FIELDS.has(name)) continue
-    const text = (property.getInitializer()?.getText() ?? '').replace(/\s+/g, '')
-    const optional = text.endsWith('.optional()')
-    const parsed = fieldOfZod(optional ? text.slice(0, -'.optional()'.length) : text)
-    if (!parsed) {
-      throw new UsageError(
-        `${relative}:${line}: não reconheço o tipo do campo '${name}' (${property.getInitializer()?.getText().replace(/\s+/g, ' ') ?? 'sem valor'}). O Prumo lê string, number, int, boolean, date, datetime e enum, com .optional() (z.string(), z.number().int(), z.iso.date(), z.enum([...])...).`,
+    const name = (property as PropertyAssignment).getName()
+    const initializer = (property as PropertyAssignment).getInitializer()
+    if (seen.has(name)) fail(line, `o campo '${name}' aparece mais de uma vez`)
+    seen.add(name)
+    if (!initializer) fail(line, `o campo '${name}' não tem tipo`)
+    const { inner, optional } = withoutOptional(initializer!)
+    if (RESERVED_FIELDS.has(name)) {
+      if (optional || inner.getText() !== 'z.string()') {
+        fail(line, `o campo '${name}' precisa ser z.string(): o repositório dá ${name} a todo registro`)
+      }
+      continue
+    }
+    if (!/^[a-z][A-Za-z0-9]*$/.test(name)) {
+      fail(line, `'${name}' não é um nome em camelCase (letra minúscula primeiro; só letras e números)`)
+    }
+    const parsed = typeOfZod(inner)
+    if (typeof parsed === 'string') fail(line, `campo '${name}': ${parsed}`)
+    fields.push({ name, ...(parsed as Omit<Field, 'name' | 'optional'>), optional })
+  }
+  for (const reserved of RESERVED_FIELDS) {
+    if (!seen.has(reserved)) {
+      fail(
+        object.getStartLineNumber(),
+        `falta o campo '${reserved}: z.string()' no ${names.singular.camel}Schema: o repositório e as fixtures dependem dele`,
       )
     }
-    fields.push({ name, ...parsed, optional })
   }
   if (fields.length === 0) {
-    throw new UsageError(`${relative}: o ${names.singular.camel}Schema não tem nenhum campo além de id e createdAt.`)
+    fail(object.getStartLineNumber(), `o ${names.singular.camel}Schema não tem nenhum campo além de id e createdAt`)
   }
   return fields
 }

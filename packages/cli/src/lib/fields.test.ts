@@ -344,7 +344,7 @@ describe('readEntityFields', () => {
     const plan = planWith(SCHEMA(`  titulo: z.string(),\n  preco: z.string().min(3),`))
     expect(() => readEntityFields(plan, names)).toThrow(UsageError)
     expect(() => readEntityFields(plan, names)).toThrow(
-      /src\/schemas\/entities\/livro\.ts:6: não reconheço o tipo do campo 'preco' \(z\.string\(\)\.min\(3\)\)/,
+      /src\/schemas\/entities\/livro\.ts:6: campo 'preco': não reconheço o tipo \(z\.string\(\)\.min\(3\)\)/,
     )
   })
 
@@ -352,12 +352,15 @@ describe('readEntityFields', () => {
     ['z.array(z.string())'],
     ['z.string().nullable()'],
     ['z.enum(["a"])'],
+    ["z.enum(['a', 'a'])"],
+    ["z.enum(['em andamento', 'ok'])"],
+    ["z.enum(['1a', 'b'])"],
     ['z.enum(valores)'],
     ['z.date()'],
     ['z.string().optional().optional()'],
   ])('recusa %s', (zod) => {
     const plan = planWith(SCHEMA(`  campo: ${zod},`))
-    expect(() => readEntityFields(plan, names)).toThrow(/não reconheço o tipo do campo 'campo'/)
+    expect(() => readEntityFields(plan, names)).toThrow(/livro\.ts:5: campo 'campo'/)
   })
 
   it('recusa spread e atalho de propriedade, com a linha', () => {
@@ -370,6 +373,82 @@ describe('readEntityFields', () => {
     expect(() => readEntityFields(plan, names)).toThrow(
       'falta o schema livros (src/schemas/entities/livro.ts); rode prumo make:schema livros.',
     )
+  })
+
+  it('a dica do schema que falta traz o --entity quando o singular não é o derivado', () => {
+    const plan = new ChangePlan(findProject(makeProject({}, ['src'])))
+    expect(() => readEntityFields(plan, domainNames('clientes', 'cli'))).toThrow(
+      'rode prumo make:schema clientes --entity cli.',
+    )
+    expect(() => readEntityFields(plan, domainNames('categories', 'category'))).toThrow(
+      'rode prumo make:schema categories --entity category.',
+    )
+    // paes e pao: o automático já é pao, sem --entity
+    expect(() => readEntityFields(plan, domainNames('paes', 'pao'))).toThrow(
+      /make:schema paes\.$/,
+    )
+    expect(() => readEntityFields(plan, domainNames('paes'))).toThrow(
+      'rode prumo make:schema paes.',
+    )
+    expect(() => readEntityFields(plan, domainNames('paes', 'paozinho'))).toThrow(
+      '--entity paozinho.',
+    )
+  })
+
+  it('não altera os valores do enum: espaços dentro das aspas são recusados, não apagados', () => {
+    const plan = planWith(SCHEMA("  situacao: z.enum(['em andamento', 'concluido']),"))
+    expect(() => readEntityFields(plan, names)).toThrow(
+      /livro\.ts:5: campo 'situacao': o valor 'em andamento' do enum não é válido/,
+    )
+  })
+
+  it('lê o enum em várias linhas com vírgula no fim (Prettier), obrigatório ou opcional', () => {
+    const plan = planWith(
+      SCHEMA(`  situacao: z.enum([
+    'lido',
+    'lendo',
+    'desejado',
+  ]),
+  tipo: z
+    .enum([
+      'a',
+      'b',
+    ])
+    .optional(),`),
+    )
+    expect(readEntityFields(plan, names)).toEqual([
+      { name: 'situacao', type: 'enum', values: ['lido', 'lendo', 'desejado'], optional: false },
+      { name: 'tipo', type: 'enum', values: ['a', 'b'], optional: true },
+    ])
+  })
+
+  it.each([
+    ["'nome-completo': z.string()", /livro\.ts:5: não reconheço/],
+    ["['titulo']: z.string()", /livro\.ts:5: não reconheço/],
+    ['1: z.string()', /livro\.ts:5: não reconheço/],
+    ["'id': z.number()", /livro\.ts:5: não reconheço/],
+    ['Titulo: z.string()', /'Titulo' não é um nome em camelCase/],
+    ['nome_completo: z.string()', /não é um nome em camelCase/],
+    ['titulo: z.string(), titulo: z.number()', /o campo 'titulo' aparece mais de uma vez/],
+  ])('recusa o nome de campo %s', (field, message) => {
+    const plan = planWith(SCHEMA(`  ${field},`))
+    expect(() => readEntityFields(plan, names)).toThrow(UsageError)
+    expect(() => readEntityFields(plan, names)).toThrow(message)
+  })
+
+  it('exige id e createdAt como z.string()', () => {
+    const noId = planWith(
+      "export const livroSchema = z.object({\n  titulo: z.string(),\n  createdAt: z.string(),\n})\n",
+    )
+    expect(() => readEntityFields(noId, names)).toThrow(/falta o campo 'id: z\.string\(\)'/)
+    const noDate = planWith(
+      "export const livroSchema = z.object({\n  id: z.string(),\n  titulo: z.string(),\n})\n",
+    )
+    expect(() => readEntityFields(noDate, names)).toThrow(/falta o campo 'createdAt/)
+    const wrong = planWith(
+      "export const livroSchema = z.object({\n  id: z.number(),\n  titulo: z.string(),\n  createdAt: z.string(),\n})\n",
+    )
+    expect(() => readEntityFields(wrong, names)).toThrow(/livro\.ts:2: o campo 'id' precisa ser z\.string\(\)/)
   })
 
   it('recusa o arquivo sem o z.object do schema e o schema sem campos', () => {

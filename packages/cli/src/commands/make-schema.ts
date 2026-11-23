@@ -2,6 +2,7 @@ import path from 'node:path'
 import { generateSchema } from '../generators/schema.ts'
 import { UsageError } from '../errors.ts'
 import { describeField } from '../lib/fields.ts'
+import { entityFlag } from '../lib/names.ts'
 import { findProject } from '../lib/project.ts'
 import { formatSummary } from './summary.ts'
 import type { RegisterCommand } from './index.ts'
@@ -56,10 +57,14 @@ Valida tudo antes de escrever (nome, entidade, campos, schema que já existe e o
       const dryRun = options.dryRun === true
       const summary = dryRun ? plan.summary() : plan.commit()
       const heading = `prumo make:schema: ${names.plural.kebab} (entidade ${names.singular.kebab})${dryRun ? ' (simulação)' : ''}.`
+      const derived = options.entity === undefined
+      const entityLine = derived
+        ? `Entidade: ${names.singular.kebab}, derivada do nome (tira o s final; o português tem exceções, como -ores, -oes, -aes e -ens). Use --entity <singular> para trocá-la.`
+        : `Entidade: ${names.singular.kebab} (--entity).`
       const fieldsLine = `Campos: ${fields.map(describeField).join(', ')}.`
       const ending = dryRun
         ? 'Simulação (--dry-run): nada foi escrito.\n'
-        : `Próximo passo: prumo make:repository ${names.plural.kebab}${options.entity === undefined ? '' : ` --entity ${names.singular.kebab}`}\n`
-      io.out(`${heading}\n${fieldsLine}\n\n${formatSummary(summary, dryRun)}\n${ending}`)
+        : `Próximo passo: prumo make:repository ${names.plural.kebab}${entityFlag(names)}\n`
+      io.out(`${heading}\n${entityLine}\n${fieldsLine}\n\n${formatSummary(summary, dryRun)}\n${ending}`)
     })
 }

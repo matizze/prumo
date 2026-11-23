@@ -14,6 +14,8 @@ describe('prumo make:schema', () => {
     expect(result.code, result.stderr).toBe(0)
     expect(result.stderr).toBe('')
     expect(result.stdout).toContain('prumo make:schema: clientes (entidade cliente).')
+    expect(result.stdout).toContain('Entidade: cliente, derivada do nome')
+    expect(result.stdout).toContain('Use --entity <singular> para trocá-la.')
     expect(result.stdout).toContain('Campos: name (string).')
     expect(result.stdout).toContain('Criados (1):\n  src/schemas/entities/cliente.ts')
     expect(result.stdout).toContain('Alterados (1):\n  src/schemas/index.ts')
@@ -31,8 +33,26 @@ describe('prumo make:schema', () => {
 
     expect(result.code, result.stderr).toBe(0)
     expect(result.stdout).toContain('Campos: nome (string), peso (int, opcional), tipo (enum(a|b)).')
-    expect(result.stdout).toContain('Próximo passo: prumo make:repository paes --entity pao')
+    expect(result.stdout).toContain('Entidade: pao (--entity).')
+    // pao já é o singular derivado de paes: o próximo passo não precisa do --entity
+    expect(result.stdout).toContain('Próximo passo: prumo make:repository paes\n')
     expect(read(root, 'src/schemas/entities/pao.ts')).toContain('  peso: z.number().int().optional(),')
+  })
+
+  it('a entidade derivada do português: fornecedores vira fornecedor, e paes sem --entity vira pao', async () => {
+    const { root } = fixtureProject()
+    const result = await exec(['make:schema', 'fornecedores'], root)
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).toContain('Entidade: fornecedor, derivada')
+    expect(result.stdout).toContain('Próximo passo: prumo make:repository fornecedores\n')
+    expect(existsSync(path.join(root, 'src/schemas/entities/fornecedor.ts'))).toBe(true)
+  })
+
+  it('o próximo passo traz o --entity quando a entidade não é a derivada', async () => {
+    const { root } = fixtureProject()
+    const result = await exec(['make:schema', 'categories', '--entity', 'category'], root)
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).toContain('Próximo passo: prumo make:repository categories --entity category')
   })
 
   it('--root aponta para o projeto', async () => {

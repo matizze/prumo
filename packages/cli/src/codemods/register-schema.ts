@@ -22,6 +22,17 @@ function appendLine(file: SourceFile, line: string): TextEdit {
   return { pos: end, end, text: `${text === '' || text.endsWith('\n') ? '' : '\n'}${line}\n` }
 }
 
+/**
+ * A edição que acrescenta `line` na linha de baixo de onde termina o último export: depois do fim
+ * da linha, para um comentário na mesma linha (`export * from './a' // nota`) ficar com o export dele.
+ */
+function afterLine(file: SourceFile, end: number, line: string): TextEdit {
+  const text = file.getFullText()
+  const newline = text.indexOf('\n', end)
+  if (newline === -1) return { pos: text.length, end: text.length, text: `\n${line}\n` }
+  return { pos: newline, end: newline, text: `\n${line}` }
+}
+
 /** As aspas e o ponto e vírgula do estilo do arquivo, copiados de uma declaração com módulo. */
 function styleOf(declaration: ExportDeclaration | undefined): { quote: string; semicolon: string } {
   const specifier = declaration?.getModuleSpecifier()
@@ -50,7 +61,5 @@ export function registerSchema(plan: ChangePlan, to: DomainNames): void {
   const last = exports[exports.length - 1]
   const { quote, semicolon } = styleOf(last)
   const line = `export * from ${quote}${specifier}${quote}${semicolon}`
-  applyEdits(index, [
-    last ? { pos: last.getEnd(), end: last.getEnd(), text: `\n${line}` } : appendLine(index, line),
-  ])
+  applyEdits(index, [last ? afterLine(index, last.getEnd(), line) : appendLine(index, line)])
 }

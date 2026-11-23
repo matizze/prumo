@@ -5,6 +5,7 @@ import { domainNames } from './codemod/index.ts'
 import { APP_FILES } from './generate/app.ts'
 import { COMPONENT_FILES } from './generate/component.ts'
 import { DOMAIN_FILES } from './generate/domain.ts'
+import { DEFAULT_FIELDS, domainFieldVars } from './generate/fields.ts'
 import {
   PAGE_DETAIL_FILES,
   PAGE_DOMAIN_FILES,
@@ -119,7 +120,7 @@ describe('os modelos', () => {
     }
     for (const marker of markers)
       expect(marker).toMatch(
-        /^((plural|singular|page|domain|component|app)\.(kebab|pascal|camel|constant|title)|route\.(path|example)|param\.(name|example)|detail\.hook)$/,
+        /^((plural|singular|page|domain|component|app)\.(kebab|pascal|camel|constant|title)|route\.(path|example)|param\.(name|example)|detail\.hook|field\.(name|sample)|fields\.[A-Za-z]+|test\.[A-Za-z]+)$/,
       )
   })
 
@@ -138,6 +139,9 @@ describe('os modelos', () => {
       'param.name': 'id',
       'param.example': 'exemplo',
       'detail.hook': 'useClienteDetail',
+      'field.name': 'name',
+      'field.sample': "'Exemplo 1'",
+      ...domainFieldVars(DEFAULT_FIELDS, 'cliente'),
     }
     for (const { template } of GENERATED) {
       const text = renderTemplateFile(template, vars)

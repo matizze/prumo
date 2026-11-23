@@ -15,5 +15,5 @@ it('mostra o título e, depois de carregar, o registro da rota', async () => {
   )
 
   expect(screen.getByRole('heading', { name: '{{page.title}}' })).toBeDefined()
-  expect(await screen.findByText('Exemplo 1')).toBeDefined()
+  expect(await screen.findByText({{field.sample}})).toBeDefined()
 })

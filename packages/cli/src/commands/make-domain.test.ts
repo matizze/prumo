@@ -136,6 +136,34 @@ Para rodar os testes do domínio novo:
     expect(readdirSync(outside)).toEqual([])
   })
 
+  it('--fields gera os campos, lista-os na saída e o schema não tem name', async () => {
+    const { root } = fixtureProject()
+    const result = await run(
+      ['make:domain', 'livros', '--fields', 'titulo:string,ano:number,apelido?:string'],
+      root,
+    )
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).toContain(
+      'prumo make:domain: livros (entidade livro).\nCampos: titulo (string), ano (number), apelido (string, opcional).',
+    )
+    expect(result.stdout).toContain('Os campos vieram de --fields')
+    const schema = read(root, 'src/schemas/entities/livro.ts')
+    expect(schema).toContain('  titulo: z.string(),\n  ano: z.number(),')
+    expect(schema).not.toContain('name')
+  })
+
+  it('--fields inválido sai com 2, diz o formato e não escreve nada', async () => {
+    const { root } = fixtureProject()
+    const before = snapshot(root)
+    const result = await run(['make:domain', 'livros', '--fields', 'id:string'], root)
+
+    expect(result.code).toBe(2)
+    expect(result.stderr).toContain("'id' é reservado")
+    expect(result.stderr).toContain('Formato: nome:tipo')
+    expect(snapshot(root)).toEqual(before)
+  })
+
   it('--dry-run lista o que seria feito e não escreve nada', async () => {
     const { root } = fixtureProject()
     const before = snapshot(root)
@@ -259,7 +287,7 @@ Para rodar os testes do domínio novo:
 
     expect(help.code).toBe(0)
     expect(help.stdout).toContain(
-      'Uso: prumo make:domain <nome> [--entity <singular>] [--root <pasta>] [--dry-run]',
+      'Uso: prumo make:domain <nome> [--entity <singular>] [--fields <campos>] [--root <pasta>] [--dry-run]',
     )
     expect(help.stdout).toContain('--dry-run')
     expect(help.stdout).toContain('src/schemas/entities/<entidade>.ts')

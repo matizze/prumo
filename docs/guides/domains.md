@@ -8,6 +8,8 @@ Um domínio é um conjunto de dados do produto, como clientes, pedidos ou produt
 pnpm exec prumo make:domain clientes
 ```
 
+Sem `--fields`, a entidade tem um campo de texto, `name`. Para os campos do seu domínio, peça-os na criação (próxima seção).
+
 O nome é o do domínio, **no plural e em kebab-case**. A entidade é o singular, e o Prumo a deriva tirando o `s` final: `clientes` → `cliente`, `pedidos-recentes` → `pedidos-recente`. Quando a regra erra, informe a entidade com `--entity`:
 
 ```bash
@@ -30,6 +32,34 @@ O que é criado, para `clientes`:
 | `src/queries/clientes.ts`                                | `clienteKeys`, `clienteQueries` e os hooks                                                |
 
 E registra o domínio em `src/schemas/index.ts`, `src/queries/index.ts` e no container (`src/repositories/index.ts`). Rode os testes dele com `pnpm test src/repositories/clientes`.
+
+## Os campos do domínio (`--fields`)
+
+Passe os campos da entidade em `--fields`, no formato `nome:tipo` separados por vírgula (entre aspas, por causa do `?` e das vírgulas):
+
+```bash
+pnpm exec prumo make:domain livros --fields "titulo:string,autor:string,ano:number,disponivel:boolean,publicadoEm:date,apelido?:string"
+```
+
+| Tipo       | No schema (zod)        | Exemplo de valor                |
+| ---------- | ---------------------- | ------------------------------- |
+| `string`   | `z.string()`           | `'Titulo 1'`                    |
+| `number`   | `z.number()`           | `10`                            |
+| `boolean`  | `z.boolean()`          | `true`                          |
+| `date`     | `z.iso.date()`         | `'2026-01-05'` (`AAAA-MM-DD`)   |
+| `datetime` | `z.iso.datetime()`     | `'2026-01-05T12:00:00.000Z'`    |
+
+O nome do campo é camelCase (começa com letra minúscula; só letras e números). Um `?` depois do nome torna o campo opcional (`apelido?:string` vira `z.string().optional()`). O comando recusa, sem escrever nada, `id` e `createdAt` (o repositório já os dá a todo registro), nomes repetidos, tipos desconhecidos e listas mal formadas.
+
+A partir dos campos, o comando gera coerentes entre si:
+
+- **o schema** (`livroSchema`) e **o de entrada** (`livroInputSchema`, com todos os campos, sem `id` nem `createdAt`), e a `LivroSortKey` com os campos que ordenam (todos menos os booleanos) e `createdAt`;
+- **as fixtures**: três registros com valores de exemplo por tipo (texto `Titulo 1`, número `10`, `20`, `30`, booleano alternado, datas crescentes), para a ordem do contrato ser previsível;
+- **o mock**: a busca nos campos de texto (sem campo de texto, no `id`), a ordem por cada campo que ordena, e `create` e `update` com todos os campos;
+- **o teste de contrato**: busca, ordem, criação e edição usam os campos gerados;
+- **as telas** de `make:page --domain`: a lista e o detalhe mostram o primeiro campo de texto obrigatório do schema (veja [Páginas](pages.md)).
+
+Os textos de exemplo das fixtures são genéricos: troque pelos dados do seu produto. O contrato continua verde enquanto as fixtures e o contrato andam juntos (veja abaixo).
 
 ## O contrato
 
@@ -76,7 +106,7 @@ Cada teste recebe uma instância nova do repositório, então um teste que cria 
 
 ## Mudar a forma do dado
 
-O domínio nasce com `id`, `name` e `createdAt`. Para acrescentar um campo, comece pelo schema e deixe o TypeScript apontar o resto.
+O caminho principal é pedir os campos na criação, com `--fields` (seção anterior). Esta seção vale para mudar a forma **depois**: o domínio nasceu sem `--fields` (só com `id`, `name` e `createdAt`), ou o produto ganhou um campo. Para acrescentar um campo, comece pelo schema e deixe o TypeScript apontar o resto.
 
 **1. O schema e a entrada:**
 
@@ -134,7 +164,7 @@ Se quiser buscar ou ordenar pelo campo novo, acrescente-o nessas duas listas e a
 
 ### Onde o `name` aparece
 
-Trocar ou tirar o `name` (em vez de só acrescentar campos) mexe em todos estes lugares, e o `tsc` nem sempre acusa todos:
+Trocar ou tirar o `name` (em vez de só acrescentar campos) mexe em todos estes lugares, e o `tsc` nem sempre acusa todos (um domínio criado com `--fields` já nasce sem eles):
 
 | Onde                                                                        | O que o cita                                                        |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------- |

@@ -2,6 +2,7 @@ import { defineCommand } from 'citty'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { generateDomain } from '../generate/domain.ts'
+import { describeField } from '../generate/fields.ts'
 import { findProject } from '../project.ts'
 import type { Runtime } from '../runtime.ts'
 import { checkBefore, finishWithCheck, formatSummary, testCommandFor } from './shared.ts'
@@ -20,7 +21,7 @@ export function createMakeDomainCommand(runtime: Runtime) {
       name: 'make:domain',
       description: `Gera um domínio de dados novo: schema, repositório com mock, queries e teste de contrato.
 
-Cria o schema da entidade (src/schemas/entities/<entidade>.ts, com zod: id, name e createdAt), o
+Cria o schema da entidade (src/schemas/entities/<entidade>.ts, com zod: id, os campos e createdAt), o
 repositório (src/repositories/<nome>/: contrato, mock com fixtures e a latência simulada do core,
 index e o teste de contrato do @matizze/prumo-testing) e as queries (src/queries/<nome>.ts: query
 keys do core, as queries e os hooks de lista, detalhe e mutations do TanStack Query). Acrescenta o texto de <ENTIDADE>_NOT_FOUND (o código que o mock lança) ao errors.json de cada
@@ -33,6 +34,14 @@ O nome é o do domínio, no plural e em kebab-case (clientes, pedidos-recentes).
 singular, que sai do nome (tira o s final). Onde a regra erra (o plural termina em ies, us, ss, xes,
 ches, shes ou sses), o comando recusa e pede a entidade com --entity: categories daria categorie, e
 o certo é --entity category.
+
+Os campos da entidade vêm de --fields, no formato nome:tipo separados por vírgula
+("titulo:string,ano:number,disponivel:boolean,publicadoEm:date"): nome em camelCase e tipo string,
+number, boolean, date (AAAA-MM-DD) ou datetime (ISO com hora); um ? depois do nome torna o campo
+opcional ("apelido?:string"). Os nomes id e createdAt são reservados, e um nome repetido é recusado.
+Com os campos, o schema, o schema de entrada, as fixtures (três registros), o mock (busca nos campos
+de texto, ordem pelos campos, create e update) e o teste de contrato saem coerentes com eles; make:page
+--domain mostra o primeiro campo de texto. Sem --fields, o domínio tem só o campo name, de texto.
 
 Os hooks pegam o repositório de useRepositories(), de src/providers/repository, e o teste de
 contrato é o que o mock cumpre: edite o schema e as fixtures depois, e o contrato junto.
@@ -54,6 +63,12 @@ já existe, índice que falta.`,
         description:
           'A entidade, no singular (por exemplo, cliente). Padrão: o nome sem o s final.',
       },
+      fields: {
+        type: 'string',
+        valueHint: 'campos',
+        description:
+          'Os campos da entidade, nome:tipo separados por vírgula (por exemplo, "titulo:string,ano:number,apelido?:string"). Tipos: string, number, boolean, date, datetime; ? torna opcional. Padrão: só name:string.',
+      },
       root: {
         type: 'string',
         valueHint: 'pasta',
@@ -66,9 +81,14 @@ já existe, índice que falta.`,
     },
     run({ args }) {
       const project = findProject(path.resolve(runtime.cwd, args.root ?? '.'))
-      const { plan, names, warnings } = generateDomain(project, { name: args.nome, entity: args.entity })
+      const { plan, names, fields, warnings } = generateDomain(project, {
+        name: args.nome,
+        entity: args.entity,
+        fields: args.fields,
+      })
       const warningsText = warnings.map((warning) => `Aviso: ${warning}\n`).join('') + (warnings.length > 0 ? '\n' : '')
-      const heading = `prumo make:domain: ${names.plural.kebab} (entidade ${names.singular.kebab}).`
+      const fieldsText = args.fields === undefined ? '' : `\nCampos: ${fields.map(describeField).join(', ')}.`
+      const heading = `prumo make:domain: ${names.plural.kebab} (entidade ${names.singular.kebab}).${fieldsText}`
 
       if (args['dry-run']) {
         runtime.out(
@@ -89,7 +109,11 @@ já existe, índice que falta.`,
       const provider = hasProvider
         ? ''
         : `As queries importam useRepositories de @/providers/repository, e o projeto não tem src/providers/repository: crie-o com createRepositoryContext, de @matizze/prumo-core/repositories.\n`
-      const next = `Edite o schema (${schema}) e as fixtures (${fixtures}); o teste de contrato acompanha.\n${provider}\nPara rodar os testes do domínio novo:\n  ${testCommandFor(project, runtime.cwd, `src/repositories/${names.plural.kebab}`)}\n`
+      const edit =
+        args.fields === undefined
+          ? `Edite o schema (${schema}) e as fixtures (${fixtures}); o teste de contrato acompanha.`
+          : `Os campos vieram de --fields. Para mudar a forma do dado depois, edite o schema (${schema}), as fixtures (${fixtures}), o mock e o teste de contrato (guia docs/guides/domains.md).`
+      const next = `${edit}\n${provider}\nPara rodar os testes do domínio novo:\n  ${testCommandFor(project, runtime.cwd, `src/repositories/${names.plural.kebab}`)}\n`
 
       finishWithCheck(runtime, project, { generated: 'o domínio foi gerado', next, before })
     },

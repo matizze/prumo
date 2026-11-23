@@ -52,7 +52,10 @@ try {
       throw new Error(`o servidor não expõe a ferramenta ${expected} (expõe: ${names.join(', ')})`)
     }
   }
-  await call('make_domain', { nome: 'fornecedores' })
+  await call('make_domain', {
+    nome: 'fornecedores',
+    fields: 'razaoSocial:string,cnpj:string,ativo:boolean,desde:date,nota?:number',
+  })
   await call('make_page', { nome: 'fornecedores', domain: 'fornecedores' })
   await call('make_page', { nome: 'ficha', path: '/fornecedores/:codigo' })
   await call('make_component', { nome: 'detalhe', page: 'fornecedores' })

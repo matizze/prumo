@@ -21,10 +21,9 @@ export class Mock{{plural.pascal}}Repository implements I{{plural.pascal}}Reposi
 
   async list(query: {{singular.pascal}}ListQuery = {}): Promise<Page<{{singular.pascal}}Schema>> {
     await wait(this.latencyMs)
-    const filtered = this.items.filter((item) => matchesSearch([item.name], query.search))
+    const filtered = this.items.filter((item) => matchesSearch([{{fields.search}}], query.search))
     const sorted = sortBy(filtered, query.sort, {
-      name: (item) => item.name,
-      createdAt: (item) => item.createdAt,
+{{fields.sortAccessors}}
     })
     return paginate(sorted, query.page, query.page_size)
   }
@@ -39,7 +38,7 @@ export class Mock{{plural.pascal}}Repository implements I{{plural.pascal}}Reposi
     this.sequence += 1
     const item: {{singular.pascal}}Schema = {
       id: `{{singular.kebab}}-${this.sequence}`,
-      name: input.name,
+{{fields.create}}
       createdAt: new Date().toISOString(),
     }
     this.items.push(item)

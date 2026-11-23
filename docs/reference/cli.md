@@ -143,13 +143,15 @@ Os idiomas do projeto são as pastas de `src/messages` que têm `index.ts`. Os i
 - `src/messages/<idioma>/index.ts`: o import do JSON e o namespace (`<nome>` em camelCase) no `export default`, em ordem alfabética.
 - `src/App.tsx`: o import da tela (na ordem dos imports de `@/pages`) e a rota (`/<nome>`, ou a de `--path`), depois da última `<Route>` com `path` do `<Switch>` mais externo. Uma rota curinga continua por último.
 
-**Com `--domain <domínio>`**, o model lê a lista com `use<Domínio>List()` de `@/queries/<domínio>` e devolve `{ title, loadingText, failedText, items, loading, failed }`, e a view mostra o carregando, o erro (`role="alert"`) e a lista (`<ul>`). O comando confere antes que `src/queries/<domínio>.ts` existe e tem o hook.
+**Com `--domain <domínio>`**, o model lê a lista com `use<Domínio>List()` de `@/queries/<domínio>` e devolve `{ title, loadingText, failedText, items, loading, failed }`, e a view mostra o carregando, o erro (`role="alert"`) e a lista (`<ul>`), com o **primeiro campo de texto** de cada registro. O comando confere antes que `src/queries/<domínio>.ts` existe e tem o hook.
+
+O campo vem do schema que o projeto tem hoje (`src/schemas/entities/<entidade>.ts`; o app pode tê-lo editado depois do `make:domain`): o primeiro `z.string()` obrigatório, fora `id` e `createdAt`; se todos os de texto são opcionais, o primeiro deles. Sem campo de texto, ou se o schema não for encontrado, a tela mostra o `id` e o comando avisa na saída (`Aviso: ...`).
 
 **Com `--path <caminho>`**, a rota é a do caminho, em vez de `/<nome>`. O caminho começa com `/`, tem segmentos fixos (letras, números, `-`, `_`, `.`, `~`) e **no máximo um parâmetro** `:nome` (um identificador; sem `?`, `*` nem `+`). Sem parâmetro, só a rota muda. Com parâmetro (`/livros/:id`):
 
 - o model lê o valor com o `useParams` do wouter e devolve `{ title, params: { id } }`, e a view o mostra;
 - o teste renderiza a tela dentro de `<Route path="/livros/:id">`, com o caminho inicial `/livros/exemplo`, e confere que o valor chega à tela (veja [Testes](../guides/test.md#rotas-com-parâmetro));
-- junto de `--domain`, a tela é de **detalhe**: o model busca o registro com o `use<Entidade>Detail(id)` do domínio e devolve `{ title, loadingText, failedText, item, loading, failed }`; a view mostra o carregando, o erro e o `name`; os textos `loading` e `failed` entram nos JSONs; o teste usa o id do primeiro registro do mock (`<entidade>-1`) e espera o `Exemplo 1`. O comando confere antes que `src/queries/<domínio>.ts` tem o hook `use<Entidade>Detail`.
+- junto de `--domain`, a tela é de **detalhe**: o model busca o registro com o `use<Entidade>Detail(id)` do domínio e devolve `{ title, loadingText, failedText, item, loading, failed }`; a view mostra o carregando, o erro e esse mesmo campo de texto; os textos `loading` e `failed` entram nos JSONs; o teste usa o id do primeiro registro do mock (`<entidade>-1`) e espera o valor desse campo no primeiro registro das fixtures (lido de `src/repositories/<domínio>/fixtures.ts`; num domínio sem `--fields`, `Exemplo 1`). O comando confere antes que `src/queries/<domínio>.ts` tem o hook `use<Entidade>Detail`.
 
 **Recusa (código 2):** nome inválido ou reservado; `--path` inválido (sem `/` no começo, com barra no fim ou `//`, segmento com caracteres fora dos permitidos, parâmetro com modificador ou nome inválido, mais de um parâmetro), ou que repete ou conflita com uma rota do `App.tsx`; tela que já existe; domínio que não existe ou sem o hook de lista; projeto sem `src/messages` ou sem idioma; `index.ts` de mensagens sem `export default { ... }`; namespace já registrado com outro arquivo; `App.tsx` sem `<Switch>`; rota que repete ou conflita com outra.
 
@@ -170,17 +172,30 @@ pnpm exec prumo make:page pedidos-recentes --dry-run
 Gera um domínio de dados.
 
 ```text
-prumo make:domain <nome> [--entity <singular>] [--root <pasta>] [--dry-run]
+prumo make:domain <nome> [--entity <singular>] [--fields <campos>] [--root <pasta>] [--dry-run]
 ```
 
 | Argumento ou opção     | Descrição                                                                            |
 | ---------------------- | ------------------------------------------------------------------------------------ |
 | `<nome>`               | O nome do domínio, **no plural** e em kebab-case.                                    |
 | `--entity <singular>`  | A entidade, no singular. Padrão: o nome sem o `s` final.                             |
+| `--fields <campos>`    | Os campos da entidade, `nome:tipo` separados por vírgula. Padrão: só `name:string`.  |
 | `--root <pasta>`       | A pasta do projeto. Padrão: a atual.                                                 |
 | `--dry-run`            | Só lista o que seria criado e alterado.                                              |
 
 **A entidade.** Sem `--entity`, o singular é o nome sem o `s` final (`clientes` → `cliente`). O comando recusa, pedindo `--entity`, o nome que não termina em `s` e os plurais em que a regra erra: os terminados em `ies`, `sses`, `xes`, `ches` e `shes` (com o singular provável na mensagem: `categories` sugere `--entity category`) e os terminados em `us` e `ss`, que parecem singulares (`status`, `address`). A entidade precisa diferir do nome do domínio.
+
+**Os campos (`--fields`).** Uma lista `nome:tipo` separada por vírgula, entre aspas: `"titulo:string,ano:number,apelido?:string"`. O nome é camelCase (letra minúscula primeiro; só letras e números); o tipo é `string`, `number`, `boolean`, `date` (`AAAA-MM-DD`) ou `datetime` (ISO com hora); um `?` depois do nome torna o campo opcional. Sem `--fields`, a entidade tem só `name`, de texto, e a saída é a de sempre.
+
+| Tipo       | Schema (zod)         | Valor de exemplo nas fixtures        |
+| ---------- | -------------------- | ------------------------------------ |
+| `string`   | `z.string()`         | `Titulo 1`, `Titulo 2`, `Titulo 3`   |
+| `number`   | `z.number()`         | `10`, `20`, `30`                     |
+| `boolean`  | `z.boolean()`        | `true`, `false`, `true`              |
+| `date`     | `z.iso.date()`       | `2026-01-05`, `2026-01-14`, ...      |
+| `datetime` | `z.iso.datetime()`   | `2026-01-05T12:00:00.000Z`, ...      |
+
+Com os campos, saem coerentes: o schema e o `...InputSchema` (todos os campos, sem `id` nem `createdAt`); a `...SortKey` (os campos que ordenam, todos menos `boolean`, e `createdAt`); as fixtures; o mock (a busca nos campos de texto, ou no `id` se não há texto; a ordem por cada campo que ordena; `create` e `update` com todos os campos); e o teste de contrato. O `make:page --domain` lê o schema que existe e mostra o primeiro campo de texto obrigatório (veja [`make:page`](#prumo-makepage)). Recusa (código 2), sem escrever nada: lista vazia, item fora do formato `nome:tipo`, nome que não é camelCase, `id` e `createdAt` (reservados), nome repetido e tipo desconhecido.
 
 **Cria** (para `clientes`, entidade `cliente`):
 
@@ -214,6 +229,7 @@ Os três índices podem começar vazios, como os de um app novo.
 pnpm exec prumo make:domain clientes
 pnpm exec prumo make:domain categories --entity category
 pnpm exec prumo make:domain pedidos-recentes --entity pedido-recente
+pnpm exec prumo make:domain livros --fields "titulo:string,autor:string,ano:number,disponivel:boolean,publicadoEm:date,apelido?:string"
 ```
 
 ---

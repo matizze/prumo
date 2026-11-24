@@ -22,6 +22,7 @@ const PAGES = [
   ['livros', '--query', 'livros'],
   ['livro', '--query', 'livros', '--path', '/livros/:id'],
   ['perfil', '--path', '/perfil/:usuario'],
+  ['fase', '--query', 'fases-2', '--path', '/fases/:id'],
 ] as const
 
 let root: string
@@ -77,22 +78,26 @@ afterEach(cleanup)
     '--fields',
     'titulo:string,ano:number,situacao:enum(lido|lendo),lidoEm?:datetime',
   )
+  // Um domínio com dígito no nome da entidade (fase-2): o arquivo do schema e o id vêm dos arquivos
+  await prumo('make:schema', 'fases-2', '--entity', 'fase-2', '--fields', 'titulo:string')
   for (const domain of ['clientes', 'livros']) {
     await prumo('make:repository', domain)
     await prumo('make:query', domain)
   }
+  await prumo('make:repository', 'fases-2', '--entity', 'fase-2')
+  await prumo('make:query', 'fases-2', '--entity', 'fase-2')
   for (const args of PAGES) await prumo('make:page', ...args)
 }, 120_000)
 
 describe('as telas geradas compilam (tsc estrito) e passam nos próprios testes', () => {
   it('registram as rotas e os namespaces, em ordem, nos dois idiomas', () => {
     const app = readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
-    for (const route of ['/sobre', '/clientes', '/clientes/:id', '/livros', '/livros/:id', '/perfil/:usuario']) {
+    for (const route of ['/sobre', '/clientes', '/clientes/:id', '/livros', '/livros/:id', '/perfil/:usuario', '/fases/:id']) {
       expect(app).toContain(`<Route path="${route}">`)
     }
     for (const language of ['en', 'pt-BR']) {
       const index = readFileSync(path.join(root, `src/messages/${language}/index.ts`), 'utf8')
-      expect(index).toContain('  cliente,\n  clientes,\n  livro,\n  livros,\n  perfil,\n  sobre,\n')
+      expect(index).toContain('  cliente,\n  clientes,\n  fase,\n  livro,\n  livros,\n  perfil,\n  sobre,\n')
     }
   })
 
@@ -112,7 +117,7 @@ describe('as telas geradas compilam (tsc estrito) e passam nos próprios testes'
   it('cada tela passa no teste que traz', () => {
     const tests = vitest(root)
     expect(tests.status, tests.output).toBe(0)
-    for (const page of ['sobre', 'clientes', 'cliente', 'livros', 'livro', 'perfil']) {
+    for (const page of ['sobre', 'clientes', 'cliente', 'livros', 'livro', 'perfil', 'fase']) {
       expect(tests.output).toContain(`src/pages/${page}/index.test.tsx`)
     }
   }, 180_000)

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { addRouteSnippet, messageLanguages, registerMessageNamespace } from '../codemods/index.ts'
 import { UsageError } from '../errors.ts'
@@ -71,6 +71,9 @@ const RESERVED_WORDS = new Set(
   ),
 )
 
+/** Os nomes que os modelos de tela declaram ou importam: o parâmetro (uma constante do model) não pode repeti-los. */
+const MODEL_NAMES = new Set(['t', 'detail', 'useParams', 'useTranslations'])
+
 /** O caminho de uma rota já validado: o texto, o parâmetro (no máximo um) e um endereço de exemplo. */
 export interface RoutePath {
   path: string
@@ -100,6 +103,11 @@ export function parseRoutePath(route: string): RoutePath {
       if (/[?*+(]/.test(name)) {
         bad(
           `o parâmetro '${segment}' usa um modificador do wouter (?, * ou +), que o gerador não trata: use :nome`,
+        )
+      }
+      if (MODEL_NAMES.has(name)) {
+        bad(
+          `o parâmetro '${segment}' tem o nome de uma variável do model gerado (${[...MODEL_NAMES].join(', ')}): use outro, como :id`,
         )
       }
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) || RESERVED_WORDS.has(name)) {
@@ -174,9 +182,24 @@ function queryFileOf(project: Project, kebab: string): string | undefined {
     .find((file) => existsSync(file))
 }
 
-/** `LivroNovo` vira `livro-novo`. */
-function kebabOf(pascal: string): string {
-  return pascal.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+/** `Livro` vira `livro`: o nome do schema, que é um identificador (o kebab da entidade não se refaz dele). */
+function camelOf(pascal: string): string {
+  return pascal.charAt(0).toLowerCase() + pascal.slice(1)
+}
+
+/**
+ * O arquivo do schema da entidade, relativo à raiz: o de `src/schemas/entities/` que exporta o
+ * `<camel>Schema`. Não refaz o nome do arquivo a partir do PascalCase (`Fase2` pode ser `fase-2`).
+ */
+function schemaFileOf(project: Project, entity: string): string | undefined {
+  const dir = path.join(project.src, 'schemas', 'entities')
+  if (!existsSync(dir)) return undefined
+  const declaration = new RegExp(`\\bexport\\s+const\\s+${camelOf(entity)}Schema\\b`)
+  const found = readdirSync(dir)
+    .filter((file) => file.endsWith('.ts'))
+    .sort()
+    .find((file) => declaration.test(readFileSync(path.join(dir, file), 'utf8')))
+  return found ? `src/schemas/entities/${found}` : undefined
 }
 
 /**
@@ -200,7 +223,7 @@ function queryOf(
   project: Project,
   domain: Names,
   detail: boolean,
-): { entity: string | undefined; fixture: string | undefined } {
+): { entity: string | undefined } {
   const file = queryFileOf(project, domain.kebab)
   if (!file) {
     throw new UsageError(
@@ -223,7 +246,7 @@ function queryOf(
       )
     }
   }
-  return { entity, fixture: entity ? kebabOf(entity) : undefined }
+  return { entity }
 }
 
 /**
@@ -237,15 +260,15 @@ function shapeOf(
   entity: string | undefined,
   needSample: boolean,
 ): DomainShape {
-  const kebab = entity ? kebabOf(entity) : undefined
-  const file = kebab ? `src/schemas/entities/${kebab}.ts` : 'src/schemas/entities/<entidade>.ts'
+  const found = entity ? schemaFileOf(project, entity) : undefined
+  const file = found ?? 'src/schemas/entities/<entidade>.ts'
   const fixturesFile = `src/repositories/${domain.kebab}/fixtures.ts`
   const fixtures = readIfExists(path.join(project.root, fixturesFile))
   const shape = domainShapeOf(
     {
       file,
-      source: kebab ? readIfExists(path.join(project.root, file)) : undefined,
-      camel: entity ? entity.charAt(0).toLowerCase() + entity.slice(1) : undefined,
+      source: found ? readIfExists(path.join(project.root, found)) : undefined,
+      camel: entity ? camelOf(entity) : undefined,
     },
     fixtures,
   )
@@ -286,6 +309,16 @@ export function generatePage(
   const detailPage = domain !== undefined && routePath.param !== undefined
   const used = domain ? queryOf(project, domain, detailPage) : undefined
   const shape = domain ? shapeOf(project, domain, used?.entity, detailPage) : undefined
+  // O id do primeiro registro das fixtures: o teste de detalhe abre a rota com ele
+  const firstId = domain
+    ? (domainIdSample(readIfExists(path.join(project.src, 'repositories', domain.kebab, 'fixtures.ts')))
+        .sample ?? 'registro-1')
+    : 'exemplo'
+  if (detailPage && routePath.param === `use${used?.entity}Detail`) {
+    throw new UsageError(
+      `o parâmetro ':${routePath.param}' tem o nome do hook de detalhe que o model gerado chama: use outro, como :id.`,
+    )
+  }
   const messageLangs = languages ?? messageLanguages(project)
 
   const vars = {
@@ -294,7 +327,7 @@ export function generatePage(
     ...(shape
       ? {
           'field.name': shape.field,
-          'field.sample': literal(shape.sample ?? `${used?.fixture ?? 'registro'}-1`),
+          'field.sample': literal(shape.sample ?? firstId),
         }
       : {}),
     'route.path': pagePath,
@@ -302,7 +335,7 @@ export function generatePage(
       ? {
           'param.name': routePath.param,
           'param.example': 'exemplo',
-          'route.example': routePath.example(detailPage ? `${used?.fixture}-1` : 'exemplo'),
+          'route.example': routePath.example(detailPage ? firstId : 'exemplo'),
           ...(detailPage ? { 'detail.hook': `use${used?.entity}Detail` } : {}),
         }
       : {}),

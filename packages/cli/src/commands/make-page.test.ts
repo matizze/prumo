@@ -118,6 +118,18 @@ describe('prumo make:page', () => {
     expect(existsSync(path.join(root, 'src/pages/outra'))).toBe(false)
   })
 
+  it('--path que conflita com uma rota de parâmetro do App.tsx: saída 2 e nada escrito', async () => {
+    const { root } = fixtureProject()
+    expect((await exec(['make:page', 'clientes', '--path', '/clientes/:id'], root)).code).toBe(0)
+    const app = read(root, 'src/App.tsx')
+    const result = await exec(['make:page', 'novo', '--path', '/clientes/novo'], root)
+
+    expect(result.code).toBe(2)
+    expect(result.stderr).toContain("conflita com a rota '/clientes/:id'")
+    expect(existsSync(path.join(root, 'src/pages/novo'))).toBe(false)
+    expect(read(root, 'src/App.tsx')).toBe(app)
+  })
+
   it('o comando dos testes usa o script test do projeto e a pasta dele, de fora', async () => {
     const { root } = fixtureProject()
     writeFileSync(path.join(root, 'package.json'), '{ "name": "app", "scripts": { "test": "vitest run" } }\n')

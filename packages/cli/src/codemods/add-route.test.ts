@@ -174,6 +174,43 @@ export default function App() {
     expect(text()).toBe(once)
   })
 
+  it.each(['*', '/*', '*?', '/*?'])('trata o path="%s" como a curinga: a rota nova entra antes dela e não conflita', (wild) => {
+    const { plan, text } = setupSnippet(`import { Route, Switch } from 'wouter'
+
+export default function App() {
+  return (
+    <Switch>
+      <Route path="/home" component={HomePage} />
+      <Route path="${wild}">
+        <p>404</p>
+      </Route>
+    </Switch>
+  )
+}
+`)
+    expect(addRouteSnippet(plan, CLIENTES)).toBe(true)
+    const app = text()
+    expect(app.indexOf('path="/clientes"')).toBeGreaterThan(app.indexOf('path="/home"'))
+    expect(app.indexOf('path="/clientes"')).toBeLessThan(app.indexOf(`path="${wild}"`))
+  })
+
+  it('a curinga com path="*" sozinha no Switch: a rota entra antes dela', () => {
+    const { plan, text } = setupSnippet(`import { Route, Switch } from 'wouter'
+
+export default function App() {
+  return (
+    <Switch>
+      <Route path="*">
+        <p>404</p>
+      </Route>
+    </Switch>
+  )
+}
+`)
+    addRouteSnippet(plan, CLIENTES)
+    expect(text().indexOf('path="/clientes"')).toBeLessThan(text().indexOf('path="*"'))
+  })
+
   it('recusa o componente que o App.tsx declara sem rota, o path repetido e o coberto por curinga', () => {
     const declared = setupSnippet(`${SHELL}\nconst ClientesPage = 1\n`)
     expect(() => addRouteSnippet(declared.plan, CLIENTES)).toThrow(

@@ -3,6 +3,7 @@ import { UsageError } from '../errors.ts'
 import type { ChangePlan } from '../lib/plan.ts'
 import { applyEdits, indentOf, innerText, type TextEdit } from './edit.ts'
 import {
+  isCatchAllRoute,
   isRouteElement,
   pathLiteral,
   patternMatches,
@@ -120,7 +121,7 @@ function componentImportEdit(app: SourceFile, line: string, importPath: string):
 function insertionEdit(app: SourceFile, switchElement: JsxElement, clone: string, from: string): TextEdit {
   const text = app.getFullText()
   const routes = childRoutes(switchElement)
-  const withPath = routes.filter((route) => pathLiteral(route) !== undefined)
+  const withPath = routes.filter((route) => !isCatchAllRoute(route))
   const anchor = withPath.at(-1)
   if (anchor) {
     const indent = indentOf(text, anchor.getStart())
@@ -131,7 +132,7 @@ function insertionEdit(app: SourceFile, switchElement: JsxElement, clone: string
       text: `${separator}${indent}${reindent(clone, from, indent)}`,
     }
   }
-  const catchAll = routes[0]
+  const catchAll = routes.find(isCatchAllRoute)
   if (!catchAll) {
     // Um <Switch> sem nenhuma rota (o de um app novo): a rota entra sozinha, entre as tags
     const opening = switchElement.getOpeningElement().getEnd()
@@ -154,9 +155,10 @@ function insertionEdit(app: SourceFile, switchElement: JsxElement, clone: string
 
 /** Recusa o `path` que repete ou conflita com o de uma irmã (as que estão no mesmo `<Switch>`). */
 function assertFree(switchElement: JsxElement, routePath: string, display = routePath): void {
+  // A curinga (sem `path` ou só com `*`) fica por último e não disputa endereço: a rota nova entra antes dela
   const siblings = childRoutes(switchElement).flatMap((route) => {
     const literal = pathLiteral(route)
-    return literal ? [innerText(literal)] : []
+    return literal && !isCatchAllRoute(route) ? [innerText(literal)] : []
   })
   if (siblings.includes(routePath)) {
     throw new UsageError(

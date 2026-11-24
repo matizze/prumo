@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { Node, type ObjectLiteralExpression, type PropertyAssignment } from 'ts-morph'
+import { Node, Project as MorphProject, type ObjectLiteralExpression, type PropertyAssignment } from 'ts-morph'
 import { UsageError } from '../errors.ts'
 import { deriveNames, entityFlag, type DomainNames } from './names.ts'
 import type { ChangePlan } from './plan.ts'
@@ -331,13 +331,35 @@ export interface DomainShape {
   warning?: string
 }
 
-/** O corpo do `z.object({ ... })` do schema `<camel>Schema`, se achar. */
-function schemaBody(source: string, camel: string): string | undefined {
-  const start = new RegExp(`\\b${camel}Schema\\s*=\\s*z\\.object\\(\\{`).exec(source)
-  if (!start) return undefined
-  const rest = source.slice(start.index + start[0].length)
-  const end = /^\s*\}\)/m.exec(rest)
-  return end ? rest.slice(0, end.index) : rest
+/**
+ * Os campos de texto do `z.object({ ... })` do `<camel>Schema`, só os do nível de cima (um objeto
+ * aninhado não conta), lidos da árvore do ts-morph. `undefined` se não acha o schema ou se o objeto
+ * tem algo que não dá para ler (propriedade espalhada, nome calculado).
+ */
+function textFields(source: string, camel: string): { name: string; optional: boolean }[] | undefined {
+  const morph = new MorphProject({
+    useInMemoryFileSystem: true,
+    skipAddingFilesFromTsConfig: true,
+    skipFileDependencyResolution: true,
+    skipLoadingLibFiles: true,
+  })
+  const file = morph.createSourceFile('schema.ts', source)
+  const initializer = file.getVariableDeclaration(`${camel}Schema`)?.getInitializer()
+  if (!initializer || !Node.isCallExpression(initializer)) return undefined
+  if (initializer.getExpression().getText().replace(/\s+/g, '') !== 'z.object') return undefined
+  const [argument] = initializer.getArguments()
+  if (!argument || !Node.isObjectLiteralExpression(argument)) return undefined
+  const fields: { name: string; optional: boolean }[] = []
+  for (const property of argument.getProperties()) {
+    if (!Node.isPropertyAssignment(property)) return undefined
+    const nameNode = property.getNameNode()
+    if (Node.isComputedPropertyName(nameNode)) return undefined
+    const value = property.getInitializer()?.getText().replace(/\s+/g, '') ?? ''
+    const match = /^z\.string\(\)(.*)$/s.exec(value)
+    if (!match) continue
+    fields.push({ name: property.getName(), optional: /\.optional\(\)|\.nullish\(\)/.test(match[1] ?? '') })
+  }
+  return fields
 }
 
 /** O primeiro valor entre aspas de `campo:` no texto das fixtures (`id: 'a-1'`). */
@@ -365,21 +387,16 @@ export function domainShapeOf(
   schema: { file: string; source: string | undefined; camel: string | undefined },
   fixtures: string | undefined,
 ): DomainShape {
-  const body = schema.source && schema.camel ? schemaBody(schema.source, schema.camel) : undefined
+  const found = schema.source && schema.camel ? textFields(schema.source, schema.camel) : undefined
   const idSample = firstValue(fixtures, 'id')
   const withId = (reason: string): DomainShape => ({
     field: 'id',
     ...(idSample === undefined ? {} : { sample: idSample }),
     warning: `${reason}: a tela mostra o id do registro. Troque pelo campo certo na view (e no teste).`,
   })
-  if (body === undefined) return withId(`não consegui ler o schema do domínio (${schema.file})`)
+  if (found === undefined) return withId(`não consegui ler o schema do domínio (${schema.file})`)
 
-  const texts: { name: string; optional: boolean }[] = []
-  for (const line of body.split('\n')) {
-    const match = /^\s*([A-Za-z_]\w*)\s*:\s*z\.string\(\)(.*)$/.exec(line)
-    if (!match || match[1] === 'id' || match[1] === 'createdAt') continue
-    texts.push({ name: match[1]!, optional: /\.optional\(\)|\.nullish\(\)/.test(match[2] ?? '') })
-  }
+  const texts = found.filter((text) => text.name !== 'id' && text.name !== 'createdAt')
   const chosen = texts.find((text) => !text.optional) ?? texts[0]
   if (!chosen) return withId(`o schema do domínio (${schema.file}) não tem campo de texto`)
   const sample = firstValue(fixtures, chosen.name)

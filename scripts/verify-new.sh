@@ -102,6 +102,11 @@ stage_cli() {
   prumo make:page livro --query livros --path /livros/:id
   prumo make:page perfil --path /perfil/:usuario
   prumo make:page pedidos --query pedidos
+  # um domínio com dígito na entidade (fase-2): o arquivo do schema e o id do teste vêm dos arquivos
+  prumo make:schema fases-2 --entity fase-2
+  prumo make:repository fases-2 --entity fase-2
+  prumo make:query fases-2 --entity fase-2
+  prumo make:page fase --query fases-2 --path /fases/:id
 }
 
 stage_verify() {

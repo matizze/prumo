@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemods/test-support.ts'
@@ -123,6 +123,29 @@ describe('generatePage com --query (a lista)', () => {
     expect(warnings[0]).toContain('não tem campo de texto')
   })
 
+  it('um objeto aninhado em várias linhas não vira o campo da tela: vale o do nível de cima', () => {
+    const project = fixtureProject()
+    withQuery(project.root, {
+      fields: '  endereco: z.object({\n    rua: z.string(),\n    cidade: z.string(),\n  }),\n  nome: z.string(),\n',
+      fixture: "{ id: 'cliente-1', nome: 'Ana', createdAt: 'x' }",
+    })
+    const { plan } = generatePage(project, { name: 'clientes', query: 'clientes' })
+
+    expect(at(plan, 'src/pages/clientes/view.tsx')).toContain('{i.nome}')
+  })
+
+  it('só com campos de texto aninhados, mostra o id e avisa', () => {
+    const project = fixtureProject()
+    withQuery(project.root, {
+      fields: '  endereco: z.object({\n    rua: z.string(),\n  }),\n',
+      fixture: "{ id: 'cliente-1', createdAt: 'x' }",
+    })
+    const { plan, warnings } = generatePage(project, { name: 'clientes', query: 'clientes' })
+
+    expect(at(plan, 'src/pages/clientes/view.tsx')).toContain('{i.id}')
+    expect(warnings[0]).toContain('não tem campo de texto')
+  })
+
   it('sem conseguir ler o schema, mostra o id e avisa', () => {
     const project = fixtureProject()
     withQuery(project.root)
@@ -225,11 +248,55 @@ describe('generatePage com --path (parâmetro)', () => {
     )
   })
 
-  it('recusa a rota que o App.tsx já tem e a que conflita, sem escrever nada', () => {
+  it('recusa a rota que o App.tsx já tem; um caminho vizinho passa', () => {
     const project = fixtureProject()
 
     expect(() => generatePage(project, { name: 'livro', route: '/blank' })).toThrow(/já tem uma rota '\/blank'/)
     expect(() => generatePage(project, { name: 'livro', route: '/blank/:id' })).not.toThrow()
+  })
+
+  it('recusa a rota que conflita com uma de parâmetro do App.tsx, sem escrever nada', () => {
+    const project = fixtureProject()
+    const original = readFileSync(project.app, 'utf8')
+    writeFileSync(project.app, original.replace('path="/blank"', 'path="/clientes/:id"'))
+    const before = readFileSync(project.app, 'utf8')
+
+    expect(() => generatePage(project, { name: 'novo', route: '/clientes/novo' })).toThrow(
+      /a rota '\/clientes\/novo' conflita com a rota '\/clientes\/:id'/,
+    )
+    expect(readFileSync(project.app, 'utf8')).toBe(before)
+    expect(existsSync(path.join(project.root, 'src/pages/novo'))).toBe(false)
+  })
+
+  it('o id do teste de detalhe e o schema vêm dos arquivos, mesmo com dígito no nome (fase-2)', () => {
+    const project = fixtureProject()
+    const write = (file: string, text: string) => {
+      mkdirSync(path.dirname(path.join(project.root, file)), { recursive: true })
+      writeFileSync(path.join(project.root, file), text)
+    }
+    write('src/queries/fases-2.ts', 'export function useFases2List() {}\nexport function useFase2Detail(id: string) {}\n')
+    write('src/repositories/fases-2/repository.contract.ts', 'list(): Promise<Page<Fase2Schema>>\n')
+    write('src/repositories/fases-2/fixtures.ts', "export const MOCK = [\n  { id: 'fase-2-1', titulo: 'Inicial', createdAt: 'x' },\n]\n")
+    write('src/schemas/entities/fase-2.ts', 'export const fase2Schema = z.object({\n  id: z.string(),\n  titulo: z.string(),\n})\n')
+    const { plan, warnings } = generatePage(project, { name: 'fase', query: 'fases-2', route: '/fases/:id' })
+
+    expect(warnings).toEqual([])
+    expect(at(plan, 'src/pages/fase/view.tsx')).toContain('m.item.titulo')
+    const test = at(plan, 'src/pages/fase/index.test.tsx')
+    expect(test).toContain("{ path: '/fases/fase-2-1' }")
+    expect(test).toContain("findByText('Inicial')")
+  })
+
+  it.each(['t', 'detail', 'useParams', 'useTranslations'])('recusa o parâmetro :%s, que o model gerado já declara', (name) => {
+    expect(() => parseRoutePath(`/x/:${name}`)).toThrow(/variável do model gerado/)
+  })
+
+  it('recusa o parâmetro com o nome do hook de detalhe', () => {
+    const project = fixtureProject()
+    withQuery(project.root)
+    expect(() =>
+      generatePage(project, { name: 'cliente', query: 'clientes', route: '/clientes/:useClienteDetail' }),
+    ).toThrow(/nome do hook de detalhe/)
   })
 })
 

@@ -83,7 +83,7 @@ const { signIn } = useUseCases()
 const login = useMutation({ mutationFn: (input: SignInInput) => signIn.execute(input) })
 ```
 
-O **mock fica no transporte, não no use case**: com `VITE_DATA_SOURCE=mock` (o padrão), o registro recebe um `http` de mentira (`createMockHttp`, do core), que responde a cada `ENDPOINT` com a rota do `*.mock.ts`. O código do use case que roda no desenvolvimento e nos testes é o mesmo que vai para produção, e só a rede é trocada. Os arquivos e a anatomia estão em [`prumo make:usecase`](../reference/cli.md#prumo-makeusecase) e na [anatomia do app](generated-app.md#use-cases).
+O **mock fica no transporte, não no use case**: com `VITE_DATA_SOURCE=mock` (o padrão), o registro recebe um `http` de mentira (`createMockHttp`, do core), que responde a cada `ENDPOINT` com a rota do `*.mock.ts`. O código do use case que roda no desenvolvimento e nos testes é o mesmo que vai para produção, e só a rede é trocada. Os arquivos e a anatomia estão em [`prumo make:usecase`](../reference/cli.md#prumo-makeusecase) e na [anatomia do app](generated-app.md#os-use-cases).
 
 ### Domínios de dados (repositório e queries)
 

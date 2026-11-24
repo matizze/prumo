@@ -122,7 +122,7 @@ Cria um **use case**: uma ação do app com nome de verbo (`get-stores`, `sign-i
 
 O nome é `<domínio>.<ação>` (ou `<domínio>/<ação>`, como no `make:page`), cada parte em kebab-case: `auth.sign-in`, `stores/get-stores`. O domínio dá a pasta em `src/use-cases`, e a ação dá a classe (`GetStoresUseCase`) e a **chave no registro** (`getStores`, o que a tela lê de `useUseCases()`). As chaves são únicas no app: `stores.get-stores` e `orders.get-stores` dão conflito, e o comando recusa o segundo com a mensagem dizendo de quem é a chave. A ação não pode virar palavra reservada do JavaScript (`delete`).
 
-Precisa do app com `src/use-cases/index.ts`, que o `prumo new` cria. Um app de antes dos use cases não tem a camada; veja o [guia de agentes](../guides/ai-agents.md) e a [anatomia do app](../concepts/generated-app.md#use-cases) para o que ela traz.
+Precisa do app com `src/use-cases/index.ts`, que o `prumo new` cria. Um app de antes dos use cases não tem a camada; veja o [guia de agentes](../guides/ai-agents.md) e a [anatomia do app](../concepts/generated-app.md#os-use-cases) para o que ela traz.
 
 | Opção                          | O que faz                                                                                                            |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
@@ -153,7 +153,7 @@ src/use-cases/auth/
 - **`<ação>.usecase.ts`**: `export class SignInUseCase implements IUseCase<SignInInput, SignInOutput>`, com o `http` no construtor (campo `#http`). O `execute` valida o Input, chama a API e valida a resposta com o Output. Um `HttpError` vira `UIError` com o código `<AÇÃO>_FAILED` (`SIGN_IN_FAILED`), e o comando acrescenta o texto ao `src/messages/<idioma>/errors.json` dos dois idiomas (a chave que já existe fica; num app sem o `errors.json`, o comando avisa e segue). O corpo da resposta de erro (`HttpError.body`, o 422 com os erros de validação) fica no `HttpError`; o `UIError` ainda não tem onde carregá-lo.
 - **`<ação>.mock.ts`**: a rota de mock do `ENDPOINT`, com uma resposta de exemplo feita dos campos do Output (de uma entidade, um registro com `id` e `createdAt`; de uma lista, dois). O `createMockHttp` do core a usa: o mesmo código do use case roda no mock e em produção, e só o transporte muda.
 - **`<ação>.usecase.test.ts`**: o contrato do use case (`defineContractSuite` do `@matizze/prumo-testing`), que roda contra o mock e, com `API_TEST_URL`, contra a API real, mais um teste do `UIError`.
-- **`index.ts` do domínio** e **`src/use-cases/index.ts`**: o use case entra em `create<Domínio>UseCases(deps)` e a rota em `<domínio>Routes`; o domínio entra no registro geral (`createUseCases(deps)` e `mockRoutes`), tudo em ordem alfabética. Veja o [registro](../concepts/generated-app.md#use-cases).
+- **`index.ts` do domínio** e **`src/use-cases/index.ts`**: o use case entra em `create<Domínio>UseCases(deps)` e a rota em `<domínio>Routes`; o domínio entra no registro geral (`createUseCases(deps)` e `mockRoutes`), tudo em ordem alfabética. Veja o [registro](../concepts/generated-app.md#os-use-cases).
 
 ### O `--endpoint`
 

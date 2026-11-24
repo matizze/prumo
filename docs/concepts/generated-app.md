@@ -165,7 +165,7 @@ O `getErrorMessage` vem do `src/errors.ts` e traduz o código do erro (nunca mos
 
 A instância da API, criada com o `createHttp` do `@matizze/prumo-core/http`: o endereço vem da `VITE_API_URL` (padrão `/api`, o mesmo domínio do app; vazia vale como ausente), e um comentário mostra onde ligar a sessão (o token e a renovação depois de um 401) quando o app tiver login. O registro de use cases a usa quando a fonte é `http`.
 
-### `src/use-cases/` e `src/providers/use-cases/index.ts`
+### Os use cases
 
 O registro dos use cases, como o `createAllServices` do pratigo:
 

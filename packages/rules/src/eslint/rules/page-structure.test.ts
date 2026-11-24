@@ -27,6 +27,8 @@ const withExtra = page('with-extra', ['index.tsx', 'model.ts', 'view.tsx', 'help
 const noModel = page('no-model', ['index.tsx', 'view.tsx'])
 const noView = page('no-view', ['index.tsx', 'model.ts'])
 const onlyIndex = page('only-index', ['index.tsx'])
+const nested = page('auth/login', ['index.tsx', 'model.ts', 'view.tsx'])
+const nestedMissing = page('auth/register', ['index.tsx', 'view.tsx'])
 const custom = page('custom', ['index.tsx', 'model.ts', 'view.tsx'], 'app/screens')
 const customMissing = page('custom-missing', ['index.tsx', 'model.ts'], 'app/screens')
 
@@ -40,6 +42,12 @@ createRuleTester().run('page-structure', pageStructure, {
     // Subpasta da tela e arquivo solto em pages/ não são uma tela
     { filename: path.join(path.dirname(noModel), 'components', 'index.tsx'), code: '' },
     { filename: path.join(root, 'src/pages/index.tsx'), code: 'export default 1' },
+    // Tela em subpasta completa
+    { filename: nested, code: 'export default 1' },
+    // O index.tsx solto em pages/ não é tela, mesmo com tela em subpasta
+    { filename: path.join(root, 'src/pages/index.tsx'), code: '' },
+    // O components/index.tsx de uma tela não vira tela, em qualquer profundidade
+    { filename: path.join(path.dirname(nestedMissing), 'components', 'index.tsx'), code: '' },
     // Fora da pasta das telas
     { filename: path.join(root, 'src/components/shared/index.tsx'), code: 'export default 1' },
     // Opções: outra pasta de telas e outra lista de arquivos
@@ -56,6 +64,22 @@ createRuleTester().run('page-structure', pageStructure, {
       filename: onlyIndex,
       code: 'export default 1',
       errors: [missing('only-index', 'model.ts'), missing('only-index', 'view.tsx')],
+    },
+    {
+      filename: nestedMissing,
+      code: 'export default 1',
+      errors: [missing('auth/register', 'model.ts')],
+    },
+    // O arquivo ainda não salvo (ou lido pelo stdin) conta como existente
+    {
+      filename: path.join(root, 'src/pages/unsaved/index.tsx'),
+      code: 'export default 1',
+      errors: [missing('unsaved', 'model.ts'), missing('unsaved', 'view.tsx')],
+    },
+    {
+      filename: path.join(root, 'src/pages/grupo/unsaved/index.tsx'),
+      code: 'export default 1',
+      errors: [missing('grupo/unsaved', 'model.ts'), missing('grupo/unsaved', 'view.tsx')],
     },
     {
       filename: customMissing,

@@ -5,6 +5,7 @@ import { checkPageStructure } from './page-structure.ts'
 import { checkSharedUsage } from './shared-usage.ts'
 import type { CheckOptions, Violation } from './types.ts'
 
+export { listPages, pageOf } from '../page-structure.ts'
 export type { CheckOptions, CheckRule, Violation } from './types.ts'
 
 /**

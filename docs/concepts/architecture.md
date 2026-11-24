@@ -41,13 +41,15 @@ flowchart TB
 
 ### Telas (`src/pages/<tela>/`)
 
-Cada pasta de `src/pages` é uma tela, e toda tela tem três arquivos:
+Uma tela é a primeira pasta, a partir de `src/pages`, que tem `index.tsx`, e toda tela tem três arquivos:
 
 - **`index.tsx`** é o ponto de entrada da rota. Chama o model e entrega o resultado à view. Não tem lógica.
 - **`model.ts`** é um hook (`use<Tela>Model`) que reúne o que a tela precisa: os dados (pelas queries do domínio), os textos (pelo `useTranslations`), o estado da interação e as ações. Não tem JSX.
 - **`view.tsx`** é a apresentação. Recebe o model inteiro por props, cujo tipo é `ReturnType<typeof use<Tela>Model>`, e não busca dado, não traduz texto e não guarda estado de dados.
 
-Componentes que só essa tela usa ficam em `components/`, dentro da pasta dela.
+Componentes que só essa tela usa ficam em `components/`, dentro da pasta dela. As subpastas de uma tela (`components/`, por exemplo, mesmo com um `index.tsx`) são parte dela e nunca viram tela.
+
+As telas podem ser agrupadas em subpastas (`prumo make:page auth.login` cria `src/pages/auth/login/`). A pasta sem `index.tsx` (`auth`) só agrupa; a tela é `auth/login`, com a rota `/auth/login` e o componente `AuthLoginPage`. Uma tela não contém outra: `auth/login` não existe se `auth` já é tela.
 
 O tipo da view vem do model, então acrescentar um campo no model o torna disponível na view com o tipo certo, e remover um campo que a view usa é erro de compilação.
 
@@ -93,7 +95,7 @@ O Prumo cobra a arquitetura em dois lugares. O **plugin de ESLint** olha um arqu
 | ----------------------------- | --------------------- | ----------------------------------------------------------------------------------------------- |
 | `prumo/no-cross-page-import`  | ESLint                | Uma tela não importa da pasta de outra tela, nem pelo alias nem por caminho relativo            |
 | `prumo/page-structure`        | ESLint                | O `index.tsx` de uma tela tem `model.ts` e `view.tsx` ao lado                                   |
-| `page-structure`              | `prumo check`         | Toda pasta de `src/pages` tem `index.tsx`, `model.ts` e `view.tsx`                               |
+| `page-structure`              | `prumo check`         | Toda tela de `src/pages`, em qualquer profundidade, tem `index.tsx`, `model.ts` e `view.tsx`     |
 | `components-folders`          | `prumo check`         | `src/components` só tem as subpastas `ui`, `shared` e `layout`                                  |
 | `shared-usage`                | `prumo check`         | O que está em `components/shared` é usado por duas ou mais telas                                |
 | `messages`                    | `prumo check`         | Os idiomas têm as mesmas chaves, os mesmos argumentos ICU, nenhum texto vazio e os mesmos namespaces registrados |

@@ -124,7 +124,7 @@ describe('os modelos', () => {
     }
     for (const marker of markers)
       expect(marker).toMatch(
-        /^((plural|singular|page|domain|app)\.(kebab|pascal|camel|constant|title)|route\.(path|example)|param\.(name|example)|detail\.hook|field\.(name|sample)|fields\.[A-Za-z]+|test\.[A-Za-z]+)$/,
+        /^((plural|singular|page|domain|app)\.(kebab|pascal|camel|constant|title)|page\.path|route\.(path|example)|param\.(name|example)|detail\.hook|field\.(name|sample)|fields\.[A-Za-z]+|test\.[A-Za-z]+)$/,
       )
   })
 

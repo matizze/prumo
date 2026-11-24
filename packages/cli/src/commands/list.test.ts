@@ -101,6 +101,22 @@ describe('listProject', () => {
     ])
   })
 
+  it('telas em subpastas aparecem com o nome com barra, e a pasta de grupo e o components/ não', async () => {
+    const { root } = fixtureProject()
+    await make(root, ['make:page', 'auth.login'], ['make:page', 'auth/register'], ['make:page', 'sobre'])
+    mkdirSync(path.join(root, 'src/pages/auth/login/components'), { recursive: true })
+    writeFileSync(path.join(root, 'src/pages/auth/login/components/index.tsx'), '')
+
+    const pages = listProject(fixtureProjectAt(root)).pages
+    expect(pages.map(({ name, route }) => [name, route])).toEqual([
+      ['auth/login', '/auth/login'],
+      ['auth/register', '/auth/register'],
+      ['sobre', '/sobre'],
+    ])
+    const result = await exec(['list', '--root', root], process.cwd())
+    expect(result.stdout).toContain('  auth/login  rota: /auth/login  título\n')
+  })
+
   it('rota aninhada: compõe os <Route nest> de fora e usa a mais interna', () => {
     const root = appWith(
       `import { Route, Switch } from 'wouter'

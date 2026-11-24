@@ -99,6 +99,9 @@ stage_cli() {
   prumo make:page livro --query livros --path /livros/:id
   prumo make:page perfil --path /perfil/:usuario
   prumo make:page pedidos --query pedidos
+  # telas em subpastas (com ponto e com barra): a pasta, a rota e as mensagens levam o caminho
+  prumo make:page auth.login
+  prumo make:page auth/register --query clientes
   # um domínio com dígito na entidade (fase-2): o arquivo do schema e o id do teste vêm dos arquivos
   prumo make:schema fases-2 --entity fase-2
   prumo make:repository fases-2 --entity fase-2
@@ -121,13 +124,13 @@ stage_cli() {
       if (!l.queries.some((q) => q.domain === d)) fail("falta a query " + d)
     }
     const pages = Object.fromEntries(l.pages.map((p) => [p.name, p.variation + ":" + p.route + ":" + p.query]))
-    const want = { home: "title:/:null", sobre: "title:/sobre:null", clientes: "list:/clientes:clientes", cliente: "detail:/clientes/:id:clientes", livros: "list:/livros:livros", livro: "detail:/livros/:id:livros", perfil: "param:/perfil/:usuario:null", pedidos: "list:/pedidos:pedidos", fase: "detail:/fases/:id:fases-2" }
+    const want = { home: "title:/:null", sobre: "title:/sobre:null", clientes: "list:/clientes:clientes", cliente: "detail:/clientes/:id:clientes", livros: "list:/livros:livros", livro: "detail:/livros/:id:livros", perfil: "param:/perfil/:usuario:null", pedidos: "list:/pedidos:pedidos", fase: "detail:/fases/:id:fases-2", "auth/login": "title:/auth/login:null", "auth/register": "list:/auth/register:clientes" }
     for (const [n, v] of Object.entries(want)) if (pages[n] !== v) fail("tela " + n + ": " + pages[n] + " (esperado " + v + ")")
     if (l.languages.join(",") !== "en,pt-BR") fail("idiomas: " + l.languages)
   '
 }
 
-# O cliente roteirizado lê o .mcp.json do app, abre o servidor por ele e gera um domínio e duas telas
+# O cliente roteirizado lê o .mcp.json do app, abre o servidor por ele e gera um domínio e três telas
 # só por ferramentas MCP. O SDK vem do monorepo (devDependency da cli), por isso o script mora lá
 stage_mcp() {
   node "$ROOT/packages/cli/scripts/drive-mcp.mjs" "$APP"

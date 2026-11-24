@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync, type Dirent } from 'node:fs'
 import path from 'node:path'
+import { listPages as pagesIn } from '@matizze/prumo-rules/check'
 import { Node, SyntaxKind, type SourceFile } from 'ts-morph'
 import {
   isRouteElement,
@@ -65,7 +66,7 @@ export type PageVariation = 'title' | 'list' | 'param' | 'detail'
 
 /** Uma tela de `src/pages/`. */
 export interface ListedPage {
-  /** O nome da tela: o da pasta. */
+  /** O nome da tela: a pasta a partir de `src/pages`, com barra nas subpastas (`auth/login`). */
   name: string
   /**
    * A rota do `src/App.tsx` que mostra a tela: o caminho (composto com os `<Route nest>` de fora),
@@ -203,7 +204,7 @@ function listQueries(project: Project): ListedQuery[] {
   })
 }
 
-/** Se o módulo é `src/pages/<nome>` (`@/pages/x`, `./pages/x`, com ou sem `/index`). */
+/** Se o módulo é `src/pages/<nome>`, com o nome em subpastas se for o caso (`@/pages/x`, `./pages/x`, com ou sem `/index`). */
 function isPageSpecifier(specifier: string, page: string): boolean {
   const module = specifier.replace(/\/index$/, '')
   return module === `pages/${page}` || module.endsWith(`/pages/${page}`)
@@ -327,10 +328,9 @@ function listPages(project: Project, queries: ListedQuery[]): ListedPage[] {
   const app = existsSync(project.app) ? new ChangePlan(project).source(project.app) : undefined
   const routes = app ? app.getDescendants().filter(isRouteElement) : []
   const result: ListedPage[] = []
-  for (const entry of entries(project.pages)) {
-    if (!entry.isDirectory()) continue
-    const found = app ? routeOf(routes, componentsOf(app, entry.name)) : undefined
-    const model = modelOf(path.join(project.pages, entry.name)) ?? ''
+  for (const name of pagesIn(project.pages)) {
+    const found = app ? routeOf(routes, componentsOf(app, name)) : undefined
+    const model = modelOf(path.join(project.pages, name)) ?? ''
     const query = queryOfModel(model, queries)
     const param =
       /\buseParams\b/.test(model) || (found?.kind === 'literal' && found.route.includes('/:'))
@@ -342,7 +342,7 @@ function listPages(project: Project, queries: ListedQuery[]): ListedPage[] {
         ? 'param'
         : 'title'
     result.push({
-      name: entry.name,
+      name,
       route: found?.route ?? null,
       routeKind: found?.kind ?? null,
       routePartial: found?.partial ?? false,

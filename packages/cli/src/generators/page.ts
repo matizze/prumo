@@ -1,10 +1,18 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { listPages, pageOf } from '@matizze/prumo-rules/check'
 import { addRouteSnippet, messageLanguages, registerMessageNamespace } from '../codemods/index.ts'
 import { UsageError } from '../errors.ts'
 import { contractEntity } from '../lib/contract.ts'
 import { domainIdSample, domainShapeOf, literal, type DomainShape } from '../lib/fields/index.ts'
-import { assertValidName, deriveNames, RESERVED_WORDS, usableNames, type Names } from '../lib/names.ts'
+import {
+  assertValidName,
+  deriveNames,
+  pageNames,
+  RESERVED_WORDS,
+  type Names,
+  type PageNames,
+} from '../lib/names.ts'
 import { displayPath } from '../lib/paths.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'
@@ -16,7 +24,7 @@ interface PageFile {
   to: string
 }
 
-const PAGE_DIR = 'src/pages/{{page.kebab}}'
+const PAGE_DIR = 'src/pages/{{page.path}}'
 
 /** Os arquivos de uma tela só com o título. */
 export const PAGE_FILES: readonly PageFile[] = [
@@ -131,7 +139,7 @@ export function parseRoutePath(route: string): RoutePath {
 }
 
 export interface PageRequest {
-  /** O nome da tela, em kebab-case: `clientes`. */
+  /** O nome da tela, em kebab-case: `clientes`. Em subpasta, `auth.login` ou `auth/login`. */
   name: string
   /** O domínio cuja query a tela usa (o nome dele, no plural), criada por `make:query`. */
   query?: string | undefined
@@ -151,13 +159,44 @@ export interface PageOptions {
 
 export interface PageResult {
   plan: ChangePlan
-  names: Names
+  names: PageNames
   /** O domínio da query, se a tela tem uma. */
   query?: Names
   /** A rota nova no `src/App.tsx`: `/clientes`. */
   route: string
   /** Avisos que o comando mostra (por exemplo, a tela mostra o `id` por falta de campo de texto). */
   warnings: string[]
+}
+
+/**
+ * Recusa o nome que não pode virar tela: a pasta já é tela, está dentro de uma tela, já agrupa
+ * telas, ou dá as mesmas mensagens e o mesmo componente de outra tela (`auth/login` e `auth-login`).
+ */
+function assertPageFree(project: Project, names: PageNames): void {
+  const owner = pageOf(project.pages, names.path)
+  if (owner && owner !== names.path) {
+    throw new UsageError(
+      `'${names.path}' ficaria dentro da tela '${owner}' (src/pages/${owner} tem index.tsx): uma tela não contém outra; use outro nome ou mova a tela '${owner}' para um grupo.`,
+    )
+  }
+  const pages = listPages(project.pages)
+  const inside = pages.find((page) => page.startsWith(`${names.path}/`))
+  if (inside) {
+    throw new UsageError(
+      `'${names.path}' já agrupa telas (como '${inside}'): a pasta src/pages/${names.path} não pode virar tela.`,
+    )
+  }
+  if (existsSync(path.join(project.pages, names.path))) {
+    throw new UsageError(
+      `a tela '${names.path}' já existe: a pasta src/pages/${names.path} está no projeto.`,
+    )
+  }
+  const twin = pages.find((page) => page.replaceAll('/', '-') === names.kebab)
+  if (twin) {
+    throw new UsageError(
+      `a tela '${names.path}' conflita com a tela '${twin}': as duas gerariam ${names.kebab}.json e ${names.pascal}Page. Escolha outro nome.`,
+    )
+  }
 }
 
 /** O `<Route>` da tela, como entra no `src/App.tsx`. */
@@ -285,18 +324,14 @@ export function generatePage(
   { name, query, route }: PageRequest,
   { plan = new ChangePlan(project), languages }: PageOptions = {},
 ): PageResult {
-  const names = usableNames(name, 'o nome da tela')
+  const names = pageNames(name)
   let domain: Names | undefined
   if (query !== undefined) {
     assertValidName(query, 'o nome do domínio da query')
     domain = deriveNames(query)
   }
-  if (existsSync(path.join(project.pages, names.kebab))) {
-    throw new UsageError(
-      `a tela '${names.kebab}' já existe: a pasta src/pages/${names.kebab} está no projeto.`,
-    )
-  }
-  const pagePath = route ?? `/${names.kebab}`
+  assertPageFree(project, names)
+  const pagePath = route ?? `/${names.path}`
   const routePath = parseRoutePath(pagePath)
   const detailPage = domain !== undefined && routePath.param !== undefined
   const used = domain ? queryOf(project, domain, detailPage) : undefined
@@ -315,6 +350,7 @@ export function generatePage(
 
   const vars = {
     ...nameVars('page', names),
+    'page.path': names.path,
     ...(domain ? nameVars('domain', domain) : {}),
     ...(shape
       ? {
@@ -355,7 +391,7 @@ export function generatePage(
   registerMessageNamespace(plan, names.kebab, names.camel, messageLangs)
   addRouteSnippet(plan, {
     component: `${names.pascal}Page`,
-    importPath: `@/pages/${names.kebab}`,
+    importPath: `@/pages/${names.path}`,
     path: pagePath,
     element: routeElement(names, pagePath),
   })

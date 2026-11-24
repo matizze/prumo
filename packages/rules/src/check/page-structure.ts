@@ -1,16 +1,16 @@
 import path from 'node:path'
-import { missingPageFiles } from '../page-structure.ts'
-import { listDirs } from './files.ts'
+import { listPages, missingPageFiles } from '../page-structure.ts'
 import type { ResolvedOptions, Violation } from './types.ts'
 
 /**
- * Toda pasta de `src/pages` é uma tela e tem os arquivos obrigatórios (por padrão `index.tsx`,
- * `model.ts` e `view.tsx`). É a mesma regra do `prumo/page-structure` do ESLint, que só vê a
+ * Toda tela de `src/pages`, em qualquer profundidade (`auth/login`), tem os arquivos obrigatórios
+ * (por padrão `index.tsx`, `model.ts` e `view.tsx`); a pasta que só agrupa telas não conta. É a
+ * mesma regra do `prumo/page-structure` do ESLint, que só vê a
  * tela que já tem `index.tsx`; aqui a falta do próprio `index.tsx` também acusa.
  */
 export function checkPageStructure(options: ResolvedOptions): Violation[] {
   const pagesPath = path.join(options.root, options.pagesDir)
-  return listDirs(pagesPath).flatMap((page) =>
+  return listPages(pagesPath).flatMap((page) =>
     missingPageFiles(path.join(pagesPath, page), options.requiredPageFiles).map(
       (file): Violation => ({
         rule: 'page-structure',

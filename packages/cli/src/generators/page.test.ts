@@ -79,6 +79,125 @@ describe('generatePage (só o título)', () => {
   })
 })
 
+describe('generatePage com tela em subpasta', () => {
+  it.each(['auth.login', 'auth/login'])(
+    '%s cria a pasta auth/login, a rota /auth/login e as mensagens auth-login',
+    (name) => {
+      const project = fixtureProject()
+      const { plan, names, route } = generatePage(project, { name })
+
+      expect(names.pascal).toBe('AuthLogin')
+      expect(route).toBe('/auth/login')
+      expect(plan.summary()).toEqual({
+        created: [
+          'src/messages/en/auth-login.json',
+          'src/messages/pt-BR/auth-login.json',
+          'src/pages/auth/login/index.test.tsx',
+          'src/pages/auth/login/index.tsx',
+          'src/pages/auth/login/model.ts',
+          'src/pages/auth/login/view.tsx',
+        ],
+        modified: ['src/App.tsx', 'src/messages/en/index.ts', 'src/messages/pt-BR/index.ts'],
+      })
+      plan.commit()
+
+      const app = readFileSync(project.app, 'utf8')
+      expect(app).toContain("import AuthLoginPage from '@/pages/auth/login'")
+      expect(app).toContain('<Route path="/auth/login">')
+      const dir = path.join(project.pages, 'auth/login')
+      expect(readFileSync(path.join(dir, 'model.ts'), 'utf8')).toContain(
+        "useTranslations('authLogin')",
+      )
+      expect(readFileSync(path.join(dir, 'index.test.tsx'), 'utf8')).toContain(
+        "path: '/auth/login'",
+      )
+      expect(readFileSync(path.join(project.messages, 'en/index.ts'), 'utf8')).toContain(
+        "import authLogin from './auth-login.json'",
+      )
+      expect(
+        JSON.parse(readFileSync(path.join(project.messages, 'pt-BR/auth-login.json'), 'utf8')),
+      ).toEqual({ title: 'Auth login' })
+    },
+  )
+
+  it('o --path vale, e a query e o parâmetro também', () => {
+    const project = fixtureProject()
+    withQuery(project.root)
+    const { plan, route } = generatePage(project, {
+      name: 'admin/clientes',
+      query: 'clientes',
+      route: '/painel/clientes/:id',
+    })
+    expect(route).toBe('/painel/clientes/:id')
+    plan.commit()
+    const model = readFileSync(path.join(project.pages, 'admin/clientes/model.ts'), 'utf8')
+    expect(model).toContain('useClienteDetail')
+    expect(model).toContain("useTranslations('adminClientes')")
+  })
+
+  it('a tela com lista e a só com título funcionam em subpasta', () => {
+    const project = fixtureProject()
+    withQuery(project.root)
+    const { plan } = generatePage(project, { name: 'admin.clientes', query: 'clientes' })
+    expect(plan.summary().created).toContain('src/pages/admin/clientes/view.tsx')
+    expect(at(plan, 'src/pages/admin/clientes/model.ts')).toContain('useClientesList')
+  })
+
+  it('recusa uma tela dentro de outra tela', () => {
+    const project = fixtureProject()
+    generatePage(project, { name: 'auth' }).plan.commit()
+    expect(() => generatePage(project, { name: 'auth/login' })).toThrow(
+      /dentro da tela 'auth'.*uma tela não contém outra/,
+    )
+    // O components/ de uma tela também não vira tela
+    expect(() => generatePage(project, { name: 'auth.components' })).toThrow(/dentro da tela 'auth'/)
+  })
+
+  it('recusa virar tela a pasta que já agrupa telas', () => {
+    const project = fixtureProject()
+    generatePage(project, { name: 'auth/login' }).plan.commit()
+    expect(() => generatePage(project, { name: 'auth' })).toThrow(
+      /'auth' já agrupa telas \(como 'auth\/login'\)/,
+    )
+  })
+
+  it('recusa as duas formas que dão o mesmo componente e as mesmas mensagens', () => {
+    const project = fixtureProject()
+    generatePage(project, { name: 'auth/login' }).plan.commit()
+    expect(() => generatePage(project, { name: 'auth-login' })).toThrow(
+      /conflita com a tela 'auth\/login'.*auth-login\.json e AuthLoginPage/,
+    )
+    const other = fixtureProject()
+    generatePage(other, { name: 'auth-login' }).plan.commit()
+    expect(() => generatePage(other, { name: 'auth.login' })).toThrow(
+      /conflita com a tela 'auth-login'/,
+    )
+  })
+
+  it('a tela que existe é recusada com o caminho', () => {
+    const project = fixtureProject()
+    generatePage(project, { name: 'auth/login' }).plan.commit()
+    expect(() => generatePage(project, { name: 'auth.login' })).toThrow(/tela 'auth\/login' já existe/)
+  })
+
+  it('a pasta que existe sem index.tsx volta a dizer só que a tela já existe', () => {
+    const project = fixtureProject()
+    mkdirSync(path.join(project.pages, 'vazia'), { recursive: true })
+    expect(() => generatePage(project, { name: 'vazia' })).toThrow(/tela 'vazia' já existe/)
+  })
+
+  it('o segmento pode ser palavra reservada: auth.new passa', () => {
+    expect(generatePage(fixtureProject(), { name: 'auth.new' }).names.pascal).toBe('AuthNew')
+  })
+
+  it('recusa o segmento inválido sem planejar nada', () => {
+    const project = fixtureProject()
+    expect(() => generatePage(project, { name: 'auth..login' })).toThrow(/segmento vazio/)
+    expect(() => generatePage(project, { name: 'Auth.login' })).toThrow(/'Auth' é inválido/)
+    expect(existsSync(path.join(project.pages, 'auth'))).toBe(false)
+  })
+})
+
 describe('generatePage com --query (a lista)', () => {
   it('o model lê a lista, a view mostra o carregando, o erro e a lista, e há textos nos dois idiomas', () => {
     const project = fixtureProject()

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // O cliente MCP do portão (`pnpm verify:new`): liga ao servidor prumo do app gerado do jeito que o
 // agente liga (o comando do .mcp.json do app, por stdio, com o app como pasta de trabalho), confere as
-// ferramentas e gera, só por elas, um domínio (schema, repositório com storage e query) e duas telas
-// (lista e detalhe), confere um erro de uso e roda o check e o list. Sai com 0 se tudo deu certo e com
-// 1 no primeiro erro. Não escreve nada: quem escreve é o servidor.
+// ferramentas e gera, só por elas, um domínio (schema, repositório com storage e query) e três telas
+// (lista, detalhe e uma em subpasta), confere um erro de uso e roda o check e o list. Sai com 0 se
+// tudo deu certo e com 1 no primeiro erro. Não escreve nada: quem escreve é o servidor.
 //
 // O SDK do MCP vem do monorepo (devDependency da cli), não do app: o script resolve o cliente pela
 // pasta dele, e não pela do app.
@@ -79,6 +79,8 @@ try {
   await call('make_query', { dominio: 'autores', entity: 'autor' })
   await call('make_page', { nome: 'autores', query: 'autores' })
   await call('make_page', { nome: 'autor', query: 'autores', path: '/autores/:id' })
+  // Uma tela em subpasta, pelo nome com ponto: a rota, a pasta e o nome do list levam a barra
+  await call('make_page', { nome: 'conta.perfil' })
   // Uma simulação: não escreve, e a tela não existe depois
   const dry = await call('make_page', { nome: 'simulada', dry_run: true })
   assert(dry.text.trim() !== '', 'o dry_run não disse o que faria')
@@ -122,6 +124,11 @@ try {
   assert(
     detail?.variation === 'detail' && detail.route === '/autores/:id' && detail.query === 'autores',
     `a tela autor deveria ser detalhe em /autores/:id com query autores (${summary(detail)})`,
+  )
+  const nested = pages['conta/perfil']
+  assert(
+    nested?.variation === 'title' && nested.route === '/conta/perfil',
+    `a tela conta/perfil deveria ser título em /conta/perfil (${summary(nested)})`,
   )
   assert(!('simulada' in pages), 'o dry_run criou a tela simulada')
 } catch (error) {

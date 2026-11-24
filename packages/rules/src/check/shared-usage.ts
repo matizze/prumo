@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { toPosix } from '../eslint/paths.ts'
+import { pageOf } from '../page-structure.ts'
 import { isAux, isCode, specifiersOf, stripExtension, walk } from './files.ts'
 import type { ResolvedOptions, Violation } from './types.ts'
 
@@ -34,7 +35,8 @@ export function checkSharedUsage(options: ResolvedOptions): Violation[] {
 
   const ownerOf = (file: string): string => {
     if (file.startsWith(`${options.pagesDir}/`)) {
-      return `${PAGE}${file.slice(options.pagesDir.length + 1).split('/')[0]}`
+      const inner = file.slice(options.pagesDir.length + 1)
+      return `${PAGE}${pageOf(path.join(options.root, options.pagesDir), inner) ?? stripExtension(inner)}`
     }
     if (file.startsWith(`${options.layoutDir}/`)) return LAYOUT
     return stripExtension(file)

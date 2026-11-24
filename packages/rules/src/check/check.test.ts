@@ -33,6 +33,31 @@ describe('check nos projetos de fixture', () => {
   })
 })
 
+describe('shared-usage com telas em subpastas', () => {
+  const screen = (name: string, view: string) => ({
+    [`src/pages/${name}/index.tsx`]: '',
+    [`src/pages/${name}/view.tsx`]: view,
+  })
+
+  it('conta cada tela pelo caminho dela, não pela primeira pasta', () => {
+    const root = makeProject({
+      ...screen('auth/login', "import { t } from '@/components/shared/table'"),
+      ...screen('auth/register', "import { t } from '@/components/shared/table'"),
+      'src/components/shared/table.tsx': '',
+    })
+    expect(check({ root, requiredPageFiles: ['index.tsx'] })).toEqual([])
+  })
+
+  it('uma tela só em um grupo é uso de uma tela', () => {
+    const root = makeProject({
+      ...screen('auth/login', "import { t } from '@/components/shared/table'"),
+      'src/components/shared/table.tsx': '',
+    })
+    const [violation] = check({ root, requiredPageFiles: ['index.tsx'] })
+    expect(violation?.message).toContain("só pela tela 'auth/login'")
+  })
+})
+
 describe('components-folders', () => {
   const root = makeProject({
     'src/components/ui/a.tsx': '',
@@ -170,6 +195,34 @@ describe('page-structure', () => {
       ['page-structure', 'src/pages/only-view/index.tsx'],
       ['page-structure', 'src/pages/only-view/model.ts'],
     ])
+  })
+
+  it('confere as telas em subpastas e deixa a pasta de grupo em paz', () => {
+    const root = makeProject({
+      'src/pages/auth/login/index.tsx': '',
+      'src/pages/auth/login/model.ts': '',
+      'src/pages/auth/login/view.tsx': '',
+      'src/pages/auth/login/components/index.tsx': '',
+      'src/pages/auth/shared.ts': '',
+      'src/pages/auth/register/index.tsx': '',
+      'src/pages/auth/register/view.tsx': '',
+      'src/pages/auth/legacy/helpers.ts': '',
+    })
+    expect(check({ root }).map((v) => v.file)).toEqual([
+      'src/pages/auth/legacy/index.tsx',
+      'src/pages/auth/legacy/model.ts',
+      'src/pages/auth/legacy/view.tsx',
+      'src/pages/auth/register/model.ts',
+    ])
+  })
+
+  it('a subpasta de uma tela incompleta não vira outra tela', () => {
+    const root = makeProject({
+      'src/pages/relatorio/model.ts': '',
+      'src/pages/relatorio/view.tsx': '',
+      'src/pages/relatorio/components/card.tsx': '',
+    })
+    expect(check({ root }).map((v) => v.file)).toEqual(['src/pages/relatorio/index.tsx'])
   })
 
   it('só os arquivos da lista são cobrados, e a lista é opção', () => {

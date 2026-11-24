@@ -197,7 +197,7 @@ const actionOf = (operation: CrudOperation, { singular, plural }: DomainNames) =
  * `update-livro` e `remove-livro`, com endpoints REST) em `src/use-cases/<domínio>/`, a coleção do
  * mock que os cinco dividem (`collection.mock.ts`, com as fixtures lidas do schema), o registro e o
  * texto de `<ENTIDADE>_NOT_FOUND` e dos `_FAILED` nos `errors.json`. Os campos (busca, ordem, fixtures e
- * testes) saem do schema, como no `make:repository`. Nada vai para o disco; recusa, sem escrever, se
+ * testes) saem do schema. Nada vai para o disco; recusa, sem escrever, se
  * algum dos cinco já existe. Todo erro de uso é um `UsageError` (saída 2).
  */
 export function generateCrudUseCases(project: Project, { name, entity }: CrudRequest): CrudResult {

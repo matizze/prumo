@@ -235,11 +235,8 @@ describe('generatePage --usecase: formulário', () => {
 })
 
 describe('generatePage --usecase: os usos errados', () => {
-  it('recusa --usecase junto com --query, e o use case que não existe', () => {
+  it('recusa o use case que não existe', () => {
     const project = withLivros()
-    expect(() => page(project, { name: 'livros', useCase: 'livros.list-livros', query: 'livros' })).toThrow(
-      "use '--query' ou '--usecase', não os dois",
-    )
     expect(() => page(project, { name: 'x', useCase: 'livros.nada' })).toThrow(UsageError)
     expect(() => page(project, { name: 'x', useCase: 'livros.nada' })).toThrow("o use case 'livros.nada' não existe")
     expect(() => page(project, { name: 'x', useCase: 'livros' })).toThrow(/precisa ter o domínio e a ação/)

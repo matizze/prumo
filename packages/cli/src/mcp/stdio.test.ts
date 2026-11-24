@@ -30,7 +30,7 @@ describe('prumo mcp, por subprocesso', () => {
     expect(client.getServerVersion()).toMatchObject({ name: 'prumo', version })
 
     const { tools } = await client.listTools()
-    expect(tools).toHaveLength(7)
+    expect(tools).toHaveLength(5)
     const made = await client.callTool({
       name: 'make_schema',
       arguments: { dominio: 'livros', fields: 'title:string' },

@@ -158,7 +158,7 @@ export function readObjectFields(
  * `z.object({ ... })` do `<entidade>Schema` e reconhece cada campo (fora `id` e `createdAt`) pelos
  * tipos do `--fields`, com o `.optional()`, lendo a árvore (os valores do enum são os literais do
  * array, com a vírgula final ou não). Devolve os mesmos `Field[]` que o `parseFields` leu na hora
- * de gerar o schema, na ordem do arquivo. É o contrato do `make:repository` e do `make:query` com
+ * de gerar o schema, na ordem do arquivo. É o contrato do `make:usecase --crud` e do `make:page` com
  * o `make:schema`. Erro de uso (`UsageError`, saída 2): o schema não existe (com a dica do
  * `make:schema`, e o `--entity` se a entidade não é a derivada), não tem o `z.object`, não tem
  * `id` e `createdAt` como `z.string()`, ou tem um campo que o `--fields` não geraria (nome que
@@ -198,7 +198,7 @@ export function readEntityFields(plan: ChangePlan, names: DomainNames): Field[] 
 }
 
 /**
- * Os schemas de `src/schemas/entities/` que nenhum repositório usa, quando a entidade pedida é a
+ * Os schemas de `src/schemas/entities/` que nenhum use case usa, quando a entidade pedida é a
  * derivada do domínio: o schema pode ter saído do `make:schema` com `--entity`, e a pessoa esqueceu
  * de repetir a opção. Sem candidatos (ou com `--entity` explícito diferente da derivada), `''`.
  */
@@ -206,13 +206,15 @@ function unusedSchemasHint(plan: ChangePlan, names: DomainNames): string {
   if (entityFlag(names) !== '') return ''
   const entities = path.join(plan.project.src, 'schemas', 'entities')
   if (!existsSync(entities)) return ''
-  const repositories = path.join(plan.project.src, 'repositories')
-  const contracts = existsSync(repositories)
-    ? readdirSync(repositories, { withFileTypes: true })
+  const useCases = path.join(plan.project.src, 'use-cases')
+  const typesFiles = existsSync(useCases)
+    ? readdirSync(useCases, { withFileTypes: true })
         .filter((entry) => entry.isDirectory())
-        .map((entry) => path.join(repositories, entry.name, 'repository.contract.ts'))
-        .filter((file) => existsSync(file))
-        .map((file) => readFileSync(file, 'utf8'))
+        .flatMap((entry) =>
+          readdirSync(path.join(useCases, entry.name))
+            .filter((file) => file.endsWith('.types.ts'))
+            .map((file) => readFileSync(path.join(useCases, entry.name, file), 'utf8')),
+        )
     : []
   const candidates = readdirSync(entities)
     .filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))
@@ -221,10 +223,10 @@ function unusedSchemasHint(plan: ChangePlan, names: DomainNames): string {
     .filter((kebab) => {
       // O nome exato (`PedidoSchema`, com limite de palavra): `PedidoItemSchema` não esconde `item`
       const used = new RegExp(`\\b${deriveNames(kebab).pascal}Schema\\b`)
-      return !contracts.some((text) => used.test(text))
+      return !typesFiles.some((text) => used.test(text))
     })
   if (candidates.length === 0) return ''
-  return ` Se o schema saiu do make:schema com --entity, repita a opção; schemas sem repositório: ${candidates.join(', ')}.`
+  return ` Se o schema saiu do make:schema com --entity, repita a opção; schemas sem use case: ${candidates.join(', ')}.`
 }
 
 /** O que o schema deixa entrar (o `.pick` do `<entidade>InputSchema`) e ordenar (o `<Entidade>SortKey`). */

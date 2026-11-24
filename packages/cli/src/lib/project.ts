@@ -2,10 +2,6 @@ import { readFileSync, statSync, type Stats } from 'node:fs'
 import path from 'node:path'
 import { UsageError } from '../errors.ts'
 
-/** A descrição da opção `--root`, a mesma em todo comando que acha o projeto. */
-export const ROOT_OPTION_DESCRIPTION =
-  'A pasta do projeto, a que tem o src. Padrão: a pasta atual ou a primeira acima com package.json e src.'
-
 /** Os caminhos de um projeto Prumo que os comandos usam, todos absolutos. */
 export interface Project {
   /** A raiz: a pasta com `package.json` e `src`. */

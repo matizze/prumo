@@ -4,9 +4,10 @@ import {
   type ListedPage,
   type PageVariation,
   type ProjectListing,
-} from '../generators/listing.ts'
-import { locateProject, ROOT_OPTION_DESCRIPTION } from '../lib/project.ts'
+} from '../lib/listing.ts'
+import { locateProject } from '../lib/project.ts'
 import { documentCommand } from './help-text.ts'
+import { ROOT_OPTION } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 /** Os rótulos da variação da tela no texto; o JSON traz o valor em inglês. */
@@ -36,7 +37,7 @@ function section(title: string, lines: string[]): string {
 }
 
 /** O levantamento em texto: uma seção por tipo, uma linha por item; seção vazia diz "nenhum". */
-export function formatListing(listing: ProjectListing): string {
+function formatListing(listing: ProjectListing): string {
   return [
     section(
       'Schemas',
@@ -79,7 +80,7 @@ export const registerList: RegisterCommand = (program, io) => {
     .description(
       'Mostra o que o projeto tem: schemas, repositórios, queries, telas e idiomas.\n\nSó lê os arquivos; com --json, escreve o levantamento em JSON para outras ferramentas.',
     )
-    .option('--root <pasta>', ROOT_OPTION_DESCRIPTION)
+    .option(...ROOT_OPTION)
     .option('--json', 'Escreve o levantamento em JSON.')
     .action((options: { root?: string; json?: boolean }) => {
       const project = locateProject(io.cwd, options.root)

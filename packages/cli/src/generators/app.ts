@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { deriveNames, titleOf } from '../lib/names.ts'
+import { deriveNames, kebabToTitle } from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import { projectAt } from '../lib/project.ts'
 import { nameVars, renderTemplate, renderTemplateFile } from '../lib/templates.ts'
@@ -45,7 +45,7 @@ export const APP_FILES: readonly AppFile[] = [
 ]
 
 /** O nome da tela inicial: o modelo do `make:page` gera a pasta, as mensagens e o teste dela. */
-export const HOME_PAGE = 'home'
+const HOME_PAGE = 'home'
 
 /**
  * As dependências do app: as bibliotecas que o `@matizze/prumo-core` pede por peer (React, wouter,
@@ -100,7 +100,7 @@ export interface AppRequest {
 }
 
 /** O `package.json` do app: os scripts, as dependências e, com tarballs, os `pnpm.overrides`. */
-export function appPackageJson({ name, overrides, pnpm }: AppRequest): string {
+function appPackageJson({ name, overrides, pnpm }: AppRequest): string {
   const prumo = Object.entries(PRUMO_VERSIONS).map(
     ([pkg, version]) => [pkg, `^${version}`] as const,
   )
@@ -139,7 +139,7 @@ export function appPackageJson({ name, overrides, pnpm }: AppRequest): string {
  */
 export function generateApp(request: AppRequest): ChangePlan {
   const names = deriveNames(request.name)
-  const vars = { ...nameVars('app', names), 'app.title': titleOf(names.kebab) }
+  const vars = { ...nameVars('app', names), 'app.title': kebabToTitle(names.kebab) }
   const project = projectAt(request.root)
   const plan = new ChangePlan(project)
 

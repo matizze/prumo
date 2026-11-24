@@ -1,6 +1,7 @@
-import { locateProject, ROOT_OPTION_DESCRIPTION } from '../lib/project.ts'
 import { readVersion } from '../lib/version.ts'
+import { locateProject } from '../lib/project.ts'
 import { documentCommand } from './help-text.ts'
+import { ROOT_OPTION } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 /** O trecho do `.mcp.json` que registra o servidor; sai da ajuda inteiro, para copiar. */
@@ -18,7 +19,7 @@ export const registerMcp: RegisterCommand = (program, io) => {
     .description(
       'Abre o servidor MCP do projeto, por stdio, para um agente de IA usar o Prumo.\n\nÉ o agente que o abre, pelo .mcp.json do projeto: não o rode à mão.',
     )
-    .option('--root <pasta>', ROOT_OPTION_DESCRIPTION)
+    .option(...ROOT_OPTION)
     .action(async (options: { root?: string }) => {
       const project = locateProject(io.cwd, options.root)
       // O stdout é do protocolo: o que mais escrevesse no console o corromperia

@@ -1,7 +1,8 @@
 import { Node, SyntaxKind, type JsxElement, type SourceFile } from 'ts-morph'
 import { UsageError } from '../errors.ts'
 import type { ChangePlan } from '../lib/plan.ts'
-import { applyEdits, indentOf, innerText, type TextEdit } from './edit.ts'
+import { innerText } from '../lib/ast.ts'
+import { applyEdits, indentOf, type TextEdit } from './edit.ts'
 import {
   isCatchAllRoute,
   isRouteElement,
@@ -9,7 +10,7 @@ import {
   patternMatches,
   usesIdentifier,
   type RouteElement,
-} from './route-elements.ts'
+} from '../lib/route-elements.ts'
 
 const DISPLAY = 'src/App.tsx'
 const CLONE_FILE = '__clone__.tsx'

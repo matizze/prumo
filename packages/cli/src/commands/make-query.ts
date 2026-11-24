@@ -1,22 +1,13 @@
-import { UsageError } from '../errors.ts'
 import { generateQuery } from '../generators/query.ts'
-import { locateProject, ROOT_OPTION_DESCRIPTION } from '../lib/project.ts'
+import { locateProject } from '../lib/project.ts'
 import { documentCommand } from './help-text.ts'
-import { formatSummary } from './summary.ts'
+import { DRY_RUN_ENDING, DRY_RUN_OPTION, nonEmpty, ROOT_OPTION, runPlan } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 type MakeQueryOptions = {
   entity?: string
   root?: string
   dryRun?: boolean
-}
-
-/** Recusa a opção dada sem valor (`--entity ''`): o commander a aceita. */
-function nonEmpty(option: string) {
-  return (value: string): string => {
-    if (value.trim() === '') throw new UsageError(`a opção '${option}' precisa de um valor.`)
-    return value
-  }
 }
 
 /**
@@ -38,18 +29,15 @@ export const registerMakeQuery: RegisterCommand = (program, io) => {
       'A entidade, no singular (por exemplo, cliente). Padrão: o nome sem o s final. A mesma do make:schema.',
       nonEmpty('--entity'),
     )
-    .option('--root <pasta>', ROOT_OPTION_DESCRIPTION)
-    .option('--dry-run', 'Só lista o que seria criado e alterado, sem escrever nada.')
+    .option(...ROOT_OPTION)
+    .option(...DRY_RUN_OPTION)
     .action((name: string, options: MakeQueryOptions) => {
       const project = locateProject(io.cwd, options.root)
       const { plan, names, exports } = generateQuery(project, { name, entity: options.entity })
-      const dryRun = options.dryRun === true
-      const summary = dryRun ? plan.verify() : plan.commit()
-      const heading = `prumo make:query: ${names.plural.kebab} (entidade ${names.singular.kebab})${dryRun ? ' (simulação)' : ''}.`
-      const ending = dryRun
-        ? 'Simulação (--dry-run): nada foi escrito.\n'
-        : `Próximo passo: prumo make:page ${names.plural.kebab} --query ${names.plural.kebab}\n`
-      io.out(`${heading}\nExporta: ${exports.join(', ')}.\n\n${formatSummary(summary, dryRun)}\n${ending}`)
+      const run = runPlan(plan, options)
+      const heading = `prumo make:query: ${names.plural.kebab} (entidade ${names.singular.kebab})${run.mark}.`
+      const ending = run.dryRun ? DRY_RUN_ENDING : `Próximo passo: prumo make:page ${names.plural.kebab} --query ${names.plural.kebab}\n`
+      io.out(`${heading}\nExporta: ${exports.join(', ')}.\n\n${run.files}\n${ending}`)
     })
   documentCommand(command, {
     examples: [

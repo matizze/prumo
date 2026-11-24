@@ -326,6 +326,8 @@ describe('parseRoutePath', () => {
     const route = parseRoutePath('/livros/:livroId/capas')
     expect(route.param).toBe('livroId')
     expect(route.example('x')).toBe('/livros/x/capas')
+    // `async` é palavra contextual: serve de identificador
+    expect(parseRoutePath('/livros/:async').param).toBe('async')
   })
 
   it.each([
@@ -339,6 +341,8 @@ describe('parseRoutePath', () => {
     ['/livros/:', 'não é um parâmetro válido'],
     ['/livros/:1a', 'não é um parâmetro válido'],
     ['/livros/:class', 'não é um parâmetro válido'],
+    ['/livros/:eval', 'não é um parâmetro válido'],
+    ['/livros/:arguments', 'não é um parâmetro válido'],
     ['/livros/ação', 'só pode ter'],
     ['/a/:x/b/:y', '2 parâmetros'],
   ])('recusa %j', (route, reason) => {

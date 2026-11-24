@@ -1,21 +1,12 @@
 import { generateSchema } from '../generators/schema.ts'
-import { UsageError } from '../errors.ts'
-import { describeField } from '../lib/fields.ts'
+import { describeField } from '../lib/fields/index.ts'
 import { entityFlag } from '../lib/names.ts'
-import { locateProject, ROOT_OPTION_DESCRIPTION } from '../lib/project.ts'
+import { locateProject } from '../lib/project.ts'
 import { documentCommand } from './help-text.ts'
-import { formatSummary } from './summary.ts'
+import { DRY_RUN_ENDING, DRY_RUN_OPTION, nonEmpty, ROOT_OPTION, runPlan } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 type MakeSchemaOptions = { entity?: string; fields?: string; root?: string; dryRun?: boolean }
-
-/** Recusa a opção dada sem valor (`--fields ''`): o commander a aceita, o schema sairia sem campos. */
-function nonEmpty(option: string) {
-  return (value: string): string => {
-    if (value.trim() === '') throw new UsageError(`a opção '${option}' precisa de um valor.`)
-    return value
-  }
-}
 
 /**
  * `prumo make:schema <domínio>`: cria o schema da entidade (`src/schemas/entities/<entidade>.ts`,
@@ -36,8 +27,8 @@ export const registerMakeSchema: RegisterCommand = (program, io) => {
       '--fields <campos>',
       'Os campos, nome:tipo separados por vírgula (por exemplo, "titulo:string,ano:int,apelido?:string"). Tipos: string, number, int, boolean, date, datetime, enum(a|b|c); ? torna opcional. Padrão: só name:string.',
     )
-    .option('--root <pasta>', ROOT_OPTION_DESCRIPTION)
-    .option('--dry-run', 'Só lista o que seria criado e alterado, sem escrever nada.')
+    .option(...ROOT_OPTION)
+    .option(...DRY_RUN_OPTION)
     .action((name: string, options: MakeSchemaOptions) => {
       const project = locateProject(io.cwd, options.root)
       const { plan, names, fields } = generateSchema(project, {
@@ -45,18 +36,15 @@ export const registerMakeSchema: RegisterCommand = (program, io) => {
         entity: options.entity,
         fields: options.fields,
       })
-      const dryRun = options.dryRun === true
-      const summary = dryRun ? plan.verify() : plan.commit()
-      const heading = `prumo make:schema: ${names.plural.kebab} (entidade ${names.singular.kebab})${dryRun ? ' (simulação)' : ''}.`
+      const run = runPlan(plan, options)
+      const heading = `prumo make:schema: ${names.plural.kebab} (entidade ${names.singular.kebab})${run.mark}.`
       const entityLine =
         options.entity === undefined
           ? `Entidade: ${names.singular.kebab} (derivada de ${names.plural.kebab}; use --entity para trocar).`
           : `Entidade: ${names.singular.kebab} (--entity).`
       const fieldsLine = `Campos: ${fields.map(describeField).join(', ')}.`
-      const ending = dryRun
-        ? 'Simulação (--dry-run): nada foi escrito.\n'
-        : `Próximo passo: prumo make:repository ${names.plural.kebab}${entityFlag(names)}\n`
-      io.out(`${heading}\n${entityLine}\n${fieldsLine}\n\n${formatSummary(summary, dryRun)}\n${ending}`)
+      const ending = run.dryRun ? DRY_RUN_ENDING : `Próximo passo: prumo make:repository ${names.plural.kebab}${entityFlag(names)}\n`
+      io.out(`${heading}\n${entityLine}\n${fieldsLine}\n\n${run.files}\n${ending}`)
     })
   documentCommand(command, {
     examples: [

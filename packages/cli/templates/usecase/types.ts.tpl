@@ -3,7 +3,7 @@ import { z } from 'zod'
 {{types.endpoint}}/** O que o use case recebe. */
 export const {{action.pascal}}Input = {{types.input}}
 
-export type {{action.pascal}}Input = z.infer<typeof {{action.pascal}}Input>
+export type {{action.pascal}}Input = {{types.inputType}}
 
 /** O que o use case devolve. */
 export const {{action.pascal}}Output = {{types.output}}

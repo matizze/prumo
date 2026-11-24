@@ -114,9 +114,26 @@ describe('o esquema de cada ferramenta', () => {
     })
   })
 
+  it('make_usecase: o crud e a entity', () => {
+    expect(Object.keys(tool('make_usecase').inputSchema.properties)).toEqual([
+      'nome',
+      'input',
+      'output',
+      'endpoint',
+      'read',
+      'write',
+      'local',
+      'crud',
+      'entity',
+      'dry_run',
+    ])
+    expect(tool('make_usecase').description).toContain('listLivros (GET /livros')
+    expect(tool('make_page').description).toContain('usecase=<domínio>.<ação>')
+  })
+
   it('make_query e make_page', () => {
     expect(Object.keys(tool('make_query').inputSchema.properties)).toEqual(['dominio', 'entity', 'dry_run'])
-    expect(Object.keys(tool('make_page').inputSchema.properties)).toEqual(['nome', 'query', 'path', 'dry_run'])
+    expect(Object.keys(tool('make_page').inputSchema.properties)).toEqual(['nome', 'query', 'usecase', 'path', 'dry_run'])
     expect(tool('make_page').inputSchema.required).toEqual(['nome'])
   })
 

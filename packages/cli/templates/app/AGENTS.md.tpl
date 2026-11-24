@@ -33,9 +33,10 @@ Crie com os geradores, não à mão: eles registram a rota, as mensagens e os í
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm exec prumo make:schema <domínio> [--entity <singular>] [--fields "a:string,b:int"]` | O schema zod da entidade (tipos: string, number, int, boolean, date, datetime, enum(a\|b\|c); `?` torna o campo opcional)          |
 | `pnpm exec prumo make:usecase <domínio.ação> [--input "a:string"] [--output "b:int"\|<entidade>[]] [--endpoint "PATCH /x/:id"] [--local]` | Um use case em `src/use-cases/<domínio>/` (tipos, classe, mock e teste), registrado. Leitura (`get`, `list`, `search`, `find`, `check`, `count`) ou escrita, pelo verbo; `--local` usa o `localStorage`, sem API |
+| `pnpm exec prumo make:usecase <domínio> --crud [--entity <singular>]`              | Os cinco use cases do CRUD de uma entidade (`listLivros`, `getLivro`, `createLivro`, `updateLivro`, `removeLivro`), com uma coleção de mock que eles dividem e testes (precisa do schema) |
 | `pnpm exec prumo make:repository <domínio> [--data-source mock\|http\|storage]`      | O contrato, a implementação mock, as fixtures e o teste de contrato do domínio (precisa do schema)                              |
 | `pnpm exec prumo make:query <domínio>`                                             | As query keys, os hooks e as mutations do domínio (precisa do repositório)                                                      |
-| `pnpm exec prumo make:page <nome> [--query <domínio>] [--path <caminho>]`          | Tela com index, model, view, teste, mensagens e rota; com `--query`, a lista do domínio; com `--path /x/:id`, rota com parâmetro |
+| `pnpm exec prumo make:page <nome> [--usecase <domínio.ação>] [--query <domínio>] [--path <caminho>]` | Tela com index, model, view, teste, mensagens e rota. Com `--usecase`, a tela do use case: lista (leitura que devolve lista), detalhe (leitura com `:id`, com `--path /x/:id`) ou formulário (escrita). Com `--query`, a lista do domínio (caminho antigo); com `--path /x/:id`, rota com parâmetro |
 | `pnpm exec prumo check`                                                            | Confere a arquitetura do projeto inteiro                                                                                        |
 | `pnpm exec prumo list [--json]`                                                    | O que o projeto já tem (schemas, use cases com tipo e endpoint, repositórios com as fontes, queries, telas com rota e idiomas); só lê. Rode antes de gerar     |
 
@@ -45,7 +46,7 @@ Scripts do projeto: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pn
 
 ## Servidor MCP
 
-O projeto traz o `.mcp.json`, que registra o servidor `prumo` (`pnpm exec prumo mcp`, por stdio). Ele dá ao agente os mesmos geradores como ferramentas: `make_schema`, `make_usecase`, `make_repository`, `make_query`, `make_page`, `check` e `list`. Os parâmetros têm o nome da opção em snake_case sem acento (`dominio`, `nome`, `entity`, `fields`, `input`, `output`, `endpoint`, `read`, `write`, `local`, `data_source`, `query`, `path` e `dry_run`). O servidor trabalha só neste projeto. Prefira as ferramentas a editar à mão, e chame `list` antes de gerar.
+O projeto traz o `.mcp.json`, que registra o servidor `prumo` (`pnpm exec prumo mcp`, por stdio). Ele dá ao agente os mesmos geradores como ferramentas: `make_schema`, `make_usecase`, `make_repository`, `make_query`, `make_page`, `check` e `list`. Os parâmetros têm o nome da opção em snake_case sem acento (`dominio`, `nome`, `entity`, `fields`, `input`, `output`, `endpoint`, `read`, `write`, `local`, `crud`, `data_source`, `query`, `usecase`, `path` e `dry_run`). O servidor trabalha só neste projeto. Prefira as ferramentas a editar à mão, e chame `list` antes de gerar.
 
 ## Documentação
 

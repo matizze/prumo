@@ -10,10 +10,10 @@ prumo [opções] [comando]
 | ---------------------------------- | ----------------------------------------------------- |
 | [`new <nome>`](#prumo-new)         | Cria um app React organizado em camadas               |
 | [`make:schema <domínio>`](#prumo-makeschema) | Cria o schema (zod) de uma entidade, com os campos |
-| [`make:usecase <domínio.ação>`](#prumo-makeusecase) | Cria um use case (tipos, classe, mock e teste): o caminho novo para o que o app faz com dados |
+| [`make:usecase <domínio.ação>`](#prumo-makeusecase) | Cria um use case (tipos, classe, mock e teste): o caminho novo para o que o app faz com dados; com `--crud`, os cinco do CRUD de uma entidade |
 | [`make:repository <domínio>`](#prumo-makerepository) | Cria o repositório de um domínio (contrato, mock e teste de contrato) e acrescenta fontes (`http`, `storage`) |
 | [`make:query <domínio>`](#prumo-makequery) | Cria as queries e mutations de um domínio (chaves e hooks de lista, detalhe e escrita) |
-| [`make:page <nome>`](#prumo-makepage) | Cria uma tela (index, model, view, teste), os textos e a rota |
+| [`make:page <nome>`](#prumo-makepage) | Cria uma tela (index, model, view, teste), os textos e a rota; com `--usecase`, lista, detalhe ou formulário de um use case |
 | [`check`](#prumo-check)            | Confere a arquitetura do projeto                      |
 | [`list`](#prumo-list)              | Mostra o que o projeto tem (schemas, use cases, repositórios, queries, telas, idiomas) |
 | [`mcp`](#prumo-mcp)                | Abre o servidor MCP do projeto, por stdio, para agentes de IA |
@@ -116,6 +116,7 @@ Quem lê os campos depois é o `make:repository`, direto do schema gerado. O lei
 
 ```text
 prumo make:usecase <domínio.ação> [--input <campos>] [--output <campos|entidade>] [--endpoint "<MÉTODO> <caminho>"] [--read | --write] [--local] [--root <pasta>] [--dry-run]
+prumo make:usecase <domínio> --crud [--entity <singular>] [--root <pasta>] [--dry-run]
 ```
 
 Cria um **use case**: uma ação do app com nome de verbo (`get-stores`, `sign-in`, `add-item`), com um Input, um Output e um `execute`. É o caminho novo para tudo o que o app faz com dados; o repositório e as queries continuam funcionando enquanto a transição não termina. Veja [as camadas](../concepts/architecture.md#use-cases).
@@ -131,6 +132,8 @@ Precisa do app com `src/use-cases/index.ts`, que o `prumo new` cria. Um app de a
 | `--endpoint "<MÉTODO> <caminho>"` | O endereço da API (`PATCH /livros/:id`). Padrão: `GET /<domínio>/<ação>` na leitura e `POST /<domínio>/<ação>` na escrita |
 | `--read`, `--write`            | Forçam o tipo, no lugar do verbo da ação                                                                            |
 | `--local`                      | Use case sem API: recebe o `storage` (o `localStorage`), sem `ENDPOINT` nem mock                                     |
+| `--crud`                       | Gera os cinco use cases do CRUD de uma entidade, a partir do schema ([veja abaixo](#o---crud)). O nome é só o domínio, no plural |
+| `--entity <singular>`          | Com `--crud`, a entidade, no singular, a mesma do `make:schema`. Padrão: o nome sem o `s` final                       |
 | `--root <pasta>`               | A pasta do projeto, a que tem o `src`. Padrão: [a busca](#a-busca-do-projeto) a partir da pasta atual                |
 | `--dry-run`                    | Lista o que seria criado e alterado, sem escrever nada                                                               |
 
@@ -176,6 +179,29 @@ O registro lê a `VITE_DATA_SOURCE`, a mesma variável dos repositórios: `http`
 ### `--local`
 
 Um use case sem API, como o carrinho do pratigo: a classe recebe o `storage` (a Web Storage API, o `localStorage`, que entra nas `deps` do registro) e não tem `ENDPOINT`, mock nem erro de API. O `execute` valida o Input, tem o lugar da regra marcado num comentário (o exemplo guarda o Input no `storage`, ou lê dele na leitura) e devolve o Output validado. O teste roda com o `localStorage` do jsdom.
+
+### O `--crud`
+
+```bash
+prumo make:schema livros --fields "title:string,author:string,year:int"
+prumo make:usecase livros --crud
+```
+
+Gera os cinco use cases do CRUD de uma entidade de uma vez, num plano só. O nome é o domínio, no plural (`livros`), e o schema precisa existir: os campos (busca, ordem, dados de exemplo e testes) saem dele, como no `make:repository`, e o `--entity` troca o singular quando a regra de tirar o `s` erra (`--entity pao` para `paes`). Não combina com `--input`, `--output`, `--endpoint`, `--read`, `--write` nem `--local`.
+
+| Chave no registro | Endereço             | Input                                             | Output                  |
+| ----------------- | -------------------- | ------------------------------------------------- | ----------------------- |
+| `listLivros`      | `GET /livros`        | o `LivroListQuery` do schema: `search`, `sort`, `page` e `page_size` | `Page<LivroSchema>` (`{ items, total }`) |
+| `getLivro`        | `GET /livros/:id`    | `{ id }`                                          | `LivroSchema`           |
+| `createLivro`     | `POST /livros`       | o `LivroInput` do schema                          | `LivroSchema`           |
+| `updateLivro`     | `PATCH /livros/:id`  | o `id` e o `LivroInput` com todos os campos opcionais | `LivroSchema`       |
+| `removeLivro`     | `DELETE /livros/:id` | `{ id }`                                          | `void`                  |
+
+Cada use case tem os arquivos de sempre (`list-livros.types.ts`, `.usecase.ts`, `.mock.ts` e `.usecase.test.ts`, e assim por diante). A leitura (`list` e `get`) ganha a chave de cache `<ação>Key(input)`, com o domínio no prefixo. O `sort` do `listLivros` vai na query como `<campo>:<asc|desc>`. O 404 de `getLivro`, `updateLivro` e `removeLivro` vira `UIError('LIVRO_NOT_FOUND')`, e os outros erros da API viram o `<AÇÃO>_FAILED` de cada um. O comando acrescenta o texto de `LIVRO_NOT_FOUND` e dos cinco `_FAILED` ao `errors.json` dos dois idiomas.
+
+Os mocks dos cinco dividem **uma coleção em memória**, `src/use-cases/livros/collection.mock.ts`: as fixtures do domínio (três registros, no formato do schema) e um `createMockCollection` do core. Assim, `createLivro` e depois `listLivros` mostra o item novo, e `updateLivro` e `removeLivro` mudam o que o resto lê. Os testes dos cinco cobrem o que o contrato do repositório cobre (lista com ids únicos, busca sem diferenciar maiúsculas e acentos, ordem e página com o total de antes da página, busca por id, criação com `id` e data, edição só dos campos enviados, remoção e o `LIVRO_NOT_FOUND`), contra o mock e, com `API_TEST_URL`, contra a API.
+
+O comando recusa, com 2 e sem escrever nada, quando algum dos cinco já existe, dizendo qual (`o use case 'livros.get-livro' já existe`), ou quando a chave de um deles já é de outro use case. A tela de cada um sai do [`make:page --usecase`](#prumo-makepage).
 
 ### O resultado
 
@@ -283,7 +309,7 @@ O comando valida tudo antes de escrever e nunca sobrescreve: repositório que fa
 ## `prumo make:page`
 
 ```text
-prumo make:page <nome> [--query <domínio>] [--path <caminho>] [--root <pasta>] [--dry-run]
+prumo make:page <nome> [--query <domínio> | --usecase <domínio.ação>] [--path <caminho>] [--root <pasta>] [--dry-run]
 ```
 
 Cria uma tela: `src/pages/<nome>/` com `index.tsx` (liga o model à view), `model.ts` (dados e textos, sem JSX), `view.tsx` (só tags nativas, recebe tudo por props) e `index.test.tsx` (renderiza com o `renderWithProviders` de `@/test/render` e confere o título), e as mensagens em `src/messages/<idioma>/<nome>.json`, nos idiomas do projeto. Registra o namespace nos índices de mensagens de cada idioma e a rota no `src/App.tsx`. O `<nome>` vai em kebab-case (`clientes`, `pedidos-recentes`).
@@ -298,6 +324,7 @@ Cria `src/pages/auth/login/` (a tela comum, com `index.tsx`, `model.ts`, `view.t
 
 | Opção               | O que faz                                                                                             |
 | ------------------- | ----------------------------------------------------------------------------------------------------- |
+| `--usecase <domínio.ação>` | O use case que a tela usa (`livros.list-livros`): lista, detalhe ou formulário, conforme ele ([veja abaixo](#make-page-usecase)). Não combina com `--query`. Padrão: nenhum |
 | `--query <domínio>` | O domínio cuja query a tela usa (`clientes`). Precisa de `src/queries/<domínio>.ts`. Padrão: nenhum   |
 | `--path <caminho>`  | O caminho da rota, com um parâmetro opcional (`/clientes/:id`). Padrão: `/<nome>`, com a barra no lugar do ponto (`/auth/login`) |
 | `--root <pasta>`    | A pasta do projeto, a que tem o `src`. Padrão: [a busca](#a-busca-do-projeto) a partir da pasta atual |
@@ -315,6 +342,44 @@ As quatro variações:
 Com `--query`, a query precisa existir; sem ela, sai com 2 e diz o comando (`rode prumo make:query <domínio>`). A entidade sai do contrato do repositório (`repository.contract.ts`), sem `--entity`. A lista e o detalhe mostram um campo de texto do registro, lido do schema que o projeto tem hoje: o primeiro campo `string` obrigatório (ou, sem ele, o primeiro opcional). Sem campo de texto, ou sem conseguir ler o schema, a tela mostra o `id` e o comando avisa, sem falhar; na tela de detalhe, um campo sem valor no primeiro registro das fixtures também cai no `id`. Com `--query`, as mensagens ganham os textos `loading` e `failed`.
 
 O `--path` começa com `/`, tem segmentos fixos (letras, números, `-`, `_`, `.` e `~`) e **no máximo um parâmetro** `:nome` (sem `?`, `*` nem `+`). A rota entra no `<Switch>` do `App.tsx` depois da última rota com `path` e antes da curinga, porque o wouter mostra a primeira que casa. Uma tela de detalhe que continua montada depois do `useRemove<Entidade>` recebe `<ENTIDADE>_NOT_FOUND`: saia da tela ao remover.
+
+<a id="make-page-usecase"></a>
+
+### `--usecase`
+
+```bash
+prumo make:page livros --usecase livros.list-livros
+prumo make:page livro --usecase livros.get-livro --path /livros/:id
+prumo make:page livro-novo --usecase livros.create-livro
+prumo make:page auth.login --usecase auth.sign-in
+```
+
+A tela usa um use case que já existe (`prumo make:usecase`). O model pega o use case de `useUseCases()` e chama `useQuery` (a chave é `<ação>Key(input)`) ou `useMutation`; uma escrita invalida o prefixo do domínio no `onSuccess`. O que a tela mostra depende do use case:
+
+| Use case                                                                  | A tela                                                                                                  |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| leitura que devolve lista (`z.array(<entidade>Schema)` ou `pageSchema(<entidade>Schema)`) | A **lista**, com carregando, erro e vazio, e um campo de texto de cada registro                |
+| leitura com `:id` no endereço e o mesmo parâmetro no `--path`             | O **detalhe**: o model lê o parâmetro com o `useParams` e a view mostra o registro                      |
+| escrita                                                                   | O **formulário** com os campos do Input, o envio, o texto do erro e um aviso de sucesso                 |
+
+```ts
+// src/pages/livros/model.ts (livros.list-livros)
+const { listLivros } = useUseCases()
+const input = {}
+const list = useQuery({ queryKey: listLivrosKey(input), queryFn: () => listLivros.execute(input) })
+```
+
+O formulário lê os campos do Input do `.types.ts` do use case, pela árvore (`z.object({ ... })`, ou o `<entidade>InputSchema` do `--crud`, com `.partial()` e `.extend({ ... })`), e usa só elementos nativos, sem biblioteca de formulário: um `<input>` por campo (`type` pelo tipo: `text`, `number`, `checkbox`, `date`, `datetime-local`, e `email` e `password` pelo nome do campo), um `<select>` no enum, e `required` nos obrigatórios. O model lê o `FormData` no formato do Input, desabilita o botão enquanto envia e mostra o erro com o `getErrorMessage` de `@/errors` (o `UIError` pelo `errors.json`: `LIVRO_NOT_FOUND`, `SIGN_IN_FAILED`); o teste da tela preenche os campos e envia o formulário contra o mock. Os textos (título, rótulos, envio, sucesso, carregando, erro e vazio) entram nas mensagens dos dois idiomas, e os rótulos saem do nome do campo, para a pessoa traduzir. Funciona com tela em subpasta (`auth.login`).
+
+Limitações de hoje:
+
+- O formulário de **update** não lê o `:id` da rota nem carrega o registro: o `id` é um campo do formulário, como os outros, e os campos começam vazios.
+- O checkbox desmarcado envia `false` (o campo `boolean` sempre vai no Input).
+- A **lista** exige o Output `<entidade>[]` (`z.array(<entidade>Schema)`) ou `Page` (`pageSchema(<entidade>Schema)`); outro formato é erro de uso.
+- Os rótulos de um `enum` mostram o valor (`lido`, `lendo`), sem tradução: troque na view.
+- Depois de um envio com sucesso o formulário volta ao começo, e editar um campo tira o aviso.
+
+São erro de uso: `--usecase` junto com `--query`; um use case que não existe; uma leitura que não devolve lista de entidade e não tem `:parâmetro` (a mensagem diz como ajustar o Output); um `--path` com parâmetro que o endereço do use case não tem, ou o contrário; um `--path` com parâmetro numa escrita; e, na lista e no detalhe, um Input com campo obrigatório que a tela não preenche. O `--query` continua funcionando enquanto a transição para os use cases não termina.
 
 O comando valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada pela metade: nome inválido ou reservado (ou com segmento vazio); tela que já existe; tela dentro de outra tela (`auth/login` com `src/pages/auth/index.tsx`); pasta que já agrupa telas (`auth` com `src/pages/auth/login/index.tsx`); nome que dá o mesmo componente e as mesmas mensagens de outra tela (`auth/login` e `auth-login`, e a mensagem diz o conflito); `--path` inválido, com rota repetida ou que conflita com uma do `App.tsx`; query que falta, ou sem o `use<Domínio>List` (ou, no detalhe, sem o `use<Entidade>Detail`); `App.tsx` ou índice de mensagens que falta. No fim, mostra o que fez, os avisos e o comando dos testes da tela nova.
 
@@ -365,8 +430,9 @@ Repositórios (1):
 Queries (1):
   livros  Livro  useLivrosList, useLivroDetail, useCreateLivro, useUpdateLivro, useRemoveLivro
 
-Telas (2):
+Telas (3):
   livro  rota: /livros/:id  detalhe  query: livros
+  livro-novo  rota: /livro-novo  formulário  use case: livros.create-livro
   sobre  rota: nenhuma  título
 
 Idiomas (2):
@@ -374,7 +440,7 @@ Idiomas (2):
   pt-BR
 ```
 
-Na linha da tela, a variação tem rótulo em português (`título`, `lista`, `parâmetro` ou `detalhe`; o `--json` traz os valores em inglês, abaixo). `rota: curinga` é a `<Route>` sem `path` (ou com `path="*"`), `rota: {expressão} (expressão)` é um `path` que não é literal e `rota: nenhuma` é a tela que nenhuma `<Route>` usa. Um schema que o leitor do Prumo recusa (editado à mão com algo fora dos tipos do `--fields`) aparece como `editado à mão (<motivo>)`, com a primeira linha da mensagem do leitor (no máximo 160 caracteres).
+Na linha da tela, a variação tem rótulo em português (`título`, `lista`, `parâmetro`, `detalhe` ou `formulário`; o `--json` traz os valores em inglês, abaixo). `rota: curinga` é a `<Route>` sem `path` (ou com `path="*"`), `rota: {expressão} (expressão)` é um `path` que não é literal e `rota: nenhuma` é a tela que nenhuma `<Route>` usa. Um schema que o leitor do Prumo recusa (editado à mão com algo fora dos tipos do `--fields`) aparece como `editado à mão (<motivo>)`, com a primeira linha da mensagem do leitor (no máximo 160 caracteres).
 
 | Opção            | O que faz                                                                                             |
 | ---------------- | ----------------------------------------------------------------------------------------------------- |
@@ -420,7 +486,8 @@ Um objeto com seis listas, sempre presentes (vazias quando não há nada), orden
       "routeKind": "literal",
       "routePartial": false,
       "variation": "detail",
-      "query": "livros"
+      "query": "livros",
+      "useCase": null
     }
   ],
   "languages": ["en", "pt-BR"]
@@ -449,8 +516,9 @@ Um objeto com seis listas, sempre presentes (vazias quando não há nada), orden
 |                | `route`     | A rota da tela no `src/App.tsx`: o `path` da `<Route>` mais interna que a usa, composto com os `<Route nest>` de fora (`/admin` + `/usuarios` vira `/admin/usuarios`); `*` para a curinga (sem `path`, ou `path="*"`); o texto da expressão de um `path={...}` que não é literal (por exemplo, `{ROUTES.lenta}`); `null` só quando nenhuma `<Route>` usa a tela. A tela pode vir de um `import` padrão ou de um `lazy(() => import('@/pages/<nome>'))` |
 |                | `routeKind` | `literal`, `catchAll` ou `expression`; `null` quando `route` é `null`                                                                  |
 |                | `routePartial` | `true` quando um `<Route nest>` de fora não tem `path` literal e não deu para compor: `route` é só o caminho da `<Route>` de dentro |
-|                | `variation` | `title` (só o título), `list` (com query), `param` (rota com parâmetro) ou `detail` (query e parâmetro)                                  |
+|                | `variation` | `title` (só o título), `list` (com query, ou use case de leitura), `param` (rota com parâmetro), `detail` (os dois) ou `form` (use case de escrita) |
 |                | `query`     | O domínio da query que o model da tela importa de `@/queries`; `null` se não usa                                                        |
+|                | `useCase`   | O use case que o model chama de `useUseCases()`, como `livros.list-livros`; `null` se não chama                                         |
 | `languages`    |             | As pastas de `src/messages`, em ordem                                                                                                  |
 
 ## `prumo mcp`
@@ -487,10 +555,10 @@ Uma ferramenta por comando, menos `new` e `mcp`. Elas saem da árvore de comando
 | Ferramenta        | Parâmetros                                                                               |
 | ----------------- | ---------------------------------------------------------------------------------------- |
 | `make_schema`     | `dominio` (obrigatório), `entity`, `fields`, `dry_run`                                   |
-| `make_usecase`    | `nome` (obrigatório), `input`, `output`, `endpoint`, `read`, `write`, `local`, `dry_run`  |
+| `make_usecase`    | `nome` (obrigatório), `input`, `output`, `endpoint`, `read`, `write`, `local`, `crud`, `entity`, `dry_run` |
 | `make_repository` | `dominio` (obrigatório), `entity`, `data_source` (`mock`, `http` ou `storage`), `dry_run` |
 | `make_query`      | `dominio` (obrigatório), `entity`, `dry_run`                                             |
-| `make_page`       | `nome` (obrigatório), `query`, `path`, `dry_run`                                         |
+| `make_page`       | `nome` (obrigatório), `query`, `usecase`, `path`, `dry_run`                              |
 | `check`           | nenhum                                                                                   |
 | `list`            | nenhum                                                                                   |
 

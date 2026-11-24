@@ -119,4 +119,69 @@ describe('prumo make:usecase', () => {
     expect(help.stdout).toContain('prumo make:usecase auth.sign-in --input "email:string,password:string" --output "token:string"')
     expect(help.stdout).toContain('reference/cli#prumo-makeusecase')
   })
+
+  describe('--crud', () => {
+    it('gera os cinco use cases, a coleção do mock e os textos de erro, e diz o próximo passo', async () => {
+      const root = await withStores()
+      const result = await exec(['make:usecase', 'stores', '--crud'], root)
+
+      expect(result.code, result.stderr).toBe(0)
+      expect(result.stdout).toContain('prumo make:usecase: stores --crud (entidade store).')
+      expect(result.stdout).toContain('Campos (lidos do schema): name (string).')
+      expect(result.stdout).toContain('Use cases (listStores, getStore, createStore, updateStore, removeStore):')
+      expect(result.stdout).toContain('  listStores  GET /stores\n  getStore  GET /stores/:id\n  createStore  POST /stores\n  updateStore  PATCH /stores/:id\n  removeStore  DELETE /stores/:id\n')
+      expect(result.stdout).toContain('Criados (22):')
+      expect(result.stdout).toContain('Próximo passo: prumo make:page stores --usecase stores.list-stores\n')
+      for (const action of ['list-stores', 'get-store', 'create-store', 'update-store', 'remove-store']) {
+        for (const suffix of ['types.ts', 'usecase.ts', 'mock.ts', 'usecase.test.ts']) {
+          expect(existsSync(path.join(root, `src/use-cases/stores/${action}.${suffix}`)), `${action}.${suffix}`).toBe(true)
+        }
+      }
+      expect(read(root, 'src/use-cases/stores/collection.mock.ts')).toContain('export const storesCollection = createMockCollection(MOCK_STORES, {')
+      expect(Object.keys(JSON.parse(read(root, 'src/messages/pt-BR/errors.json')))).toEqual([
+        'STORE_NOT_FOUND',
+        'LIST_STORES_FAILED',
+        'GET_STORE_FAILED',
+        'CREATE_STORE_FAILED',
+        'UPDATE_STORE_FAILED',
+        'REMOVE_STORE_FAILED',
+      ])
+    })
+
+    it('--entity troca o singular, e --dry-run não escreve', async () => {
+      const { root } = fixtureProject()
+      await exec(['make:schema', 'paes', '--entity', 'pao'], root)
+      const result = await exec(['make:usecase', 'paes', '--crud', '--entity', 'pao', '--dry-run'], root)
+      expect(result.code, result.stderr).toBe(0)
+      expect(result.stdout).toContain('paes --crud (entidade pao) (simulação).')
+      expect(result.stdout).toContain('listPaes, getPao, createPao, updatePao, removePao')
+      expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')
+      expect(existsSync(path.join(root, 'src/use-cases/paes'))).toBe(false)
+    })
+
+    it('recusa, sem escrever, quando algum dos cinco já existe, dizendo qual', async () => {
+      const root = await withStores()
+      const made = await exec(['make:usecase', 'stores.get-store', '--output', 'store', '--endpoint', 'GET /stores/:id', '--input', 'id:string'], root)
+      expect(made.code, made.stderr).toBe(0)
+      const result = await exec(['make:usecase', 'stores', '--crud'], root)
+      expect(result.code).toBe(2)
+      expect(result.stderr).toContain("o use case 'stores.get-store' já existe")
+      expect(existsSync(path.join(root, 'src/use-cases/stores/list-stores.usecase.ts'))).toBe(false)
+      expect(existsSync(path.join(root, 'src/use-cases/stores/collection.mock.ts'))).toBe(false)
+    })
+
+    it('recusa o schema que falta e as opções de um use case só', async () => {
+      const root = await withStores()
+      const missing = await exec(['make:usecase', 'pedidos', '--crud'], root)
+      expect(missing.code).toBe(2)
+      expect(missing.stderr).toContain('falta o schema pedidos')
+      const mixed = await exec(['make:usecase', 'stores', '--crud', '--input', 'a:string', '--local'], root)
+      expect(mixed.code).toBe(2)
+      expect(mixed.stderr).toContain("tire '--input', '--local'")
+      const entity = await exec(['make:usecase', 'stores.get-stores', '--entity', 'store'], root)
+      expect(entity.code).toBe(2)
+      expect(entity.stderr).toContain("'--entity' só vale com '--crud'")
+      expect(existsSync(path.join(root, 'src/use-cases/stores'))).toBe(false)
+    })
+  })
 })

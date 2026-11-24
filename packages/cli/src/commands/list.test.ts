@@ -34,6 +34,29 @@ async function fullProject() {
   return root
 }
 
+describe('listProject: as telas de use case', () => {
+  it('mostra o use case de cada tela e a variação: lista, detalhe e formulário', async () => {
+    const { root } = fixtureProject()
+    await make(
+      root,
+      ['make:schema', 'livros', '--fields', 'title:string'],
+      ['make:usecase', 'livros', '--crud'],
+      ['make:page', 'livros', '--usecase', 'livros.list-livros'],
+      ['make:page', 'livro', '--usecase', 'livros.get-livro', '--path', '/livros/:id'],
+      ['make:page', 'livro-novo', '--usecase', 'livros.create-livro'],
+    )
+    const listing = listProject(fixtureProjectAt(root))
+    const pages = Object.fromEntries(listing.pages.map((page) => [page.name, `${page.variation} ${page.route} ${page.useCase}`]))
+    expect(pages.livros).toBe('list /livros livros.list-livros')
+    expect(pages.livro).toBe('detail /livros/:id livros.get-livro')
+    expect(pages['livro-novo']).toBe('form /livro-novo livros.create-livro')
+    expect(listing.pages.find((page) => page.name === 'livros')?.query).toBeNull()
+
+    const text = await exec(['list'], root)
+    expect(text.stdout).toContain('livro-novo  rota: /livro-novo  formulário  use case: livros.create-livro')
+  })
+})
+
 describe('listProject', () => {
   it('lista um projeto com todas as camadas e as três fontes', async () => {
     const root = await fullProject()
@@ -69,10 +92,10 @@ describe('listProject', () => {
       'useRemoveLivro',
     ])
     expect(listing.pages).toEqual([
-      { name: 'item', route: '/item/:id', routeKind: 'literal', routePartial: false, variation: 'param', query: null },
-      { name: 'livro', route: '/livros/:id', routeKind: 'literal', routePartial: false, variation: 'detail', query: 'livros' },
-      { name: 'livros-lista', route: '/livros-lista', routeKind: 'literal', routePartial: false, variation: 'list', query: 'livros' },
-      { name: 'sobre', route: '/sobre', routeKind: 'literal', routePartial: false, variation: 'title', query: null },
+      { name: 'item', route: '/item/:id', routeKind: 'literal', routePartial: false, variation: 'param', query: null, useCase: null },
+      { name: 'livro', route: '/livros/:id', routeKind: 'literal', routePartial: false, variation: 'detail', query: 'livros', useCase: null },
+      { name: 'livros-lista', route: '/livros-lista', routeKind: 'literal', routePartial: false, variation: 'list', query: 'livros', useCase: null },
+      { name: 'sobre', route: '/sobre', routeKind: 'literal', routePartial: false, variation: 'title', query: null, useCase: null },
     ])
     expect(listing.languages).toEqual(['en', 'pt-BR'])
   })
@@ -105,7 +128,7 @@ describe('listProject', () => {
     const app = path.join(root, 'src/App.tsx')
     writeFileSync(app, readFileSync(app, 'utf8').replace(/\s*<Route path="\/sobre">[\s\S]*?<\/Route>/, ''))
     expect(listProject(fixtureProjectAt(root)).pages).toEqual([
-      { name: 'sobre', route: null, routeKind: null, routePartial: false, variation: 'title', query: null },
+      { name: 'sobre', route: null, routeKind: null, routePartial: false, variation: 'title', query: null, useCase: null },
     ])
   })
 
@@ -144,7 +167,7 @@ export default function App() {
       ['usuarios'],
     )
     expect(listProject(fixtureProjectAt(root)).pages).toEqual([
-      { name: 'usuarios', route: '/admin/usuarios/:id', routeKind: 'literal', routePartial: false, variation: 'param', query: null },
+      { name: 'usuarios', route: '/admin/usuarios/:id', routeKind: 'literal', routePartial: false, variation: 'param', query: null, useCase: null },
     ])
   })
 

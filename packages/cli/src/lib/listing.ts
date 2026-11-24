@@ -81,7 +81,7 @@ export interface ListedQuery {
 
 export type RouteKind = 'literal' | 'catchAll' | 'expression'
 
-export type PageVariation = 'title' | 'list' | 'param' | 'detail'
+export type PageVariation = 'title' | 'list' | 'param' | 'detail' | 'form'
 
 /** Uma tela de `src/pages/`. */
 export interface ListedPage {
@@ -97,10 +97,15 @@ export interface ListedPage {
   routeKind: RouteKind | null
   /** O caminho de fora (`<Route nest>`) não é literal e não deu para compor: `route` é só o da `<Route>` de dentro. */
   routePartial: boolean
-  /** `title` (só o título), `list` (com query), `param` (rota com parâmetro) ou `detail` (os dois). */
+  /**
+   * `title` (só o título), `list` (com query ou use case de leitura), `param` (rota com parâmetro),
+   * `detail` (os dois) ou `form` (use case de escrita).
+   */
   variation: PageVariation
   /** O domínio da query que a tela usa; `null` se não usa. */
   query: string | null
+  /** O use case que o model chama de `useUseCases()` (`livros.list-livros`); `null` se não chama. */
+  useCase: string | null
 }
 
 /** O que o projeto tem, lido dos arquivos. É o que o `prumo list --json` escreve. */
@@ -192,6 +197,23 @@ function listRepositories(project: Project): ListedRepository[] {
 const ENDPOINT =
   /\bENDPOINT\s*=\s*\{\s*method:\s*['"](\w+)['"]\s*,\s*path:\s*['"]([^'"]*)['"]/
 
+/** O `ENDPOINT` de um `.types.ts` (`GET /stores/:id`) e os `:parâmetros` do caminho; `null` sem `ENDPOINT` (o use case local). */
+export function endpointOf(types: string): { method: string; path: string; params: string[] } | null {
+  const match = ENDPOINT.exec(types)
+  if (!match) return null
+  const route = match[2] ?? ''
+  return {
+    method: match[1] ?? '',
+    path: route,
+    params: [...route.matchAll(/\/:([A-Za-z]\w*)/g)].map((param) => param[1]!),
+  }
+}
+
+/** O use case tem a chave de cache `<chave>Key` no `.types.ts`: é uma leitura (a tela usa com `useQuery`). */
+export function hasQueryKey(types: string, key: string): boolean {
+  return new RegExp(`\\bexport\\s+(?:function|const)\\s+${key}Key\\b`).test(types)
+}
+
 /** Os use cases do projeto, por domínio e ação, lidos do `.types.ts` ao lado de cada `.usecase.ts`. */
 export function listUseCases(project: Project): ListedUseCase[] {
   const base = path.join(project.src, 'use-cases')
@@ -203,18 +225,14 @@ export function listUseCases(project: Project): ListedUseCase[] {
       if (!file.isFile() || name === undefined || !isValidName(name)) continue
       const key = deriveNames(name).camel
       const types = readIfExists(path.join(base, folder.name, `${name}.types.ts`)) ?? ''
-      const endpoint = ENDPOINT.exec(types)
-      const kind: UseCaseKind = !endpoint
-        ? 'local'
-        : new RegExp(`\\bexport\\s+(?:function|const)\\s+${key}Key\\b`).test(types)
-          ? 'read'
-          : 'write'
+      const endpoint = endpointOf(types)
+      const kind: UseCaseKind = !endpoint ? 'local' : hasQueryKey(types, key) ? 'read' : 'write'
       result.push({
         domain: folder.name,
         name,
         key,
         kind,
-        endpoint: endpoint ? `${endpoint[1]} ${endpoint[2]}` : null,
+        endpoint: endpoint ? `${endpoint.method} ${endpoint.path}` : null,
       })
     }
   }
@@ -376,7 +394,13 @@ function queryOfModel(model: string, queries: ListedQuery[]): string | null {
   return null
 }
 
-function listPages(project: Project, queries: ListedQuery[]): ListedPage[] {
+/** O use case que o model pega de `useUseCases()` (`const { listLivros } = useUseCases()`), se pega e se está no projeto. */
+function useCaseOfModel(model: string, useCases: ListedUseCase[]): ListedUseCase | undefined {
+  const keys = /\{([^{}]*)\}\s*=\s*useUseCases\(\)/.exec(model)?.[1]?.split(',').map((key) => key.trim().split(':')[0]?.trim())
+  return useCases.find((useCase) => keys?.includes(useCase.key))
+}
+
+function listPages(project: Project, queries: ListedQuery[], useCases: ListedUseCase[]): ListedPage[] {
   const app = existsSync(project.app) ? new ChangePlan(project).source(project.app) : undefined
   const routes = app ? app.getDescendants().filter(isRouteElement) : []
   const result: ListedPage[] = []
@@ -386,13 +410,20 @@ function listPages(project: Project, queries: ListedQuery[]): ListedPage[] {
     const query = queryOfModel(model, queries)
     const param =
       /\buseParams\b/.test(model) || (found?.kind === 'literal' && found.route.includes('/:'))
-    const variation: PageVariation = query
-      ? param
-        ? 'detail'
-        : 'list'
-      : param
-        ? 'param'
-        : 'title'
+    const useCase = useCaseOfModel(model, useCases)
+    const variation: PageVariation = useCase
+      ? /\buseMutation\b/.test(model)
+        ? 'form'
+        : param
+          ? 'detail'
+          : 'list'
+      : query
+        ? param
+          ? 'detail'
+          : 'list'
+        : param
+          ? 'param'
+          : 'title'
     result.push({
       name,
       route: found?.route ?? null,
@@ -400,6 +431,7 @@ function listPages(project: Project, queries: ListedQuery[]): ListedPage[] {
       routePartial: found?.partial ?? false,
       variation,
       query,
+      useCase: useCase ? `${useCase.domain}.${useCase.name}` : null,
     })
   }
   return result
@@ -419,12 +451,13 @@ function listLanguages(project: Project): string[] {
  */
 export function listProject(project: Project): ProjectListing {
   const queries = listQueries(project)
+  const useCases = listUseCases(project)
   return {
     schemas: listSchemas(project),
-    useCases: listUseCases(project),
+    useCases,
     repositories: listRepositories(project),
     queries,
-    pages: listPages(project, queries),
+    pages: listPages(project, queries, useCases),
     languages: listLanguages(project),
   }
 }

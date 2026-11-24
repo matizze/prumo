@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { Project, ts } from 'ts-morph'
 import { describe, expect, it } from 'vitest'
-import { fixtureProject } from '../codemods/test-support.ts'
+import { fixtureProject } from '../test/fixture-project.ts'
 import { UsageError } from '../errors.ts'
 import { generateRepository, REPOSITORY_FILES } from './repository.ts'
 import { generateSchema } from './schema.ts'
@@ -43,8 +43,10 @@ describe('generateRepository', () => {
 
   it('os arquivos saem dos campos do schema, e o TypeScript não tem erro de sintaxe', () => {
     const { plan } = generateRepository(projectWithSchema(), { name: 'livros' })
+    // Só a sintaxe: sem a lib do TypeScript, que deixaria o teste lento à toa
     const check = new Project({
       useInMemoryFileSystem: true,
+      skipLoadingLibFiles: true,
       compilerOptions: { module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.Preserve, noEmit: true },
     })
     for (const source of plan.createdSources()) {

@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { fixtureProject } from '../codemods/test-support.ts'
-import { exec } from '../test-support.ts'
+import { fixtureProject } from '../test/fixture-project.ts'
+import { exec } from '../test/run.ts'
 
 const read = (root: string, file: string) => readFileSync(path.join(root, file), 'utf8')
 

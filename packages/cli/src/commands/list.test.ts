@@ -1,9 +1,10 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { fixtureProject } from '../codemods/test-support.ts'
-import { listProject, type ProjectListing } from '../generators/listing.ts'
-import { exec, makeDir, makeProject } from '../test-support.ts'
+import { fixtureProject } from '../test/fixture-project.ts'
+import { listProject, type ProjectListing } from '../lib/listing.ts'
+import { makeDir, makeProject } from '../test/fs.ts'
+import { exec } from '../test/run.ts'
 
 async function make(root: string, ...commands: string[][]) {
   for (const args of commands) {
@@ -60,10 +61,10 @@ describe('listProject', () => {
       'useRemoveLivro',
     ])
     expect(listing.pages).toEqual([
-      { name: 'item', route: '/item/:id', routeKind: 'literal', routePartial: false, variation: 'parametro', query: null },
-      { name: 'livro', route: '/livros/:id', routeKind: 'literal', routePartial: false, variation: 'detalhe', query: 'livros' },
-      { name: 'livros-lista', route: '/livros-lista', routeKind: 'literal', routePartial: false, variation: 'lista', query: 'livros' },
-      { name: 'sobre', route: '/sobre', routeKind: 'literal', routePartial: false, variation: 'titulo', query: null },
+      { name: 'item', route: '/item/:id', routeKind: 'literal', routePartial: false, variation: 'param', query: null },
+      { name: 'livro', route: '/livros/:id', routeKind: 'literal', routePartial: false, variation: 'detail', query: 'livros' },
+      { name: 'livros-lista', route: '/livros-lista', routeKind: 'literal', routePartial: false, variation: 'list', query: 'livros' },
+      { name: 'sobre', route: '/sobre', routeKind: 'literal', routePartial: false, variation: 'title', query: null },
     ])
     expect(listing.languages).toEqual(['en', 'pt-BR'])
   })
@@ -96,7 +97,7 @@ describe('listProject', () => {
     const app = path.join(root, 'src/App.tsx')
     writeFileSync(app, readFileSync(app, 'utf8').replace(/\s*<Route path="\/sobre">[\s\S]*?<\/Route>/, ''))
     expect(listProject(fixtureProjectAt(root)).pages).toEqual([
-      { name: 'sobre', route: null, routeKind: null, routePartial: false, variation: 'titulo', query: null },
+      { name: 'sobre', route: null, routeKind: null, routePartial: false, variation: 'title', query: null },
     ])
   })
 
@@ -119,7 +120,7 @@ export default function App() {
       ['usuarios'],
     )
     expect(listProject(fixtureProjectAt(root)).pages).toEqual([
-      { name: 'usuarios', route: '/admin/usuarios/:id', routeKind: 'literal', routePartial: false, variation: 'parametro', query: null },
+      { name: 'usuarios', route: '/admin/usuarios/:id', routeKind: 'literal', routePartial: false, variation: 'param', query: null },
     ])
   })
 
@@ -169,9 +170,9 @@ export default function App() {
       { name: 'd', route: null, routeKind: null },
     ])
     const text = (await exec(['list'], root)).stdout
-    expect(text).toContain('  a  rota: {ROUTES.lenta} (expressão)  titulo\n')
-    expect(text).toContain('  b  rota: curinga  titulo\n')
-    expect(text).toContain('  d  rota: nenhuma  titulo\n')
+    expect(text).toContain('  a  rota: {ROUTES.lenta} (expressão)  título\n')
+    expect(text).toContain('  b  rota: curinga  título\n')
+    expect(text).toContain('  d  rota: nenhuma  título\n')
   })
 
   it('tela carregada com lazy tem rota', () => {
@@ -259,7 +260,7 @@ describe('prumo list', () => {
     )
     expect(result.stdout).toContain('Repositórios (1):\n  livros  Livro  fontes: mock, http, storage\n')
     expect(result.stdout).toContain('  livro  rota: /livros/:id  detalhe  query: livros\n')
-    expect(result.stdout).toContain('  sobre  rota: /sobre  titulo\n')
+    expect(result.stdout).toContain('  sobre  rota: /sobre  título\n')
     expect(result.stdout).toContain('Idiomas (2):\n  en\n  pt-BR\n')
   })
 
@@ -272,7 +273,7 @@ describe('prumo list', () => {
     expect(result.stdout).toContain(
       "Livro  src/schemas/entities/livro.ts  editado à mão (linha 1: campo 'a': não reconheço o tipo (z.foo())",
     )
-    expect(result.stdout).toContain('  solta  rota: nenhuma  titulo\n')
+    expect(result.stdout).toContain('  solta  rota: nenhuma  título\n')
   })
 
   it('projeto vazio: cada seção diz nenhum', async () => {
@@ -308,7 +309,7 @@ describe('prumo list', () => {
       const result = await exec(args, dir)
       expect(result.code).toBe(2)
       expect(result.stdout).toBe('')
-      expect(result.stderr).toContain('não tem package.json')
+      expect(result.stderr).toContain('nenhum projeto Prumo achado a partir de')
     }
   })
 })

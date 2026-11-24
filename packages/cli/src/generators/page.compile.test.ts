@@ -1,20 +1,15 @@
-import { mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { exec } from '../test-support.ts'
-import { project, tsc, vitest } from './compile-test-support.ts'
+import { project, tsc, vitest } from '../test/compile.ts'
+import { exec } from '../test/run.ts'
 
 /**
- * As telas geradas de verdade: o projeto temporário de `compile-test-support.ts` (com React, React
- * Query e o Testing Library), mais o i18n, o `App.tsx` e o `renderWithProviders` do `prumo new`,
- * recebe dois domínios (schema, repositório e query pelos comandos) e as quatro variações de tela.
- * O `tsc` estrito compila tudo e o teste que cada tela traz roda contra o mock.
+ * As telas geradas de verdade: o projeto temporário de `test/compile.ts` (o app que o `prumo new`
+ * gera, com o i18n, o `App.tsx` e o `renderWithProviders`) recebe dois domínios (schema,
+ * repositório e query pelos comandos) e as quatro variações de tela. O `tsc` estrito compila tudo
+ * e o teste que cada tela traz roda contra o mock.
  */
-const TEMPLATES = path.resolve(import.meta.dirname, '../../templates')
-const CORE = path.resolve(import.meta.dirname, '../../../core')
-
-const template = (file: string) => readFileSync(path.join(TEMPLATES, 'app', file), 'utf8')
-
 const PAGES = [
   ['sobre'],
   ['clientes', '--query', 'clientes'],
@@ -28,45 +23,7 @@ const PAGES = [
 let root: string
 
 beforeAll(async () => {
-  root = await project('nome:string', { react: true })
-  const write = (file: string, content: string) => {
-    mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
-    writeFileSync(path.join(root, file), content)
-  }
-  for (const dependency of ['i18next', 'react-i18next', 'i18next-icu', 'i18next-browser-languagedetector']) {
-    symlinkSync(
-      realpathSync(path.join(CORE, 'node_modules', dependency)),
-      path.join(root, 'node_modules', dependency),
-    )
-  }
-  write('package.json', '{ "name": "app", "type": "module", "scripts": { "test": "vitest run" } }\n')
-  write(
-    'vitest.config.ts',
-    `import path from 'node:path'
-import { defineConfig } from 'vitest/config'
-
-export default defineConfig({
-  resolve: { alias: { '@': path.resolve(import.meta.dirname, 'src') }, dedupe: ['vitest', 'react'] },
-  test: { environment: 'jsdom', setupFiles: ['./src/test/setup.ts'], include: ['src/**/*.test.{ts,tsx}'] },
-})
-`,
-  )
-  write(
-    'src/test/setup.ts',
-    `import { cleanup } from '@testing-library/react'
-import { afterEach } from 'vitest'
-
-afterEach(cleanup)
-`,
-  )
-  write('src/App.tsx', template('src/App.tsx.tpl'))
-  write('src/i18n.ts', template('src/i18n.ts.tpl'))
-  write('src/messages/pt-BR/index.ts', 'export default {}\n')
-  write('src/messages/en/index.ts', 'export default {}\n')
-  write('src/providers/repository/index.ts', template('src/providers/repository/index.ts.tpl'))
-  write('src/queries/index.ts', template('src/queries-index.ts.tpl'))
-  write('src/test/render.tsx', template('src/test/render.tsx.tpl'))
-
+  root = await project('nome:string')
   const prumo = async (...args: string[]) => {
     const made = await exec(args, root)
     expect(made.code, `${args.join(' ')}\n${made.stdout}${made.stderr}`).toBe(0)
@@ -97,7 +54,7 @@ describe('as telas geradas compilam (tsc estrito) e passam nos próprios testes'
     }
     for (const language of ['en', 'pt-BR']) {
       const index = readFileSync(path.join(root, `src/messages/${language}/index.ts`), 'utf8')
-      expect(index).toContain('  cliente,\n  clientes,\n  fase,\n  livro,\n  livros,\n  perfil,\n  sobre,\n')
+      expect(index).toContain('  cliente,\n  clientes,\n  errors,\n  fase,\n  home,\n  livro,\n  livros,\n  perfil,\n  sobre,\n')
     }
   })
 

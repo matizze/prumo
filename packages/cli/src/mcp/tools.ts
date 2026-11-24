@@ -1,4 +1,5 @@
 import type { Argument, Command, Option } from 'commander'
+import { agentDescription } from '../commands/help-text.ts'
 
 /** Os comandos que não viram ferramenta: o `new` cria a pasta do app (o agente não escreve fora do projeto) e o `mcp` é o próprio servidor. */
 const EXCLUDED_COMMANDS: readonly string[] = ['new', 'mcp']
@@ -88,6 +89,8 @@ function optionSchema(option: Option): Record<string, unknown> {
 }
 
 function descriptionOf(command: Command): string {
+  const forAgent = agentDescription(command)
+  if (forAgent !== undefined) return forAgent
   const summary = command.summary()
   const description = command.description()
   if (summary === '' || description.startsWith(summary)) return description || summary

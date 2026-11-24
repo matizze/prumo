@@ -2,9 +2,8 @@ import path from 'node:path'
 import { UsageError } from '../errors.ts'
 import type { ExportDeclaration, SourceFile } from 'ts-morph'
 import type { ChangePlan } from '../lib/plan.ts'
-import { applyEdits, type TextEdit } from './edit.ts'
-import { specifierOf, styleOf } from './register-repository.ts'
-import { afterLine } from './register-schema.ts'
+import { displayPath } from '../lib/paths.ts'
+import { afterLine, applyEdits, specifierOf, styleOf, type TextEdit } from './edit.ts'
 
 /** O que um domínio exporta de `src/queries/index.ts`. */
 export interface QueriesEntry {
@@ -14,15 +13,10 @@ export interface QueriesEntry {
   exports: string[]
 }
 
-/** O arquivo, relativo à raiz, para as mensagens de erro. */
-function display(plan: ChangePlan, file: string): string {
-  return path.relative(plan.project.root, file).split(path.sep).join('/')
-}
-
 /** O container de queries `src/queries/index.ts`, que precisa existir. */
 function queriesFile(plan: ChangePlan): string {
   const file = path.join(plan.project.src, 'queries', 'index.ts')
-  if (!plan.hasFile(file)) throw new UsageError(`o projeto não tem ${display(plan, file)}.`)
+  if (!plan.hasFile(file)) throw new UsageError(`o projeto não tem ${displayPath(plan.project.root, file)}.`)
   return file
 }
 
@@ -60,7 +54,7 @@ function beforeDeclaration(file: SourceFile, next: ExportDeclaration, line: stri
  */
 export function registerQueriesEntry(plan: ChangePlan, entry: QueriesEntry): void {
   const file = queriesFile(plan)
-  const where = display(plan, file)
+  const where = displayPath(plan.project.root, file)
   const index = plan.source(file)
   const specifier = `./${entry.module}`
   const exports = index.getExportDeclarations().filter((declaration) => declaration.hasModuleSpecifier())

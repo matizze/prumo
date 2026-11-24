@@ -1,11 +1,12 @@
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { cpSync, existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { Client, InMemoryTransport } from '@modelcontextprotocol/client'
 import { afterAll, describe, expect, it } from 'vitest'
-import { fixtureProject } from '../codemods/test-support.ts'
-import { createMcpServer, resultOf } from './server.ts'
-import { describeTools } from './tools.ts'
+import { fixtureProject } from '../test/fixture-project.ts'
+import { makeDir } from '../test/fs.ts'
+import type { RegisterCommand } from '../commands/index.ts'
+import { callTool, createMcpServer, resultOf } from './server.ts'
+import { describeTools, type ToolSpec } from './tools.ts'
 import { createProgram } from '../program.ts'
 
 type Result = { text: string; isError: boolean }
@@ -118,19 +119,15 @@ describe('prumo mcp, cliente e servidor no mesmo processo', () => {
   it('não escreve fora do projeto', async () => {
     // Uma pasta-mãe só deste teste: a pasta temporária do sistema muda com os outros testes, que
     // rodam ao mesmo tempo, então compará-la antes e depois não prova nada
-    const parent = mkdtempSync(path.join(tmpdir(), 'prumo-mcp-fora-'))
-    try {
-      const root = path.join(parent, 'app')
-      cpSync(fixtureProject().root, root, { recursive: true })
-      const connection = await connect(root)
-      connections.push(connection)
-      await connection.call('make_schema', { dominio: 'livros', fields: 'title:string' })
-      await connection.call('make_page', { nome: 'sobre' })
-      expect(readdirSync(parent)).toEqual(['app'])
-      expect(existsSync(path.join(root, 'src/pages/sobre/index.tsx'))).toBe(true)
-    } finally {
-      rmSync(parent, { recursive: true, force: true })
-    }
+    const parent = makeDir('prumo-mcp-fora-')
+    const root = path.join(parent, 'app')
+    cpSync(fixtureProject().root, root, { recursive: true })
+    const connection = await connect(root)
+    connections.push(connection)
+    await connection.call('make_schema', { dominio: 'livros', fields: 'title:string' })
+    await connection.call('make_page', { nome: 'sobre' })
+    expect(readdirSync(parent)).toEqual(['app'])
+    expect(existsSync(path.join(root, 'src/pages/sobre/index.tsx'))).toBe(true)
   })
 
   it('chamadas juntas rodam uma de cada vez, sem se atropelar', async () => {
@@ -153,14 +150,31 @@ describe('resultOf', () => {
   )!
 
   it('o check com violação (código 1) é resultado', () => {
-    expect(resultOf(check, 1, '', 'a.ts  [regra]  x\n\nprumo check: 1 violação.\n').isError).toBe(false)
+    expect(resultOf(check, { code: 1, kind: 'exit' }, '', 'a.ts  [regra]  x\n\nprumo check: 1 violação.\n').isError).toBe(false)
   })
 
-  it('o erro inesperado (código 1, no stderr) é erro, mesmo no check', () => {
-    expect(resultOf(check, 1, '', 'prumo: erro inesperado.\nError: x\n').isError).toBe(true)
+  it('o erro inesperado (código 1) é erro, mesmo no check', () => {
+    expect(resultOf(check, { code: 1, kind: 'unexpected' }, '', 'prumo: erro inesperado: x\n').isError).toBe(true)
   })
 
   it('outro código no check é erro', () => {
-    expect(resultOf(check, 2, '', 'prumo: x\n').isError).toBe(true)
+    expect(resultOf(check, { code: 2, kind: 'usage' }, '', 'prumo: x\n').isError).toBe(true)
+  })
+})
+
+describe('callTool', () => {
+  it('o erro inesperado volta com a pilha, sem a dica da variável', async () => {
+    const crash: RegisterCommand = (program) => {
+      program.command('crash').action(() => {
+        throw new Error('quebrou')
+      })
+    }
+    const tool = { name: 'crash', command: 'crash', description: '', fields: [], fixedArgs: [] } as unknown as ToolSpec
+    const result = await callTool(tool, {}, '/tmp', [crash])
+    const text = (result.content[0] as { text: string }).text
+    expect(result.isError).toBe(true)
+    expect(text).toContain('prumo: erro inesperado: quebrou')
+    expect(text).toContain('Error: quebrou')
+    expect(text).not.toContain('PRUMO_DEBUG')
   })
 })

@@ -1,8 +1,8 @@
 # @matizze/prumo-core
 
-Infraestrutura sem interface para apps React do [Prumo](https://github.com/matizze/prumo): container de repositórios, query keys, i18n tipado, erros com código, utilitários de mock e guarda de rota.
+Infraestrutura sem interface para apps React do [Prumo](https://docs.prumo.matizze.com.br): container de repositórios, query keys, i18n tipado, erros com código, utilitários de mock e guarda de rota.
 
-**[Documentação](https://github.com/matizze/prumo/blob/main/docs/README.md)** · **[Referência deste pacote](https://github.com/matizze/prumo/blob/main/docs/reference/core.md)** · **[Changelog](https://github.com/matizze/prumo/blob/main/packages/core/CHANGELOG.md)**
+**[Documentação](https://docs.prumo.matizze.com.br)** · **[Referência deste pacote](https://docs.prumo.matizze.com.br/reference/core)**
 
 ## Instalação
 
@@ -58,8 +58,8 @@ export type RepositoryContainer = RepositoryContainerOf<typeof factories>
 export const repositories = createRepositoryContainer(factories, { dataSource: 'mock' })
 ```
 
-A referência de cada função, com as opções e os tipos, está em [docs/reference/core.md](https://github.com/matizze/prumo/blob/main/docs/reference/core.md).
+A referência de cada função, com as opções e os tipos, está na [referência do core](https://docs.prumo.matizze.com.br/reference/core).
 
 ## Suporte
 
-Mantido pela [Matizze](https://github.com/matizze). Problemas e sugestões em [issues](https://github.com/matizze/prumo/issues).
+Mantido pela [Matizze](https://github.com/matizze). Problemas e sugestões em [issues](https://github.com/matizze/prumo/issues). Licença MIT.

@@ -88,7 +88,7 @@ O `.mcp.json` registra o servidor MCP `prumo` (`pnpm exec prumo mcp`, por stdio)
 
 ### `AGENTS.md`
 
-O `AGENTS.md` descreve as camadas, os comandos e as regras do projeto para agentes de IA. Veja o guia [Agentes de IA](../guides/ai-agents.md).
+O `AGENTS.md` descreve as camadas, os comandos e o servidor MCP para agentes de IA. Veja o guia [Agentes de IA](../guides/ai-agents.md).
 
 ## O código
 

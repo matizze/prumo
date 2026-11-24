@@ -3,7 +3,8 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { exec, makeDir, makeProject } from '../test-support.ts'
+import { makeDir, makeProject } from '../test/fs.ts'
+import { exec } from '../test/run.ts'
 import { formatViolation } from './check.ts'
 
 /** Projeto temporário com uma violação (pasta de fora em src/components) ou nenhuma. */
@@ -86,14 +87,15 @@ describe('prumo check', () => {
       expect(result.stderr, root).toContain('prumo: ')
       expect(result.stderr, root).toContain(reason)
       expect(result.stderr, root).toContain(root)
-      expect(result.stderr, root).toContain('Uso: prumo check [opções]')
+      expect(result.stderr, root).not.toContain('Uso:')
     }
   })
 
   it('sem --root, a pasta atual que não é projeto também sai com 2', async () => {
     const result = await run(['check'], makeDir())
     expect(result.code).toBe(2)
-    expect(result.stderr).toContain('não tem package.json')
+    expect(result.stderr).toContain('nenhum projeto Prumo achado a partir de')
+    expect(result.stderr).toContain('--root')
   })
 
   it('mostra a ajuda com --help ou -h e sai com 0', async () => {
@@ -105,7 +107,9 @@ describe('prumo check', () => {
       expect(result.stdout).toContain('--root <pasta>')
       expect(result.stdout).toContain('A pasta do projeto, a que tem o src.')
       expect(result.stdout).toContain('-h, --help')
-      expect(result.stdout).toContain('com 1 quando há violação')
+      expect(result.stdout).toContain('Sai com 0 sem violação e com 1')
+      expect(result.stdout).toContain('Exemplos:')
+      expect(result.stdout).toContain('Referência: https://docs.prumo.matizze.com.br/reference/cli#prumo-check')
     }
   })
 
@@ -113,7 +117,6 @@ describe('prumo check', () => {
     const cases: [string[], string][] = [
       [['--nope'], "opção desconhecida: '--nope'"],
       [['--root'], "a opção '--root <pasta>' precisa de um valor"],
-      [['--root='], "a opção '--root' precisa de um valor"],
       [['extra'], "argumento a mais: 'extra'"],
       [['-x'], "opção desconhecida: '-x'"],
     ]
@@ -122,8 +125,14 @@ describe('prumo check', () => {
       expect(result.code, args.join(' ')).toBe(2)
       expect(result.stdout).toBe('')
       expect(result.stderr, args.join(' ')).toContain(`prumo: ${reason}`)
-      expect(result.stderr, args.join(' ')).toContain('Uso: prumo check')
+      expect(result.stderr, args.join(' ')).toContain('Uso: prumo check [opções]\nVeja \'prumo check --help\'.')
     }
+  })
+
+  it('--root vazio sai com 2 e só a mensagem', async () => {
+    const result = await run(['check', '--root='], project(false))
+    expect(result.code).toBe(2)
+    expect(result.stderr).toBe("prumo: a opção '--root' precisa de um valor.\n")
   })
 
   it('formata a violação com arquivo, regra e mensagem', () => {

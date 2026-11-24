@@ -43,6 +43,7 @@ const sidebars: SidebarsConfig = {
       ],
     },
     { type: 'doc', id: 'faq', label: 'Perguntas frequentes' },
+    { type: 'doc', id: 'roadmap', label: 'Roadmap' },
     {
       type: 'category',
       label: 'Contribuindo',

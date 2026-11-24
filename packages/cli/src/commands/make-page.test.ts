@@ -1,8 +1,9 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { fixtureProject } from '../codemods/test-support.ts'
-import { exec } from '../test-support.ts'
+import { fixtureProject } from '../test/fixture-project.ts'
+import { makeDir } from '../test/fs.ts'
+import { exec } from '../test/run.ts'
 
 const read = (root: string, file: string) => readFileSync(path.join(root, file), 'utf8')
 
@@ -130,6 +131,29 @@ describe('prumo make:page', () => {
     expect(read(root, 'src/App.tsx')).toBe(app)
   })
 
+  it('de dentro de src/pages, acha o projeto subindo e gera no lugar certo', async () => {
+    const { root } = fixtureProject()
+    const inside = path.join(root, 'src/pages')
+    mkdirSync(inside, { recursive: true })
+    const result = await exec(['make:page', 'sobre'], inside)
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(existsSync(path.join(root, 'src/pages/sobre/index.tsx'))).toBe(true)
+    expect(existsSync(path.join(inside, 'src'))).toBe(false)
+  })
+
+  it('com --root numa pasta sem projeto, não sobe: dá o erro da pasta', async () => {
+    const { root } = fixtureProject()
+    const inside = path.join(root, 'src/pages')
+    mkdirSync(inside, { recursive: true })
+    const result = await exec(['make:page', 'sobre', '--root', '.'], inside)
+
+    expect(result.code).toBe(2)
+    expect(result.stderr).toBe(
+      `prumo: a pasta '${inside}' não tem package.json: aponte --root para a raiz do projeto.\n`,
+    )
+  })
+
   it('o comando dos testes usa o script test do projeto e a pasta dele, de fora', async () => {
     const { root } = fixtureProject()
     writeFileSync(path.join(root, 'package.json'), '{ "name": "app", "scripts": { "test": "vitest run" } }\n')
@@ -137,5 +161,20 @@ describe('prumo make:page', () => {
 
     expect(result.code, result.stderr).toBe(0)
     expect(result.stdout).toContain(`pnpm --dir ${path.basename(root)} test src/pages/sobre`)
+  })
+})
+
+describe('prumo make:page com link simbólico para fora do projeto', () => {
+  it('sai com 2, diz qual é o link, sem a ajuda, e não escreve nada, nem dentro nem fora', async () => {
+    const { root } = fixtureProject()
+    const outside = makeDir()
+    symlinkSync(outside, path.join(root, 'src/pages'))
+    const app = readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
+    const result = await exec(['make:page', 'sobre'], root)
+    expect(result.code).toBe(2)
+    expect(result.stderr).toMatch(/'src\/pages\/sobre\/index.tsx' levaria a escrita para fora do projeto: 'src\/pages' é um link simbólico/)
+    expect(result.stderr).not.toContain('Uso: prumo make:page')
+    expect(readdirSync(outside)).toEqual([])
+    expect(readFileSync(path.join(root, 'src/App.tsx'), 'utf8')).toBe(app)
   })
 })

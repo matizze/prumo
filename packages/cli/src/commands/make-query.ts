@@ -1,22 +1,13 @@
-import path from 'node:path'
-import { UsageError } from '../errors.ts'
 import { generateQuery } from '../generators/query.ts'
-import { findProject } from '../lib/project.ts'
-import { formatSummary } from './summary.ts'
+import { locateProject } from '../lib/project.ts'
+import { documentCommand } from './help-text.ts'
+import { DRY_RUN_ENDING, DRY_RUN_OPTION, nonEmpty, ROOT_OPTION, runPlan } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 type MakeQueryOptions = {
   entity?: string
-  root: string
+  root?: string
   dryRun?: boolean
-}
-
-/** Recusa a opção dada sem valor (`--entity ''`): o commander a aceita. */
-function nonEmpty(option: string) {
-  return (value: string): string => {
-    if (value.trim() === '') throw new UsageError(`a opção '${option}' precisa de um valor.`)
-    return value
-  }
 }
 
 /**
@@ -26,17 +17,11 @@ function nonEmpty(option: string) {
  * só mostra o plano.
  */
 export const registerMakeQuery: RegisterCommand = (program, io) => {
-  program
+  const command = program
     .command('make:query')
     .summary('Cria as queries e mutations de um domínio (chaves, hooks de lista, detalhe e escrita).')
     .description(
-      `Cria as queries e as mutations de um domínio, em cima do repositório dele.
-
-Precisa do repositório (prumo make:repository). Cria src/queries/<domínio>.ts com <entidade>Keys (as chaves do cache), <entidade>Queries (as opções de lista e detalhe), use<Domínio>List, use<Entidade>Detail, useCreate<Entidade>, useUpdate<Entidade>, useRemove<Entidade> e o tipo <Domínio>ListOptions, e registra o domínio em src/queries/index.ts (export { ... } from './<domínio>', em ordem alfabética). As queries só usam o contrato do repositório pelo useRepositories(), então funcionam com qualquer fonte (mock, http ou storage) e não leem os campos do schema.
-
-O <domínio> é o nome do domínio, no plural e em kebab-case (clientes, pedidos-recentes). A entidade é o singular, que sai do nome (tira o s final); onde a regra erra, informe a entidade com --entity, a mesma do make:schema e do make:repository.
-
-Valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada pela metade: repositório que falta; repositório de outra entidade (a mensagem diz o --entity certo); arquivo do schema que falta; query que já existe; export que sobrou no índice sem o arquivo; e índice src/queries/index.ts que falta. --dry-run lista o que seria criado e alterado, sem escrever.`,
+      'Cria as queries e as mutations de um domínio, em cima do repositório dele.\n\nPrecisa do repositório (prumo make:repository).',
     )
     .argument('<domínio>', 'O nome do domínio, no plural e em kebab-case (por exemplo, clientes).')
     .option(
@@ -44,18 +29,23 @@ Valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada p
       'A entidade, no singular (por exemplo, cliente). Padrão: o nome sem o s final. A mesma do make:schema.',
       nonEmpty('--entity'),
     )
-    .option('--root <pasta>', 'A pasta do projeto, a que tem o src.', '.')
-    .option('--dry-run', 'Só lista o que seria criado e alterado, sem escrever nada.')
+    .option(...ROOT_OPTION)
+    .option(...DRY_RUN_OPTION)
     .action((name: string, options: MakeQueryOptions) => {
-      if (options.root === '') throw new UsageError("a opção '--root' precisa de um valor.")
-      const project = findProject(path.resolve(io.cwd, options.root))
+      const project = locateProject(io.cwd, options.root)
       const { plan, names, exports } = generateQuery(project, { name, entity: options.entity })
-      const dryRun = options.dryRun === true
-      const summary = dryRun ? plan.summary() : plan.commit()
-      const heading = `prumo make:query: ${names.plural.kebab} (entidade ${names.singular.kebab})${dryRun ? ' (simulação)' : ''}.`
-      const ending = dryRun
-        ? 'Simulação (--dry-run): nada foi escrito.\n'
-        : `Próximo passo: prumo make:page ${names.plural.kebab} --query ${names.plural.kebab}\n`
-      io.out(`${heading}\nExporta: ${exports.join(', ')}.\n\n${formatSummary(summary, dryRun)}\n${ending}`)
+      const run = runPlan(plan, options)
+      const heading = `prumo make:query: ${names.plural.kebab} (entidade ${names.singular.kebab})${run.mark}.`
+      const ending = run.dryRun ? DRY_RUN_ENDING : `Próximo passo: prumo make:page ${names.plural.kebab} --query ${names.plural.kebab}\n`
+      io.out(`${heading}\nExporta: ${exports.join(', ')}.\n\n${run.files}\n${ending}`)
     })
+  documentCommand(command, {
+    examples: [
+      'prumo make:query livros',
+      'prumo make:query categories --entity category',
+    ],
+    anchor: 'prumo-makequery',
+    agentDetail:
+      "Precisa do repositório (make_repository). Cria src/queries/<domínio>.ts com <entidade>Keys (as chaves do cache), <entidade>Queries (as opções de lista e detalhe), use<Domínio>List, use<Entidade>Detail, useCreate<Entidade>, useUpdate<Entidade>, useRemove<Entidade> e o tipo <Domínio>ListOptions, e registra o domínio em src/queries/index.ts. As queries só usam o contrato do repositório pelo useRepositories(), então funcionam com qualquer fonte (mock, http ou storage).\n\nO <domínio> é no plural e em kebab-case; a entidade é o singular (tira o s final), e onde a regra erra se informa entity, a mesma do make_schema e do make_repository.\n\nValida tudo antes de escrever e nunca sobrescreve. São erro de uso: repositório que falta; repositório de outra entidade (a mensagem diz o entity certo); arquivo do schema que falta; query que já existe; export que sobrou no índice sem o arquivo; índice src/queries/index.ts que falta. dry_run só lista.",
+  })
 }

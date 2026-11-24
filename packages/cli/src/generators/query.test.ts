@@ -1,6 +1,6 @@
 import { appendFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { fixtureProject } from '../codemods/test-support.ts'
+import { fixtureProject } from '../test/fixture-project.ts'
 import { UsageError } from '../errors.ts'
 import { generateQuery, queriesExports } from './query.ts'
 import { generateRepository } from './repository.ts'

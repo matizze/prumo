@@ -3,18 +3,16 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
   realpathSync,
-  rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { makeDir } from './test/fs.ts'
 
 /** A raiz do monorepo: o empacotamento é um script da raiz, e o teste o roda e confere os tarballs. */
 const REPO = path.resolve(import.meta.dirname, '../../..')
@@ -27,6 +25,7 @@ type Manifest = {
   name: string
   version: string
   private?: boolean
+  keywords?: string[]
   repository?: { type?: string; url?: string; directory?: string }
   bin?: Record<string, string>
   exports: Record<string, { types: string; default: string }>
@@ -76,7 +75,7 @@ function exportedFiles(manifest: Manifest): string[] {
 }
 
 beforeAll(() => {
-  work = mkdtempSync(path.join(tmpdir(), 'prumo-packaging-'))
+  work = makeDir('prumo-packaging-')
   packs = path.join(work, 'packs')
   const result = spawnSync('bash', [SCRIPT, packs], { encoding: 'utf8' })
   expect(result.status, `${result.stdout}${result.stderr}`).toBe(0)
@@ -90,10 +89,6 @@ beforeAll(() => {
     expect(untar.status, untar.stderr).toBe(0)
   }
 }, 240_000)
-
-afterAll(() => {
-  if (work) rmSync(work, { recursive: true, force: true })
-})
 
 describe('empacotamento (scripts/pack-packages.sh)', () => {
   it('deixa um tarball por pacote publicável na pasta, e só eles', () => {
@@ -128,22 +123,24 @@ describe.each(PACKAGES)('tarball de @matizze/prumo-%s', (name) => {
     }
     expect(files).toContain('package.json')
     expect(files).toContain('README.md')
+    expect(files).toContain('LICENSE')
   })
 
-  it('só leva o dist, o package.json e o README (e os modelos, no cli): sem código-fonte, teste, fixture nem tsconfig', () => {
+  it('só leva o dist, o package.json, o README e a licença (e os modelos, no cli): sem código-fonte, teste, fixture nem tsconfig', () => {
     const files = entries(name)
     const outside = files.filter(
       (file) =>
         !(
           file === 'package.json' ||
           file === 'README.md' ||
+          file === 'LICENSE' ||
           file.startsWith('dist/') ||
           (name === 'cli' && file.startsWith('templates/'))
         ),
     )
     expect(outside).toEqual([])
     const unwanted = files.filter((file) =>
-      /(\.test\.|test-support|rule-tester|__fixtures__|tsconfig|\.tsbuildinfo)/.test(file),
+      /(\.test\.|dist\/test\/|rule-tester|__fixtures__|tsconfig|\.tsbuildinfo)/.test(file),
     )
     expect(unwanted).toEqual([])
     // Código de teste não vai: um .js só importa o vitest se o pacote o declara (o testing, que é
@@ -208,6 +205,13 @@ describe.each(PACKAGES)('tarball de @matizze/prumo-%s', (name) => {
     // A publicação em si é de uma pessoa (com o token do npm); aqui só se confere que o pacote pode sair.
     for (const manifest of [workspaceManifest(name), packedManifest(name)]) {
       expect(manifest.private, 'um pacote private não publica').toBeUndefined()
+      expect(manifest).toMatchObject({
+        license: 'MIT',
+        homepage: 'https://docs.prumo.matizze.com.br',
+        bugs: { url: 'https://github.com/matizze/prumo/issues' },
+        engines: { node: '>=24' },
+      })
+      expect(manifest.keywords?.length, 'faltam palavras-chave').toBeGreaterThan(0)
       // O repository liga o pacote ao repositório
       expect(manifest.repository).toEqual({
         type: 'git',

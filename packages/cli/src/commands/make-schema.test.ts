@@ -1,8 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { fixtureProject } from '../codemods/test-support.ts'
-import { exec, makeDir } from '../test-support.ts'
+import { fixtureProject } from '../test/fixture-project.ts'
+import { makeDir } from '../test/fs.ts'
+import { exec } from '../test/run.ts'
 
 const read = (root: string, file: string) => readFileSync(path.join(root, file), 'utf8')
 
@@ -115,6 +116,6 @@ describe('prumo make:schema', () => {
   it('fora de um projeto sai com 2', async () => {
     const result = await exec(['make:schema', 'clientes'], makeDir())
     expect(result.code).toBe(2)
-    expect(result.stderr).toContain('não tem package.json')
+    expect(result.stderr).toContain('nenhum projeto Prumo achado a partir de')
   })
 })

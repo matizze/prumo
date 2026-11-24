@@ -1,7 +1,24 @@
 {
   "name": "@matizze/prumo-cli",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "O comando prumo: cria apps React organizados em camadas e confere a arquitetura.",
+  "keywords": [
+    "react",
+    "cli",
+    "architecture",
+    "scaffolding",
+    "generator",
+    "codegen",
+    "mcp",
+    "typescript",
+    "prumo"
+  ],
+  "homepage": "https://docs.prumo.matizze.com.br",
+  "bugs": {
+    "url": "https://github.com/matizze/prumo/issues"
+  },
+  "license": "MIT",
+  "author": "Matizze",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/matizze/prumo.git",
@@ -40,7 +57,7 @@
   "dependencies": {
     "@matizze/prumo-rules": "workspace:*",
     "@modelcontextprotocol/server": "2.4.0",
-    "commander": "^15.1.0",
+    "commander": "~15.1.0",
     "ts-morph": "^28.0.0"
   },
   "devDependencies": {
@@ -48,5 +65,8 @@
     "@types/node": "^24.19.2",
     "typescript": "~6.0.3",
     "vitest": "^5.1.0"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

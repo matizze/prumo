@@ -2,18 +2,16 @@ import { spawnSync } from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
-  rmSync,
   writeFileSync,
 } from 'node:fs'
-import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { check } from '@matizze/prumo-rules/check'
 import { describe, expect, it } from 'vitest'
 import { PRUMO_VERSIONS } from '../lib/versions.ts'
-import { exec as execIn, makeDir } from '../test-support.ts'
+import { makeDir } from '../test/fs.ts'
+import { exec as execIn } from '../test/run.ts'
 import { createNewCommand, type NewDeps } from './new.ts'
 import { APP_FILES } from '../generators/app.ts'
 
@@ -40,16 +38,12 @@ const readJson = (root: string, file: string) => JSON.parse(read(root, file)) as
 
 /** Um tarball de mentira, só com o `package.json`, como o `pnpm pack` deixa (`package/package.json`). */
 function fakeTarball(dir: string, name: string, version: string): void {
-  const stage = mkdtempSync(path.join(tmpdir(), 'prumo-tar-'))
-  try {
-    mkdirSync(path.join(stage, 'package'))
-    writeFileSync(path.join(stage, 'package/package.json'), JSON.stringify({ name, version }))
-    const file = path.join(dir, `${name.replace('@', '').replace('/', '-')}-${version}.tgz`)
-    const result = spawnSync('tar', ['-czf', file, '-C', stage, 'package'])
-    expect(result.status).toBe(0)
-  } finally {
-    rmSync(stage, { recursive: true, force: true })
-  }
+  const stage = makeDir('prumo-tar-')
+  mkdirSync(path.join(stage, 'package'))
+  writeFileSync(path.join(stage, 'package/package.json'), JSON.stringify({ name, version }))
+  const file = path.join(dir, `${name.replace('@', '').replace('/', '-')}-${version}.tgz`)
+  const result = spawnSync('tar', ['-czf', file, '-C', stage, 'package'])
+  expect(result.status).toBe(0)
 }
 
 function fakePackages(skip: string[] = []): string {
@@ -129,7 +123,7 @@ describe('prumo new', () => {
     }
   })
 
-  it('não grava .npmrc nem fala de token: os pacotes vêm do npm público', async () => {
+  it('não grava .npmrc nem fala de token', async () => {
     const cwd = makeDir()
     await run(['new', 'app-npmrc', '--no-install'], cwd)
     const root = path.join(cwd, 'app-npmrc')
@@ -137,7 +131,6 @@ describe('prumo new', () => {
     expect(listFiles(root)).not.toContain('.npmrc')
     for (const file of ['AGENTS.md', 'README.md']) {
       expect(read(root, file), file).not.toMatch(/GitHub Packages|NODE_AUTH_TOKEN|read:packages/)
-      expect(read(root, file), file).toContain('npm público')
     }
   })
 

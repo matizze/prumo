@@ -132,13 +132,23 @@ export function assertValidName(name: string, what = 'nome'): void {
   )
 }
 
+/** As palavras do kebab-case com a inicial maiúscula, unidas por `separator`. */
+function capitalizeWords(kebab: string, separator: string): string {
+  return kebab
+    .split('-')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(separator)
+}
+
+/** O PascalCase de um kebab-case: `pedidos-recentes` vira `PedidosRecentes`. */
+export function pascalCase(kebab: string): string {
+  return capitalizeWords(kebab, '')
+}
+
 /** Deriva Pascal e camel de um nome kebab-case, já validado: `error-404` vira `Error404`. */
 export function deriveNames(name: string): Names {
   assertValidName(name)
-  const pascal = name
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join('')
+  const pascal = pascalCase(name)
   return { kebab: name, pascal, camel: pascal.charAt(0).toLowerCase() + pascal.slice(1) }
 }
 
@@ -187,11 +197,8 @@ export function appNameProblem(name: string): string | undefined {
 }
 
 /** O nome para ler: `meu-app` vira `Meu App` (título do `index.html` e do `AGENTS.md`). */
-export function titleOf(name: string): string {
-  return name
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+export function kebabToTitle(name: string): string {
+  return capitalizeWords(name, ' ')
 }
 
 /** Os nomes de um domínio: o plural (`suppliers`) e o singular da entidade (`supplier`). */
@@ -246,7 +253,7 @@ export function singularOf(plural: string): string {
  * O singular que o `make:*` deriva do domínio, ou `undefined` quando `singularOf` recusa: o
  * `--entity` só precisa aparecer na dica quando a entidade não é essa.
  */
-export function automaticSingular(plural: string): string | undefined {
+function automaticSingular(plural: string): string | undefined {
   try {
     return singularOf(plural)
   } catch {

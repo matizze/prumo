@@ -5,8 +5,8 @@
  * `pnpm changeset version`), o teste falha até este arquivo acompanhar.
  */
 export const PRUMO_VERSIONS: Readonly<Record<string, string>> = {
-  '@matizze/prumo-rules': '0.2.3',
-  '@matizze/prumo-core': '0.2.1',
-  '@matizze/prumo-testing': '0.3.1',
-  '@matizze/prumo-cli': '0.8.0',
+  '@matizze/prumo-rules': '0.3.0',
+  '@matizze/prumo-core': '0.3.0',
+  '@matizze/prumo-testing': '0.3.2',
+  '@matizze/prumo-cli': '0.9.0',
 }

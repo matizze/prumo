@@ -4,7 +4,7 @@ O Prumo foi feito para ser usado tanto por pessoas quanto por agentes de IA. Um 
 
 ## O `AGENTS.md`
 
-O `AGENTS.md` gerado é curto de propósito: as camadas, as quatro regras de convivência (telas isoladas, view sem dados, dado pelo repositório, texto nos dois idiomas), a tabela de comandos, a seção do servidor MCP e as regras do projeto. Ele é do seu time: acrescente as convenções do produto (o design system, a API, o que exige aprovação).
+O `AGENTS.md` gerado é curto de propósito: as camadas, as quatro regras de convivência (telas isoladas, view sem dados, dado pelo repositório, texto nos dois idiomas), a tabela de comandos, a seção do servidor MCP e uma linha sobre testes. Ele é do seu time: acrescente as convenções do produto (o design system, a API, o idioma, o que exige aprovação).
 
 Vários agentes leem o `AGENTS.md` da raiz do projeto por conta própria. O Claude Code lê o `CLAUDE.md`: crie um com a linha abaixo para que ele importe o `AGENTS.md` (é o que o próprio repositório do Prumo faz):
 
@@ -100,20 +100,15 @@ Quando o comando falha, o resultado volta com `isError` e a mensagem em portugu�
 
 ```text
 prumo: a query 'nada' não existe: falta src/queries/nada.ts; rode prumo make:query nada.
-
-Uso: prumo make:page [opções] <nome>
-
-Cria uma tela nova: index, model, view, teste, mensagens e rota.
-...
 ```
 
-Depois da mensagem vem a ajuda do comando (aqui, só o começo dela).
+A mensagem diz o que fazer, e o agente a segue (aqui, gerar a query antes). O erro de opção ou argumento traz também a linha de uso do comando.
 
 O `check` com violação não é erro: volta como resultado, com as violações no texto.
 
 ## O `list` antes de gerar
 
-A ferramenta `list` devolve o que o projeto já tem: os schemas com os campos, os repositórios e suas fontes, as queries, as telas (rota, variação e query) e os idiomas. O agente a chama antes de gerar, para não repetir um domínio, escolher a query certa para a tela e saber a ordem das camadas que faltam. O resultado é o JSON do `prumo list --json`:
+A ferramenta `list` devolve o que o projeto já tem: os schemas com os campos, os repositórios e suas fontes, as queries, as telas (rota, variação e query; a variação é `title`, `list`, `param` ou `detail`) e os idiomas. O agente a chama antes de gerar, para não repetir um domínio, escolher a query certa para a tela e saber a ordem das camadas que faltam. O resultado é o JSON do `prumo list --json`:
 
 ```json
 {
@@ -132,7 +127,7 @@ A ferramenta `list` devolve o que o projeto já tem: os schemas com os campos, o
   "repositories": [{ "domain": "pedidos", "entity": "Pedido", "sources": ["mock"] }],
   "queries": [],
   "pages": [
-    { "name": "home", "route": "/", "routeKind": "literal", "routePartial": false, "variation": "titulo", "query": null }
+    { "name": "home", "route": "/", "routeKind": "literal", "routePartial": false, "variation": "title", "query": null }
   ],
   "languages": ["en", "pt-BR"]
 }
@@ -151,7 +146,7 @@ O agente lê o `AGENTS.md`, chama o `list`, gera as camadas por `make_schema`, `
 ## O que o servidor não faz
 
 - **Não cria o app.** O `new` não é ferramenta: o app nasce no terminal (`pnpm dlx @matizze/prumo-cli new`), e o servidor abre dentro dele.
-- **Não escreve fora do projeto, pelos caminhos que aceita.** Ele trabalha na pasta onde abriu (ou na `--root`), e nenhuma ferramenta recebe outra pasta. Os comandos que escrevem seguem as regras da CLI: validam tudo antes e nunca sobrescrevem um arquivo, e os nomes e caminhos que aceitam são validados e ficam sob a raiz do projeto. Mas um link simbólico que já existe dentro do projeto é seguido na escrita: quem expõe o servidor a um agente não confiável não deve ter link simbólico para fora do projeto no caminho das escritas: nem o próprio `src`, nem nada dentro dele.
+- **Não escreve fora do projeto.** Ele trabalha no projeto que acha subindo da pasta onde abriu (a primeira com `src` e dependência `@matizze/prumo-*` no `package.json`), ou na `--root`, e nenhuma ferramenta recebe outra pasta. Os comandos que escrevem seguem as regras da CLI: validam tudo antes e nunca sobrescrevem um arquivo, e os nomes e caminhos que aceitam são validados e ficam sob a raiz do projeto. Antes de gravar, a CLI também confere o caminho real de cada arquivo, com os links simbólicos resolvidos: um link que leve a escrita para fora do projeto (o próprio `src`, uma pasta dentro dele, um arquivo como o `App.tsx`) ou um link quebrado fazem a ferramenta voltar com erro, dizendo qual é o link, sem escrever nada; o `dry_run` confere o mesmo. Fica de fora só o link físico (hard link) para um arquivo de fora, que o git não carrega.
 - **Roda uma chamada por vez.** As chamadas entram numa fila, para duas escritas não se cruzarem, mesmo que o agente peça várias de uma vez.
 - **Não edita o código que você escreve.** Ele gera as camadas e os registros; o model, a view e as regras de negócio continuam sendo do agente (ou da pessoa), com o `check` e o `pnpm verify` para conferir.
 

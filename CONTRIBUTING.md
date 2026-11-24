@@ -2,7 +2,7 @@
 
 Obrigado pelo interesse. Este guia explica como montar o ambiente, as verificações que todo pull request passa, as convenções do código e da documentação e como uma mudança vira uma versão publicada.
 
-O Prumo é mantido pela Matizze. O repositório é público para consulta, e o fluxo abaixo é o que o time segue. Para entender como os pacotes funcionam por dentro, leia [Como o Prumo funciona por dentro](docs/contributing/internals.md).
+O Prumo é mantido pela Matizze, e o fluxo abaixo é o que o time segue. Para entender como os pacotes funcionam por dentro, leia [Como o Prumo funciona por dentro](docs/contributing/internals.md).
 
 ## O que é do Prumo
 
@@ -10,7 +10,7 @@ Antes de propor uma mudança, confira o critério que vale para qualquer decisã
 
 > **Se uma peça só faz sentido com uma interface específica, ela não é do Prumo.**
 
-O Prumo gera a estrutura e confere a arquitetura de apps React. Ele não traz componente de interface, ícone, tema, CSS, Storybook, tela pronta, catálogo de blocos ou padrão de tela. O plano e as decisões estão em [docs/plan.md](docs/plan.md).
+O Prumo gera a estrutura e confere a arquitetura de apps React. Ele não traz componente de interface, ícone, tema, CSS, Storybook, tela pronta, catálogo de blocos ou padrão de tela. O que vem depois está no [roadmap](docs/roadmap.md).
 
 ## Ambiente
 
@@ -36,12 +36,12 @@ Não há CI de verificação: **a verificação é local**, e todo pull request 
 
 | Comando            | O que roda                                                                                                   | Quando                                                       |
 | ------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| `pnpm verify`      | Typecheck, lint e testes dos quatro pacotes, sem navegador (cerca de 1 minuto)                                | Sempre                                                       |
+| `pnpm verify`      | Typecheck, lint e testes dos quatro pacotes (`tsc`, `eslint` e `vitest`), sem navegador                              | Sempre                                                       |
 | `pnpm build`       | Compila os pacotes (`dist/`)                                                                                 | Para inspecionar o que vai para o npm                        |
 | `pnpm pack:all`    | Compila e empacota os quatro pacotes em `.packs/`                                                             | Para testar um app com os tarballs (`prumo new <nome> --packages .packs`) |
-| `pnpm verify:new`  | Empacota, cria um app com `prumo new --packages` fora do monorepo, roda nele todos os comandos (`make:schema`, `make:repository`, `make:query` e `make:page`), o `list`, a etapa MCP (um cliente gera um domínio e duas telas só pelas ferramentas do `prumo mcp`) e o `pnpm verify` dele (cerca de 1 minuto) | Ao mudar os modelos (`packages/cli/templates`), o `new`, os `make:*` ou o servidor MCP |
+| `pnpm verify:new`  | Empacota, cria um app com `prumo new --packages` fora do monorepo, roda nele todos os comandos (`make:schema`, `make:repository`, `make:query` e `make:page`), o `list`, a etapa MCP (um cliente gera um domínio e duas telas só pelas ferramentas do `prumo mcp`) e o `pnpm verify` dele (`tsc`, `eslint` e `vitest`) | Ao mudar os modelos (`packages/cli/templates`), o `new`, os `make:*` ou o servidor MCP |
 
-Rode um comando pesado por vez: `tsc`, `eslint` e `vitest` juntos pesam, e em máquinas com pouca memória dois ao mesmo tempo atrapalham um ao outro.
+Rode um comando pesado por vez: o `verify` e o `verify:new` rodam `tsc`, `eslint` e `vitest` (o `build` e o `pack:all` só compilam), e dois ao mesmo tempo disputam memória e processador.
 
 ## Fluxo de trabalho
 
@@ -59,7 +59,7 @@ Mensagens em português, no padrão [Conventional Commits](https://www.conventio
 feat(cli): prumo make:page aceita --path
 fix: o app gerado fixa o pnpm em packageManager
 docs: guia de testes
-chore: versões cli 0.5.1 e core 0.1.2
+chore: versões dos pacotes
 refactor!: regras sem interface
 ```
 
@@ -77,6 +77,7 @@ Os únicos workflows do GitHub são os de publicação: o `release.yml` (pacotes
 - **Formatação.** O `.prettierrc.json` e o `.editorconfig` registram o estilo: sem ponto e vírgula, aspas simples, vírgula no fim, 100 colunas, 2 espaços.
 - **TypeScript estrito**, com `verbatimModuleSyntax` e `erasableSyntaxOnly`: `import type` para tipos, sem `enum`, `namespace` nem propriedades no construtor.
 - **Sem saída direta no terminal** no código da CLI: os comandos escrevem pelo `io` (veja [Por dentro](docs/contributing/internals.md#a-cli)).
+- **Apoio aos testes da CLI** em `packages/cli/src/test/` (pastas temporárias, `exec`, o app gerado pelos modelos e o projeto dos testes de compilação), fora do pacote publicado. Pasta temporária de teste nasce de `makeDir`/`makeProject`, que a apagam no fim; e não copie texto de modelo à mão: use o `generatedApp()` (veja [Por dentro](docs/contributing/internals.md)).
 - **Mensagens para pessoas.** Erros dizem o que está errado e o que fazer, em português, com o nome do arquivo ou da opção.
 
 ### Documentação
@@ -91,7 +92,7 @@ pnpm --dir website start     # http://localhost:3000, recarrega a cada mudança
 pnpm --dir website build     # o build falha com link ou âncora quebrados
 ```
 
-Links para arquivos fora de `docs/` (o CONTRIBUTING.md, o plano) viram, no site, links para o GitHub. O menu lateral fica em `website/sidebars.ts`: uma página nova entra lá.
+Links para arquivos fora de `docs/` (o CONTRIBUTING.md e o SECURITY.md) viram, no site, links para o GitHub. O menu lateral fica em `website/sidebars.ts`: uma página nova entra lá.
 
 ## Versões
 

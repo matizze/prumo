@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { UsageError } from '../errors.ts'
-import { makeProject } from '../test-support.ts'
+import { makeProject } from '../test/fs.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import { findProject } from '../lib/project.ts'
 import { isQueriesRegistered, registerQueriesEntry } from './register-query.ts'
-import { fixturePlan } from './test-support.ts'
+import { fixturePlan } from '../test/fixture-project.ts'
 
 const text = (plan: ChangePlan) => plan.source(`${plan.project.src}/queries/index.ts`).getFullText()
 

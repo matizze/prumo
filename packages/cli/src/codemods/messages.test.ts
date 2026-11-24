@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { UsageError } from '../errors.ts'
 import { findProject } from '../lib/project.ts'
-import { makeProject } from '../test-support.ts'
+import { makeProject } from '../test/fs.ts'
 import { messageLanguages } from './messages.ts'
 
 describe('messageLanguages', () => {

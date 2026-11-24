@@ -17,7 +17,7 @@ import { registerNew } from './new.ts'
  */
 export type RegisterCommand = (program: Command, io: Io) => void
 
-/** Os comandos do prumo, na ordem em que aparecem na ajuda. Cada passo da reescrita acrescenta o seu. */
+/** Os comandos do prumo, na ordem em que aparecem na ajuda. Um comando novo entra aqui. */
 export const commands: readonly RegisterCommand[] = [
   registerNew,
   registerMakeSchema,

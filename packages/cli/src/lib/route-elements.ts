@@ -1,11 +1,11 @@
 import { Node, SyntaxKind, type JsxElement, type JsxSelfClosingElement } from 'ts-morph'
-import { isTextLiteral, type TextLiteral } from './edit.ts'
+import { isTextLiteral, type TextLiteral } from './ast.ts'
 
 /** Um `<Route>` do `App.tsx`: com filhos ou autofechado. */
 export type RouteElement = JsxElement | JsxSelfClosingElement
 
 /** O nome da tag de um elemento JSX. */
-export function tagNameOf(element: RouteElement): string {
+function tagNameOf(element: RouteElement): string {
   return Node.isJsxElement(element)
     ? element.getOpeningElement().getTagNameNode().getText()
     : element.getTagNameNode().getText()

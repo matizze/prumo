@@ -115,12 +115,12 @@ try {
   const summary = (p) => (p ? `${p.variation} ${p.route} query=${p.query}` : 'ausente')
   const list = pages.autores
   assert(
-    list?.variation === 'lista' && list.route === '/autores' && list.query === 'autores',
+    list?.variation === 'list' && list.route === '/autores' && list.query === 'autores',
     `a tela autores deveria ser lista em /autores com query autores (${summary(list)})`,
   )
   const detail = pages.autor
   assert(
-    detail?.variation === 'detalhe' && detail.route === '/autores/:id' && detail.query === 'autores',
+    detail?.variation === 'detail' && detail.route === '/autores/:id' && detail.query === 'autores',
     `a tela autor deveria ser detalhe em /autores/:id com query autores (${summary(detail)})`,
   )
   assert(!('simulada' in pages), 'o dry_run criou a tela simulada')

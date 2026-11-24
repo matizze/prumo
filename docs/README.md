@@ -49,4 +49,4 @@ A documentação segue quatro tipos de texto, cada um para um momento:
 - [Perguntas frequentes e solução de problemas](faq.md)
 - [Como o Prumo funciona por dentro](contributing/internals.md), para quem mantém os pacotes
 - [Como contribuir](../CONTRIBUTING.md)
-- [Plano e decisões do projeto](plan.md)
+- [Roadmap](roadmap.md): o que o Prumo é e o que vem depois

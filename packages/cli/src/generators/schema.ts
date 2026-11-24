@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { registerSchema } from '../codemods/index.ts'
 import { UsageError } from '../errors.ts'
-import { DEFAULT_FIELDS, domainFieldVars, parseFields, schemaFile, type Field } from '../lib/fields.ts'
+import { DEFAULT_FIELDS, domainFieldVars, parseFields, schemaFile, type Field } from '../lib/fields/index.ts'
 import { domainNames, type DomainNames } from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'

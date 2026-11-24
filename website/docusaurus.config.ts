@@ -9,8 +9,6 @@ import { linkOutsideDocs } from './src/remark/link-outside-docs'
  */
 const repository = 'https://github.com/matizze/prumo'
 const docsDir = path.resolve(__dirname, '../docs')
-// O plano é registro interno do projeto: fica no GitHub, fora do site
-const excluded = ['plan.md']
 
 const config: Config = {
   title: 'Prumo',
@@ -45,9 +43,8 @@ const config: Config = {
           path: docsDir,
           routeBasePath: '/',
           sidebarPath: './sidebars.ts',
-          exclude: excluded,
           editUrl: ({ docPath }) => `${repository}/edit/main/docs/${docPath}`,
-          beforeDefaultRemarkPlugins: [linkOutsideDocs({ docsDir, excluded, repository })],
+          beforeDefaultRemarkPlugins: [linkOutsideDocs({ docsDir, repository })],
         },
         blog: false,
         theme: { customCss: './src/css/custom.css' },

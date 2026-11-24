@@ -15,8 +15,7 @@
 # de falha.
 #
 # Etapas: pack, new, cli, mcp, verify e clean (a duração de cada uma sai no fim).
-# Pesado (instala dependências e roda tsc, eslint e vitest): rode pela trava de memória da máquina,
-# um por vez. Uso: pnpm verify:new
+# Pesado (instala dependências e roda tsc, eslint e vitest): rode um por vez. Uso: pnpm verify:new
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -67,36 +66,31 @@ stage_new() {
   node "$ROOT/packages/cli/dist/bin.js" new portao --dir "$WORK" --packages "$WORK/packs"
 }
 
-# Os comandos de geração do app. Cada passo da reescrita da CLI acrescenta aqui as chamadas do seu
-# comando, na ordem das camadas:
-#   passo 3  make:schema      (schema com campos de todos os tipos: --fields e --entity)
-#   passo 4  make:repository  (o mock e o teste de contrato)
-#   passo 5  make:repository --data-source (storage e http, no repositório que existe e no que nasce com a fonte)
-#   passo 6  make:query
-#   passo 7  make:page        (título, lista com --query, parâmetro e detalhe)
-# O `new` já gera a tela inicial (home), que o `check` e os testes do verify do app cobrem.
+# Os comandos de geração do app, na ordem das camadas: make:schema, make:repository (mock e as
+# outras fontes), make:query e make:page. O `new` já gera a tela inicial (home), que o `check` e os
+# testes do verify do app cobrem.
 stage_cli() {
-  # passo 3: make:schema com o campo padrão, com campos de todos os tipos e com --entity
+  # make:schema com o campo padrão, com campos de todos os tipos e com --entity
   prumo make:schema clientes
   prumo make:schema livros --fields "titulo:string,autor:string,ano:number,paginas:int,situacao:enum(lido|lendo|desejado),disponivel:boolean,publicadoEm:date,lidoEm?:datetime,apelido?:string"
   prumo make:schema paes --entity pao
-  # passo 4: make:repository com o mock, lendo os campos de cada schema (o livros tem todos os tipos)
+  # make:repository com o mock, lendo os campos de cada schema (o livros tem todos os tipos)
   prumo make:repository clientes
   prumo make:repository livros
   prumo make:repository paes --entity pao
-  # passo 5: as fontes. O storage e o http entram num repositório que já existe (o contrato do
+  # As fontes. O storage e o http entram num repositório que já existe (o contrato do
   # storage roda no verify do app, e o do http fica pulado sem API_TEST_URL); o pedidos já nasce
   # com o http, e o segundo domínio http reaproveita o cliente que o primeiro criou
   prumo make:repository livros --data-source storage
   prumo make:repository clientes --data-source http
   prumo make:schema pedidos
   prumo make:repository pedidos --data-source http
-  # passo 6: make:query, uma por domínio (as queries só usam o contrato, valem para qualquer fonte)
+  # make:query, uma por domínio (as queries só usam o contrato, valem para qualquer fonte)
   prumo make:query clientes
   prumo make:query livros
   prumo make:query paes --entity pao
   prumo make:query pedidos
-  # passo 7: make:page, as quatro variações (título, lista com --query, parâmetro e detalhe). O
+  # make:page, as quatro variações (título, lista com --query, parâmetro e detalhe). O
   # campo de texto sai do schema: o livros mostra o titulo, e o pedidos (o campo padrão) o name
   prumo make:page sobre
   prumo make:page clientes --query clientes
@@ -110,7 +104,7 @@ stage_cli() {
   prumo make:repository fases-2 --entity fase-2
   prumo make:query fases-2 --entity fase-2
   prumo make:page fase --query fases-2 --path /fases/:id
-  # M1: o prumo list só lê; o JSON tem os domínios, as fontes e as telas que os passos acima criaram
+  # O prumo list só lê; o JSON tem os domínios, as fontes e as telas que os comandos acima criaram
   prumo list
   prumo list --json | node -e '
     const l = JSON.parse(require("node:fs").readFileSync(0, "utf8"))
@@ -127,7 +121,7 @@ stage_cli() {
       if (!l.queries.some((q) => q.domain === d)) fail("falta a query " + d)
     }
     const pages = Object.fromEntries(l.pages.map((p) => [p.name, p.variation + ":" + p.route + ":" + p.query]))
-    const want = { home: "titulo:/:null", sobre: "titulo:/sobre:null", clientes: "lista:/clientes:clientes", cliente: "detalhe:/clientes/:id:clientes", livros: "lista:/livros:livros", livro: "detalhe:/livros/:id:livros", perfil: "parametro:/perfil/:usuario:null", pedidos: "lista:/pedidos:pedidos", fase: "detalhe:/fases/:id:fases-2" }
+    const want = { home: "title:/:null", sobre: "title:/sobre:null", clientes: "list:/clientes:clientes", cliente: "detail:/clientes/:id:clientes", livros: "list:/livros:livros", livro: "detail:/livros/:id:livros", perfil: "param:/perfil/:usuario:null", pedidos: "list:/pedidos:pedidos", fase: "detail:/fases/:id:fases-2" }
     for (const [n, v] of Object.entries(want)) if (pages[n] !== v) fail("tela " + n + ": " + pages[n] + " (esperado " + v + ")")
     if (l.languages.join(",") !== "en,pt-BR") fail("idiomas: " + l.languages)
   '

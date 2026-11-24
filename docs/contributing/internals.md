@@ -48,24 +48,25 @@ packages/cli/
   src/
     bin.ts          a entrada: roda o programa com o terminal e define o código de saída
     program.ts      o comando raiz, a ajuda e os erros em português, e a função run
-    errors.ts       UsageError (saída 2, mostra a ajuda) e ExitError (código próprio)
+    errors.ts       UsageError (saída 2, só `prumo: <mensagem>`) e ExitError (código próprio)
     io.ts           o que um comando recebe do mundo: cwd, out e err
     commands/       um arquivo por comando: argumentos, opções, chamada ao gerador e saída
     generators/     app, schema, repository, query e page: recebem as opções e devolvem um plano
     codemods/       as edições do app, com o ts-morph: rota, índices, container, fábrica e fontes
     lib/            nomes, campos e leitor do schema, plano, modelos, versões e apoio
+    test/           o apoio dos testes (fora do pacote publicado): pastas temporárias, exec, o app gerado e o projeto de compilação
   templates/        os modelos .tpl, com marcadores de nome
 ```
 
 ### `commands/`
 
-Cada comando é um arquivo que exporta um `RegisterCommand` (recebe o programa e o `io`); o `commands/index.ts` lista todos, na ordem da ajuda, e o `program.ts` os registra. O comando fica fino: lê os argumentos, chama o gerador, escreve o resultado pelo `io` (o `summary.ts` formata o "Criados" e "Alterados") e, sem `--dry-run`, grava o plano. Um erro lançado como `UsageError` sai com 2 e a ajuda do comando; `ExitError` sai com o código dele; qualquer outro erro sai com 1 e a pilha.
+Cada comando é um arquivo que exporta um `RegisterCommand` (recebe o programa e o `io`); o `commands/index.ts` lista todos, na ordem da ajuda, e o `program.ts` os registra. O comando fica fino: lê os argumentos, chama o gerador, escreve o resultado pelo `io` (o `shared.ts` traz o que os comandos repetem: as opções `--root` e `--dry-run` e o "Criados" e "Alterados") e, sem `--dry-run`, grava o plano. Um erro lançado como `UsageError` sai com 2 e escreve só `prumo: <mensagem>` (o erro de opção ou argumento, que o commander acha, traz também a linha de uso e o "Veja"); `ExitError` sai com o código dele; qualquer outro erro sai com 1, a mensagem e, só com `PRUMO_DEBUG=1`, a pilha. Cada comando termina a ajuda com `documentCommand` (`commands/help-text.ts`): os exemplos e o link da seção dele em `docs/reference/cli.md`; mude a ajuda e a referência juntas. Os comandos acham o projeto com `locateProject` (`lib/project.ts`), que sobe da pasta atual quando não há `--root`.
 
-A função `run(argv, io)` devolve o código de saída e nunca encerra o processo. Os comandos nunca escrevem direto no terminal: é o `io` que deixa os testes rodarem sem subprocesso. O `bin.ts` é o único que usa `process.stdout`, `process.stderr` e `process.exitCode`. Os testes de cada comando (`commands/*.test.ts`) usam o `test-support.ts` (`makeProject` e `exec`) e rodam o comando numa pasta temporária.
+A função `run(argv, io)` devolve o código de saída e nunca encerra o processo; por baixo, `execute` devolve também o tipo de saída (`ok`, `usage`, `exit` ou `unexpected`), que o servidor MCP usa para separar a violação do `check` de um erro inesperado, sem ler o stderr. Os comandos nunca escrevem direto no terminal: é o `io` que deixa os testes rodarem sem subprocesso. O `bin.ts` é o único que usa `process.stdout`, `process.stderr` e `process.exitCode`. Os testes de cada comando (`commands/*.test.ts`) usam o apoio em `src/test/` (`makeProject` e `makeDir`, de `fs.ts`; `exec` e `captureIo`, de `run.ts`) e rodam o comando numa pasta temporária.
 
 ### `generators/` e o plano
 
-O gerador não toca o disco: valida tudo (nome, entidade, campos, camada de baixo que falta, arquivo que já existe) e devolve um `ChangePlan`, de `lib/plan.ts`. O plano guarda, em memória, os arquivos a criar e os a alterar: os de código entram num `Project` do ts-morph sem tsconfig e sem sistema de arquivos, e os outros (o JSON de mensagens) numa lista à parte. Só o `commit()` escreve, então um erro no meio do caminho não deixa o projeto pela metade, e o `summary()` é o que o `--dry-run` mostra. Todo erro de uso sai antes do primeiro byte gravado.
+O gerador não toca o disco: valida tudo (nome, entidade, campos, camada de baixo que falta, arquivo que já existe) e devolve um `ChangePlan`, de `lib/plan.ts`. O plano guarda, em memória, os arquivos a criar e os a alterar: os de código entram num `Project` do ts-morph sem tsconfig e sem sistema de arquivos, e os outros (o JSON de mensagens) numa lista à parte. Só o `commit()` escreve, e, se uma escrita falha, ele apaga os arquivos e as pastas que criou, devolve o conteúdo dos arquivos que alterou e relança o erro. O `summary()` é o que o `--dry-run` mostra. Todo erro de uso sai antes do primeiro byte gravado.
 
 ### `codemods/`
 
@@ -78,16 +79,27 @@ O servidor do `prumo mcp` (o comando fica em `commands/mcp.ts`, que só confere 
 ### `lib/`
 
 - `names.ts`: o kebab, o PascalCase e o camelCase de um nome, o plural e o singular (`clientes` → `cliente`, com a recusa dos plurais ambíguos e das palavras reservadas) e o `--entity`.
-- `fields.ts`: o `--fields` (o parser, os tipos e a descrição de cada campo) e o **leitor do schema**, que lê com o ts-morph os campos de um `<entidade>.ts` gerado (o `z.object`, o `pick` do schema de entrada e a `SortKey`) para o `make:repository` e o `make:page`. Um campo fora dos tipos do `--fields` é erro de uso, com a linha.
+- `fields/`: o `--fields` (`parse.ts`, `types.ts`), os valores de exemplo (`samples.ts`), a geração do código dos modelos (`generate.ts`) e o **leitor do schema** (`read.ts`, e `page-shape.ts` para o `make:page`), que lê com o ts-morph os campos de um `<entidade>.ts` gerado (o `z.object`, o `pick` do schema de entrada e a `SortKey`) para o `make:repository` e o `make:page`. Um campo fora dos tipos do `--fields` é erro de uso, com a linha.
 - `plan.ts`: o `ChangePlan`, descrito acima.
+- `route-elements.ts` e `ast.ts`: a leitura das rotas do `<Switch>` do `App.tsx` e dos literais de texto, que o `list` e os codemods compartilham.
 - `templates.ts`: carrega um `.tpl` e troca os marcadores `{{nome}}` (um marcador sem valor é erro do modelo).
+- `listing.ts`: o levantamento que o `prumo list` mostra (só lê o projeto).
+- `paths.ts`: `displayPath`, o caminho relativo com `/` das mensagens.
 - `project.ts`: acha o projeto (a pasta com `package.json` e `src`) e os caminhos que os comandos usam.
 - `versions.ts`: as versões dos pacotes do Prumo que o `new` grava (`^<versão>`); o `versions.test.ts` falha quando um `package.json` de `packages/*` muda e este arquivo não acompanha.
 - `pnpm.ts`, `process.ts` e `tarballs.ts`: o `pnpm install`, os subprocessos e os tarballs do `--packages`.
 
 ### Os testes
 
-Cada gerador tem um teste unitário (`generators/*.test.ts`) e cada codemod também. Os testes de compilação (`generators/*.compile.test.ts`) vão além: o `generators/compile-test-support.ts` monta um projeto mínimo numa pasta temporária, com atalhos para as dependências que o monorepo já instala (nada é baixado), aplica o que o gerador planejou e roda o `tsc` e o `vitest` nesse projeto. É o que prova que o código gerado compila e que o teste de contrato passa, para as três fontes. O `packaging.test.ts` confere o tarball (veja acima), e o `verify-new.test.ts` confere a estrutura do script do portão.
+Cada gerador tem um teste unitário (`generators/*.test.ts`) e cada codemod também. O apoio dos testes mora em `packages/cli/src/test/`, fora do pacote publicado (o `tsconfig.build.json` exclui a pasta e o `packaging.test.ts` confere o tarball):
+
+- `fs.ts`: pastas temporárias (`makeDir`, `makeProject`, `writeFiles`), todas apagadas quando os testes do arquivo terminam.
+- `run.ts`: `exec`, que roda o prumo em processo, e `captureIo`, o `Io` que captura `stdout` e `stderr`.
+- `app.ts`: `generatedApp()`, os arquivos do app que o `prumo new` gera, montados pelo próprio `generateApp` a partir dos modelos (sem `pnpm install`, `git init` nem rede). Os ajustes que os testes fazem sobre ele passam pelo `patchText`, que falha se o trecho sumiu do modelo.
+- `fixture-project.ts`: `fixtureProject()` e `fixturePlan()`, o projeto em miniatura dos codemods: partes vêm do modelo (as opções, o container de repositórios e o `App.tsx`, com ajustes) e partes ficam em estados específicos que as costuras precisam encontrar (mensagens fora de ordem, índices de schemas e queries com estilos variados).
+- `compile.ts`: o projeto dos testes de compilação.
+
+Os testes de compilação (`generators/*.compile.test.ts`) vão além: o `test/compile.ts` grava o app gerado numa pasta temporária, com atalhos para as dependências que o monorepo já instala (nada é baixado), aplica o que o gerador planejou e roda o `tsc` e o `vitest` nesse projeto. É o que prova que o código gerado compila e que o teste de contrato passa, para as três fontes, contra os modelos reais. O `packaging.test.ts` confere o tarball (veja acima), e o `verify-new.test.ts` confere só a ligação do script do portão (o `package.json` da raiz, o arquivo executável e as etapas); os comandos dentro do script quem executa é o próprio `pnpm verify:new`.
 
 ### `verify:new`
 
@@ -107,9 +119,9 @@ A autenticação é pelo **Trusted Publishing** do npm (OIDC, com `id-token: wri
 
 A pasta `docs/` também é publicada como site, em [docs.prumo.matizze.com.br](https://docs.prumo.matizze.com.br), pelo Docusaurus em `website/`:
 
-- **O conteúdo não é copiado:** o `website/docusaurus.config.ts` aponta o plugin de documentação para `../docs`, com `routeBasePath: '/'`. O `docs/plan.md` fica de fora do site.
+- **O conteúdo não é copiado:** o `website/docusaurus.config.ts` aponta o plugin de documentação para `../docs`, com `routeBasePath: '/'`.
 - **Markdown comum:** `markdown.format: 'detect'` lê os `.md` como CommonMark, não MDX, então o texto pode ter `<nome>` e chaves. Os diagramas Mermaid saem do tema `@docusaurus/theme-mermaid`.
-- **Links para fora de `docs/`:** o plugin de remark `website/src/remark/link-outside-docs.ts` troca o link relativo para um arquivo fora do site (o `CONTRIBUTING.md`, o plano) pelo endereço do arquivo no GitHub.
+- **Links para fora de `docs/`:** o plugin de remark `website/src/remark/link-outside-docs.ts` troca o link relativo para um arquivo fora do site (o `CONTRIBUTING.md`, o `SECURITY.md`) pelo endereço do arquivo no GitHub.
 - **Build estrito:** link, âncora ou link de Markdown quebrados fazem o build falhar.
 
 O workflow `.github/workflows/docs.yml`, a cada push na `main` que muda `docs/` ou `website/`, gera a imagem (`website/Dockerfile`: o build do Docusaurus e um nginx), roda o teste de fumaça (`website/docker/smoke-test.sh`), envia para o `ghcr.io/matizze/prumo-docs` e chama o webhook do Portainer (secret `PORTAINER_WEBHOOK_DOCS`), que reinicia o serviço com a imagem nova.

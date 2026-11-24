@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { fixtureProject } from '../codemods/test-support.ts'
+import { fixtureProject } from '../test/fixture-project.ts'
 import { UsageError } from '../errors.ts'
 import { generatePage, parseRoutePath } from './page.ts'
 
@@ -326,6 +326,8 @@ describe('parseRoutePath', () => {
     const route = parseRoutePath('/livros/:livroId/capas')
     expect(route.param).toBe('livroId')
     expect(route.example('x')).toBe('/livros/x/capas')
+    // `async` é palavra contextual: serve de identificador
+    expect(parseRoutePath('/livros/:async').param).toBe('async')
   })
 
   it.each([
@@ -339,6 +341,8 @@ describe('parseRoutePath', () => {
     ['/livros/:', 'não é um parâmetro válido'],
     ['/livros/:1a', 'não é um parâmetro válido'],
     ['/livros/:class', 'não é um parâmetro válido'],
+    ['/livros/:eval', 'não é um parâmetro válido'],
+    ['/livros/:arguments', 'não é um parâmetro válido'],
     ['/livros/ação', 'só pode ter'],
     ['/a/:x/b/:y', '2 parâmetros'],
   ])('recusa %j', (route, reason) => {

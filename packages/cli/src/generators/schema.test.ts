@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { Project, ts } from 'ts-morph'
 import { describe, expect, it } from 'vitest'
-import { fixtureProject } from '../codemods/test-support.ts'
+import { fixtureProject } from '../test/fixture-project.ts'
 import { UsageError } from '../errors.ts'
 import { renderTemplateFile, nameVars } from '../lib/templates.ts'
-import { domainFieldVars, parseFields } from '../lib/fields.ts'
+import { domainFieldVars, parseFields } from '../lib/fields/index.ts'
 import { domainNames } from '../lib/names.ts'
 import { generateSchema, SCHEMA_FILE } from './schema.ts'
 
@@ -41,8 +41,10 @@ describe('generateSchema', () => {
   it('o schema com campos de todos os tipos é TypeScript sem erro de sintaxe', () => {
     const { plan } = generateSchema(fixtureProject(), { name: 'livros', fields: FIELDS })
     const [source] = plan.createdSources()
+    // Só a sintaxe: sem a lib do TypeScript, que deixaria o teste lento à toa
     const check = new Project({
       useInMemoryFileSystem: true,
+      skipLoadingLibFiles: true,
       compilerOptions: { module: ts.ModuleKind.ESNext, noEmit: true },
     }).createSourceFile('livro.ts', source!.getFullText())
     expect(check.getPreEmitDiagnostics().filter((d) => d.getCode() < 2000)).toEqual([])

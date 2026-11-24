@@ -2,7 +2,7 @@
   "name": "prumo-docs",
   "private": true,
   "description": "Site da documentação do Prumo (docs.prumo.matizze.com.br), gerado pelo Docusaurus a partir de docs/.",
-  "packageManager": "pnpm@10.0.0",
+  "packageManager": "pnpm@10.34.9",
   "engines": {
     "node": ">=24"
   },
@@ -22,5 +22,10 @@
   },
   "devDependencies": {
     "@docusaurus/types": "3.10.2"
+  },
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "core-js"
+    ]
   }
 }

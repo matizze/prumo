@@ -1,7 +1,22 @@
 {
   "name": "@matizze/prumo-core",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Infraestrutura comum dos produtos do Prumo: container de repositórios, query keys, tipo Page, utilitários de mock, i18n, erros com código, guarda de login e provedor de query.",
+  "keywords": [
+    "react",
+    "architecture",
+    "repository-pattern",
+    "tanstack-query",
+    "i18n",
+    "typescript",
+    "prumo"
+  ],
+  "homepage": "https://docs.prumo.matizze.com.br",
+  "bugs": {
+    "url": "https://github.com/matizze/prumo/issues"
+  },
+  "license": "MIT",
+  "author": "Matizze",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/matizze/prumo.git",
@@ -9,7 +24,6 @@
   },
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
     "./errors": "./src/errors/index.ts",
     "./data": "./src/data/index.ts",
     "./mock": "./src/mock/index.ts",
@@ -25,12 +39,7 @@
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
     "access": "public",
-    "types": "./dist/index.d.ts",
     "exports": {
-      ".": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
       "./errors": {
         "types": "./dist/errors/index.d.ts",
         "default": "./dist/errors/index.js"
@@ -97,5 +106,8 @@
     "vitest": "^5.1.0",
     "wouter": "^3.13.0",
     "zod": "^4.6.7"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

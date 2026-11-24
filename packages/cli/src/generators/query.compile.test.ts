@@ -1,40 +1,15 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
-import { exec } from '../test-support.ts'
-import { project, tsc, vitest } from './compile-test-support.ts'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { project, tsc, vitest, writeIn } from '../test/compile.ts'
+import { exec } from '../test/run.ts'
 
 /**
- * As queries geradas de verdade: o projeto temporário de `compile-test-support.ts` (com React e React
- * Query) recebe o schema, o repositório e as queries pelos comandos; o `tsc` estrito compila tudo
+ * As queries geradas de verdade: o projeto temporário de `test/compile.ts` (o app que o `prumo new`
+ * gera) recebe o schema, o repositório e as queries pelos comandos; o `tsc` estrito compila tudo
  * e um teste de hooks roda contra o mock.
  */
-const TEMPLATES = path.resolve(import.meta.dirname, '../../templates')
-
-/** O ponto de ligação do app: o provedor de repositórios (o modelo do `prumo new`) e um render só com ele. */
-const RENDER = `import { QueryClient } from '@tanstack/react-query'
-import { createRenderHookWithProviders, createTestQueryClient } from '@matizze/prumo-testing'
-import type { ReactNode } from 'react'
-import { RepositoryProvider } from '@/providers/repository'
-import { createRepositories, type RepositoryContainer } from '@/repositories'
-
-export const renderHookWithProviders = createRenderHookWithProviders<RepositoryContainer>({
-  Providers: ({ children, repositories }: { children: ReactNode; repositories: RepositoryContainer }) => (
-    <RepositoryProvider value={repositories}>{children}</RepositoryProvider>
-  ),
-  createRepositories: (overrides?: Partial<RepositoryContainer>) => ({
-    ...createRepositories({ dataSource: 'mock', latencyMs: 0 }),
-    ...overrides,
-  }),
-  createQueryClient: () => createTestQueryClient((options) => new QueryClient({ defaultOptions: options })),
-})
-`
-
-// O Vitest procura essa marca no texto do arquivo todo: separada, ela só vale dentro do projeto gerado
-const JSDOM = '// @vitest-' + 'environment jsdom'
-
-const HOOKS_TEST = `${JSDOM}
-import { act, waitFor } from '@testing-library/react'
+const HOOKS_TEST = `import { act, waitFor } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
 import { renderHookWithProviders } from '@/test/render'
 import {
@@ -110,44 +85,33 @@ it('remove com o detalhe ainda na tela: o detalhe busca de novo e termina em NOT
 })
 `
 
-describe('as queries geradas compilam (tsc estrito) e funcionam com o mock', () => {
-  it('compila e os hooks de lista e de mutation passam, pelo índice @/queries', async () => {
-    const root = await project('nome:string', { react: true })
-    const write = (file: string, content: string) => {
-      mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
-      writeFileSync(path.join(root, file), content)
-    }
-    write(
-      'src/providers/repository/index.ts',
-      readFileSync(path.join(TEMPLATES, 'app/src/providers/repository/index.ts.tpl'), 'utf8'),
-    )
-    write('src/queries/index.ts', readFileSync(path.join(TEMPLATES, 'app/src/queries-index.ts.tpl'), 'utf8'))
-    write('src/test/render.tsx', RENDER)
-    write('src/queries/clientes.hooks.test.tsx', HOOKS_TEST)
-    for (const args of [['make:repository', 'clientes'], ['make:query', 'clientes']]) {
-      const made = await exec(args, root)
-      expect(made.code, `${made.stdout}${made.stderr}`).toBe(0)
-    }
-    expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root)
-    expect(tests.status, tests.output).toBe(0)
-    expect(tests.output).toMatch(/a mutation de criar invalida a lista/)
-  }, 180_000)
+const ALL_TYPES =
+  'titulo:string,ano:number,paginas:int,situacao:enum(lido|lendo),disponivel:boolean,publicadoEm:date,lidoEm?:datetime'
 
-  it('com o schema editado depois do repositório (array, email, nullable): sai com 0 e compila', async () => {
-    const root = await project('nome:string', { react: true })
-    const write = (file: string, content: string) => {
-      mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
-      writeFileSync(path.join(root, file), content)
-    }
-    write(
-      'src/providers/repository/index.ts',
-      readFileSync(path.join(TEMPLATES, 'app/src/providers/repository/index.ts.tpl'), 'utf8'),
-    )
-    write('src/queries/index.ts', readFileSync(path.join(TEMPLATES, 'app/src/queries-index.ts.tpl'), 'utf8'))
-    const made = await exec(['make:repository', 'clientes'], root)
-    expect(made.code, made.stderr).toBe(0)
-    const schema = path.join(root, 'src/schemas/entities/cliente.ts')
+/**
+ * Os três casos dividem um projeto, cada um com o seu domínio: `clientes` (com o teste de hooks),
+ * `livros` (schema editado depois do repositório) e `filmes` (campos de todos os tipos, em storage).
+ * O `tsc` e o `vitest` rodam uma vez.
+ */
+describe('as queries geradas compilam (tsc estrito) e funcionam com o mock', () => {
+  let root: string
+  let compiled: ReturnType<typeof tsc>
+  let tests: ReturnType<typeof vitest>
+
+  const run = async (...args: string[]) => {
+    const made = await exec(args, root)
+    expect(made.code, `${args.join(' ')}\n${made.stdout}${made.stderr}`).toBe(0)
+  }
+
+  beforeAll(async () => {
+    root = await project('nome:string')
+    writeIn(root, 'src/queries/clientes.hooks.test.tsx', HOOKS_TEST)
+    await run('make:repository', 'clientes')
+    await run('make:query', 'clientes')
+
+    await run('make:schema', 'livros', '--fields', 'nome:string')
+    await run('make:repository', 'livros')
+    const schema = path.join(root, 'src/schemas/entities/livro.ts')
     writeFileSync(
       schema,
       readFileSync(schema, 'utf8').replace(
@@ -155,32 +119,29 @@ describe('as queries geradas compilam (tsc estrito) e funcionam com o mock', () 
         '  tags: z.array(z.string()).optional(),\n  email: z.string().email().nullable().optional(),\n  createdAt: z.string(),',
       ),
     )
-    const query = await exec(['make:query', 'clientes'], root)
-    expect(query.code, `${query.stdout}${query.stderr}`).toBe(0)
-    expect(readFileSync(path.join(root, 'src/queries/clientes.ts'), 'utf8')).toContain('useClientesList')
-    expect(tsc(root)).toEqual({ status: 0, output: '' })
-  }, 180_000)
+    await run('make:query', 'livros')
 
-  it('com campos de todos os tipos e a fonte storage no repositório', async () => {
-    const fields =
-      'titulo:string,ano:number,paginas:int,situacao:enum(lido|lendo),disponivel:boolean,publicadoEm:date,lidoEm?:datetime'
-    const root = await project(fields, { react: true })
-    const write = (file: string, content: string) => {
-      mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
-      writeFileSync(path.join(root, file), content)
-    }
-    write(
-      'src/providers/repository/index.ts',
-      readFileSync(path.join(TEMPLATES, 'app/src/providers/repository/index.ts.tpl'), 'utf8'),
-    )
-    write('src/queries/index.ts', readFileSync(path.join(TEMPLATES, 'app/src/queries-index.ts.tpl'), 'utf8'))
-    for (const args of [
-      ['make:repository', 'clientes', '--data-source', 'storage'],
-      ['make:query', 'clientes'],
-    ]) {
-      const made = await exec(args, root)
-      expect(made.code, `${made.stdout}${made.stderr}`).toBe(0)
-    }
-    expect(tsc(root)).toEqual({ status: 0, output: '' })
-  }, 180_000)
+    await run('make:schema', 'filmes', '--fields', ALL_TYPES)
+    await run('make:repository', 'filmes', '--data-source', 'storage')
+    await run('make:query', 'filmes')
+
+    compiled = tsc(root)
+    tests = vitest(root, {}, ['src/queries'])
+  }, 240_000)
+
+  it('compila e os hooks de lista e de mutation passam, pelo índice @/queries', () => {
+    expect(compiled).toEqual({ status: 0, output: '' })
+    expect(tests.status, tests.output).toBe(0)
+    expect(tests.output).toMatch(/a mutation de criar invalida a lista/)
+  })
+
+  it('com o schema editado depois do repositório (array, email, nullable): sai com 0 e compila', () => {
+    expect(readFileSync(path.join(root, 'src/queries/livros.ts'), 'utf8')).toContain('useLivrosList')
+    expect(compiled).toEqual({ status: 0, output: '' })
+  })
+
+  it('com campos de todos os tipos e a fonte storage no repositório', () => {
+    expect(readFileSync(path.join(root, 'src/queries/filmes.ts'), 'utf8')).toContain('useFilmesList')
+    expect(compiled).toEqual({ status: 0, output: '' })
+  })
 })

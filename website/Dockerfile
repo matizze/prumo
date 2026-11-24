@@ -8,7 +8,7 @@
 
 FROM node:24-alpine AS build
 WORKDIR /repo
-RUN npm install --global pnpm@10.0.0
+RUN npm install --global pnpm@10.34.9
 # As dependências primeiro, para o cache da camada sobreviver a uma mudança só de texto
 COPY website/package.json website/pnpm-lock.yaml website/
 RUN pnpm --dir website install --frozen-lockfile --ignore-workspace

@@ -1,6 +1,6 @@
 # Migrar para use cases
 
-Até as versões 0.9 do `@matizze/prumo-cli`, 0.3 do core, 0.3 do rules e 0.3 do testing, o app buscava dado por um **repositório** (`src/repositories/<domínio>/`) e por **queries** (`src/queries/<domínio>.ts`). Nas versões seguintes (cli 0.10, core 0.4, rules 0.4 e testing 0.4), o **use case** é o único caminho: uma ação com nome de verbo (`listClientes`, `signIn`), com um Input, um Output e um `execute`. Este guia mostra o que trocar e por quê. Os apps que ficam nas versões antigas (`^0.3.0` não sobe sozinho para a 0.4.0) continuam funcionando como estão.
+Até a versão que tira o repository e as queries, o app buscava dado por um **repositório** (`src/repositories/<domínio>/`) e por **queries** (`src/queries/<domínio>.ts`). Nessa versão em diante, o **use case** é o único caminho: uma ação com nome de verbo (`listClientes`, `signIn`), com um Input, um Output e um `execute`. Este guia mostra o que trocar e por quê. Os apps nas versões anteriores continuam funcionando como estão: como o pacote está em 0.x, o `^` do `package.json` não sobe sozinho para a versão que tira essas peças.
 
 ## O que sai e o que entra
 
@@ -47,6 +47,7 @@ const create = useCreateCliente()
 // depois
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useUseCases } from '@/providers/use-cases'
+import type { CreateClienteInput } from '@/use-cases/clientes/create-cliente.types'
 import { listClientesKey } from '@/use-cases/clientes/list-clientes.types'
 
 const { listClientes, createCliente } = useUseCases()
@@ -55,12 +56,12 @@ const input = { search }
 
 const list = useQuery({ queryKey: listClientesKey(input), queryFn: () => listClientes.execute(input) })
 const create = useMutation({
-  mutationFn: (input: ClienteInput) => createCliente.execute(input),
+  mutationFn: (input: CreateClienteInput) => createCliente.execute(input),
   onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clientes'] }),
 })
 ```
 
-A escrita invalida o prefixo do domínio (`['clientes']`), como as mutations geradas faziam com `clienteKeys.all`. Telas novas saem prontas de `make:page <tela> --usecase <domínio>.<ação>` (lista, detalhe ou formulário).
+A escrita invalida o prefixo do domínio (`['clientes']`), que é também o prefixo que o `listClientesKey` usa; as mutations geradas faziam o mesmo com `clienteKeys.all`. Telas novas saem prontas de `make:page <tela> --usecase <domínio>.<ação>` (lista, detalhe ou formulário).
 
 **5. Troque os testes.** `renderWithProviders` não recebe mais repositórios, e o parâmetro de tipo dos use cases vem primeiro:
 

@@ -15,9 +15,14 @@ export interface NoHttpInPageOptions {
 
 const DEFAULTS = { alias: '@/', aliasRoot: 'src', pagesDir: 'src/pages', httpDir: 'src/http' }
 
+/** O http que vem do core: a tela não importa dele também, pelo nome do pacote. */
+const CORE_HTTP = '@matizze/prumo-core/http'
+
 /**
  * A tela não fala com a rede: um arquivo de `src/pages` não importa de `src/http`, pelo alias nem
- * por caminho relativo. Quem usa o `http` é o use case, e a tela chama o use case.
+ * por caminho relativo, nem o `http` do core (`@matizze/prumo-core/http`). Quem usa o `http` é o use
+ * case, e a tela chama o use case. O `import type` fica de fora: só tipo não acopla em tempo de
+ * execução.
  */
 export const noHttpInPage: Rule.RuleModule = {
   meta: {
@@ -51,6 +56,11 @@ export const noHttpInPage: Rule.RuleModule = {
     const alias = normalizeAlias(options.alias)
 
     return importListener((node, specifier) => {
+      if ((node as { importKind?: string }).importKind === 'type') return
+      if (specifier === CORE_HTTP) {
+        context.report({ node, messageId: 'httpInPage', data: { httpDir, specifier } })
+        return
+      }
       const resolved = resolveSpecifier(specifier, {
         filename: context.filename,
         root,

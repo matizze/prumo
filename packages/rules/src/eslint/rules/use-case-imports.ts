@@ -20,22 +20,30 @@ const DEFAULTS = {
   useCasesDir: 'src/use-cases',
 }
 
-/** `react` (e `react/jsx-runtime`) e os pacotes `@tanstack/*`: a camada de interface e de cache. */
+/**
+ * A camada de interface, de cache, de roteamento e de teste de tela: `react` (e `react/jsx-runtime`),
+ * `react-dom`, `wouter`, os pacotes `@tanstack/*` e `@testing-library/*`.
+ */
 function uiPackageOf(specifier: string): string | undefined {
   if (specifier === 'react' || specifier.startsWith('react/')) return 'react'
+  if (specifier === 'react-dom' || specifier.startsWith('react-dom/')) return 'react-dom'
+  if (specifier === 'wouter' || specifier.startsWith('wouter/')) return 'wouter'
   if (specifier.startsWith('@tanstack/')) return '@tanstack'
+  if (specifier.startsWith('@testing-library/')) return '@testing-library'
   return undefined
 }
 
 /**
  * O use case não olha para cima: um arquivo de `src/use-cases` não importa de `src/pages`, de
- * `react` nem de `@tanstack/*`. Ele é código de domínio, que usa o `http`, o `storage` ou outros
- * use cases; quem usa React e o cache é a tela.
+ * `react`, `react-dom`, `wouter`, `@tanstack/*` nem `@testing-library/*`. Ele é código de domínio,
+ * que usa o `http`, o `storage` ou outros use cases; quem usa React e o cache é a tela.
  */
 export const useCaseImports: Rule.RuleModule = {
   meta: {
     type: 'problem',
-    docs: { description: 'Um use case não importa de src/pages, de react nem de @tanstack/*.' },
+    docs: {
+      description: 'Um use case não importa de src/pages nem da camada de interface (react, wouter, @tanstack, @testing-library).',
+    },
     schema: [
       {
         type: 'object',

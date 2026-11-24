@@ -12,7 +12,9 @@ createRuleTester().run('no-http-in-page', noHttpInPage, {
   valid: [
     // A tela chama use case e usa o que é de fora
     { filename: view, code: "import { useUseCases } from '@/use-cases/provider'" },
-    { filename: view, code: "import { createHttp } from '@matizze/prumo-core/http'" },
+    // Só tipo não acopla em tempo de execução: o import type do http fica de fora
+    { filename: view, code: "import type { Http } from '@/http/api'" },
+    { filename: inProject('src/pages/auth/login/model.ts'), code: "import type { Http } from '@/http/api'" },
     { filename: view, code: "import { x } from './model'" },
     // Parecido com src/http, mas é outra pasta
     { filename: view, code: "import { x } from '@/http-utils/x'" },
@@ -36,10 +38,11 @@ createRuleTester().run('no-http-in-page', noHttpInPage, {
       code: "import { api } from '../../http/api'",
       errors: [http('../../http/api')],
     },
+    // O http do core, pelo nome do pacote, também não entra na tela
     {
-      filename: inProject('src/pages/auth/login/model.ts'),
-      code: "import type { Http } from '@/http/api'",
-      errors: [http('@/http/api')],
+      filename: view,
+      code: "import { createHttp } from '@matizze/prumo-core/http'",
+      errors: [http('@matizze/prumo-core/http')],
     },
     {
       filename: view,

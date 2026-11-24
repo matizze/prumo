@@ -73,7 +73,7 @@ A tela 'clientes' não importa da pasta da tela 'home' ('@/pages/home/view'): o 
 
 ### `prumo/no-http-in-page`
 
-**A tela não fala com a rede.** Um arquivo de `src/pages` (em qualquer profundidade, testes incluídos) não importa de `src/http`, nem pelo alias nem por caminho relativo. Quem usa o `http` é o use case, e a tela chama o use case pelo `useUseCases()`.
+**A tela não fala com a rede.** Um arquivo de `src/pages` (em qualquer profundidade, testes incluídos) não importa de `src/http`, nem pelo alias nem por caminho relativo, nem o `http` do core (`@matizze/prumo-core/http`). Quem usa o `http` é o use case, e a tela chama o use case pelo `useUseCases()`. O `import type` fica de fora: só tipo não acopla em tempo de execução.
 
 ```text
 A tela não importa de 'src/http' ('@/http/api'): ela chama um use case, e é o use case que usa o http.
@@ -88,7 +88,7 @@ A tela não importa de 'src/http' ('@/http/api'): ela chama um use case, e é o 
 
 ### `prumo/use-case-imports`
 
-**O use case não olha para cima.** Um arquivo de `src/use-cases` (testes incluídos) não importa de `src/pages`, de `react` (nem de `react/...`) nem de `@tanstack/*`. O use case é código de domínio: usa o `http`, o `storage`, os schemas e outros use cases; React e o cache são da tela.
+**O use case não olha para cima.** Um arquivo de `src/use-cases` (testes incluídos) não importa de `src/pages`, de `react` (nem de `react/...`), `react-dom`, `wouter`, `@tanstack/*` nem `@testing-library/*`. O use case é código de domínio: usa o `http`, o `storage`, os schemas e outros use cases; React, o roteamento, o cache e os testes de tela são da tela.
 
 ```text
 O use case não importa de 'react' ('react'): ele não depende de React nem do cache; isso é da tela.

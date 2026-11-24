@@ -2,13 +2,15 @@
 import { QueryClient, useMutation, useQuery, useQueryClient, type DefaultOptions } from '@tanstack/react-query'
 import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import { createContext, useContext, useEffect, type ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { useLocation } from 'wouter'
 import {
   createRenderHookWithProviders,
   createRenderWithProviders,
   createTestQueryClient,
   createTestUseCases,
+  type NoContainer,
+  type RenderWithProvidersBinding,
 } from './render.tsx'
 
 afterEach(() => {
@@ -361,6 +363,27 @@ describe('renderHookWithProviders', () => {
     act(() => navigate('/b'))
     expect(result.current.location).toBe('/b')
     expect(currentPath()).toBe('/b')
+  })
+})
+
+// O app recém-criado tem `UseCases = {}`: vazio como o NoContainer, então dispensa a fábrica também
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type EmptyUseCases = {}
+
+/** `true` quando o createUseCases pode faltar na ligação do produto com o U dado. */
+type CreateUseCasesOptional<U extends object> =
+  undefined extends RenderWithProvidersBinding<U>['createUseCases'] ? true : false
+
+describe('a fábrica dos use cases conforme o U', () => {
+  it('é opcional quando o U é vazio (NoContainer ou {})', () => {
+    expectTypeOf<CreateUseCasesOptional<NoContainer>>().toEqualTypeOf<true>()
+    expectTypeOf<CreateUseCasesOptional<EmptyUseCases>>().toEqualTypeOf<true>()
+    expect(true).toBe(true)
+  })
+
+  it('é obrigatória quando o U declara use cases', () => {
+    expectTypeOf<CreateUseCasesOptional<FakeUseCases>>().toEqualTypeOf<false>()
+    expect(true).toBe(true)
   })
 })
 

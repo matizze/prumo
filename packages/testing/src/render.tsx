@@ -48,7 +48,8 @@ export type NoContainer = Record<never, never>
 
 /**
  * A ligação do produto com o `renderWithProviders`: o que cada produto troca. Quando o produto
- * declara os use cases (`U`), o `createUseCases` é obrigatório; só `NoContainer` dispensa a fábrica.
+ * declara os use cases (`U`), o `createUseCases` é obrigatório. Um `U` vazio (`{}`, o app recém-criado,
+ * com `UseCases = {}`) ou o `NoContainer` dispensa a fábrica.
  */
 export type RenderWithProvidersBinding<
   U extends object = NoContainer,

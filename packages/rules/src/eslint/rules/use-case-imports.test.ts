@@ -20,6 +20,9 @@ createRuleTester().run('use-case-imports', useCaseImports, {
     // Nomes que só começam como react ou como pacotes de outros escopos
     { filename: useCase, code: "import { x } from 'react-hook-form-like'" },
     { filename: useCase, code: "import { x } from '@tanstackish/x'" },
+    { filename: useCase, code: "import { x } from 'react-dom-like'" },
+    { filename: useCase, code: "import { x } from 'wouterish'" },
+    { filename: useCase, code: "import { x } from '@testing-librarish/x'" },
     // Fora de src/use-cases, a regra não olha
     { filename: inProject('src/pages/livros/model.ts'), code: "import { useQuery } from '@tanstack/react-query'" },
     { filename: inProject('src/providers/use-cases/index.ts'), code: "import { createContext } from 'react'" },
@@ -52,6 +55,21 @@ createRuleTester().run('use-case-imports', useCaseImports, {
       filename: useCase,
       code: "import type { QueryClient } from '@tanstack/query-core'",
       errors: [ui('@tanstack', '@tanstack/query-core')],
+    },
+    {
+      filename: useCase,
+      code: "import { createRoot } from 'react-dom/client'",
+      errors: [ui('react-dom', 'react-dom/client')],
+    },
+    {
+      filename: useCase,
+      code: "import { useLocation } from 'wouter'",
+      errors: [ui('wouter', 'wouter')],
+    },
+    {
+      filename: useCase,
+      code: "import { render } from '@testing-library/react'",
+      errors: [ui('@testing-library', '@testing-library/react')],
     },
     {
       filename: inProject('src/use-cases/livros/index.ts'),

@@ -30,6 +30,8 @@
     "./date": "./src/date/index.ts",
     "./query": "./src/query/index.ts",
     "./auth": "./src/auth/index.ts",
+    "./http": "./src/http/index.ts",
+    "./use-cases": "./src/use-cases/index.ts",
     "./repositories": "./src/repositories/index.ts",
     "./i18n": "./src/i18n/index.ts"
   },
@@ -63,6 +65,14 @@
       "./auth": {
         "types": "./dist/auth/index.d.ts",
         "default": "./dist/auth/index.js"
+      },
+      "./http": {
+        "types": "./dist/http/index.d.ts",
+        "default": "./dist/http/index.js"
+      },
+      "./use-cases": {
+        "types": "./dist/use-cases/index.d.ts",
+        "default": "./dist/use-cases/index.js"
       },
       "./repositories": {
         "types": "./dist/repositories/index.d.ts",

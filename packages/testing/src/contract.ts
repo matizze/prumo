@@ -1,34 +1,39 @@
 import { afterEach, beforeEach, describe } from 'vitest'
 
 /**
- * Teste de contrato: o mesmo conjunto de casos roda contra o mock de um repositório e contra
- * qualquer outra implementação dele (Dexie, HTTP...). O contrato é o que o produto espera do
- * repositório, não o que uma implementação faz.
+ * Teste de contrato: o mesmo conjunto de casos roda contra qualquer implementação de uma
+ * interface (um repositório, um use case): o mock de um use case e a API real, por exemplo. O
+ * contrato é o que o produto espera da interface, não o que uma implementação faz.
  *
  * ```ts
- * const customersContract = defineContractSuite<ICustomersRepository>(
- *   'ICustomersRepository contract',
- *   ({ repo }) => {
- *     it('lists the fixtures', async () => {
- *       expect((await repo.list()).total).toBe(18)
+ * const signInContract = defineContractSuite<IUseCase<SignInInput, SignInOutput>>(
+ *   'SignInUseCase contract',
+ *   ({ repo: signIn }) => {
+ *     it('devolve o token', async () => {
+ *       const { token } = await signIn.execute({ email: 'ana@x.com', password: '12345678' })
+ *       expect(token).not.toBe('')
  *     })
  *   },
  * )
  *
- * runContractSuite(customersContract, {
- *   name: 'MockCustomersRepository',
- *   create: () => new MockCustomersRepository({ latencyMs: 0 }),
+ * // O mesmo contrato contra o `http` de mentira e, com API_TEST_URL, contra a API real
+ * runContractSuite(signInContract, {
+ *   name: 'mock',
+ *   create: () => new SignInUseCase(createMockHttp(signInRoutes)),
  * })
  * ```
+ *
+ * O parâmetro de contexto se chama `repo` por histórico: com use cases, renomeie-o na
+ * desestruturação (`({ repo: signIn })`).
  *
  * **Os dados.** Os casos que dependem dos dados do mock (as fixtures: "lista as 18 linhas")
  * só valem para uma implementação que parte dos mesmos dados. Quem adiciona outra implementação
  * a semeia com as mesmas fixtures no `create`, ou deixa os casos de dados fora do contrato dela.
  */
 
-/** Uma implementação do repositório contra a qual o contrato roda. */
+/** Uma implementação (de um repositório ou de um use case) contra a qual o contrato roda. */
 export interface ContractImplementation<R extends object> {
-  /** O nome da implementação, que entra no título do `describe` (`MockTaskRepository`). */
+  /** O nome da implementação, que entra no título do `describe` (`MockTaskRepository`, `SignInUseCase (mock)`). */
   name: string
   /**
    * Cria uma instância nova, com o estado de partida. O contrato chama uma vez por teste e a cada
@@ -46,7 +51,7 @@ export interface ContractImplementation<R extends object> {
 /** O que cada caso do contrato recebe. */
 export interface ContractContext<R extends object> {
   /**
-   * O repositório do teste em andamento: uma instância nova, criada antes dele. É uma referência
+   * A instância do teste em andamento (o repositório ou o use case): uma instância nova, criada antes dele. É uma referência
    * estável que repassa para a instância do teste atual, então vale ler `repo` fora do `it` (em
    * uma função auxiliar, por exemplo), mas só chamar métodos dentro de um teste ou de um hook.
    */
@@ -62,12 +67,12 @@ export interface ContractSuite<R extends object> {
 }
 
 /**
- * Declara o contrato de um repositório. `cases` registra os `it` e `describe` do Vitest e
- * recebe o acesso ao repositório de cada teste. Os `beforeEach` e `afterEach` de `cases`
+ * Declara o contrato de um repositório ou de um use case. `cases` registra os `it` e `describe`
+ * do Vitest e recebe o acesso à instância de cada teste. Os `beforeEach` e `afterEach` de `cases`
  * (um relógio falso, por exemplo) rodam antes da criação do repositório, e os `afterEach` depois
  * da limpeza dele.
  *
- * @param name o nome do contrato (`IBillingRepository contract`); o título do `describe` é
+ * @param name o nome do contrato (`IBillingRepository contract`, `SignInUseCase contract`); o título do `describe` é
  * `<name>: <nome da implementação>`.
  */
 export function defineContractSuite<R extends object>(

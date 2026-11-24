@@ -1,6 +1,6 @@
 # Primeiros passos
 
-Neste tutorial você cria um app com o Prumo, gera as camadas de um domínio de dados (schema, repositório e queries) e uma tela que o lista, muda os textos, cria um componente à mão e vê a verificação da arquitetura em ação. No fim, você terá passado por todas as camadas que o Prumo organiza.
+Neste tutorial você cria um app com o Prumo, gera as camadas de um domínio de dados (schema e use cases) e uma tela que o lista, muda os textos, cria um componente à mão e vê a verificação da arquitetura em ação. No fim, você terá passado por todas as camadas que o Prumo organiza.
 
 Tempo estimado: 15 minutos.
 
@@ -75,9 +75,10 @@ loja/
     pages/home/          a tela inicial: index, model, view e o teste
     messages/pt-BR/      os textos em português (um JSON por tela)
     messages/en/         os textos em inglês
-    providers/           TanStack Query, i18n e repositórios
-    repositories/        o container de repositórios e as fontes de dados (vazio por enquanto)
-    schemas/  queries/   os índices dos domínios (vazios por enquanto)
+    providers/           TanStack Query, i18n e use cases
+    http/                a instância da API (createHttp)
+    use-cases/           o registro dos use cases e o mock (vazio por enquanto)
+    schemas/             o índice dos schemas (vazio por enquanto)
     test/                o renderWithProviders e o setup do Vitest
   AGENTS.md              o guia do projeto para agentes de IA
   eslint.config.js       com o plugin de arquitetura do Prumo
@@ -126,7 +127,7 @@ O `verify` roda, em sequência, o `tsc`, o ESLint (com as regras do Prumo), os t
 
 ## 4. Gere um domínio de dados
 
-Um domínio é um conjunto de dados do produto: clientes, pedidos, produtos. Cada camada dele tem o seu comando, e a ordem vai de baixo para cima: o schema, o repositório e as queries. Comece pelo schema de clientes, com os campos do produto:
+Um domínio é um conjunto de dados do produto: clientes, pedidos, produtos. Cada camada dele tem o seu comando, e a ordem vai de baixo para cima: o schema e os use cases. Comece pelo schema de clientes, com os campos do produto:
 
 ```bash
 pnpm exec prumo make:schema clientes --fields "nome:string,email:string,ativo:boolean,plano:enum(basico|pro),telefone?:string"
@@ -143,79 +144,63 @@ Criados (1):
 Alterados (1):
   src/schemas/index.ts
 
-Próximo passo: prumo make:repository clientes
+Próximo passo: prumo make:usecase clientes --crud
 ```
 
 O nome do domínio vai no plural; a entidade (`cliente`) sai dele, tirando o `s` (quando a regra erra, o `--entity` informa o singular). Os campos são `nome:tipo` separados por vírgula, e o `?` torna o campo opcional (todos os tipos estão em [Domínios](guides/domains.md#os-campos-do-domínio---fields)). Sem `--fields`, a entidade tem só o campo `name`. O schema zod tem o `id`, os campos e o `createdAt`, mais os tipos de entrada e de consulta.
 
-Agora o repositório. Ele lê os campos do schema que acabou de nascer, então não precisa de `--fields`:
+Agora os use cases. O que o app faz com os clientes (listar, ler, criar, editar e remover) são cinco ações, e o `--crud` as gera de uma vez. Elas leem os campos do schema que acabou de nascer, então não precisam de `--fields`:
 
 ```bash
-pnpm exec prumo make:repository clientes
+pnpm exec prumo make:usecase clientes --crud
 ```
 
 ```text
-prumo make:repository: clientes (entidade cliente, fonte mock).
+prumo make:usecase: clientes --crud (entidade cliente).
 Campos (lidos do schema): nome (string), email (string), ativo (boolean), plano (enum(basico|pro)), telefone (string, opcional).
+Use cases (listClientes, getCliente, createCliente, updateCliente, removeCliente):
+  listClientes  GET /clientes
+  getCliente  GET /clientes/:id
+  createCliente  POST /clientes
+  updateCliente  PATCH /clientes/:id
+  removeCliente  DELETE /clientes/:id
 
-Criados (5):
-  src/repositories/clientes/fixtures.ts
-  src/repositories/clientes/index.ts
-  src/repositories/clientes/repository.contract.test.ts
-  src/repositories/clientes/repository.contract.ts
-  src/repositories/clientes/repository.mock.ts
+Criados (23):
+  src/use-cases/clientes/collection.mock.ts
+  src/use-cases/clientes/create-cliente.mock.ts
+  ...
 
 Alterados (3):
   src/messages/en/errors.json
   src/messages/pt-BR/errors.json
-  src/repositories/index.ts
+  src/use-cases/index.ts
 
-Próximo passo: prumo make:query clientes
+Próximo passo: prumo make:page clientes --usecase clientes.list-clientes
 ```
 
-O comando criou:
+O comando criou, para cada ação, os quatro arquivos de um use case:
 
-- o **contrato** do repositório, a interface `IClientesRepository` (`list`, `get`, `create`, `update` e `remove`);
-- um **repositório em memória** (`mock`), com latência simulada e três registros de exemplo (as fixtures);
-- o **teste de contrato**, que confere que o repositório cumpre a interface;
+- os **tipos** (`.types.ts`): o endereço (`ENDPOINT`), o Input e o Output em zod e, na leitura, a chave de cache;
+- a **classe** (`.usecase.ts`), com o `execute`, que valida o Input, chama a API e valida o Output;
+- o **mock** (`.mock.ts`): a resposta de mentira do endereço, sobre uma coleção em memória com três registros de exemplo (as fixtures);
+- o **teste** (`.usecase.test.ts`), que roda o contrato contra o mock;
 
-e registrou o domínio no container de repositórios e o texto de `CLIENTE_NOT_FOUND` nos `errors.json`. Rode os testes dele:
+e registrou o domínio no registro de use cases e o texto de `CLIENTE_NOT_FOUND` nos `errors.json`. Rode os testes deles:
 
 ```bash
-pnpm test src/repositories/clientes
+pnpm test src/use-cases/clientes
 ```
 
-Por fim, as queries:
-
-```bash
-pnpm exec prumo make:query clientes
-```
-
-```text
-prumo make:query: clientes (entidade cliente).
-Exporta: clienteKeys, clienteQueries, useClientesList, useClienteDetail, useCreateCliente, useUpdateCliente, useRemoveCliente, type ClientesListOptions.
-
-Criados (1):
-  src/queries/clientes.ts
-
-Alterados (1):
-  src/queries/index.ts
-
-Próximo passo: prumo make:page clientes --query clientes
-```
-
-São os hooks que as telas usam: `useClientesList`, `useClienteDetail`, `useCreateCliente`, `useUpdateCliente` e `useRemoveCliente`.
-
-O repositório em memória permite construir e testar as telas antes de a API existir. Quando ela existir, `prumo make:repository clientes --data-source http` acrescenta outra implementação do mesmo contrato e o resto do app não muda (e `--data-source storage` grava no `localStorage`). O guia [Ligar uma API real](guides/real-api.md) mostra como.
+O mock vale enquanto a API não existe: o código dos use cases é o mesmo, e só a rede é de mentira. Quando a API existir, `VITE_DATA_SOURCE=http` liga os use cases a ela e o resto do app não muda. O guia [Ligar uma API real](guides/real-api.md) mostra como.
 
 ## 5. Gere uma tela que lista o domínio
 
 ```bash
-pnpm exec prumo make:page clientes --query clientes
+pnpm exec prumo make:page clientes --usecase clientes.list-clientes
 ```
 
 ```text
-prumo make:page: clientes (rota /clientes, query clientes).
+prumo make:page: clientes (rota /clientes, use case clientes.list-clientes, lista).
 
 Criados (6):
   src/messages/en/clientes.json
@@ -236,15 +221,17 @@ Para rodar os testes da tela nova:
   pnpm test src/pages/clientes
 ```
 
-Com o `pnpm dev` rodando, abra `http://localhost:5173/clientes`: aparece "Carregando…" por um instante (a latência simulada do repositório em memória) e depois a lista com os três exemplos. A view mostra o primeiro campo de texto do schema (aqui, o `nome`); com `--path /clientes/:id` e `--query`, o `make:page` gera a tela de detalhe do registro.
+Com o `pnpm dev` rodando, abra `http://localhost:5173/clientes`: aparece "Carregando…" por um instante (a latência simulada do mock) e depois a lista com os três exemplos. A view mostra o primeiro campo de texto do schema (aqui, o `nome`); com `--usecase clientes.get-cliente --path /clientes/:id`, o `make:page` gera a tela de detalhe do registro, e com um use case de escrita (`clientes.create-cliente`), o formulário.
 
-Veja o model que o comando gerou. Ele lê a lista pelo hook do domínio e entrega à view só o que ela precisa:
+Veja o model que o comando gerou. Ele chama o use case de listar pelo `useQuery` e entrega à view só o que ela precisa:
 
 ```ts
 // src/pages/clientes/model.ts
 export function useClientesModel() {
   const t = useTranslations('clientes')
-  const list = useClientesList()
+  const { listClientes } = useUseCases()
+  const input = {}
+  const list = useQuery({ queryKey: listClientesKey(input), queryFn: () => listClientes.execute(input) })
   return {
     title: t('title'),
     loadingText: t('loading'),

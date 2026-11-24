@@ -40,7 +40,7 @@ Atualize os pacotes com o pnpm (`pnpm up "@matizze/prumo-*" --latest`) e rode `p
 
 ### Usei uma versão anterior e um comando sumiu. O que mudou?
 
-A 0.7.0 do `@matizze/prumo-cli` reescreveu a CLI: `make:domain` virou `make:schema`, `make:repository` e `make:query`; `--domain` virou `--query`; a fonte `memory` virou `mock`; `make:component`, `move:component` e `doctor` saíram. Os comandos de hoje estão na [referência da CLI](reference/cli.md).
+`make:component`, `move:component`, `doctor` e `make:domain` saíram, e os comandos `make:repository` e `make:query` e a opção `--query` do `make:page` deram lugar ao `make:usecase` e ao `--usecase`. Os comandos de hoje estão na [referência da CLI](reference/cli.md), e a troca de repository por use case, em [Migrar para use cases](guides/migrate-to-use-cases.md).
 
 ## Solução de problemas
 
@@ -50,19 +50,19 @@ A 0.7.0 do `@matizze/prumo-cli` reescreveu a CLI: `make:domain` virou `make:sche
 prumo: tirar o 's' de 'categories' daria 'categorie', que provavelmente não é o singular: informe a entidade com --entity (provavelmente --entity category).
 ```
 
-O nome do domínio vai no plural, e a entidade sai dele tirando o `s`. Quando a regra erra, informe a entidade: `prumo make:schema categories --entity category`. Use o mesmo `--entity` no `make:repository` e no `make:query`.
+O nome do domínio vai no plural, e a entidade sai dele tirando o `s`. Quando a regra erra, informe a entidade: `prumo make:schema categories --entity category`. Use o mesmo `--entity` no `make:usecase --crud`.
 
-### O `make:repository` ou o `make:query` diz que falta uma camada
+### O `make:usecase --crud` diz que falta o schema
 
 ```text
 prumo: falta o schema clientes (src/schemas/entities/cliente.ts); rode prumo make:schema clientes.
 ```
 
-Cada camada usa a de baixo, e o comando recusa sem criar nada quando ela não existe. Rode, em ordem, `make:schema`, `make:repository` e `make:query`. Se o schema foi gerado com `--entity`, a mensagem lembra de repetir a opção.
+Cada camada usa a de baixo, e o comando recusa sem criar nada quando ela não existe. Rode, em ordem, `make:schema` e `make:usecase --crud`. Se o schema foi gerado com `--entity`, a mensagem lembra de repetir a opção.
 
-### O `make:repository` não reconhece um campo do schema
+### O `make:usecase --crud` não reconhece um campo do schema
 
-O comando lê os campos do schema com os tipos do `--fields` (`string`, `number`, `int`, `boolean`, `date`, `datetime` e `enum`). Um campo como `z.string().min(3)` é erro de uso, com a linha. Deixe o campo no tipo simples, gere o repositório e acrescente a validação depois. Veja [O leitor de campos](guides/domains.md#o-leitor-de-campos).
+O comando lê os campos do schema com os tipos do `--fields` (`string`, `number`, `int`, `boolean`, `date`, `datetime` e `enum`). Um campo como `z.string().min(3)` é erro de uso, com a linha. Deixe o campo no tipo simples, gere os use cases e acrescente a validação depois. Veja [O leitor de campos](guides/domains.md#o-leitor-de-campos).
 
 ### Um componente em `shared` aparece no `prumo check`
 

@@ -24,11 +24,11 @@ import { UIError } from '@matizze/prumo-core/errors'
 throw new UIError('CLIENTE_NOT_FOUND', 'Registro não encontrado.')
 ```
 
-O `code` é o que importa para a interface. A `message` serve para logs e testes, nunca para a tela. Use códigos estáveis, em maiúsculas: eles são parte do contrato do repositório (`IClientesRepository` documenta que um id inexistente rejeita com `CLIENTE_NOT_FOUND`) e chaves de texto.
+O `code` é o que importa para a interface. A `message` serve para logs e testes, nunca para a tela. Use códigos estáveis, em maiúsculas: eles são parte do contrato do use case (o `getCliente` rejeita um id inexistente com `CLIENTE_NOT_FOUND`) e chaves de texto.
 
 ## Traduzir o erro
 
-> O `prumo new` já gera tudo isto: o namespace `errors` nos dois idiomas (com o texto genérico), o `src/errors.ts` com o `getErrorMessage`, o `i18n` exportado e o `src/providers/app.tsx` usando o `getErrorMessage`. O `make:repository` acrescenta o texto de `<ENTIDADE>_NOT_FOUND` aos dois `errors.json`. Os passos abaixo são para entender o que existe e para um [app criado antes](#app-criado-antes-do-tratamento-de-erro).
+> O `prumo new` já gera tudo isto: o namespace `errors` nos dois idiomas (com o texto genérico), o `src/errors.ts` com o `getErrorMessage`, o `i18n` exportado e o `src/providers/app.tsx` usando o `getErrorMessage`. O `make:usecase --crud` acrescenta o texto de `<ENTIDADE>_NOT_FOUND` aos dois `errors.json`. Os passos abaixo são para entender o que existe e para um [app criado antes](#app-criado-antes-do-tratamento-de-erro).
 
 **1. Crie os textos dos erros**, um namespace `errors` nos dois idiomas, com o texto genérico e um por código:
 
@@ -71,7 +71,7 @@ O `getErrorMessage(erro)` devolve:
 
 ### App criado antes do tratamento de erro
 
-Um app criado por uma versão anterior do `new` não tem o namespace `errors`, o `src/errors.ts` nem o `i18n` exportado, e o `providers/app.tsx` usa o texto técnico do erro. Faça os três passos acima à mão (os textos, o registro do namespace e o `src/errors.ts`) e troque o `getErrorMessage` do `providers/app.tsx` pelo do `@/errors`. Enquanto isso, o `make:repository` continua funcionando: ele avisa que não acrescentou o texto de `<ENTIDADE>_NOT_FOUND` (falta o `errors.json`) e segue, sem falhar. Depois de criar os `errors.json`, acrescente você mesmo as chaves dos domínios já gerados.
+Um app criado por uma versão anterior do `new` não tem o namespace `errors`, o `src/errors.ts` nem o `i18n` exportado, e o `providers/app.tsx` usa o texto técnico do erro. Faça os três passos acima à mão (os textos, o registro do namespace e o `src/errors.ts`) e troque o `getErrorMessage` do `providers/app.tsx` pelo do `@/errors`. Enquanto isso, o `make:usecase --crud` continua funcionando: ele avisa que não acrescentou o texto de `<ENTIDADE>_NOT_FOUND` (falta o `errors.json`) e segue, sem falhar. Depois de criar os `errors.json`, acrescente você mesmo as chaves dos domínios já gerados.
 
 ### Valores no texto e códigos soltos
 
@@ -126,13 +126,13 @@ O `meta` de cada query e mutation tem dois campos, tipados:
 ```ts
 // a tela já mostra o erro (um alerta no formulário, por exemplo): sem notificação
 useMutation({
-  mutationFn: (input: ClienteInput) => repository.create(input),
+  mutationFn: (input: ClienteInput) => createCliente.execute(input),
   meta: { silent: true },
 })
 
 // outro texto no lugar do derivado do erro
 useMutation({
-  mutationFn: (id: string) => repository.remove(id),
+  mutationFn: (id: string) => removeCliente.execute({ id }),
   meta: { errorMessage: 'Não foi possível remover o cliente.' },
 })
 ```

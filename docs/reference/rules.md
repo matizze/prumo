@@ -27,7 +27,7 @@ export default [
 ]
 ```
 
-A config **`prumo.configs.recommended`** registra o plugin com o nome `prumo` e liga as duas regras como `error`, para os arquivos `**/*.{ts,tsx}`. Cada regra só olha a pasta que protege e deixa os outros arquivos passarem.
+A config **`prumo.configs.recommended`** registra o plugin com o nome `prumo` e liga as quatro regras como `error`, para os arquivos `**/*.{ts,tsx}`. Cada regra só olha a pasta que protege e deixa os outros arquivos passarem.
 
 Para mudar as opções, configure a regra depois da config recomendada:
 
@@ -70,6 +70,36 @@ A tela 'clientes' não importa da pasta da tela 'home' ('@/pages/home/view'): o 
 | `alias`     | `'@/'`        | O alias de import que aponta para `aliasRoot`               |
 | `aliasRoot` | `'src'`       | A pasta para onde o alias aponta, relativa ao projeto       |
 | `pagesDir`  | `'src/pages'` | A pasta das telas, relativa ao projeto; tela é a pasta com `index.tsx` |
+
+### `prumo/no-http-in-page`
+
+**A tela não fala com a rede.** Um arquivo de `src/pages` (em qualquer profundidade, testes incluídos) não importa de `src/http`, nem pelo alias nem por caminho relativo. Quem usa o `http` é o use case, e a tela chama o use case pelo `useUseCases()`.
+
+```text
+A tela não importa de 'src/http' ('@/http/api'): ela chama um use case, e é o use case que usa o http.
+```
+
+| Opção       | Padrão        | Descrição                                             |
+| ----------- | ------------- | ----------------------------------------------------- |
+| `alias`     | `'@/'`        | O alias de import que aponta para `aliasRoot`         |
+| `aliasRoot` | `'src'`       | A pasta para onde o alias aponta, relativa ao projeto |
+| `pagesDir`  | `'src/pages'` | A pasta das telas, relativa ao projeto                |
+| `httpDir`   | `'src/http'`  | A pasta da infra de rede, relativa ao projeto         |
+
+### `prumo/use-case-imports`
+
+**O use case não olha para cima.** Um arquivo de `src/use-cases` (testes incluídos) não importa de `src/pages`, de `react` (nem de `react/...`) nem de `@tanstack/*`. O use case é código de domínio: usa o `http`, o `storage`, os schemas e outros use cases; React e o cache são da tela.
+
+```text
+O use case não importa de 'react' ('react'): ele não depende de React nem do cache; isso é da tela.
+```
+
+| Opção         | Padrão            | Descrição                                             |
+| ------------- | ----------------- | ----------------------------------------------------- |
+| `alias`       | `'@/'`            | O alias de import que aponta para `aliasRoot`         |
+| `aliasRoot`   | `'src'`           | A pasta para onde o alias aponta, relativa ao projeto |
+| `pagesDir`    | `'src/pages'`     | A pasta das telas, relativa ao projeto                |
+| `useCasesDir` | `'src/use-cases'` | A pasta dos use cases, relativa ao projeto            |
 
 ### `prumo/page-structure`
 
@@ -137,6 +167,14 @@ src/components/shared/cartao.tsx  [shared-usage]  O módulo não é usado por ne
 src/pages/relatorios/model.ts  [page-structure]  A tela 'relatorios' precisa do arquivo 'model.ts' na própria pasta.
 ```
 
+### `use-case-files`
+
+**Todo `*.usecase.ts` de `src/use-cases` tem o `.types.ts` e o teste ao lado.** Para `sign-in.usecase.ts`, a mesma pasta precisa de `sign-in.types.ts` (o endereço, o Input e o Output) e de `sign-in.usecase.test.ts`. O mock (`sign-in.mock.ts`) não é cobrado: o use case `--local` roda no navegador e não tem mock.
+
+```text
+src/use-cases/auth/sign-in.usecase.ts  [use-case-files]  O use case 'sign-in' precisa do arquivo 'sign-in.usecase.test.ts' na mesma pasta.
+```
+
 ### `messages`
 
 **Os textos estão completos em todos os idiomas.** As mensagens são um JSON por namespace em `src/messages/<idioma>/<namespace>.json`, e o primeiro idioma de `locales` é a referência. Sem a pasta de mensagens, o projeto não tem i18n e a verificação passa.
@@ -171,6 +209,7 @@ Todas têm padrão, menos a raiz. Os caminhos são relativos à raiz.
 | `aliasRoot`            | `'src'`                                 | A pasta para onde o alias aponta                        |
 | `pagesDir`             | `'src/pages'`                           | A pasta das telas                                       |
 | `requiredPageFiles`    | `['index.tsx', 'model.ts', 'view.tsx']` | Os arquivos de toda tela                                |
+| `useCasesDir`          | `'src/use-cases'`                       | A pasta dos use cases                                   |
 | `componentsDir`        | `'src/components'`                      | A pasta dos componentes                                 |
 | `allowedComponentDirs` | `['layout', 'shared', 'ui']`            | As únicas subpastas permitidas nela                     |
 | `sharedDir`            | `'src/components/shared'`               | A pasta dos componentes compartilhados                  |

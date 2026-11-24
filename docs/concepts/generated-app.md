@@ -204,6 +204,8 @@ src/messages/<idioma>/<tela>.json  os textos, em cada idioma do projeto
 
 Altera `src/App.tsx` (a rota `/<tela>`, ou a de `--path`) e o `index.ts` de cada idioma (o namespace).
 
+Com `prumo make:page auth.login` (ou `auth/login`), a tela fica em `src/pages/auth/login/`, a rota é `/auth/login`, o componente é `AuthLoginPage` e as mensagens são `src/messages/<idioma>/auth-login.json`.
+
 ### `prumo make:schema <domínio> [--entity <singular>] [--fields <campos>]`
 
 ```text

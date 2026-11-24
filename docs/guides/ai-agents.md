@@ -42,7 +42,7 @@ O Claude Code lê o `.mcp.json` da raiz do projeto e abre o servidor por conta p
 | `make_schema`     | `dominio` (obrigatório), `entity`, `fields`, `dry_run`                                   | Gera o schema zod da entidade                                  |
 | `make_repository` | `dominio` (obrigatório), `entity`, `data_source` (`mock`, `http` ou `storage`), `dry_run` | Gera o contrato, o `mock`, as fixtures e o teste, ou uma fonte |
 | `make_query`      | `dominio` (obrigatório), `entity`, `dry_run`                                             | Gera as queries e mutations                                    |
-| `make_page`       | `nome` (obrigatório), `query`, `path`, `dry_run`                                         | Gera a tela, os textos e a rota                                |
+| `make_page`       | `nome` (obrigatório), `query`, `path`, `dry_run`                                         | Gera a tela, os textos e a rota; `nome` com ponto ou barra (`auth.login`) cria a tela em subpasta |
 | `check`           | nenhum                                                                                   | Confere a arquitetura                                          |
 | `list`            | nenhum                                                                                   | Mostra o que o projeto tem, em JSON                            |
 

@@ -198,10 +198,18 @@ prumo make:page <nome> [--query <domínio>] [--path <caminho>] [--root <pasta>] 
 
 Cria uma tela: `src/pages/<nome>/` com `index.tsx` (liga o model à view), `model.ts` (dados e textos, sem JSX), `view.tsx` (só tags nativas, recebe tudo por props) e `index.test.tsx` (renderiza com o `renderWithProviders` de `@/test/render` e confere o título), e as mensagens em `src/messages/<idioma>/<nome>.json`, nos idiomas do projeto. Registra o namespace nos índices de mensagens de cada idioma e a rota no `src/App.tsx`. O `<nome>` vai em kebab-case (`clientes`, `pedidos-recentes`).
 
+Para agrupar telas em subpastas, separe os segmentos do nome com ponto ou barra, as duas formas com o mesmo resultado:
+
+```bash
+prumo make:page auth.login      # o mesmo que auth/login
+```
+
+Cria `src/pages/auth/login/` (a tela comum, com `index.tsx`, `model.ts`, `view.tsx` e o teste), a rota padrão `/auth/login` (o `--path` continua valendo), o componente `AuthLoginPage` e as mensagens em `src/messages/<idioma>/auth-login.json`, com o namespace `authLogin`: o componente, as mensagens e o namespace saem dos segmentos juntos. Cada segmento segue as regras de nome (kebab-case, sem palavra reservada), a mensagem de erro diz qual é o inválido, e segmento vazio (`auth..login`, `/login`, `auth/`) é recusado. O `prumo list` e as ferramentas MCP mostram o nome com barra (`auth/login`). Uma tela é a primeira pasta, a partir de `src/pages`, que tem `index.tsx`; a pasta sem ele (`auth`) só agrupa telas.
+
 | Opção               | O que faz                                                                                             |
 | ------------------- | ----------------------------------------------------------------------------------------------------- |
 | `--query <domínio>` | O domínio cuja query a tela usa (`clientes`). Precisa de `src/queries/<domínio>.ts`. Padrão: nenhum   |
-| `--path <caminho>`  | O caminho da rota, com um parâmetro opcional (`/clientes/:id`). Padrão: `/<nome>`                     |
+| `--path <caminho>`  | O caminho da rota, com um parâmetro opcional (`/clientes/:id`). Padrão: `/<nome>`, com a barra no lugar do ponto (`/auth/login`) |
 | `--root <pasta>`    | A pasta do projeto, a que tem o `src`. Padrão: [a busca](#a-busca-do-projeto) a partir da pasta atual |
 | `--dry-run`         | Só lista o que seria criado e alterado, sem escrever nada                                             |
 
@@ -218,7 +226,7 @@ Com `--query`, a query precisa existir; sem ela, sai com 2 e diz o comando (`rod
 
 O `--path` começa com `/`, tem segmentos fixos (letras, números, `-`, `_`, `.` e `~`) e **no máximo um parâmetro** `:nome` (sem `?`, `*` nem `+`). A rota entra no `<Switch>` do `App.tsx` depois da última rota com `path` e antes da curinga, porque o wouter mostra a primeira que casa. Uma tela de detalhe que continua montada depois do `useRemove<Entidade>` recebe `<ENTIDADE>_NOT_FOUND`: saia da tela ao remover.
 
-O comando valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada pela metade: nome inválido ou reservado; tela que já existe; `--path` inválido, com rota repetida ou que conflita com uma do `App.tsx`; query que falta, ou sem o `use<Domínio>List` (ou, no detalhe, sem o `use<Entidade>Detail`); `App.tsx` ou índice de mensagens que falta. No fim, mostra o que fez, os avisos e o comando dos testes da tela nova.
+O comando valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada pela metade: nome inválido ou reservado (ou com segmento vazio); tela que já existe; tela dentro de outra tela (`auth/login` com `src/pages/auth/index.tsx`); pasta que já agrupa telas (`auth` com `src/pages/auth/login/index.tsx`); nome que dá o mesmo componente e as mesmas mensagens de outra tela (`auth/login` e `auth-login`, e a mensagem diz o conflito); `--path` inválido, com rota repetida ou que conflita com uma do `App.tsx`; query que falta, ou sem o `use<Domínio>List` (ou, no detalhe, sem o `use<Entidade>Detail`); `App.tsx` ou índice de mensagens que falta. No fim, mostra o que fez, os avisos e o comando dos testes da tela nova.
 
 ## `prumo check`
 

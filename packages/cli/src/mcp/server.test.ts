@@ -79,6 +79,18 @@ describe('prumo mcp, cliente e servidor no mesmo processo', () => {
     expect(listing.pages.find((page) => page.name === 'livros')?.query).toBe('livros')
   })
 
+  it('make_page aceita o nome em subpasta, com ponto ou barra, e o list mostra a barra', async () => {
+    const { root, call } = await open()
+    expect(await call('make_page', { nome: 'auth.login' })).toMatchObject({ isError: false })
+    expect(await call('make_page', { nome: 'auth/register' })).toMatchObject({ isError: false })
+    expect(existsSync(path.join(root, 'src/pages/auth/login/model.ts'))).toBe(true)
+    const conflict = await call('make_page', { nome: 'auth-login' })
+    expect(conflict.isError).toBe(true)
+    expect(conflict.text).toContain("conflita com a tela 'auth/login'")
+    const listing = JSON.parse((await call('list')).text) as { pages: { name: string }[] }
+    expect(listing.pages.map((page) => page.name)).toEqual(['auth/login', 'auth/register'])
+  })
+
   it('dry_run só mostra o plano, sem escrever', async () => {
     const { root, call } = await open()
     const before = readdirSync(path.join(root, 'src'), { recursive: true }).sort()

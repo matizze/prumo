@@ -171,6 +171,30 @@ export function assertNotReserved(names: Names, what: string, { globals = false 
   }
 }
 
+/** Os nomes de uma tela: os derivados do nome achatado (`auth-login`) e o caminho da pasta. */
+export interface PageNames extends Names {
+  /** `auth/login`: a pasta da tela a partir de `src/pages`, com barra nas subpastas. */
+  path: string
+}
+
+/**
+ * Os nomes de uma tela a partir do que a pessoa digita: `auth.login` ou `auth/login`, que dão o
+ * mesmo resultado. Cada segmento segue as regras de nome (kebab-case, sem palavra reservada). A
+ * pasta é o caminho com barra (`auth/login`), e o componente, as mensagens e o namespace saem dos
+ * segmentos juntos (`AuthLoginPage`, `auth-login.json`, `authLogin`).
+ */
+export function pageNames(input: string): PageNames {
+  const segments = input.split(/[./]/)
+  if (segments.includes('')) {
+    throw new UsageError(
+      `o nome da tela '${input}' tem um segmento vazio: separe os segmentos com . ou / e dê nome a cada um (ex.: auth.login).`,
+    )
+  }
+  const what = segments.length > 1 ? 'um segmento do nome da tela' : 'o nome da tela'
+  for (const segment of segments) usableNames(segment, what)
+  return { ...deriveNames(segments.join('-')), path: segments.join('/') }
+}
+
 /** Valida o nome (kebab-case, sem palavra reservada) e devolve os nomes derivados dele. */
 export function usableNames(name: string, what: string, options?: { globals?: boolean }): Names {
   assertValidName(name, what)

@@ -9,6 +9,7 @@ import {
   entityFlag,
   GLOBAL_NAMES,
   isValidName,
+  pageNames,
   RESERVED_WORDS,
   singularOf,
   usableNames,
@@ -258,5 +259,44 @@ describe('nomes reservados do domínio', () => {
     expect(() => domainNames('dates', 'date')).toThrow(/'Date'/)
     expect(() => domainNames('new', 'new-item')).toThrow(/o nome do domínio 'new'.*reservada/)
     expect(() => domainNames('maps', 'map')).toThrow(/'Map'/)
+  })
+})
+
+describe('pageNames', () => {
+  it('um nome só é uma tela de primeiro nível', () => {
+    expect(pageNames('clientes')).toEqual({
+      kebab: 'clientes',
+      pascal: 'Clientes',
+      camel: 'clientes',
+      path: 'clientes',
+    })
+  })
+
+  it.each(['auth.login', 'auth/login'])('%s vira a pasta auth/login e os nomes juntos', (input) => {
+    expect(pageNames(input)).toEqual({
+      kebab: 'auth-login',
+      pascal: 'AuthLogin',
+      camel: 'authLogin',
+      path: 'auth/login',
+    })
+  })
+
+  it('aceita mais de dois segmentos e dígitos', () => {
+    expect(pageNames('admin.fases-2.novo')).toMatchObject({
+      kebab: 'admin-fases-2-novo',
+      path: 'admin/fases-2/novo',
+    })
+  })
+
+  it.each(['auth..login', '/login', 'auth/', 'auth./login', '.', ''])(
+    'recusa o segmento vazio de %j',
+    (input) => expect(() => pageNames(input)).toThrow(/segmento vazio/),
+  )
+
+  it('diz qual segmento é inválido ou reservado', () => {
+    expect(() => pageNames('auth.Login')).toThrow(/segmento do nome da tela 'Login' é inválido/)
+    expect(() => pageNames('auth/new')).toThrow(/segmento do nome da tela 'new'.*reservada/)
+    expect(() => pageNames('Auth')).toThrow(/o nome da tela 'Auth' é inválido/)
+    expect(() => pageNames('auth.2fa')).toThrow(UsageError)
   })
 })

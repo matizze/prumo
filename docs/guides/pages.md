@@ -10,6 +10,14 @@ pnpm exec prumo make:page pedidos
 
 O comando cria `src/pages/pedidos/` (`index.tsx`, `model.ts`, `view.tsx` e `index.test.tsx`), os textos em `src/messages/<idioma>/pedidos.json` e a rota `/pedidos` no `App.tsx`. O nome vai em kebab-case (`pedidos-recentes`); o Prumo deriva `PedidosRecentesPage`, `usePedidosRecentesModel`, `PedidosRecentesView`, o namespace de textos `pedidosRecentes` e a rota `/pedidos-recentes`.
 
+Para agrupar telas, use ponto ou barra no nome (`auth.login` e `auth/login` são a mesma coisa):
+
+```bash
+pnpm exec prumo make:page auth.login
+```
+
+A tela fica em `src/pages/auth/login/`, a rota é `/auth/login`, o componente é `AuthLoginPage` e os textos ficam em `src/messages/<idioma>/auth-login.json`. A pasta `auth`, sem `index.tsx`, só agrupa. Uma tela não fica dentro de outra, e `auth/login` e `auth-login` não coexistem (dariam o mesmo arquivo de mensagens e o mesmo componente).
+
 Para uma tela que lista um domínio de dados, passe `--query`:
 
 ```bash

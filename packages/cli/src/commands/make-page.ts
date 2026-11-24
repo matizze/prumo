@@ -1,7 +1,8 @@
 import { generatePage } from '../generators/page.ts'
 import { testCommandFor } from '../lib/pnpm.ts'
+import { locateProject } from '../lib/project.ts'
 import { documentCommand } from './help-text.ts'
-import { DRY_RUN_OPTION, formatWarnings, nonEmpty, projectOf, ROOT_OPTION, runPlan } from './shared.ts'
+import { DRY_RUN_ENDING, DRY_RUN_OPTION, formatWarnings, nonEmpty, ROOT_OPTION, runPlan } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 type MakePageOptions = {
@@ -38,7 +39,7 @@ export const registerMakePage: RegisterCommand = (program, io) => {
     .option(...ROOT_OPTION)
     .option(...DRY_RUN_OPTION)
     .action((name: string, options: MakePageOptions) => {
-      const project = projectOf(io, options)
+      const project = locateProject(io.cwd, options.root)
       const { plan, names, query, route, warnings } = generatePage(project, {
         name,
         query: options.query,
@@ -46,7 +47,7 @@ export const registerMakePage: RegisterCommand = (program, io) => {
       })
       const run = runPlan(plan, options)
       const heading = `prumo make:page: ${names.kebab} (rota ${route}${query ? `, query ${query.kebab}` : ''})${run.mark}.`
-      const ending = run.ending(() => `Edite o model (src/pages/${names.kebab}/model.ts), a view (view.tsx) e os textos (src/messages/<idioma>/${names.kebab}.json); o teste acompanha.\n\nPara rodar os testes da tela nova:\n  ${testCommandFor(project, io.cwd, `src/pages/${names.kebab}`)}\n`)
+      const ending = run.dryRun ? DRY_RUN_ENDING : `Edite o model (src/pages/${names.kebab}/model.ts), a view (view.tsx) e os textos (src/messages/<idioma>/${names.kebab}.json); o teste acompanha.\n\nPara rodar os testes da tela nova:\n  ${testCommandFor(project, io.cwd, `src/pages/${names.kebab}`)}\n`
       io.out(`${heading}\n\n${run.files}\n${formatWarnings(warnings)}${ending}`)
     })
   documentCommand(command, {

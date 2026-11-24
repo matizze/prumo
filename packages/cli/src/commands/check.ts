@@ -1,7 +1,8 @@
 import { check, type Violation } from '@matizze/prumo-rules/check'
 import { ExitError } from '../errors.ts'
+import { locateProject } from '../lib/project.ts'
 import { documentCommand } from './help-text.ts'
-import { projectOf, ROOT_OPTION } from './shared.ts'
+import { ROOT_OPTION } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 /** Uma linha por violação: o arquivo, a regra e o que está errado. */
@@ -23,7 +24,7 @@ export const registerCheck: RegisterCommand = (program, io) => {
     )
     .option(...ROOT_OPTION)
     .action((options: { root?: string }) => {
-      const project = projectOf(io, options)
+      const project = locateProject(io.cwd, options.root)
       const violations = check({ root: project.root })
       if (violations.length === 0) {
         io.out('prumo check: nenhuma violação.\n')

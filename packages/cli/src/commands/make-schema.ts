@@ -1,8 +1,9 @@
 import { generateSchema } from '../generators/schema.ts'
 import { describeField } from '../lib/fields/index.ts'
 import { entityFlag } from '../lib/names.ts'
+import { locateProject } from '../lib/project.ts'
 import { documentCommand } from './help-text.ts'
-import { DRY_RUN_OPTION, nonEmpty, projectOf, ROOT_OPTION, runPlan } from './shared.ts'
+import { DRY_RUN_ENDING, DRY_RUN_OPTION, nonEmpty, ROOT_OPTION, runPlan } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 type MakeSchemaOptions = { entity?: string; fields?: string; root?: string; dryRun?: boolean }
@@ -29,7 +30,7 @@ export const registerMakeSchema: RegisterCommand = (program, io) => {
     .option(...ROOT_OPTION)
     .option(...DRY_RUN_OPTION)
     .action((name: string, options: MakeSchemaOptions) => {
-      const project = projectOf(io, options)
+      const project = locateProject(io.cwd, options.root)
       const { plan, names, fields } = generateSchema(project, {
         name,
         entity: options.entity,
@@ -42,7 +43,7 @@ export const registerMakeSchema: RegisterCommand = (program, io) => {
           ? `Entidade: ${names.singular.kebab} (derivada de ${names.plural.kebab}; use --entity para trocar).`
           : `Entidade: ${names.singular.kebab} (--entity).`
       const fieldsLine = `Campos: ${fields.map(describeField).join(', ')}.`
-      const ending = run.ending(() => `Próximo passo: prumo make:repository ${names.plural.kebab}${entityFlag(names)}\n`)
+      const ending = run.dryRun ? DRY_RUN_ENDING : `Próximo passo: prumo make:repository ${names.plural.kebab}${entityFlag(names)}\n`
       io.out(`${heading}\n${entityLine}\n${fieldsLine}\n\n${run.files}\n${ending}`)
     })
   documentCommand(command, {

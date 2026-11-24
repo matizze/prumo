@@ -1,5 +1,5 @@
-import { UsageError } from '../errors.ts'
 import { Node, type ExportDeclaration, type ImportDeclaration, type SourceFile } from 'ts-morph'
+import { UsageError } from '../errors.ts'
 
 /** Troca do trecho `[pos, end)` do texto por `text`. */
 export interface TextEdit {
@@ -29,20 +29,6 @@ function spliceText(source: string, edits: TextEdit[]): string {
 export function applyEdits(file: SourceFile, edits: TextEdit[]): void {
   if (edits.length === 0) return
   file.replaceWithText(spliceText(file.getFullText(), edits))
-}
-
-/** Um literal de texto: `'abc'`, `"abc"` ou um template sem substituição. */
-export type TextLiteral = Node & { getLiteralText(): string }
-
-export function isTextLiteral(node: Node | undefined): node is TextLiteral {
-  return (
-    node !== undefined && (Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node))
-  )
-}
-
-/** O conteúdo do literal como está escrito no arquivo, sem as aspas. */
-export function innerText(literal: TextLiteral): string {
-  return literal.getText().slice(1, -1)
 }
 
 /** O recuo da linha onde está a posição `pos`: os espaços do começo da linha. */

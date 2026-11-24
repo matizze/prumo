@@ -1,6 +1,7 @@
 import { generateQuery } from '../generators/query.ts'
+import { locateProject } from '../lib/project.ts'
 import { documentCommand } from './help-text.ts'
-import { DRY_RUN_OPTION, nonEmpty, projectOf, ROOT_OPTION, runPlan } from './shared.ts'
+import { DRY_RUN_ENDING, DRY_RUN_OPTION, nonEmpty, ROOT_OPTION, runPlan } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 type MakeQueryOptions = {
@@ -31,11 +32,11 @@ export const registerMakeQuery: RegisterCommand = (program, io) => {
     .option(...ROOT_OPTION)
     .option(...DRY_RUN_OPTION)
     .action((name: string, options: MakeQueryOptions) => {
-      const project = projectOf(io, options)
+      const project = locateProject(io.cwd, options.root)
       const { plan, names, exports } = generateQuery(project, { name, entity: options.entity })
       const run = runPlan(plan, options)
       const heading = `prumo make:query: ${names.plural.kebab} (entidade ${names.singular.kebab})${run.mark}.`
-      const ending = run.ending(() => `Próximo passo: prumo make:page ${names.plural.kebab} --query ${names.plural.kebab}\n`)
+      const ending = run.dryRun ? DRY_RUN_ENDING : `Próximo passo: prumo make:page ${names.plural.kebab} --query ${names.plural.kebab}\n`
       io.out(`${heading}\nExporta: ${exports.join(', ')}.\n\n${run.files}\n${ending}`)
     })
   documentCommand(command, {

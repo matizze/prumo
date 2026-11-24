@@ -3,7 +3,7 @@ import { UsageError } from '../../errors.ts'
 import { domainFieldVars, zodOf } from './generate.ts'
 import { describeField, parseFields } from './parse.ts'
 import { editValue, sampleValue } from './samples.ts'
-import { domainShapeOf } from './shape.ts'
+import { domainShapeOf } from './page-shape.ts'
 import { DEFAULT_FIELDS } from './types.ts'
 
 describe('zodOf', () => {

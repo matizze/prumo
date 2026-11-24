@@ -4,7 +4,8 @@ import { UsageError } from '../errors.ts'
 import type { DomainNames } from '../lib/names.ts'
 import type { ChangePlan } from '../lib/plan.ts'
 import { displayPath } from '../lib/paths.ts'
-import { applyEdits, indentOf, insertSorted, isTextLiteral, specifierOf, styleOf, type TextEdit } from './edit.ts'
+import { isTextLiteral } from '../lib/ast.ts'
+import { applyEdits, indentOf, insertSorted, specifierOf, styleOf, type TextEdit } from './edit.ts'
 
 /** As fontes que o `make:repository --data-source` acrescenta ao mock. */
 export type RepositorySource = 'http' | 'storage'

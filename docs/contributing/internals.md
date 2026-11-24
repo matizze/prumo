@@ -48,7 +48,7 @@ packages/cli/
   src/
     bin.ts          a entrada: roda o programa com o terminal e define o código de saída
     program.ts      o comando raiz, a ajuda e os erros em português, e a função run
-    errors.ts       UsageError (saída 2, mostra a ajuda) e ExitError (código próprio)
+    errors.ts       UsageError (saída 2, só `prumo: <mensagem>`) e ExitError (código próprio)
     io.ts           o que um comando recebe do mundo: cwd, out e err
     commands/       um arquivo por comando: argumentos, opções, chamada ao gerador e saída
     generators/     app, schema, repository, query e page: recebem as opções e devolvem um plano
@@ -59,7 +59,7 @@ packages/cli/
 
 ### `commands/`
 
-Cada comando é um arquivo que exporta um `RegisterCommand` (recebe o programa e o `io`); o `commands/index.ts` lista todos, na ordem da ajuda, e o `program.ts` os registra. O comando fica fino: lê os argumentos, chama o gerador, escreve o resultado pelo `io` (o `shared.ts` traz o que os comandos repetem: as opções `--root` e `--dry-run`, o projeto do comando e o "Criados" e "Alterados") e, sem `--dry-run`, grava o plano. Um erro lançado como `UsageError` sai com 2 e escreve só `prumo: <mensagem>` (o erro de opção ou argumento, que o commander acha, traz também a linha de uso e o "Veja"); `ExitError` sai com o código dele; qualquer outro erro sai com 1, a mensagem e, só com `PRUMO_DEBUG=1`, a pilha. Cada comando termina a ajuda com `addExamples` (`commands/help-text.ts`): os exemplos e o link da seção dele em `docs/reference/cli.md`; mude a ajuda e a referência juntas. Os comandos acham o projeto com `locateProject` (`lib/project.ts`), que sobe da pasta atual quando não há `--root`.
+Cada comando é um arquivo que exporta um `RegisterCommand` (recebe o programa e o `io`); o `commands/index.ts` lista todos, na ordem da ajuda, e o `program.ts` os registra. O comando fica fino: lê os argumentos, chama o gerador, escreve o resultado pelo `io` (o `shared.ts` traz o que os comandos repetem: as opções `--root` e `--dry-run` e o "Criados" e "Alterados") e, sem `--dry-run`, grava o plano. Um erro lançado como `UsageError` sai com 2 e escreve só `prumo: <mensagem>` (o erro de opção ou argumento, que o commander acha, traz também a linha de uso e o "Veja"); `ExitError` sai com o código dele; qualquer outro erro sai com 1, a mensagem e, só com `PRUMO_DEBUG=1`, a pilha. Cada comando termina a ajuda com `documentCommand` (`commands/help-text.ts`): os exemplos e o link da seção dele em `docs/reference/cli.md`; mude a ajuda e a referência juntas. Os comandos acham o projeto com `locateProject` (`lib/project.ts`), que sobe da pasta atual quando não há `--root`.
 
 A função `run(argv, io)` devolve o código de saída e nunca encerra o processo; por baixo, `execute` devolve também o tipo de saída (`ok`, `usage`, `exit` ou `unexpected`), que o servidor MCP usa para separar a violação do `check` de um erro inesperado, sem ler o stderr. Os comandos nunca escrevem direto no terminal: é o `io` que deixa os testes rodarem sem subprocesso. O `bin.ts` é o único que usa `process.stdout`, `process.stderr` e `process.exitCode`. Os testes de cada comando (`commands/*.test.ts`) usam o `test-support.ts` (`makeProject` e `exec`) e rodam o comando numa pasta temporária.
 
@@ -78,8 +78,9 @@ O servidor do `prumo mcp` (o comando fica em `commands/mcp.ts`, que só confere 
 ### `lib/`
 
 - `names.ts`: o kebab, o PascalCase e o camelCase de um nome, o plural e o singular (`clientes` → `cliente`, com a recusa dos plurais ambíguos e das palavras reservadas) e o `--entity`.
-- `fields/`: o `--fields` (`parse.ts`, `types.ts`), os valores de exemplo (`samples.ts`), a geração do código dos modelos (`generate.ts`) e o **leitor do schema** (`read.ts`, e `shape.ts` para o `make:page`), que lê com o ts-morph os campos de um `<entidade>.ts` gerado (o `z.object`, o `pick` do schema de entrada e a `SortKey`) para o `make:repository` e o `make:page`. Um campo fora dos tipos do `--fields` é erro de uso, com a linha.
+- `fields/`: o `--fields` (`parse.ts`, `types.ts`), os valores de exemplo (`samples.ts`), a geração do código dos modelos (`generate.ts`) e o **leitor do schema** (`read.ts`, e `page-shape.ts` para o `make:page`), que lê com o ts-morph os campos de um `<entidade>.ts` gerado (o `z.object`, o `pick` do schema de entrada e a `SortKey`) para o `make:repository` e o `make:page`. Um campo fora dos tipos do `--fields` é erro de uso, com a linha.
 - `plan.ts`: o `ChangePlan`, descrito acima.
+- `route-elements.ts` e `ast.ts`: a leitura das rotas do `<Switch>` do `App.tsx` e dos literais de texto, que o `list` e os codemods compartilham.
 - `templates.ts`: carrega um `.tpl` e troca os marcadores `{{nome}}` (um marcador sem valor é erro do modelo).
 - `listing.ts`: o levantamento que o `prumo list` mostra (só lê o projeto).
 - `paths.ts`: `displayPath`, o caminho relativo com `/` das mensagens.

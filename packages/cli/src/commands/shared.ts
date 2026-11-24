@@ -1,7 +1,5 @@
 import { UsageError } from '../errors.ts'
-import type { Io } from '../io.ts'
 import type { ChangePlan, PlanSummary } from '../lib/plan.ts'
-import { locateProject, type Project } from '../lib/project.ts'
 
 /** A opção `--root`, a mesma em todo comando que acha o projeto: `.option(...ROOT_OPTION)`. */
 export const ROOT_OPTION: [flags: string, description: string] = [
@@ -15,11 +13,6 @@ export const DRY_RUN_OPTION: [flags: string, description: string] = [
   'Só lista o que seria criado e alterado, sem escrever nada.',
 ]
 
-/** O projeto do comando: o da opção `--root` ou o achado a partir da pasta atual. */
-export function projectOf(io: Io, options: { root?: string }): Project {
-  return locateProject(io.cwd, options.root)
-}
-
 /** Recusa a opção dada sem valor (`--entity ''`): o commander a aceita. */
 export function nonEmpty(option: string) {
   return (value: string): string => {
@@ -29,7 +22,7 @@ export function nonEmpty(option: string) {
 }
 
 /** Uma seção da saída: o título com a contagem e um arquivo por linha; vazia se não há arquivo. */
-function section(title: string, files: string[]): string {
+export function section(title: string, files: string[]): string {
   if (files.length === 0) return ''
   return `${title} (${files.length}):\n${files.map((file) => `  ${file}`).join('\n')}\n`
 }
@@ -42,14 +35,16 @@ function formatSummary({ created, modified }: PlanSummary, dryRun: boolean): str
   return [section(made, created), section(changed, modified)].filter(Boolean).join('\n')
 }
 
+/** O fecho do `--dry-run`, no lugar do próximo passo. */
+export const DRY_RUN_ENDING = 'Simulação (--dry-run): nada foi escrito.\n'
+
 /** O que um comando `make:*` mostra do plano que executou. */
 export interface PlanReport {
+  dryRun: boolean
   /** O sufixo do título: ` (simulação)` no `--dry-run`, vazio fora dele. */
   mark: string
   /** A lista dos arquivos criados e alterados. */
   files: string
-  /** O fecho: a simulação avisa que nada foi escrito; senão, vale o `afterWrite()` do comando. */
-  ending: (afterWrite: () => string) => string
 }
 
 /** Grava o plano, ou só o confere com `--dry-run`, e devolve o que o comando mostra dele. */
@@ -57,9 +52,9 @@ export function runPlan(plan: ChangePlan, options: { dryRun?: boolean }): PlanRe
   const dryRun = options.dryRun === true
   const summary = dryRun ? plan.verify() : plan.commit()
   return {
+    dryRun,
     mark: dryRun ? ' (simulação)' : '',
     files: formatSummary(summary, dryRun),
-    ending: (afterWrite) => (dryRun ? 'Simulação (--dry-run): nada foi escrito.\n' : afterWrite()),
   }
 }
 

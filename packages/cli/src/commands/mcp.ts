@@ -1,6 +1,7 @@
 import { readVersion } from '../lib/version.ts'
+import { locateProject } from '../lib/project.ts'
 import { documentCommand } from './help-text.ts'
-import { projectOf, ROOT_OPTION } from './shared.ts'
+import { ROOT_OPTION } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 /** O trecho do `.mcp.json` que registra o servidor; sai da ajuda inteiro, para copiar. */
@@ -20,7 +21,7 @@ export const registerMcp: RegisterCommand = (program, io) => {
     )
     .option(...ROOT_OPTION)
     .action(async (options: { root?: string }) => {
-      const project = projectOf(io, options)
+      const project = locateProject(io.cwd, options.root)
       // O stdout é do protocolo: o que mais escrevesse no console o corromperia
       console.log = console.error
       console.info = console.error

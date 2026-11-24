@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { domainShapeOf } from './shape.ts'
+import { domainShapeOf } from './page-shape.ts'
 
 describe('domainShapeOf', () => {
   const schema = (fields: string) => ({

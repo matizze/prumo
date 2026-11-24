@@ -7,10 +7,10 @@ import {
   pathLiteral,
   usesIdentifier,
   type RouteElement,
-} from '../codemods/route-elements.ts'
+} from './route-elements.ts'
 import { contractEntity } from './contract.ts'
 import { readEntityFields, type FieldType } from './fields/index.ts'
-import { deriveNames, type DomainNames } from './names.ts'
+import { deriveNames, pascalCase, type DomainNames } from './names.ts'
 import { ChangePlan } from './plan.ts'
 import { displayPath } from './paths.ts'
 import type { Project } from './project.ts'
@@ -105,13 +105,6 @@ function readIfExists(file: string): string | undefined {
   return existsSync(file) ? readFileSync(file, 'utf8') : undefined
 }
 
-function pascalOf(kebab: string): string {
-  return kebab
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join('')
-}
-
 /** O motivo da recusa do leitor, curto: a primeira linha, sem o `arquivo:linha`, no máximo 160 caracteres. */
 function shortReason(message: string, file: string): string {
   let reason = (message.split('\n')[0] ?? message).trim()
@@ -130,7 +123,7 @@ function listSchemas(project: Project): ListedSchema[] {
     const file = `src/schemas/entities/${entry.name}`
     const text = readFileSync(path.join(dir, entry.name), 'utf8')
     const declared = /\bexport\s+const\s+([a-z][A-Za-z0-9]*?)Schema\b(?<!InputSchema)/.exec(text)?.[1]
-    const entity = declared ? declared.charAt(0).toUpperCase() + declared.slice(1) : pascalOf(kebab)
+    const entity = declared ? declared.charAt(0).toUpperCase() + declared.slice(1) : pascalCase(kebab)
     try {
       const names = deriveNames(kebab)
       const domain: DomainNames = { plural: names, singular: names }

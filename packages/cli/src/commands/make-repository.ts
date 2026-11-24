@@ -2,8 +2,9 @@ import { Option } from 'commander'
 import { DATA_SOURCE_CHOICES, generateRepository, type DataSourceChoice } from '../generators/repository.ts'
 import { describeField } from '../lib/fields/index.ts'
 import { entityFlag } from '../lib/names.ts'
+import { locateProject } from '../lib/project.ts'
 import { documentCommand } from './help-text.ts'
-import { DRY_RUN_OPTION, formatWarnings, nonEmpty, projectOf, ROOT_OPTION, runPlan } from './shared.ts'
+import { DRY_RUN_ENDING, DRY_RUN_OPTION, formatWarnings, nonEmpty, ROOT_OPTION, runPlan } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 type MakeRepositoryOptions = {
@@ -44,7 +45,7 @@ export const registerMakeRepository: RegisterCommand = (program, io) => {
     .option(...ROOT_OPTION)
     .option(...DRY_RUN_OPTION)
     .action((name: string, options: MakeRepositoryOptions) => {
-      const project = projectOf(io, options)
+      const project = locateProject(io.cwd, options.root)
       const { plan, names, fields, dataSource, created, warnings } = generateRepository(project, {
         name,
         entity: options.entity,
@@ -58,7 +59,7 @@ export const registerMakeRepository: RegisterCommand = (program, io) => {
         dataSource === 'mock'
           ? ''
           : `Para usar a fonte ${dataSource}: ${dataSource === 'http' ? 'VITE_DATA_SOURCE=http e VITE_API_URL=<endereço da API>' : 'VITE_DATA_SOURCE=storage'} (veja docs/guides/real-api.md).\n`
-      const ending = run.ending(() => `${use}Próximo passo: prumo make:query ${names.plural.kebab}${entityFlag(names)}\n`)
+      const ending = run.dryRun ? DRY_RUN_ENDING : `${use}Próximo passo: prumo make:query ${names.plural.kebab}${entityFlag(names)}\n`
       io.out(
         `${heading}\n${fieldsLine}\n\n${run.files}\n${formatWarnings(warnings)}${ending}`,
       )

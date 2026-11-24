@@ -5,8 +5,9 @@ import {
   type PageVariation,
   type ProjectListing,
 } from '../lib/listing.ts'
+import { locateProject } from '../lib/project.ts'
 import { documentCommand } from './help-text.ts'
-import { projectOf, ROOT_OPTION } from './shared.ts'
+import { ROOT_OPTION } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 /** Os rótulos da variação da tela no texto; o JSON traz o valor em inglês. */
@@ -82,7 +83,7 @@ export const registerList: RegisterCommand = (program, io) => {
     .option(...ROOT_OPTION)
     .option('--json', 'Escreve o levantamento em JSON.')
     .action((options: { root?: string; json?: boolean }) => {
-      const project = projectOf(io, options)
+      const project = locateProject(io.cwd, options.root)
       const listing = listProject(project)
       io.out(options.json ? `${JSON.stringify(listing, null, 2)}\n` : formatListing(listing))
     })

@@ -10,6 +10,7 @@ import { detectPnpmVersion, shellQuote } from '../lib/pnpm.ts'
 import { runChild } from '../lib/process.ts'
 import { readTarballs } from '../lib/tarballs.ts'
 import { documentCommand } from './help-text.ts'
+import { section } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 /** O que o comando pede de fora do processo; os testes trocam por versões de mentira. */
@@ -138,14 +139,14 @@ export function createNewCommand(deps: NewDeps = {}): RegisterCommand {
         // O --dry-run confere o plano com as mesmas regras do commit (links para fora do destino)
         const files = (dryRun ? plan.verify() : plan.summary()).created
 
-        // O commit desfaz o que escreveu se uma escrita falha: nada fica pela metade
+        // Se uma escrita falha, o commit apaga o que já escreveu e relança o erro
         if (!dryRun) plan.commit()
 
         const packagesLine = packagesDir
           ? `Pacotes do Prumo: tarballs de ${packagesDir} (pnpm.overrides com file:).`
           : 'Pacotes do Prumo: do registry, pela versão (^<versão>) no package.json.'
         const heading = `prumo new: ${name}${dryRun ? ' (simulação)' : ''}.\nDestino: ${destination}\n`
-        const list = `${dryRun ? 'Seriam criados' : 'Criados'} (${files.length}):\n${files.map((file) => `  ${file}`).join('\n')}\n`
+        const list = section(dryRun ? 'Seriam criados' : 'Criados', files)
         if (dryRun) {
           io.out(
             `${heading}\n${list}\n${packagesLine}\n\n${install ? 'Depois: git init e pnpm install.\n\n' : 'Depois: git init (sem pnpm install, por --no-install).\n\n'}Simulação (--dry-run): nada foi escrito.\n`,

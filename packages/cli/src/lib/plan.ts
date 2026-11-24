@@ -5,6 +5,7 @@ import {
   readFileSync,
   readlinkSync,
   realpathSync,
+  rmdirSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -29,9 +30,10 @@ export interface PlanSummary {
  * vai para o disco até `commit()`, e `summary()` mostra o que seria feito (o `--dry-run`).
  *
  * O que o `commit()` garante: se uma escrita falha, ele apaga os arquivos e as pastas que criou,
- * devolve o conteúdo original dos arquivos que alterou e relança o erro. Não cobre o processo
- * morrer no meio da escrita, nem uma falha do próprio desfazer (que é feito sem parar no primeiro
- * erro, para não esconder o erro original).
+ * devolve o conteúdo original dos arquivos que alterou e relança o erro. As pastas só saem se
+ * ficaram vazias, então nunca leva junto um arquivo de outro processo. Se o próprio desfazer
+ * falha, o erro relançado lista os caminhos que sobraram (e tem o erro original como `cause`).
+ * Não cobre o processo morrer no meio da escrita.
  */
 export class ChangePlan {
   readonly project: Project
@@ -164,8 +166,7 @@ export class ChangePlan {
 
   /**
    * Grava o plano no disco, depois de `verify()`. Os arquivos novos saem primeiro e os alterados
-   * depois. Se uma escrita falha, desfaz tudo o que já escreveu (veja a garantia na classe) e
-   * relança o erro.
+   * depois. Se uma escrita falha, desfaz o que já escreveu (veja a garantia na classe) e relança o erro.
    */
   commit(): PlanSummary {
     const summary = this.verify()
@@ -178,8 +179,12 @@ export class ChangePlan {
         writeFileSync(file, content)
       }
     } catch (error) {
-      undo(written)
-      throw error
+      const failed = undo(written)
+      if (failed.length === 0) throw error
+      const reason = error instanceof Error ? error.message : String(error)
+      throw new Error(`${reason} Não deu para desfazer: ${failed.map((file) => this.#display(file)).join(', ')}.`, {
+        cause: error,
+      })
     }
     return summary
   }
@@ -309,7 +314,7 @@ function culpritLink(
 interface Written {
   /** Os arquivos novos. */
   files: string[]
-  /** A primeira pasta que cada `mkdirSync` criou (as de dentro dela vão junto). */
+  /** As pastas que faltavam antes da escrita (as intermediárias também), da mais rasa para a mais funda. */
   folders: string[]
   /** Os arquivos alterados, com o conteúdo de antes. */
   originals: { file: string; original: string }[]
@@ -317,8 +322,13 @@ interface Written {
 
 /** Cria o arquivo novo (e as pastas que faltam) e anota o que criou. */
 function writeNew(file: string, content: string, written: Written): void {
-  const folder = mkdirSync(path.dirname(file), { recursive: true })
-  if (folder !== undefined) written.folders.push(folder)
+  const missing: string[] = []
+  for (let dir = path.dirname(file); !exists(dir); dir = path.dirname(dir)) {
+    missing.unshift(dir)
+  }
+  // Anotadas antes do mkdir: se ele falha no meio, as que criou entram no desfazer
+  written.folders.push(...missing)
+  mkdirSync(path.dirname(file), { recursive: true })
   try {
     // `wx`: se o arquivo apareceu agora, falha em vez de sobrescrever (e de apagar o alheio ao desfazer)
     writeFileSync(file, content, { flag: 'wx' })
@@ -330,17 +340,24 @@ function writeNew(file: string, content: string, written: Written): void {
   written.files.push(file)
 }
 
-/** Desfaz a escrita sem parar no primeiro erro: o que não der para desfazer não esconde o erro original. */
-function undo({ files, folders, originals }: Written): void {
-  for (const file of files) attempt(() => rmSync(file, { force: true }))
-  for (const { file, original } of originals) attempt(() => writeFileSync(file, original))
-  for (const folder of folders.reverse()) attempt(() => rmSync(folder, { recursive: true, force: true }))
-}
-
-function attempt(action: () => void): void {
-  try {
-    action()
-  } catch {
-    // Melhor esforço: o erro que importa é o da escrita que falhou
+/**
+ * Desfaz a escrita: apaga os arquivos novos, devolve os alterados e remove as pastas criadas, da
+ * mais funda para a mais rasa, com `rmdirSync` (só pasta vazia). Não para no primeiro erro e
+ * devolve os caminhos que não deu para desfazer.
+ */
+function undo({ files, folders, originals }: Written): string[] {
+  const failed: string[] = []
+  const attempt = (file: string, action: () => void): void => {
+    try {
+      action()
+    } catch (error) {
+      // Pasta que o mkdir nem chegou a criar (não existe, ou fica dentro de um arquivo): nada a desfazer
+      const code = (error as NodeJS.ErrnoException).code
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') failed.push(file)
+    }
   }
+  for (const file of files) attempt(file, () => rmSync(file, { force: true }))
+  for (const { file, original } of originals) attempt(file, () => writeFileSync(file, original))
+  for (const folder of [...folders].reverse()) attempt(folder, () => rmdirSync(folder))
+  return failed
 }

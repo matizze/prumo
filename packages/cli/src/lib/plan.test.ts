@@ -241,6 +241,21 @@ describe('ChangePlan: escrita atômica', () => {
     expect(snapshot(root)).toEqual(before)
   })
 
+  it('desfaz também as pastas intermediárias de um arquivo que gravou antes da falha', () => {
+    const plan = fixturePlan()
+    const { root } = plan.project
+    writeFileSync(at(root, 'src/bloqueio'), 'arquivo\n')
+    const before = snapshot(root)
+
+    plan.createText(at(root, 'src/x/y/z/a.json'), '{}\n')
+    plan.createText(at(root, 'src/x/y/w/b.json'), '{}\n')
+    plan.createText(at(root, 'src/bloqueio/fundo/c.json'), '{}\n')
+
+    expect(() => plan.commit()).toThrow(/ENOTDIR/)
+    expect(existsSync(at(root, 'src/x'))).toBe(false)
+    expect(snapshot(root)).toEqual(before)
+  })
+
   it.skipIf(process.getuid?.() === 0)(
     'se a escrita de um arquivo alterado falha, devolve o conteúdo dos alterados e apaga os novos',
     () => {

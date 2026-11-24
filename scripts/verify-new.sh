@@ -81,6 +81,9 @@ stage_cli() {
   prumo make:usecase stores.get-stores --output "store[]"
   prumo make:usecase auth.sign-in --input "email:string,password:string" --output "token:string"
   prumo make:usecase cart.add-item --local --input "productId:string,quantity:int"
+  # make:usecase --crud: os cinco use cases do livros (todos os tipos de campo), com a coleção de mock
+  # que eles dividem; os testes deles rodam no verify do app, e as telas abaixo usam três deles
+  prumo make:usecase livros --crud
   # make:repository com o mock, lendo os campos de cada schema (o livros tem todos os tipos)
   prumo make:repository clientes
   prumo make:repository livros
@@ -97,17 +100,19 @@ stage_cli() {
   prumo make:query livros
   prumo make:query paes --entity pao
   prumo make:query pedidos
-  # make:page, as quatro variações (título, lista com --query, parâmetro e detalhe). O
-  # campo de texto sai do schema: o livros mostra o titulo, e o pedidos (o campo padrão) o name
+  # make:page, as quatro variações (título, lista com --query, parâmetro e detalhe) e as telas de use
+  # case (lista, detalhe e formulário, também em subpasta). O campo de texto sai do schema: o livros
+  # mostra o titulo, e o pedidos (o campo padrão) o name
   prumo make:page sobre
   prumo make:page clientes --query clientes
   prumo make:page cliente --query clientes --path /clientes/:id
-  prumo make:page livros --query livros
-  prumo make:page livro --query livros --path /livros/:id
+  prumo make:page livros --usecase livros.list-livros
+  prumo make:page livro --usecase livros.get-livro --path /livros/:id
+  prumo make:page livro-novo --usecase livros.create-livro
   prumo make:page perfil --path /perfil/:usuario
   prumo make:page pedidos --query pedidos
   # telas em subpastas (com ponto e com barra): a pasta, a rota e as mensagens levam o caminho
-  prumo make:page auth.login
+  prumo make:page auth.login --usecase auth.sign-in
   prumo make:page auth/register --query clientes
   # um domínio com dígito na entidade (fase-2): o arquivo do schema e o id do teste vêm dos arquivos
   prumo make:schema fases-2 --entity fase-2
@@ -130,14 +135,16 @@ stage_cli() {
       if (!l.schemas.some((s) => s.file.endsWith("/" + (d === "paes" ? "pao" : d === "fases-2" ? "fase-2" : d.slice(0, -1)) + ".ts") && s.fields)) fail("falta o schema " + d)
       if (!l.queries.some((q) => q.domain === d)) fail("falta a query " + d)
     }
-    const pages = Object.fromEntries(l.pages.map((p) => [p.name, p.variation + ":" + p.route + ":" + p.query]))
-    const want = { home: "title:/:null", sobre: "title:/sobre:null", clientes: "list:/clientes:clientes", cliente: "detail:/clientes/:id:clientes", livros: "list:/livros:livros", livro: "detail:/livros/:id:livros", perfil: "param:/perfil/:usuario:null", pedidos: "list:/pedidos:pedidos", fase: "detail:/fases/:id:fases-2", "auth/login": "title:/auth/login:null", "auth/register": "list:/auth/register:clientes" }
+    const pages = Object.fromEntries(l.pages.map((p) => [p.name, p.variation + ":" + p.route + ":" + p.query + ":" + p.useCase]))
+    const want = { home: "title:/:null:null", sobre: "title:/sobre:null:null", clientes: "list:/clientes:clientes:null", cliente: "detail:/clientes/:id:clientes:null", livros: "list:/livros:null:livros.list-livros", livro: "detail:/livros/:id:null:livros.get-livro", "livro-novo": "form:/livro-novo:null:livros.create-livro", perfil: "param:/perfil/:usuario:null:null", pedidos: "list:/pedidos:pedidos:null", fase: "detail:/fases/:id:fases-2:null", "auth/login": "form:/auth/login:null:auth.sign-in", "auth/register": "list:/auth/register:clientes:null" }
     for (const [n, v] of Object.entries(want)) if (pages[n] !== v) fail("tela " + n + ": " + pages[n] + " (esperado " + v + ")")
     const useCase = (d) => l.useCases.find((u) => u.domain + "." + u.name === d) ?? fail("falta o use case " + d)
     const summary = (d) => [useCase(d).key, useCase(d).kind, String(useCase(d).endpoint)].join(" ")
     if (summary("stores.get-stores") !== "getStores read GET /stores/get-stores") fail("use case get-stores: " + summary("stores.get-stores"))
     if (summary("auth.sign-in") !== "signIn write POST /auth/sign-in") fail("use case sign-in: " + summary("auth.sign-in"))
     if (summary("cart.add-item") !== "addItem local null") fail("use case add-item: " + summary("cart.add-item"))
+    const crud = { "list-livros": "listLivros read GET /livros", "get-livro": "getLivro read GET /livros/:id", "create-livro": "createLivro write POST /livros", "update-livro": "updateLivro write PATCH /livros/:id", "remove-livro": "removeLivro write DELETE /livros/:id" }
+    for (const [n, v] of Object.entries(crud)) if (summary("livros." + n) !== v) fail("use case " + n + ": " + summary("livros." + n))
     if (l.languages.join(",") !== "en,pt-BR") fail("idiomas: " + l.languages)
   '
 }

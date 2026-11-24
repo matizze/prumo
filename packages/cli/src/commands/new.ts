@@ -151,7 +151,8 @@ Valida antes de escrever: o nome (kebab-case), a pasta de destino (não pode exi
           overrides,
           pnpm: detectPnpmVersion(deps.env ?? process.env, deps.askPnpm),
         })
-        const files = plan.summary().created
+        // O --dry-run confere o plano com as mesmas regras do commit (links para fora do destino)
+        const files = (dryRun ? plan.verify() : plan.summary()).created
 
         if (!dryRun) {
           const createdFolder = !existsSync(destination)

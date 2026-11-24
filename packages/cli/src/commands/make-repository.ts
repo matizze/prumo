@@ -72,7 +72,7 @@ Valida tudo antes de escrever e nunca sobrescreve: repositório que já existe (
         dataSource: options.dataSource,
       })
       const dryRun = options.dryRun === true
-      const summary = dryRun ? plan.summary() : plan.commit()
+      const summary = dryRun ? plan.verify() : plan.commit()
       const origin = created ? '' : ', repositório que já existia'
       const heading = `prumo make:repository: ${names.plural.kebab} (entidade ${names.singular.kebab}, fonte ${dataSource}${origin})${dryRun ? ' (simulação)' : ''}.`
       const fieldsLine = `Campos (lidos do schema): ${fields.map(describeField).join(', ')}.`

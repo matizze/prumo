@@ -51,7 +51,7 @@ Valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada p
       const project = findProject(path.resolve(io.cwd, options.root))
       const { plan, names, exports } = generateQuery(project, { name, entity: options.entity })
       const dryRun = options.dryRun === true
-      const summary = dryRun ? plan.summary() : plan.commit()
+      const summary = dryRun ? plan.verify() : plan.commit()
       const heading = `prumo make:query: ${names.plural.kebab} (entidade ${names.singular.kebab})${dryRun ? ' (simulação)' : ''}.`
       const ending = dryRun
         ? 'Simulação (--dry-run): nada foi escrito.\n'

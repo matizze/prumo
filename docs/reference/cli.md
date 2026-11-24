@@ -429,6 +429,8 @@ Comandos:
 | `1`    | Erro inesperado (a pilha vai para o stderr) ou, nos comandos que o definem, o resultado do comando (`check` com violação; `new` com o `pnpm install` que falhou) |
 | `2`    | Uso errado: comando ou opção desconhecidos, argumento que falta ou a mais, opção sem valor, valor inválido |
 
+Os comandos que escrevem (`new` e os `make:*`) também saem com 2, sem escrever nada, quando um arquivo que iam gravar leva para fora do projeto por um link simbólico (o próprio `src`, uma pasta dentro dele ou um arquivo como o `App.tsx` sendo link para fora) ou passa por um link quebrado: antes de gravar, eles conferem o caminho real de cada arquivo, como o sistema o resolve, e a mensagem diz qual é o link (sem a ajuda do comando). O `--dry-run` faz a mesma conferência. Link dentro do projeto que aponta para dentro dele continua valendo; link físico (hard link) não é detectado.
+
 No uso errado, o stderr traz a mensagem em português, no formato `prumo: opção desconhecida: '--x'.`, seguida da ajuda do comando:
 
 ```text

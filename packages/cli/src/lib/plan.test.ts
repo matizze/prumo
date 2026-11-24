@@ -1,9 +1,21 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { UsageError } from '../errors.ts'
+import { ExitError, UsageError } from '../errors.ts'
 import { applyEdits } from '../codemods/edit.ts'
 import { fixturePlan } from '../codemods/test-support.ts'
+import { ChangePlan } from './plan.ts'
+import { findProject, projectAt } from './project.ts'
+import { makeDir } from '../test-support.ts'
 
 const at = (root: string, relative: string) => path.join(root, relative)
 
@@ -80,5 +92,122 @@ describe('ChangePlan', () => {
     const file = at(plan.project.root, 'src/pages/novo/index.tsx')
     plan.createSource(file, 'export {}\n').saveSync()
     expect(existsSync(file)).toBe(false)
+  })
+})
+
+describe('ChangePlan: link simbólico para fora do projeto', () => {
+  /** Um projeto de fixture e uma pasta de fora, que começa vazia. As duas somem no fim dos testes. */
+  function setup() {
+    const plan = fixturePlan()
+    return { plan, root: plan.project.root, outside: makeDir() }
+  }
+
+  it('recusa escrever por uma pasta do projeto que é link para fora, diz qual é o link e não escreve nada', () => {
+    const { plan, root, outside } = setup()
+    symlinkSync(outside, at(root, 'src/pages'))
+    plan.createSource(at(root, 'src/pages/sobre/index.tsx'), 'export {}\n')
+    plan.createText(at(root, 'src/messages/en/sobre.json'), '{}\n')
+    expect(() => plan.commit()).toThrow(ExitError)
+    expect(() => plan.commit()).toThrow(
+      /'src\/pages\/sobre\/index.tsx' levaria a escrita para fora do projeto: 'src\/pages' é um link simbólico para '.+'\. Troque o link/,
+    )
+    expect(readdirSync(outside)).toEqual([])
+    expect(existsSync(at(root, 'src/messages/en/sobre.json'))).toBe(false)
+  })
+
+  it('a mensagem culpa o link que sai do projeto, não um link legítimo antes dele', () => {
+    const { plan, root, outside } = setup()
+    renameSync(at(root, 'src'), at(root, 'codigo'))
+    symlinkSync('codigo', at(root, 'src'))
+    rmSync(at(root, 'codigo/pages'), { recursive: true, force: true })
+    symlinkSync(outside, at(root, 'codigo/pages'))
+    const moved = new ChangePlan(findProject(root))
+    moved.createSource(at(root, 'src/pages/sobre/index.tsx'), 'export {}\n')
+    expect(() => moved.commit()).toThrow(/'src\/pages' é um link simbólico para '.+'/)
+    expect(() => moved.commit()).not.toThrow(/'src' é um link simbólico/)
+    expect(readdirSync(outside)).toEqual([])
+  })
+
+  it('o verify (o --dry-run) recusa o mesmo que o commit, sem escrever', () => {
+    const { plan, root, outside } = setup()
+    symlinkSync(outside, at(root, 'src/pages'))
+    plan.createSource(at(root, 'src/pages/sobre/index.tsx'), 'export {}\n')
+    expect(() => plan.verify()).toThrow(/levaria a escrita para fora do projeto/)
+    expect(readdirSync(outside)).toEqual([])
+  })
+
+  it('recusa o .. depois de um link, como o sistema o resolve (não pelo texto)', () => {
+    // box/victim/app/src/up -> ../.. (box/victim) e src/pages -> up/..: pelo texto, src/pages é
+    // app/src; o sistema segue up até box/victim e sobe para box
+    const box = makeDir()
+    const victim = path.join(box, 'victim')
+    mkdirSync(victim)
+    const { plan } = setup()
+    const app = path.join(victim, 'app')
+    renameSync(plan.project.root, app)
+    const moved = new ChangePlan(findProject(app))
+    symlinkSync('../..', path.join(app, 'src/up'))
+    symlinkSync('up/..', path.join(app, 'src/pages'))
+    moved.createSource(path.join(app, 'src/pages/sobre/index.tsx'), 'export {}\n')
+    expect(() => moved.commit()).toThrow(/levaria a escrita para fora do projeto/)
+    expect(existsSync(path.join(box, 'sobre'))).toBe(false)
+  })
+
+  it('recusa quando o próprio src é link para fora', () => {
+    const { plan, root, outside } = setup()
+    const real = makeDir()
+    renameSync(at(root, 'src'), path.join(real, 'src'))
+    symlinkSync(path.join(real, 'src'), at(root, 'src'))
+    plan.createText(at(root, 'src/messages/en/novo.json'), '{}\n')
+    expect(() => plan.commit()).toThrow(/'src' é um link simbólico para/)
+    expect(existsSync(path.join(real, 'src/messages/en/novo.json'))).toBe(false)
+    expect(readdirSync(outside)).toEqual([])
+  })
+
+  it('recusa alterar um arquivo do projeto que é link para um arquivo de fora', () => {
+    const { plan, outside } = setup()
+    const target = path.join(outside, 'App.tsx')
+    writeFileSync(target, readFileSync(plan.project.app, 'utf8'))
+    rmSync(plan.project.app)
+    symlinkSync(target, plan.project.app)
+    applyEdits(plan.source(plan.project.app), [{ pos: 0, end: 0, text: '// alterado\n' }])
+    expect(() => plan.commit()).toThrow(/'src\/App.tsx' levaria a escrita para fora do projeto/)
+    expect(readFileSync(target, 'utf8')).not.toContain('// alterado')
+  })
+
+  it('recusa um caminho que passa por um link quebrado', () => {
+    const { plan, root, outside } = setup()
+    symlinkSync(path.join(outside, 'nao-existe'), at(root, 'src/pages'))
+    plan.createSource(at(root, 'src/pages/sobre/index.tsx'), 'export {}\n')
+    expect(() => plan.commit()).toThrow(/passa por um link simbólico quebrado: 'src\/pages' é um link/)
+    expect(readdirSync(outside)).toEqual([])
+  })
+
+  it('recusa, com saída 2 e sem pilha, uma raiz que passa por um link quebrado', () => {
+    const base = makeDir()
+    symlinkSync(path.join(base, 'nao-existe'), path.join(base, 'quebrado'))
+    const plan = new ChangePlan(projectAt(path.join(base, 'quebrado', 'app')))
+    plan.createText(path.join(base, 'quebrado', 'app', 'package.json'), '{}\n')
+    expect(() => plan.commit()).toThrow(ExitError)
+    expect(() => plan.commit()).toThrow(/a pasta do projeto .+ passa por um link simbólico quebrado/)
+  })
+
+  it('aceita link dentro do projeto que aponta para dentro dele', () => {
+    const { plan, root } = setup()
+    mkdirSync(at(root, 'src/telas'), { recursive: true })
+    symlinkSync(at(root, 'src/telas'), at(root, 'src/pages'))
+    plan.createSource(at(root, 'src/pages/sobre/index.tsx'), 'export {}\n')
+    plan.commit()
+    expect(existsSync(at(root, 'src/telas/sobre/index.tsx'))).toBe(true)
+  })
+
+  it('aceita a raiz do projeto aberta por um caminho que é link', () => {
+    const { root } = setup()
+    const alias = path.join(makeDir(), 'app')
+    symlinkSync(root, alias)
+    const plan = new ChangePlan(findProject(alias))
+    plan.createText(path.join(alias, 'src/messages/en/novo.json'), '{}\n')
+    plan.commit()
+    expect(existsSync(at(root, 'src/messages/en/novo.json'))).toBe(true)
   })
 })

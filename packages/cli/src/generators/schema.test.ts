@@ -41,8 +41,10 @@ describe('generateSchema', () => {
   it('o schema com campos de todos os tipos é TypeScript sem erro de sintaxe', () => {
     const { plan } = generateSchema(fixtureProject(), { name: 'livros', fields: FIELDS })
     const [source] = plan.createdSources()
+    // Só a sintaxe: sem a lib do TypeScript, que deixaria o teste lento à toa
     const check = new Project({
       useInMemoryFileSystem: true,
+      skipLoadingLibFiles: true,
       compilerOptions: { module: ts.ModuleKind.ESNext, noEmit: true },
     }).createSourceFile('livro.ts', source!.getFullText())
     expect(check.getPreEmitDiagnostics().filter((d) => d.getCode() < 2000)).toEqual([])

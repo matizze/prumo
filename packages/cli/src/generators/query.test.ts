@@ -1,4 +1,4 @@
-import { appendFileSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemods/test-support.ts'
 import { UsageError } from '../errors.ts'
@@ -65,6 +65,18 @@ describe('generateQuery com a entidade errada', () => {
     const project = projectWithRepository('paes')
     expect(() => generateQuery(project, { name: 'paes', entity: 'pao' })).toThrow(
       /é da entidade pae; rode prumo make:query paes\.$/,
+    )
+  })
+
+  it('contrato que também usa o schema de outra entidade (antes no arquivo): aceita a entidade pedida', () => {
+    const project = projectWithRepository('clientes')
+    const contract = `${project.root}/src/repositories/clientes/repository.contract.ts`
+    const text = readFileSync(contract, 'utf8')
+    writeFileSync(contract, `import type { AutorSchema } from '@/schemas'\n${text}\nexport type Extra = AutorSchema\n`)
+    expect(() => generateQuery(project, { name: 'clientes' })).not.toThrow()
+    // A dica, quando a entidade pedida não aparece, sai da lista (Page<XSchema>), não do primeiro schema
+    expect(() => generateQuery(project, { name: 'clientes', entity: 'comprador' })).toThrow(
+      /é da entidade cliente; rode prumo make:query clientes\.$/,
     )
   })
 

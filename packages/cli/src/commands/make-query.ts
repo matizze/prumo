@@ -32,11 +32,11 @@ export const registerMakeQuery: RegisterCommand = (program, io) => {
     .description(
       `Cria as queries e as mutations de um domínio, em cima do repositório dele.
 
-Precisa do repositório (prumo make:repository). Cria src/queries/<domínio>.ts com <entidade>Keys (as chaves do cache), <entidade>Queries (as opções de lista e detalhe), use<Domínio>List, use<Entidade>Detail, useCreate<Entidade>, useUpdate<Entidade> e useRemove<Entidade>, e registra o domínio em src/queries/index.ts (export { ... } from './<domínio>', em ordem alfabética). As queries só usam o contrato do repositório pelo useRepositories(), então funcionam com qualquer fonte (mock, http ou storage) e não leem os campos do schema.
+Precisa do repositório (prumo make:repository). Cria src/queries/<domínio>.ts com <entidade>Keys (as chaves do cache), <entidade>Queries (as opções de lista e detalhe), use<Domínio>List, use<Entidade>Detail, useCreate<Entidade>, useUpdate<Entidade>, useRemove<Entidade> e o tipo <Domínio>ListOptions, e registra o domínio em src/queries/index.ts (export { ... } from './<domínio>', em ordem alfabética). As queries só usam o contrato do repositório pelo useRepositories(), então funcionam com qualquer fonte (mock, http ou storage) e não leem os campos do schema.
 
 O <domínio> é o nome do domínio, no plural e em kebab-case (clientes, pedidos-recentes). A entidade é o singular, que sai do nome (tira o s final); onde a regra erra, informe a entidade com --entity, a mesma do make:schema e do make:repository.
 
-Valida tudo antes de escrever e nunca sobrescreve: repositório que falta ou query que já existe saem com 2, sem deixar nada pela metade. --dry-run lista o que seria criado e alterado, sem escrever.`,
+Valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada pela metade: repositório que falta; repositório de outra entidade (a mensagem diz o --entity certo); arquivo do schema que falta; query que já existe; export que sobrou no índice sem o arquivo; e índice src/queries/index.ts que falta. --dry-run lista o que seria criado e alterado, sem escrever.`,
     )
     .argument('<domínio>', 'O nome do domínio, no plural e em kebab-case (por exemplo, clientes).')
     .option(

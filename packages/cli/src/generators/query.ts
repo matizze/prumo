@@ -58,11 +58,18 @@ export function generateQuery(project: Project, { name, entity }: QueryRequest):
       `falta o repositório ${names.plural.kebab} (src/repositories/${names.plural.kebab}); rode prumo make:repository ${names.plural.kebab}${entityFlag(names)}.`,
     )
   }
-  // O repositório tem que ser da entidade pedida: com outra, o código gerado não compila. A
-  // entidade vem do `<Entidade>Schema` do contrato; contrato que não dá para ler passa adiante
+  // O repositório tem que ser da entidade pedida: com outra, o código gerado não compila. Basta o
+  // `<Entidade>Schema` aparecer no contrato (ele pode usar o schema de outra entidade também). Se
+  // não aparece, a entidade do repositório sai da lista (`Page<XSchema>`) ou do primeiro
+  // `<X>Schema`; contrato que não dá para ler passa adiante
   const contract = path.join(repository, 'repository.contract.ts')
   if (plan.hasFile(contract)) {
-    const found = /\b([A-Z][A-Za-z0-9]*)Schema\b/.exec(plan.readText(contract))?.[1]
+    const text = plan.readText(contract)
+    const uses = new RegExp(`\\b${names.singular.pascal}Schema\\b`).test(text)
+    const found = uses
+      ? undefined
+      : (/\bPage<\s*([A-Z][A-Za-z0-9]*)Schema\s*>/.exec(text)?.[1] ??
+        /\b([A-Z][A-Za-z0-9]*)Schema\b/.exec(text)?.[1])
     if (found !== undefined && found !== names.singular.pascal) {
       const actual = found.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
       let flag: string

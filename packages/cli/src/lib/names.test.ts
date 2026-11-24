@@ -293,9 +293,14 @@ describe('pageNames', () => {
     (input) => expect(() => pageNames(input)).toThrow(/segmento vazio/),
   )
 
+  it('a palavra reservada só vale para o nome junto: auth.new e clientes.delete passam', () => {
+    expect(pageNames('auth.new').pascal).toBe('AuthNew')
+    expect(pageNames('clientes/delete').camel).toBe('clientesDelete')
+  })
+
   it('diz qual segmento é inválido ou reservado', () => {
     expect(() => pageNames('auth.Login')).toThrow(/segmento do nome da tela 'Login' é inválido/)
-    expect(() => pageNames('auth/new')).toThrow(/segmento do nome da tela 'new'.*reservada/)
+    expect(() => pageNames('new')).toThrow(/o nome da tela 'new'.*reservada/)
     expect(() => pageNames('Auth')).toThrow(/o nome da tela 'Auth' é inválido/)
     expect(() => pageNames('auth.2fa')).toThrow(UsageError)
   })

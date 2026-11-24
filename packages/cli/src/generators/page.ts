@@ -5,7 +5,14 @@ import { addRouteSnippet, messageLanguages, registerMessageNamespace } from '../
 import { UsageError } from '../errors.ts'
 import { contractEntity } from '../lib/contract.ts'
 import { domainIdSample, domainShapeOf, literal, type DomainShape } from '../lib/fields/index.ts'
-import { assertValidName, deriveNames, pageNames, RESERVED_WORDS, type Names, type PageNames } from '../lib/names.ts'
+import {
+  assertValidName,
+  deriveNames,
+  pageNames,
+  RESERVED_WORDS,
+  type Names,
+  type PageNames,
+} from '../lib/names.ts'
 import { displayPath } from '../lib/paths.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'
@@ -167,12 +174,7 @@ export interface PageResult {
  */
 function assertPageFree(project: Project, names: PageNames): void {
   const owner = pageOf(project.pages, names.path)
-  if (owner === names.path) {
-    throw new UsageError(
-      `a tela '${names.path}' já existe: a pasta src/pages/${names.path} está no projeto.`,
-    )
-  }
-  if (owner) {
+  if (owner && owner !== names.path) {
     throw new UsageError(
       `'${names.path}' ficaria dentro da tela '${owner}' (src/pages/${owner} tem index.tsx): uma tela não contém outra; use outro nome ou mova a tela '${owner}' para um grupo.`,
     )
@@ -184,15 +186,15 @@ function assertPageFree(project: Project, names: PageNames): void {
       `'${names.path}' já agrupa telas (como '${inside}'): a pasta src/pages/${names.path} não pode virar tela.`,
     )
   }
+  if (existsSync(path.join(project.pages, names.path))) {
+    throw new UsageError(
+      `a tela '${names.path}' já existe: a pasta src/pages/${names.path} está no projeto.`,
+    )
+  }
   const twin = pages.find((page) => page.replaceAll('/', '-') === names.kebab)
   if (twin) {
     throw new UsageError(
       `a tela '${names.path}' conflita com a tela '${twin}': as duas gerariam ${names.kebab}.json e ${names.pascal}Page. Escolha outro nome.`,
-    )
-  }
-  if (existsSync(path.join(project.pages, names.path))) {
-    throw new UsageError(
-      `a tela '${names.path}' já existe: a pasta src/pages/${names.path} está no projeto.`,
     )
   }
 }

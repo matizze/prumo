@@ -42,9 +42,10 @@ createRuleTester().run('page-structure', pageStructure, {
     // Subpasta da tela e arquivo solto em pages/ não são uma tela
     { filename: path.join(path.dirname(noModel), 'components', 'index.tsx'), code: '' },
     { filename: path.join(root, 'src/pages/index.tsx'), code: 'export default 1' },
-    // Tela em subpasta completa; a pasta de grupo (auth) não é cobrada
+    // Tela em subpasta completa
     { filename: nested, code: 'export default 1' },
-    { filename: path.join(root, 'src/pages/auth/index.tsx'), code: '' },
+    // O index.tsx solto em pages/ não é tela, mesmo com tela em subpasta
+    { filename: path.join(root, 'src/pages/index.tsx'), code: '' },
     // O components/index.tsx de uma tela não vira tela, em qualquer profundidade
     { filename: path.join(path.dirname(nestedMissing), 'components', 'index.tsx'), code: '' },
     // Fora da pasta das telas
@@ -68,6 +69,17 @@ createRuleTester().run('page-structure', pageStructure, {
       filename: nestedMissing,
       code: 'export default 1',
       errors: [missing('auth/register', 'model.ts')],
+    },
+    // O arquivo ainda não salvo (ou lido pelo stdin) conta como existente
+    {
+      filename: path.join(root, 'src/pages/unsaved/index.tsx'),
+      code: 'export default 1',
+      errors: [missing('unsaved', 'model.ts'), missing('unsaved', 'view.tsx')],
+    },
+    {
+      filename: path.join(root, 'src/pages/grupo/unsaved/index.tsx'),
+      code: 'export default 1',
+      errors: [missing('grupo/unsaved', 'model.ts'), missing('grupo/unsaved', 'view.tsx')],
     },
     {
       filename: customMissing,

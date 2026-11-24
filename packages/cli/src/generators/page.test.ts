@@ -180,6 +180,16 @@ describe('generatePage com tela em subpasta', () => {
     expect(() => generatePage(project, { name: 'auth.login' })).toThrow(/tela 'auth\/login' já existe/)
   })
 
+  it('a pasta que existe sem index.tsx volta a dizer só que a tela já existe', () => {
+    const project = fixtureProject()
+    mkdirSync(path.join(project.pages, 'vazia'), { recursive: true })
+    expect(() => generatePage(project, { name: 'vazia' })).toThrow(/tela 'vazia' já existe/)
+  })
+
+  it('o segmento pode ser palavra reservada: auth.new passa', () => {
+    expect(generatePage(fixtureProject(), { name: 'auth.new' }).names.pascal).toBe('AuthNew')
+  })
+
   it('recusa o segmento inválido sem planejar nada', () => {
     const project = fixtureProject()
     expect(() => generatePage(project, { name: 'auth..login' })).toThrow(/segmento vazio/)

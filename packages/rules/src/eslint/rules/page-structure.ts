@@ -13,8 +13,8 @@ export interface PageStructureOptions {
 const DEFAULTS = { pagesDir: 'src/pages', requiredFiles: DEFAULT_PAGE_FILES }
 
 /**
- * Estrutura da página: o `index.tsx` de uma tela (`src/pages/livros/` ou `src/pages/auth/login/`) tem ao lado o `model.ts` e a
- * `view.tsx`, a separação entre dados e visual. A regra olha a pasta pelo sistema de arquivos,
+ * Estrutura da página: o `index.tsx` de uma tela (`src/pages/livros/` ou `src/pages/auth/login/`)
+ * tem ao lado o `model.ts` e a `view.tsx`, a separação entre dados e visual. A regra olha a pasta pelo sistema de arquivos,
  * então avisa no editor quando a tela fica sem um deles.
  */
 export const pageStructure: Rule.RuleModule = {
@@ -41,10 +41,13 @@ export const pageStructure: Rule.RuleModule = {
     const pagesDir = trimSlashes(options.pagesDir)
     const placement = locateInside(context.filename, pagesDir)
     if (!placement || path.posix.basename(placement.inner) !== 'index.tsx') return {}
-    // Só o index.tsx da própria tela: o de uma subpasta da tela (`components/index.tsx`) e o solto
-    // em pages/ ficam de fora
+    // Só o index.tsx da própria tela: o solto em pages/ e o de uma subpasta de tela
+    // (`components/index.tsx`) ficam de fora. O arquivo lintado conta como existente, então só as
+    // pastas acima dele dizem se ele está dentro de outra tela
     const page = path.posix.dirname(placement.inner)
-    if (pageOf(path.join(placement.root, pagesDir), page) !== page) return {}
+    if (page === '.') return {}
+    const parent = path.posix.dirname(page)
+    if (parent !== '.' && pageOf(path.join(placement.root, pagesDir), parent)) return {}
 
     return {
       Program(node) {

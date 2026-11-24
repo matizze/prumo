@@ -16,6 +16,7 @@ for (const file of [
   'src/pages/auth/login/index.tsx',
   'src/pages/auth/register/index.tsx',
   'src/pages/auth/shared.ts',
+  'src/pages/rascunho/view.tsx',
   'app/screens/home/index.tsx',
   'app/screens/about/index.tsx',
 ]) {
@@ -26,6 +27,11 @@ for (const file of [
 const inProject = (file: string) => path.join(root, file)
 
 const view = inProject('src/pages/dashboard/view.tsx')
+
+const loose = (page: string, target: string, specifier: string) => ({
+  messageId: 'looseFile' as const,
+  data: { page, target, specifier },
+})
 
 const cross = (page: string, other: string, specifier: string) => ({
   messageId: 'crossPage' as const,
@@ -177,11 +183,17 @@ createRuleTester().run('no-cross-page-import', noCrossPageImport, {
       code: "import { x } from '@/pages/auth/login'",
       errors: [cross('dashboard', 'auth/login', '@/pages/auth/login')],
     },
-    // O arquivo solto numa pasta de grupo, importado por uma tela, conta como de outra tela
+    // O arquivo solto numa pasta de grupo, importado por uma tela, é recusado com a mensagem própria
     {
       filename: inProject('src/pages/auth/login/view.tsx'),
       code: "import { x } from '../shared'",
-      errors: [cross('auth/login', 'auth/shared', '../shared')],
+      errors: [loose('auth/login', 'auth/shared', '../shared')],
+    },
+    // A pasta sem index.tsx e sem tela dentro conta como tela, como no prumo check
+    {
+      filename: inProject('src/pages/rascunho/view.tsx'),
+      code: "import { x } from '@/pages/billing/model'",
+      errors: [cross('rascunho', 'billing', '@/pages/billing/model')],
     },
     // Opções
     {

@@ -104,7 +104,7 @@ prumo make:schema livros --fields "titulo:string,ano:int,situacao:enum(lido|lend
 
 - O nome do campo é camelCase: começa com letra minúscula e tem só letras e números.
 - O `?` depois do nome torna o campo opcional (`apelido?:string` vira `z.string().optional()`).
-- `id` e `createdAt` são reservados (o repositório os dá a todo registro), e um nome repetido é recusado.
+- `id` e `createdAt` são reservados (o repositório os dá a todo registro), e um nome repetido é recusado. O nome junto (`auth-login`) é que não pode ser palavra reservada: `auth.new` passa, e `new` sozinho não.
 - Espaços em volta dos nomes e dos tipos são aceitos.
 
 O comando valida tudo antes de escrever: o nome (kebab-case, no plural, sem palavra reservada do JavaScript nem nome global como `Date`), a entidade, cada campo e o schema que já existe (nunca sobrescreve). Qualquer erro sai com 2, em português, sem deixar nada pela metade. No fim, mostra o que criou e alterou e o próximo passo: `prumo make:repository <domínio>`.
@@ -204,7 +204,7 @@ Para agrupar telas em subpastas, separe os segmentos do nome com ponto ou barra,
 prumo make:page auth.login      # o mesmo que auth/login
 ```
 
-Cria `src/pages/auth/login/` (a tela comum, com `index.tsx`, `model.ts`, `view.tsx` e o teste), a rota padrão `/auth/login` (o `--path` continua valendo), o componente `AuthLoginPage` e as mensagens em `src/messages/<idioma>/auth-login.json`, com o namespace `authLogin`: o componente, as mensagens e o namespace saem dos segmentos juntos. Cada segmento segue as regras de nome (kebab-case, sem palavra reservada), a mensagem de erro diz qual é o inválido, e segmento vazio (`auth..login`, `/login`, `auth/`) é recusado. O `prumo list` e as ferramentas MCP mostram o nome com barra (`auth/login`). Uma tela é a primeira pasta, a partir de `src/pages`, que tem `index.tsx`; a pasta sem ele (`auth`) só agrupa telas.
+Cria `src/pages/auth/login/` (a tela comum, com `index.tsx`, `model.ts`, `view.tsx` e o teste), a rota padrão `/auth/login` (o `--path` continua valendo), o componente `AuthLoginPage` e as mensagens em `src/messages/<idioma>/auth-login.json`, com o namespace `authLogin`: o componente, as mensagens e o namespace saem dos segmentos juntos. Cada segmento segue o formato do nome (kebab-case) e a mensagem de erro diz qual é o inválido, e segmento vazio (`auth..login`, `/login`, `auth/`) é recusado. O `prumo list` e as ferramentas MCP mostram o nome com barra (`auth/login`). Uma tela é a primeira pasta, a partir de `src/pages`, que tem `index.tsx`; a pasta sem ele (`auth`) só agrupa telas.
 
 | Opção               | O que faz                                                                                             |
 | ------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -336,7 +336,7 @@ Um objeto com cinco listas, sempre presentes (vazias quando não há nada), orde
 |                | `file`      | O arquivo, relativo à raiz                                                                                                             |
 |                | `entity`    | A entidade (do contrato do repositório, ou do hook `use<Entidade>Detail`); `null` se nenhum diz                                        |
 |                | `hooks`     | Os hooks (`use...`) que o arquivo exporta, na ordem do arquivo                                                                         |
-| `pages`        | `name`      | O nome da pasta em `src/pages`                                                                                                         |
+| `pages`        | `name`      | O caminho da tela a partir de `src/pages`, com barra nas subpastas (`auth/login`)                                                      |
 |                | `route`     | A rota da tela no `src/App.tsx`: o `path` da `<Route>` mais interna que a usa, composto com os `<Route nest>` de fora (`/admin` + `/usuarios` vira `/admin/usuarios`); `*` para a curinga (sem `path`, ou `path="*"`); o texto da expressão de um `path={...}` que não é literal (por exemplo, `{ROUTES.lenta}`); `null` só quando nenhuma `<Route>` usa a tela. A tela pode vir de um `import` padrão ou de um `lazy(() => import('@/pages/<nome>'))` |
 |                | `routeKind` | `literal`, `catchAll` ou `expression`; `null` quando `route` é `null`                                                                  |
 |                | `routePartial` | `true` quando um `<Route nest>` de fora não tem `path` literal e não deu para compor: `route` é só o caminho da `<Route>` de dentro |

@@ -216,6 +216,15 @@ describe('page-structure', () => {
     ])
   })
 
+  it('a subpasta de uma tela incompleta não vira outra tela', () => {
+    const root = makeProject({
+      'src/pages/relatorio/model.ts': '',
+      'src/pages/relatorio/view.tsx': '',
+      'src/pages/relatorio/components/card.tsx': '',
+    })
+    expect(check({ root }).map((v) => v.file)).toEqual(['src/pages/relatorio/index.tsx'])
+  })
+
   it('só os arquivos da lista são cobrados, e a lista é opção', () => {
     const root = makeProject({
       'src/pages/a/index.tsx': '',

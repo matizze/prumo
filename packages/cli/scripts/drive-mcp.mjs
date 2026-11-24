@@ -2,8 +2,8 @@
 // O cliente MCP do portão (`pnpm verify:new`): liga ao servidor prumo do app gerado do jeito que o
 // agente liga (o comando do .mcp.json do app, por stdio, com o app como pasta de trabalho), confere as
 // ferramentas e gera, só por elas, um domínio (schema, repositório com storage e query) e três telas
-// (lista, detalhe e uma em subpasta), confere um erro de uso e roda o check e o list. Sai com 0 se tudo deu certo e com
-// 1 no primeiro erro. Não escreve nada: quem escreve é o servidor.
+// (lista, detalhe e uma em subpasta), confere um erro de uso e roda o check e o list. Sai com 0 se
+// tudo deu certo e com 1 no primeiro erro. Não escreve nada: quem escreve é o servidor.
 //
 // O SDK do MCP vem do monorepo (devDependency da cli), não do app: o script resolve o cliente pela
 // pasta dele, e não pela do app.

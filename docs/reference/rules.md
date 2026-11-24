@@ -49,7 +49,7 @@ As regras acham a pasta das telas no próprio caminho do arquivo (procurando `/s
 
 **Uma tela não importa da pasta de outra tela.** Um arquivo de uma tela (em qualquer profundidade, testes incluídos) não importa de outra, nem pelo alias nem por caminho relativo. A tela é a primeira pasta, a partir de `src/pages`, que tem `index.tsx`: `auth/login` não importa de `auth/register`, e a pasta sem `index.tsx` (`auth`) só agrupa. O que duas telas usam vai para `src/components/shared`.
 
-O arquivo solto em `src/pages` ou numa pasta de grupo (`src/pages/auth/shared.ts`) não é de tela, e a regra não o olha; importá-lo de uma tela conta como importar de outra, então ele também vai para `src/components/shared`.
+O arquivo solto em `src/pages` ou numa pasta de grupo (`src/pages/auth/shared.ts`) não é de tela, e a regra não o olha; importá-lo de uma tela também é recusado (`não importa o arquivo solto`), e ele vai para `src/components/shared`. A pasta sem `index.tsx` e sem tela dentro (`src/pages/rascunho`) conta como tela, como no `prumo check`.
 
 Confere todo especificador com origem: `import`, `import type`, `export ... from`, `export *`, `import()` com texto fixo e `import('...')` em posição de tipo.
 

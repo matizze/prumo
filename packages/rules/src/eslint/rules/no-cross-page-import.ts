@@ -27,8 +27,9 @@ const DEFAULTS = { alias: '@/', aliasRoot: 'src', pagesDir: 'src/pages' }
  * O que duas telas usam em comum vai para a pasta de componentes compartilhados.
  *
  * O arquivo solto em `src/pages/` ou numa pasta de grupo (`auth/shared.ts`) não é de tela, e a
- * regra não o olha; importá-lo de uma tela conta como importar de outra, então ele também vai para
- * os componentes compartilhados.
+ * regra não o olha; importá-lo de uma tela também é recusado, e ele vai para os componentes
+ * compartilhados. A pasta sem `index.tsx` e sem tela dentro (`rascunho`) conta como tela, como no
+ * `prumo check`.
  */
 export const noCrossPageImport: Rule.RuleModule = {
   meta: {
@@ -46,6 +47,8 @@ export const noCrossPageImport: Rule.RuleModule = {
       },
     ],
     messages: {
+      looseFile:
+        "A tela '{{page}}' não importa o arquivo solto '{{target}}' de uma pasta de telas ('{{specifier}}'): o que é de mais de uma tela vai para a pasta de componentes compartilhados.",
       crossPage:
         "A tela '{{page}}' não importa da pasta da tela '{{other}}' ('{{specifier}}'): o que as duas usam vai para a pasta de componentes compartilhados.",
     },
@@ -77,8 +80,10 @@ export const noCrossPageImport: Rule.RuleModule = {
       if (!resolved?.target.startsWith(`${pagesPath}/`)) return
 
       const target = resolved.target.slice(pagesPath.length + 1)
-      const other = pageOf(pagesPath, target) ?? target
-      if (other !== page) {
+      const other = pageOf(pagesPath, target)
+      if (!other) {
+        context.report({ node, messageId: 'looseFile', data: { page, target, specifier } })
+      } else if (other !== page) {
         context.report({ node, messageId: 'crossPage', data: { page, other, specifier } })
       }
     })

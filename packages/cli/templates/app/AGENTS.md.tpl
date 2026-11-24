@@ -32,11 +32,11 @@ Crie com os geradores, não à mão: eles registram a rota, as mensagens e os í
 | `pnpm exec prumo make:schema <domínio> [--entity <singular>] [--fields "a:string,b:int"]` | O schema zod da entidade (tipos: string, number, int, boolean, date, datetime, enum(a\|b\|c); `?` torna o campo opcional)          |
 | `pnpm exec prumo make:repository <domínio> [--data-source mock\|http\|storage]`      | O contrato, a implementação mock, as fixtures e o teste de contrato do domínio (precisa do schema)                              |
 | `pnpm exec prumo make:query <domínio>`                                             | As query keys, os hooks e as mutations do domínio (precisa do repositório)                                                      |
-| `pnpm exec prumo make:page <nome> [--query <domínio>] [--path <caminho>]`          | Tela com index, model, view, teste, mensagens e rota; com `--query`, a lista do domínio; com `--path /x/:id`, rota com parâmetro; `auth.login` (ou `auth/login`) cria a tela em `src/pages/auth/login/` |
+| `pnpm exec prumo make:page <nome> [--query <domínio>] [--path <caminho>]`          | Tela com index, model, view, teste, mensagens e rota; com `--query`, a lista do domínio; com `--path /x/:id`, rota com parâmetro |
 | `pnpm exec prumo check`                                                            | Confere a arquitetura do projeto inteiro                                                                                        |
 | `pnpm exec prumo list [--json]`                                                    | O que o projeto já tem (schemas, repositórios com as fontes, queries, telas com rota e idiomas); só lê. Rode antes de gerar     |
 
-Todos os geradores aceitam `--dry-run` (só lista o que faria).
+Todos os geradores aceitam `--dry-run` (só lista o que faria). No `make:page`, `auth.login` (ou `auth/login`) cria a tela numa subpasta, `src/pages/auth/login/`.
 
 Scripts do projeto: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm check`, `pnpm test` e `pnpm verify` (typecheck, lint, test e check, nessa ordem, para os testes rodarem mesmo que o check falhe; sem navegador). Rode o `pnpm verify` antes de dar uma tarefa por pronta.
 

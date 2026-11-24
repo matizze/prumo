@@ -5,6 +5,7 @@ import { UsageError } from '../errors.ts'
 import { contractEntity } from '../lib/contract.ts'
 import { domainIdSample, domainShapeOf, literal, type DomainShape } from '../lib/fields.ts'
 import { assertValidName, deriveNames, usableNames, type Names } from '../lib/names.ts'
+import { displayPath } from '../lib/paths.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'
 import { nameVars, renderTemplate, renderTemplateFile } from '../lib/templates.ts'
@@ -232,7 +233,7 @@ function queryOf(
   const list = `use${domain.pascal}List`
   if (!new RegExp(`\\b${list}\\b`).test(text)) {
     throw new UsageError(
-      `a query '${domain.kebab}' não tem o hook ${list} em ${path.relative(project.root, file)}: o model da tela lê a lista por ele; rode prumo make:query ${domain.kebab}.`,
+      `a query '${domain.kebab}' não tem o hook ${list} em ${displayPath(project.root, file)}: o model da tela lê a lista por ele; rode prumo make:query ${domain.kebab}.`,
     )
   }
   const entity = entityOf(project, domain, text)
@@ -240,7 +241,7 @@ function queryOf(
     const hook = entity ? `use${entity}Detail` : undefined
     if (!entity || !new RegExp(`\\b${hook}\\b`).test(text)) {
       throw new UsageError(
-        `a query '${domain.kebab}' não tem o hook use<Entidade>Detail em ${path.relative(project.root, file)}: a tela de detalhe (--query com um caminho com parâmetro) busca o registro por ele.`,
+        `a query '${domain.kebab}' não tem o hook use<Entidade>Detail em ${displayPath(project.root, file)}: a tela de detalhe (--query com um caminho com parâmetro) busca o registro por ele.`,
       )
     }
   }

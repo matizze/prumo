@@ -4,7 +4,7 @@ import {
   type ListedPage,
   type PageVariation,
   type ProjectListing,
-} from '../generators/listing.ts'
+} from '../lib/listing.ts'
 import { locateProject, ROOT_OPTION_DESCRIPTION } from '../lib/project.ts'
 import { documentCommand } from './help-text.ts'
 import type { RegisterCommand } from './index.ts'

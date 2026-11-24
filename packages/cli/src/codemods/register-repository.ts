@@ -3,12 +3,8 @@ import { Node, type ExportDeclaration, type ImportDeclaration, type SourceFile }
 import { UsageError } from '../errors.ts'
 import type { DomainNames } from '../lib/names.ts'
 import type { ChangePlan } from '../lib/plan.ts'
+import { displayPath } from '../lib/paths.ts'
 import { afterComma, applyEdits, indentOf, type TextEdit } from './edit.ts'
-
-/** O arquivo, relativo à raiz, para as mensagens de erro. */
-function display(plan: ChangePlan, file: string): string {
-  return path.relative(plan.project.root, file).split(path.sep).join('/')
-}
 
 /** O nome do módulo de um import ou export, ou `''` se não tiver (`export { x }` sem `from`). */
 export function specifierOf(declaration: ImportDeclaration | ExportDeclaration): string {
@@ -17,7 +13,7 @@ export function specifierOf(declaration: ImportDeclaration | ExportDeclaration):
 
 /** O container `src/repositories/index.ts`, que precisa existir. */
 function indexSource(plan: ChangePlan, file: string): SourceFile {
-  if (!plan.hasFile(file)) throw new UsageError(`o projeto não tem ${display(plan, file)}.`)
+  if (!plan.hasFile(file)) throw new UsageError(`o projeto não tem ${displayPath(plan.project.root, file)}.`)
   return plan.source(file)
 }
 
@@ -87,7 +83,7 @@ export interface RepositoryEntry {
  */
 export function registerRepositoryEntry(plan: ChangePlan, entry: RepositoryEntry): void {
   const file = path.join(plan.project.src, 'repositories', 'index.ts')
-  const where = display(plan, file)
+  const where = displayPath(plan.project.root, file)
   const index = indexSource(plan, file)
   const specifier = `./${entry.directory}`
   const { factory, key } = entry

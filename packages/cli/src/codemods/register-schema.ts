@@ -3,12 +3,8 @@ import { type ExportDeclaration, type ImportDeclaration, type SourceFile } from 
 import { UsageError } from '../errors.ts'
 import type { DomainNames } from '../lib/names.ts'
 import type { ChangePlan } from '../lib/plan.ts'
+import { displayPath } from '../lib/paths.ts'
 import { applyEdits, type TextEdit } from './edit.ts'
-
-/** O arquivo, relativo à raiz, para as mensagens de erro. */
-function display(plan: ChangePlan, file: string): string {
-  return path.relative(plan.project.root, file).split(path.sep).join('/')
-}
 
 /** O nome do módulo de um import ou export, ou `''` se não tiver (`export { x }` sem `from`). */
 function specifierOf(declaration: ImportDeclaration | ExportDeclaration): string {
@@ -54,7 +50,7 @@ function styleOf(declaration: ExportDeclaration | undefined): { quote: string; s
  */
 export function registerSchema(plan: ChangePlan, to: DomainNames): void {
   const file = path.join(plan.project.src, 'schemas', 'index.ts')
-  const where = display(plan, file)
+  const where = displayPath(plan.project.root, file)
   if (!plan.hasFile(file)) throw new UsageError(`o projeto não tem ${where}.`)
   const index = plan.source(file)
   const specifier = `./entities/${to.singular.kebab}`

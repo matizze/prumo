@@ -8,11 +8,12 @@ import {
   usesIdentifier,
   type RouteElement,
 } from '../codemods/route-elements.ts'
-import { contractEntity } from '../lib/contract.ts'
-import { readEntityFields, type FieldType } from '../lib/fields.ts'
-import { deriveNames, type DomainNames } from '../lib/names.ts'
-import { ChangePlan } from '../lib/plan.ts'
-import type { Project } from '../lib/project.ts'
+import { contractEntity } from './contract.ts'
+import { readEntityFields, type FieldType } from './fields.ts'
+import { deriveNames, type DomainNames } from './names.ts'
+import { ChangePlan } from './plan.ts'
+import { displayPath } from './paths.ts'
+import type { Project } from './project.ts'
 
 /** Um campo de um schema, como o leitor do Prumo o reconhece. */
 export interface ListedField {
@@ -111,10 +112,6 @@ function pascalOf(kebab: string): string {
     .join('')
 }
 
-function relative(project: Project, file: string): string {
-  return path.relative(project.root, file).split(path.sep).join('/')
-}
-
 /** O motivo da recusa do leitor, curto: a primeira linha, sem o `arquivo:linha`, no máximo 160 caracteres. */
 function shortReason(message: string, file: string): string {
   let reason = (message.split('\n')[0] ?? message).trim()
@@ -209,7 +206,7 @@ function listQueries(project: Project): ListedQuery[] {
       (contract ? contractEntity(contract) : undefined) ??
       /\buse([A-Z][A-Za-z0-9]*)Detail\b/.exec(text)?.[1] ??
       null
-    return { domain, file: relative(project, file), entity, hooks }
+    return { domain, file: displayPath(project.root, file), entity, hooks }
   })
 }
 

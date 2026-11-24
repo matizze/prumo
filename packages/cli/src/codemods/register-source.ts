@@ -3,6 +3,7 @@ import { Node, SyntaxKind, type ExportDeclaration, type FunctionDeclaration, typ
 import { UsageError } from '../errors.ts'
 import type { DomainNames } from '../lib/names.ts'
 import type { ChangePlan } from '../lib/plan.ts'
+import { displayPath } from '../lib/paths.ts'
 import { applyEdits, indentOf, isTextLiteral, type TextEdit } from './edit.ts'
 import { insertSorted, specifierOf, styleOf } from './register-repository.ts'
 
@@ -50,18 +51,13 @@ function mergeInsertions(edits: TextEdit[]): TextEdit[] {
   return merged
 }
 
-/** O arquivo, relativo à raiz, para as mensagens. */
-function display(plan: ChangePlan, file: string): string {
-  return path.relative(plan.project.root, file).split(path.sep).join('/')
-}
-
 /**
  * Acrescenta `source` ao `DATA_SOURCES` de `src/repositories/options.ts`, se ainda não está lá. O
  * arquivo e o `export const DATA_SOURCES = [...] as const` precisam existir.
  */
 export function addDataSource(plan: ChangePlan, source: RepositorySource): void {
   const file = path.join(plan.project.src, 'repositories', 'options.ts')
-  const where = display(plan, file)
+  const where = displayPath(plan.project.root, file)
   if (!plan.hasFile(file)) throw new UsageError(`o projeto não tem ${where}.`)
   const options = plan.source(file)
   const initializer = options.getVariableDeclaration('DATA_SOURCES')?.getInitializer()
@@ -144,7 +140,7 @@ export function registerFactorySource(
   source: RepositorySource,
 ): void {
   const file = path.join(plan.project.src, 'repositories', names.plural.kebab, 'index.ts')
-  const where = display(plan, file)
+  const where = displayPath(plan.project.root, file)
   if (!plan.hasFile(file)) throw new UsageError(`falta ${where}, a fábrica do domínio.`)
   const index = plan.source(file)
   const factory = `create${names.plural.pascal}Repository`
@@ -216,7 +212,7 @@ export function registerContractSource(
     names.plural.kebab,
     'repository.contract.test.ts',
   )
-  const where = display(plan, file)
+  const where = displayPath(plan.project.root, file)
   const skipped = `o teste de contrato da fonte ${source} não foi acrescentado`
   if (!plan.hasFile(file)) return `${skipped}: falta ${where}. Acrescente o runContractSuite à mão.`
   const test = plan.source(file)
@@ -306,7 +302,7 @@ const NEW_RESOLVE =
  */
 export function readDataSourceFromEnv(plan: ChangePlan): string | undefined {
   const file = path.join(plan.project.src, 'repositories', 'index.ts')
-  const where = display(plan, file)
+  const where = displayPath(plan.project.root, file)
   const how = `Troque a chamada do resolveDataSource por ${NEW_RESOLVE}.`
   if (!plan.hasFile(file)) {
     return `não achei ${where}, então não sei se o container lê a VITE_DATA_SOURCE. ${how}`

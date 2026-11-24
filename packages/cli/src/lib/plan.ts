@@ -11,6 +11,7 @@ import {
 import path from 'node:path'
 import { IndentationText, Project as MorphProject, QuoteKind, ts, type SourceFile } from 'ts-morph'
 import { ExitError, UsageError } from '../errors.ts'
+import { displayPath } from './paths.ts'
 import type { Project } from './project.ts'
 
 /** O que o plano criaria e alteraria, com caminhos relativos à raiz do projeto, em ordem. */
@@ -118,8 +119,7 @@ export class ChangePlan {
 
   /** O que o plano criaria e alteraria. Arquivos editados que ficaram iguais não contam. */
   summary(): PlanSummary {
-    const relative = (file: string) =>
-      path.relative(this.project.root, file).split(path.sep).join('/')
+    const relative = (file: string) => this.#display(file)
     const created = [...this.#createdSources.keys(), ...this.#createdFiles.keys()].map(relative)
     const modified = [
       ...[...this.#loadedSources]
@@ -219,7 +219,7 @@ export class ChangePlan {
   }
 
   #display(file: string): string {
-    return path.relative(this.project.root, file).split(path.sep).join('/')
+    return displayPath(this.project.root, file)
   }
 }
 

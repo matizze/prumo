@@ -11,7 +11,7 @@ O Prumo é uma **ferramenta** para criar e manter aplicações React organizadas
 - **`prumo mcp`:** o servidor MCP do projeto, por stdio, com uma ferramenta por comando, para agentes de IA. Veja [Agentes de IA](guides/ai-agents.md#o-servidor-mcp).
 - **Pacotes de apoio:** o [core](reference/core.md), as [regras](reference/rules.md) e o [testing](reference/testing.md), que o app gerado já traz.
 
-## Depois da v1
+## Próximos passos
 
 Ideias, sem data e sem compromisso:
 

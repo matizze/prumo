@@ -114,7 +114,7 @@ A referência completa das regras, com as opções e as mensagens, está em [rul
 
 ## Convenções que os geradores seguem
 
-Algumas convenções não são cobradas por regra, mas o código gerado as segue e o `AGENTS.md` do app as registra:
+Algumas convenções não são cobradas por regra, mas o código gerado as segue:
 
 - **O dado vem de um hook de `src/queries`**, que usa o repositório do container. Nada de `fetch` solto numa tela.
 - **Todo texto visível mora em `src/messages`**, nos dois idiomas, e é lido pelo `useTranslations`.

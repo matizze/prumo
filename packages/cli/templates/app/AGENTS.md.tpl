@@ -44,6 +44,10 @@ Scripts do projeto: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pn
 
 O projeto traz o `.mcp.json`, que registra o servidor `prumo` (`pnpm exec prumo mcp`, por stdio). Ele dá ao agente os mesmos geradores como ferramentas: `make_schema`, `make_repository`, `make_query`, `make_page`, `check` e `list`. Os parâmetros têm o nome da opção em snake_case sem acento (`dominio`, `nome`, `entity`, `fields`, `data_source`, `query`, `path` e `dry_run`). O servidor trabalha só neste projeto. Prefira as ferramentas a editar à mão, e chame `list` antes de gerar.
 
+## Documentação
+
+A documentação do Prumo está em https://docs.prumo.matizze.com.br.
+
 ## Testes
 
 Teste o comportamento novo (Vitest, com o `renderWithProviders` de `@/test/render`).

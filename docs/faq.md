@@ -36,11 +36,11 @@ O Prumo não decide. Estado de tela fica no model; dado do servidor fica no cach
 
 ### Como atualizo o Prumo num app existente?
 
-Atualize os pacotes com o pnpm (`pnpm up "@matizze/prumo-*" --latest`) e rode `pnpm verify`. As mudanças de cada versão estão no `CHANGELOG.md` de cada pacote. Os arquivos que o `prumo new` já gerou são do app e não mudam com a atualização.
+Atualize os pacotes com o pnpm (`pnpm up "@matizze/prumo-*" --latest`) e rode `pnpm verify`. Os arquivos que o `prumo new` já gerou são do app e não mudam com a atualização.
 
 ### Usei uma versão anterior e um comando sumiu. O que mudou?
 
-A 0.7.0 do `@matizze/prumo-cli` reescreveu a CLI: o que saiu e o que o substitui está no `CHANGELOG.md` do pacote, na entrada da 0.7.0. Os comandos de hoje estão na [referência da CLI](reference/cli.md).
+A 0.7.0 do `@matizze/prumo-cli` reescreveu a CLI: `make:domain` virou `make:schema`, `make:repository` e `make:query`; `--domain` virou `--query`; a fonte `memory` virou `mock`; `make:component`, `move:component` e `doctor` saíram. Os comandos de hoje estão na [referência da CLI](reference/cli.md).
 
 ## Solução de problemas
 

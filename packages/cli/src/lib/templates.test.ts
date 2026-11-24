@@ -87,11 +87,6 @@ const GENERATED: { template: string; to: string }[] = [
   ),
 ]
 
-/**
- * Os modelos que ainda esperam o gerador dos passos seguintes da reescrita (a query e as outras variações da tela). Cada passo tira o seu daqui ao ligar o modelo.
- */
-const WAITING: RegExp[] = []
-
 describe('os modelos', () => {
   const files = (dir: string): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
@@ -109,16 +104,11 @@ describe('os modelos', () => {
     expect(manifest.files).toEqual(['dist', 'templates'])
   })
 
-  it('todo modelo de um gerador existe, e todo arquivo de templates/ é usado ou espera um passo', () => {
+  it('todo modelo de um gerador existe, e todo arquivo de templates/ é usado por um gerador', () => {
     const used = new Set(GENERATED.map((file) => file.template))
     for (const template of used) expect(existsSync(path.join(TEMPLATES_DIR, template))).toBe(true)
     const unused = files(TEMPLATES_DIR).filter((file) => !used.has(file))
-    for (const file of unused) {
-      expect(
-        WAITING.some((pattern) => pattern.test(file)),
-        `${file} não é usado por nenhum gerador`,
-      ).toBe(true)
-    }
+    expect(unused, 'modelos que nenhum gerador usa').toEqual([])
   })
 
   it('só têm a extensão .tpl, para o TypeScript, o ESLint e o Vitest não os tomarem por código', () => {

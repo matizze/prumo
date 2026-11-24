@@ -44,7 +44,7 @@ describe('scripts/verify-new.sh', () => {
     expect(code).toContain('pnpm verify')
   })
 
-  it('tem a etapa cli com o lugar onde os passos seguintes acrescentam os comandos', () => {
+  it('tem a etapa cli, que roda os comandos de geração', () => {
     expect(script).toContain('stage_cli() {')
     for (const command of ['make:schema', 'make:repository', 'make:query', 'make:page']) {
       expect(script).toContain(command)

@@ -233,6 +233,9 @@ export default function App() {
       expect(agents).toContain(text)
     }
     expect(read(root, 'README.md')).toContain('.mcp.json')
+    for (const file of ['AGENTS.md', 'README.md']) {
+      expect(read(root, file), file).not.toMatch(/make:domain|make:component|move:component|doctor/i)
+    }
     expect(agents.split('\n').length).toBeLessThan(80)
   })
 

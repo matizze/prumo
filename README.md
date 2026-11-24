@@ -130,7 +130,7 @@ A documentação completa está em [docs.prumo.matizze.com.br](https://docs.prum
 
 ## Situação do projeto
 
-O Prumo está em versão `0.x` e é mantido pela Matizze. A estrutura que ele gera é estável; a API dos pacotes ainda pode mudar entre versões menores, sempre registrada no `CHANGELOG.md` de cada pacote. O que vem depois está no [roadmap](docs/roadmap.md).
+O Prumo está em versão `0.x` e é mantido pela Matizze. A estrutura que ele gera é estável; a API dos pacotes ainda pode mudar entre versões menores. O que vem depois está no [roadmap](docs/roadmap.md).
 
 ## Contribuindo
 

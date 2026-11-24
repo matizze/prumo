@@ -44,7 +44,7 @@ const config: Config = {
           routeBasePath: '/',
           sidebarPath: './sidebars.ts',
           editUrl: ({ docPath }) => `${repository}/edit/main/docs/${docPath}`,
-          beforeDefaultRemarkPlugins: [linkOutsideDocs({ docsDir, excluded: [], repository })],
+          beforeDefaultRemarkPlugins: [linkOutsideDocs({ docsDir, repository })],
         },
         blog: false,
         theme: { customCss: './src/css/custom.css' },

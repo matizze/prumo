@@ -1,20 +1,12 @@
-import { readFileSync } from 'node:fs'
 import { Command, CommanderError, Help, type Option } from 'commander'
 import { commands as builtinCommands, type RegisterCommand } from './commands/index.ts'
 import { ExitError, UsageError } from './errors.ts'
 import type { Io } from './io.ts'
+import { readVersion } from './lib/version.ts'
 
 const NAME = 'prumo'
 const DESCRIPTION =
   'Prumo, a ferramenta da Matizze que cria e confere a arquitetura de apps React.'
-
-/** A versão do pacote: o package.json fica um nível acima de `src/` e de `dist/`. */
-function readVersion(): string {
-  const manifest = JSON.parse(
-    readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
-  ) as { version: string }
-  return manifest.version
-}
 
 const TITLES: Record<string, string> = {
   'Usage:': 'Uso:',

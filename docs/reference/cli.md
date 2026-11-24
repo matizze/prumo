@@ -15,6 +15,7 @@ prumo [opções] [comando]
 | [`make:page <nome>`](#prumo-makepage) | Cria uma tela (index, model, view, teste), os textos e a rota |
 | [`check`](#prumo-check)            | Confere a arquitetura do projeto                      |
 | [`list`](#prumo-list)              | Mostra o que o projeto tem (schemas, repositórios, queries, telas, idiomas) |
+| [`mcp`](#prumo-mcp)                | Abre o servidor MCP do projeto, por stdio, para agentes de IA |
 
 ## Como rodar
 
@@ -327,6 +328,56 @@ Um objeto com cinco listas, sempre presentes (vazias quando não há nada), orde
 |                | `variation` | `titulo` (só o título), `lista` (com query), `parametro` (rota com parâmetro) ou `detalhe` (query e parâmetro)                          |
 |                | `query`     | O domínio da query que o model da tela importa de `@/queries`; `null` se não usa                                                        |
 | `languages`    |             | As pastas de `src/messages`, em ordem                                                                                                  |
+
+## `prumo mcp`
+
+```text
+prumo mcp [--root <pasta>]
+```
+
+Abre o servidor MCP do projeto, por stdio, para um agente de IA usar o Prumo sem passar pelo terminal. Confere que a pasta é um projeto (como o `check`: sai com 2 se não tem `package.json` e `src`) e só então carrega o SDK do MCP, que fica fora dos outros comandos. O servidor se anuncia como `prumo`, com a versão da CLI, e só termina quando o cliente fecha.
+
+O stdout é do protocolo: nada além dele sai ali com o servidor no ar (o `console.log` vai para o stderr). Por isso, não rode o comando à mão: ligue-o ao agente. Num projeto que não saiu do `prumo new`, cole no `.mcp.json` da raiz:
+
+```json
+{
+  "mcpServers": {
+    "prumo": { "command": "pnpm", "args": ["exec", "prumo", "mcp"] }
+  }
+}
+```
+
+| Opção           | O que faz                                                          |
+| --------------- | ------------------------------------------------------------------ |
+| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta onde abriu |
+
+### As ferramentas
+
+Uma ferramenta por comando, menos `new` e `mcp`. Elas saem da árvore de comandos da CLI: um comando novo vira ferramenta sem outra lista para manter.
+
+- **Nome:** o do comando, com `:` trocado por `_` (`make:schema` vira `make_schema`).
+- **Descrição:** o resumo e a descrição do comando, os mesmos da ajuda.
+- **Entrada:** os argumentos posicionais (obrigatórios) e as opções, com nomes em snake_case sem acento: `<domínio>` vira `dominio`, `--data-source` vira `data_source`, `--dry-run` vira `dry_run`. Opção com valor é `string` (com `enum` quando o comando lista os valores); opção sem valor é `boolean`; `--no-<x>` vira `<x>: boolean`, com `true` de padrão. O posicional não pode começar com `-`. Campo fora do esquema é recusado.
+- **Fora da entrada:** `--root`, `--help` e `--version`. Nenhuma ferramenta recebe a pasta: o agente só escreve no projeto onde o servidor abriu. No `list`, o `--json` também não é campo: a ferramenta sempre o passa.
+
+| Ferramenta        | Parâmetros                                                                               |
+| ----------------- | ---------------------------------------------------------------------------------------- |
+| `make_schema`     | `dominio` (obrigatório), `entity`, `fields`, `dry_run`                                   |
+| `make_repository` | `dominio` (obrigatório), `entity`, `data_source` (`mock`, `http` ou `storage`), `dry_run` |
+| `make_query`      | `dominio` (obrigatório), `entity`, `dry_run`                                             |
+| `make_page`       | `nome` (obrigatório), `query`, `path`, `dry_run`                                         |
+| `check`           | nenhum                                                                                   |
+| `list`            | nenhum                                                                                   |
+
+Os parâmetros têm o significado das opções do comando de mesmo nome (veja as seções acima).
+
+### O resultado
+
+A entrada vira a linha de comando (`['make:schema', '--fields=...', '--', 'livros']`: a opção de valor vai como `--opção=valor` e os posicionais depois de `--`, para nenhum valor ser lido como opção) e roda em processo, na pasta do projeto, com a saída capturada. O resultado é o texto da saída: o stdout e, se houver, o stderr. A ferramenta `list` devolve o JSON do `prumo list --json`.
+
+- `isError` é verdadeiro quando o código de saída não é 0, com a mensagem em português (o erro de uso traz o `prumo: ...` e a ajuda do comando).
+- O `check` com violação (código 1) não é erro: volta com `isError` falso e as violações no texto, para o agente corrigir.
+- As chamadas rodam uma de cada vez, numa fila, para duas escritas no mesmo projeto não se cruzarem.
 
 ## Opções globais
 

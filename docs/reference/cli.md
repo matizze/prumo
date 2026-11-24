@@ -373,7 +373,7 @@ Os parâmetros têm o significado das opções do comando de mesmo nome (veja as
 
 ### O resultado
 
-A entrada vira a linha de comando (`['make:schema', '--fields', '...', '--', 'livros']`) e roda em processo, na pasta do projeto, com a saída capturada. O resultado é o texto da saída: o stdout e, se houver, o stderr. A ferramenta `list` devolve o JSON do `prumo list --json`.
+A entrada vira a linha de comando (`['make:schema', '--fields=...', '--', 'livros']`: a opção de valor vai como `--opção=valor` e os posicionais depois de `--`, para nenhum valor ser lido como opção) e roda em processo, na pasta do projeto, com a saída capturada. O resultado é o texto da saída: o stdout e, se houver, o stderr. A ferramenta `list` devolve o JSON do `prumo list --json`.
 
 - `isError` é verdadeiro quando o código de saída não é 0, com a mensagem em português (o erro de uso traz o `prumo: ...` e a ajuda do comando).
 - O `check` com violação (código 1) não é erro: volta com `isError` falso e as violações no texto, para o agente corrigir.

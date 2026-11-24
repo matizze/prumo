@@ -81,25 +81,46 @@ try {
   const dry = await call('make_page', { nome: 'simulada', dry_run: true })
   assert(dry.text.trim() !== '', 'o dry_run não disse o que faria')
 
-  // Um erro de uso volta como erro da ferramenta, com a mensagem em português
+  // Um erro de uso volta como erro da ferramenta, com a mensagem de uso (não um erro inesperado)
   const bad = await invoke('make_query', { dominio: 'editoras' })
   assert(bad.result.isError === true, 'make_query de um domínio sem repositório deveria voltar com isError')
-  assert(/[a-zà-ú]{3}/i.test(bad.text) && bad.text.trim() !== '', 'o erro de uso veio sem mensagem')
+  assert(
+    bad.text.includes('falta o repositório editoras') && !bad.text.includes('erro inesperado'),
+    'o erro de uso não trouxe a mensagem esperada (falta o repositório editoras)',
+  )
 
-  await call('check', {})
+  const checked = await call('check', {})
+  assert(checked.text.includes('nenhuma violação'), 'o check não disse "nenhuma violação"')
+
   const listed = await call('list', {})
   const listing = JSON.parse(listed.text)
-  assert(
-    listing.repositories?.some((r) => r.domain === 'autores' && r.sources.includes('storage')),
-    'o list não mostra o repositório autores com a fonte storage',
-  )
+
+  // O schema tem os campos pedidos, com tipo e opcionalidade
+  const schema = listing.schemas?.find((item) => item.file.endsWith('/autore.ts'))
+  assert(schema, 'o list não mostra o schema autores')
+  const got = (schema.fields ?? []).map((f) => `${f.name}:${f.type}${f.optional ? '?' : ''}`).join(',')
+  const wanted = 'nome:string,pais:string,nascimento:date,ativo:boolean,obras:int?'
+  assert(got === wanted, `os campos do schema autores são ${got} (esperado: ${wanted})`)
+
+  const repository = listing.repositories?.find((r) => r.domain === 'autores')
+  assert(repository?.sources.includes('storage'), 'o list não mostra o repositório autores com a fonte storage')
   assert(
     listing.queries?.some((q) => q.domain === 'autores'),
     'o list não mostra a query autores',
   )
-  const pages = Object.fromEntries((listing.pages ?? []).map((p) => [p.name, p.route]))
-  assert(pages.autores === '/autores', `o list não mostra a tela autores em /autores (${pages.autores})`)
-  assert(pages.autor === '/autores/:id', `o list não mostra a tela autor em /autores/:id (${pages.autor})`)
+
+  const pages = Object.fromEntries((listing.pages ?? []).map((p) => [p.name, p]))
+  const summary = (p) => (p ? `${p.variation} ${p.route} query=${p.query}` : 'ausente')
+  const list = pages.autores
+  assert(
+    list?.variation === 'lista' && list.route === '/autores' && list.query === 'autores',
+    `a tela autores deveria ser lista em /autores com query autores (${summary(list)})`,
+  )
+  const detail = pages.autor
+  assert(
+    detail?.variation === 'detalhe' && detail.route === '/autores/:id' && detail.query === 'autores',
+    `a tela autor deveria ser detalhe em /autores/:id com query autores (${summary(detail)})`,
+  )
   assert(!('simulada' in pages), 'o dry_run criou a tela simulada')
 } catch (error) {
   console.error(`drive-mcp: ${error instanceof Error ? error.message : String(error)}`)

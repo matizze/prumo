@@ -29,8 +29,9 @@ O comando cria a pasta `loja`, roda `git init` (sem commit: o primeiro commit é
 prumo new: loja.
 Destino: /home/voce/loja
 
-Criados (31):
+Criados (32):
   .gitignore
+  .mcp.json
   AGENTS.md
   README.md
   eslint.config.js

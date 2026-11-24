@@ -23,6 +23,7 @@ Para avaliar o risco, vale saber o que cada peça executa:
 
 - **`prumo new`** cria arquivos numa pasta nova e roda `git init` e `pnpm install` nela.
 - **`prumo make:*`** cria e edita arquivos dentro da pasta do projeto (`--root`), e só depois de validar tudo.
-- **`prumo check`** só lê arquivos, sem rede.
+- **`prumo check`** e **`prumo list`** só leem arquivos, sem rede.
+- **`prumo mcp`** abre um servidor MCP por stdio, que só conversa com o programa que o abriu (o agente de IA): não abre porta de rede nem faz requisição. Cada ferramenta roda o comando de mesmo nome, em processo, e escreve no projeto pelas mesmas regras da CLI (valida tudo antes e nunca sobrescreve arquivo), e só nele: a pasta é a de onde o servidor abriu (ou a `--root`), e nenhuma ferramenta recebe outra. Ele não cria app (o `new` não é ferramenta), não roda comandos do sistema nem instala dependências. Quem aprova o servidor é a pessoa, no cliente do agente, ao confiar no `.mcp.json` do projeto: um `.mcp.json` de origem desconhecida abre o programa que ele disser, então confie nele como confiaria num script do projeto.
 
 Os pacotes são publicados pelo workflow do repositório com o Trusted Publishing do npm, sem token guardado.

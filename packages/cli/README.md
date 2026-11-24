@@ -35,6 +35,7 @@ pnpm exec prumo check                                              # confere a a
 | `prumo make:page <nome> [--query <domínio>] [--path <caminho>]`            | Cria a tela (index, model, view, teste), os textos e a rota               |
 | `prumo check`                                                              | Confere a arquitetura do projeto                                          |
 | `prumo list [--json]`                                                      | Mostra o que o projeto tem (schemas, repositórios, queries, telas, idiomas) |
+| `prumo mcp`                                                                | Abre o servidor MCP do projeto, por stdio, para agentes de IA              |
 
 O `new` e os `make:*` aceitam `--dry-run` (o `check` e o `list` só leem), todos validam tudo antes de escrever, e os `make:*`, o `check` e o `list` aceitam `--root <pasta>` (o `new` tem `--dir`). Nenhum sobrescreve arquivo. `pnpm exec prumo --help` e `prumo <comando> --help` mostram a ajuda, em português.
 

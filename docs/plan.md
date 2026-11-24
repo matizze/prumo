@@ -301,9 +301,18 @@ Sem `--json`, é um texto curto por seção. Com `--json`, é um objeto estável
 | M4 | Documentação (guia de agentes de IA, referência do `mcp` e do `list`) e changeset `minor` da cli                                                                               | O site compila e a documentação bate com os comandos                                                                                        |
 | M5 | Com o ok de uma pessoa: versões (cli 0.8.0), `develop` → `main` e o `npm deprecate` do pacote antigo                                                                           | A 0.8.0 no npm e o pacote antigo marcado                                                                                                    |
 
-**Situação:** M1, M2 e M3 concluídos.
+**Situação:** M1 a M4 concluídos; o M5 (versão 0.8.0, `main` e `npm deprecate` do `@matizze/prumo-mcp`) espera o ok de uma pessoa.
 
 ### 13.5 Execução e o que fica de fora
 
 - **Como executar:** decidido em 24/11/2026 — o mesmo ciclo da seção 11 (subagentes em segundo plano, revisão independente, portão e merge na `develop` pelo orquestrador), de M1 a M4. O M5 espera o ok de uma pessoa.
 - **Recursos e prompts MCP:** ficam de fora por enquanto. O agente já lê o `AGENTS.md` do app.
+
+### 13.6 Desvios registrados na execução
+
+O que os PRs #117 a #119 registraram na seção "Desvios" e nos comentários, em resumo:
+
+- **#117 (`prumo list`):** no JSON, a `variation` usa os valores em português (`titulo`, `lista`, `parametro`, `detalhe`) e só as chaves são em inglês; o schema que o leitor recusa vem como `fields: null` mais `problem` (o motivo curto), e não como um campo booleano; uma fonte `http` ou `storage` só conta se o arquivo existe e a fábrica a escolhe; o `make:query` e o `make:page` passaram a usar `contractEntity`, sem mudar o comportamento.
+- **#118 (`prumo mcp`):** sem `zod` direto, porque o `inputSchema` das ferramentas é JSON Schema, passado por `fromJsonSchema` do SDK (as duas dependências aprovadas, 2.4.0, ficaram fixas, sem `^`); o erro de uso volta como o texto do stderr da cli (`prumo: <mensagem>` e a ajuda do comando), sem sufixo `[saída N]`; a entrada vira `--opção=valor` e os posicionais vão depois de `--`; o teste "não escreve fora do projeto" passou a usar uma pasta-mãe isolada, porque comparava a pasta temporária do sistema, compartilhada com os outros testes.
+- **#119 (o app):** nenhum desvio; o cliente MCP do `verify:new` passa `entity: 'autor'` para exercitar o parâmetro.
+

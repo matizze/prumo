@@ -88,6 +88,11 @@ stage_cli() {
   prumo make:repository clientes --data-source http
   prumo make:schema pedidos
   prumo make:repository pedidos --data-source http
+  # passo 6: make:query, uma por domínio (as queries só usam o contrato, valem para qualquer fonte)
+  prumo make:query clientes
+  prumo make:query livros
+  prumo make:query paes --entity pao
+  prumo make:query pedidos
 }
 
 stage_verify() {

@@ -28,7 +28,7 @@ function appendLine(file: SourceFile, line: string): TextEdit {
  * linhas seguintes), para o export novo nunca cair dentro de um comentário e o comentário ficar
  * com o export dele.
  */
-function afterLine(file: SourceFile, last: ExportDeclaration, line: string): TextEdit {
+export function afterLine(file: SourceFile, last: ExportDeclaration, line: string): TextEdit {
   const text = file.getFullText()
   const comments = last.getTrailingCommentRanges()
   const from = comments.length > 0 ? Math.max(last.getEnd(), comments[comments.length - 1]!.getEnd()) : last.getEnd()

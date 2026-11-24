@@ -45,6 +45,12 @@ export {
 export * from './entities/ai'
 `
 
+/** O `src/queries/index.ts` do projeto de fixture: já com dois domínios, fora de ordem de chegada. */
+const QUERIES_INDEX = `// Queries, uma por domínio.
+export { customerKeys, useCustomersList } from './customers'
+export { taskKeys, useTasksList } from './tasks'
+`
+
 /** O `src/repositories/index.ts` do projeto de fixture: o container, com quatro domínios. */
 const REPOSITORIES_INDEX = `import {
   createRepositoryContainer,
@@ -139,6 +145,7 @@ export function fixtureProject(): Project {
       'src/schemas/index.ts': SCHEMAS_INDEX,
       'src/repositories/index.ts': REPOSITORIES_INDEX,
       'src/repositories/options.ts': REPOSITORY_OPTIONS,
+      'src/queries/index.ts': QUERIES_INDEX,
     }),
   )
 }

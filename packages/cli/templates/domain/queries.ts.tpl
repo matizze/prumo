@@ -94,10 +94,11 @@ export function useRemove{{singular.pascal}}() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => repository.remove(id),
-    // O detalhe do registro removido sai do cache em vez de ser buscado de novo (daria `*_NOT_FOUND`);
-    // só as listas são buscadas outra vez
+    // O detalhe do registro removido sai do cache e só as listas são buscadas de novo. Uma tela de
+    // detalhe que continua montada depois do remove busca o registro outra vez e recebe `*_NOT_FOUND`:
+    // depois de remover, saia da tela (navegue para a lista)
     onSuccess: (_, id) => {
-      queryClient.removeQueries({ queryKey: {{singular.camel}}Keys.detail(id) })
+      queryClient.removeQueries({ queryKey: {{singular.camel}}Keys.detail(id), exact: true })
       return queryClient.invalidateQueries({ queryKey: {{singular.camel}}Keys.lists })
     },
   })

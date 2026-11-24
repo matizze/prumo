@@ -187,7 +187,7 @@ export function appNameProblem(name: string): string | undefined {
 }
 
 /** O nome para ler: `meu-app` vira `Meu App` (título do `index.html` e do `AGENTS.md`). */
-export function titleOf(name: string): string {
+export function kebabToTitle(name: string): string {
   return name
     .split('-')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))

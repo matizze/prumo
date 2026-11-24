@@ -4,7 +4,7 @@ import { addRouteSnippet, messageLanguages, registerMessageNamespace } from '../
 import { UsageError } from '../errors.ts'
 import { contractEntity } from '../lib/contract.ts'
 import { domainIdSample, domainShapeOf, literal, type DomainShape } from '../lib/fields.ts'
-import { assertValidName, deriveNames, usableNames, type Names } from '../lib/names.ts'
+import { assertValidName, deriveNames, RESERVED_WORDS, usableNames, type Names } from '../lib/names.ts'
 import { displayPath } from '../lib/paths.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'
@@ -65,13 +65,6 @@ export function messagesTemplate(language: (typeof MESSAGE_LANGUAGES)[number], w
 export function messagesLanguageOf(language: string): (typeof MESSAGE_LANGUAGES)[number] {
   return language.toLowerCase().startsWith('pt') ? 'pt-BR' : 'en'
 }
-
-/** Palavras que não servem de nome de variável: o parâmetro vira uma constante no model. */
-const RESERVED_WORDS = new Set(
-  'break case catch class const continue debugger default delete do else enum export extends false finally for function if import in instanceof new null return super switch this throw true try typeof var void while with yield let static implements interface package private protected public await async undefined'.split(
-    ' ',
-  ),
-)
 
 /** Os nomes que os modelos de tela declaram ou importam: o parâmetro (uma constante do model) não pode repeti-los. */
 const MODEL_NAMES = new Set(['t', 'detail', 'useParams', 'useTranslations'])

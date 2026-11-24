@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { deriveNames, titleOf } from '../lib/names.ts'
+import { deriveNames, kebabToTitle } from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import { projectAt } from '../lib/project.ts'
 import { nameVars, renderTemplate, renderTemplateFile } from '../lib/templates.ts'
@@ -139,7 +139,7 @@ export function appPackageJson({ name, overrides, pnpm }: AppRequest): string {
  */
 export function generateApp(request: AppRequest): ChangePlan {
   const names = deriveNames(request.name)
-  const vars = { ...nameVars('app', names), 'app.title': titleOf(names.kebab) }
+  const vars = { ...nameVars('app', names), 'app.title': kebabToTitle(names.kebab) }
   const project = projectAt(request.root)
   const plan = new ChangePlan(project)
 

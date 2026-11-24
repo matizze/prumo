@@ -109,7 +109,7 @@ function isLegacy(field: Field): boolean {
 }
 
 /** `publicadoEm` vira `Publicado em`: o nome do campo como texto de exemplo. */
-function titleOf(name: string): string {
+function camelToSentence(name: string): string {
   const words = name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase()
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
@@ -125,7 +125,7 @@ export function sampleValue(field: Field, n: number): Value {
   switch (field.type) {
     case 'string':
       if (isLegacy(field)) return n === 4 ? 'Novo' : `Exemplo ${n}`
-      return `${titleOf(field.name)} ${n}`
+      return `${camelToSentence(field.name)} ${n}`
     case 'number':
     case 'int':
       return n * 10
@@ -145,7 +145,7 @@ export function editValue(field: Field, partial = false): Value {
   switch (field.type) {
     case 'string':
       if (isLegacy(field)) return partial ? 'Parcial' : 'Renomeado'
-      return `${titleOf(field.name)} editado`
+      return `${camelToSentence(field.name)} editado`
     case 'number':
     case 'int':
       return 999

@@ -6,7 +6,7 @@ O Prumo é uma **ferramenta** para criar e manter aplicações React organizadas
 
 Este plano substitui o de 22/11/2026 (Fases A, B e C, já concluídas, exceto o repositório público). A `cli` é reescrita do zero com o commander; a arquitetura do app gerado não muda.
 
-**Situação:** v1 completa na `develop` em 23/11/2026: passos 1 a 7 e 9 concluídos (o 8 entrou no 2). Falta uma pessoa decidir a versão e a ida para a `main`.
+**Situação:** v1 completa na `develop` em 23/11/2026: passos 1 a 7 e 9 concluídos (o 8 entrou no 2). Versões da v1 (24/11/2026): `@matizze/prumo-cli` 0.7.0, `@matizze/prumo-core` 0.2.1 e `@matizze/prumo-testing` 0.3.1, publicadas pelo workflow quando a `develop` vai para a `main`.
 
 ## 1. Por que recomeçar a CLI
 

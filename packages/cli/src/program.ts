@@ -91,7 +91,11 @@ function portugueseSuggestion(suggestion: string): string {
   return one ? ` Você quis dizer ${one[1]}?` : ''
 }
 
-/** Traduz a mensagem de erro do commander (em inglês, estável por `code`) para o português. */
+/**
+ * Traduz a mensagem de erro do commander (em inglês, estável por `code`) para o português. Lê o
+ * texto em inglês da versão fixada no `package.json` (`~15.1.0`): subir o commander pede conferir
+ * as mensagens aqui.
+ */
 function translate(message: string, code: string | undefined, command: Command): string {
   const text = message.replace(/^error: /, '')
   const [first = '', ...rest] = text.split('\n')

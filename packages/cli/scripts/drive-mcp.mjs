@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // O cliente MCP do portão (`pnpm verify:new`): liga ao servidor prumo do app gerado do jeito que o
 // agente liga (o comando do .mcp.json do app, por stdio, com o app como pasta de trabalho), confere as
-// ferramentas e gera, só por elas, um domínio (schema, repositório com storage e query) e três telas
-// (lista, detalhe e uma em subpasta), confere um erro de uso e roda o check e o list. Sai com 0 se
+// ferramentas e gera, só por elas, um domínio (schema, repositório com storage e query), dois use cases
+// (uma leitura com a entidade como Output e uma escrita) e três telas (lista, detalhe e uma em
+// subpasta), confere um erro de uso e roda o check e o list. Sai com 0 se
 // tudo deu certo e com 1 no primeiro erro. Não escreve nada: quem escreve é o servidor.
 //
 // O SDK do MCP vem do monorepo (devDependency da cli), não do app: o script resolve o cliente pela
@@ -62,7 +63,7 @@ try {
   await client.connect(transport)
   const { tools } = await client.listTools()
   const names = tools.map((tool) => tool.name).sort()
-  const expected = ['check', 'list', 'make_page', 'make_query', 'make_repository', 'make_schema']
+  const expected = ['check', 'list', 'make_page', 'make_query', 'make_repository', 'make_schema', 'make_usecase']
   assert(
     JSON.stringify(names) === JSON.stringify(expected),
     `as ferramentas do servidor são ${names.join(', ')} (esperado: ${expected.join(', ')})`,
@@ -77,6 +78,16 @@ try {
   })
   await call('make_repository', { dominio: 'autores', entity: 'autor', data_source: 'storage' })
   await call('make_query', { dominio: 'autores', entity: 'autor' })
+  // Os use cases do domínio: uma leitura que devolve a lista de autores e uma escrita com campos
+  await call('make_usecase', { nome: 'catalogo.get-autores', output: 'autor[]' })
+  await call('make_usecase', {
+    nome: 'catalogo/registrar-autor',
+    input: 'nome:string,pais:string',
+    output: 'id:string',
+    endpoint: 'PUT /catalogo/autores',
+  })
+  const simulatedUseCase = await call('make_usecase', { nome: 'catalogo.get-obras', dry_run: true })
+  assert(simulatedUseCase.text.includes('Simulação'), 'o dry_run do make_usecase não disse que simulou')
   await call('make_page', { nome: 'autores', query: 'autores' })
   await call('make_page', { nome: 'autor', query: 'autores', path: '/autores/:id' })
   // Uma tela em subpasta, pelo nome com ponto: a rota, a pasta e o nome do list levam a barra
@@ -86,6 +97,11 @@ try {
   assert(dry.text.trim() !== '', 'o dry_run não disse o que faria')
 
   // Um erro de uso volta como erro da ferramenta, com a mensagem de uso (não um erro inesperado)
+  const repeated = await invoke('make_usecase', { nome: 'outro.get-autores' })
+  assert(
+    repeated.result.isError === true && repeated.text.includes("a chave 'getAutores' do registro já é do use case"),
+    'o make_usecase com uma chave repetida deveria voltar com isError e a mensagem da chave',
+  )
   const bad = await invoke('make_query', { dominio: 'editoras' })
   assert(bad.result.isError === true, 'make_query de um domínio sem repositório deveria voltar com isError')
   assert(
@@ -105,6 +121,19 @@ try {
   const got = (schema.fields ?? []).map((f) => `${f.name}:${f.type}${f.optional ? '?' : ''}`).join(',')
   const wanted = 'nome:string,pais:string,nascimento:date,ativo:boolean,obras:int?'
   assert(got === wanted, `os campos do schema autores são ${got} (esperado: ${wanted})`)
+
+  const useCases = Object.fromEntries(
+    (listing.useCases ?? []).map((u) => [`${u.domain}.${u.name}`, `${u.key} ${u.kind} ${u.endpoint}`]),
+  )
+  assert(
+    useCases['catalogo.get-autores'] === 'getAutores read GET /catalogo/get-autores',
+    `o use case catalogo.get-autores é ${useCases['catalogo.get-autores']}`,
+  )
+  assert(
+    useCases['catalogo.registrar-autor'] === 'registrarAutor write PUT /catalogo/autores',
+    `o use case catalogo.registrar-autor é ${useCases['catalogo.registrar-autor']}`,
+  )
+  assert(!('catalogo.get-obras' in useCases), 'o dry_run criou o use case get-obras')
 
   const repository = listing.repositories?.find((r) => r.domain === 'autores')
   assert(repository?.sources.includes('storage'), 'o list não mostra o repositório autores com a fonte storage')

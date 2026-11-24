@@ -18,6 +18,7 @@ const VARIATION_LABELS: Record<PageVariation, string> = {
   list: 'lista',
   param: 'parâmetro',
   detail: 'detalhe',
+  form: 'formulário',
 }
 
 /** Os rótulos do tipo do use case no texto; o JSON traz o valor em inglês. */
@@ -79,7 +80,7 @@ function formatListing(listing: ProjectListing): string {
       'Telas',
       listing.pages.map(
         (page) =>
-          `${page.name}  rota: ${routeText(page)}  ${VARIATION_LABELS[page.variation]}${page.query ? `  query: ${page.query}` : ''}`,
+          `${page.name}  rota: ${routeText(page)}  ${VARIATION_LABELS[page.variation]}${page.query ? `  query: ${page.query}` : ''}${page.useCase ? `  use case: ${page.useCase}` : ''}`,
       ),
     ),
     section('Idiomas', listing.languages),
@@ -108,6 +109,6 @@ export const registerList: RegisterCommand = (program, io) => {
     ],
     anchor: 'prumo-list',
     agentDetail:
-      "Só lê os arquivos e nunca escreve. Devolve um JSON com as chaves schemas (entity, file, fields com name, type, optional e values; ou fields null e problem quando o schema foi editado à mão), useCases (domain, name em kebab-case, key no registro useUseCases(), kind read, write ou local, e endpoint como \"GET /stores/get-stores\", ou null no local), repositories (domain, entity, sources: mock, http, storage), queries (domain, file, entity, hooks), pages (name, route, routeKind, routePartial, variation: title, list, param ou detail, e query) e languages (as pastas de src/messages). Chame antes de gerar: evita repetir um domínio ou uma chave de use case e mostra qual camada falta.",
+      "Só lê os arquivos e nunca escreve. Devolve um JSON com as chaves schemas (entity, file, fields com name, type, optional e values; ou fields null e problem quando o schema foi editado à mão), useCases (domain, name em kebab-case, key no registro useUseCases(), kind read, write ou local, e endpoint como \"GET /stores/get-stores\", ou null no local), repositories (domain, entity, sources: mock, http, storage), queries (domain, file, entity, hooks), pages (name, route, routeKind, routePartial, variation: title, list, param, detail ou form, query e useCase, o domain.ação do use case que o model chama, ou null) e languages (as pastas de src/messages). Chame antes de gerar: evita repetir um domínio ou uma chave de use case e mostra qual camada falta.",
   })
 }

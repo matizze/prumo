@@ -1,0 +1,10 @@
+    it('cria um registro com id e data, e ele aparece na lista', async () => {
+      const created = await subject.{{key.create}}.execute({{test.newInput}})
+      expect(created).toMatchObject({{test.newInput}})
+      expect(created.id).not.toBe('')
+      expect(Number.isNaN(Date.parse(created.createdAt))).toBe(false)
+      const { items, total } = await subject.{{key.list}}.execute({})
+      expect(total).toBe(MOCK_{{plural.constant}}.length + 1)
+      expect(new Set(items.map((item) => item.id)).size).toBe(total)
+      expect(await subject.{{key.get}}.execute({ id: created.id })).toEqual(created)
+    })

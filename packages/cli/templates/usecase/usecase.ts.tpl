@@ -18,7 +18,7 @@ export class {{action.pascal}}UseCase implements IUseCase<{{action.pascal}}Input
       const response = await this.#http({{usecase.call}})
       return {{action.pascal}}Output.parse(response)
     } catch (error) {
-      if (error instanceof HttpError) throw new UIError('{{action.constant}}_FAILED', error.message)
+{{usecase.notFound}}      if (error instanceof HttpError) throw new UIError('{{action.constant}}_FAILED', error.message)
       throw error
     }
   }

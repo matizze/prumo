@@ -41,9 +41,11 @@ const SIMPLE_ZOD: Record<string, FieldType> = {
  * o tipo, ou o motivo (texto) se não é um dos tipos do `--fields` ou se o enum tem um valor que o
  * `--fields` não aceitaria.
  */
-function typeOfZod(expression: Node): Omit<Field, 'name' | 'optional'> | string {
+function typeOfZod(expression: Node, loose = false): Omit<Field, 'name' | 'optional'> | string {
   const simple = SIMPLE_ZOD[expression.getText().replace(/\s+/g, '')]
   if (simple) return { type: simple }
+  const found = loose ? looseTypeOfZod(expression) : undefined
+  if (found) return found
   const unknown = `não reconheço o tipo (${expression.getText().replace(/\s+/g, ' ')}). O Prumo lê string, number, int, boolean, date, datetime e enum, com .optional() (z.string(), z.number().int(), z.iso.date(), z.enum([...])...)`
   if (!Node.isCallExpression(expression) || expression.getExpression().getText().replace(/\s+/g, '') !== 'z.enum') {
     return unknown
@@ -64,6 +66,34 @@ function typeOfZod(expression: Node): Omit<Field, 'name' | 'optional'> | string 
   return { type: 'enum', values }
 }
 
+/** A chamada de base de cada tipo que um `.types.ts` costuma usar, com ou sem refinamentos (`z.string().min(8)`, `z.email()`). */
+const LOOSE_ZOD: Record<string, FieldType> = {
+  'z.string': 'string',
+  'z.email': 'string',
+  'z.url': 'string',
+  'z.uuid': 'string',
+  'z.number': 'number',
+  'z.int': 'int',
+  'z.boolean': 'boolean',
+  'z.iso.date': 'date',
+  'z.iso.datetime': 'datetime',
+}
+
+/** O tipo pela chamada de base da cadeia (`z.string().min(8)` é texto), para o `.types.ts` que a pessoa refinou à mão. */
+function looseTypeOfZod(expression: Node): { type: FieldType } | undefined {
+  let current = expression
+  let integer = false
+  while (Node.isCallExpression(current)) {
+    const callee = current.getExpression()
+    const type = LOOSE_ZOD[callee.getText().replace(/\s+/g, '')]
+    if (type) return { type: type === 'number' && integer ? 'int' : type }
+    if (!Node.isPropertyAccessExpression(callee)) return undefined
+    integer ||= callee.getName() === 'int'
+    current = callee.getExpression()
+  }
+  return undefined
+}
+
 /** Tira o `.optional()` do fim da expressão: devolve a expressão de dentro e se havia o `.optional()`. */
 function withoutOptional(expression: Node): { inner: Node; optional: boolean } {
   if (Node.isCallExpression(expression) && expression.getArguments().length === 0) {
@@ -73,6 +103,54 @@ function withoutOptional(expression: Node): { inner: Node; optional: boolean } {
     }
   }
   return { inner: expression, optional: false }
+}
+
+/** Quem lança o erro de uso de um campo que não se lê: recebe a linha e o motivo. */
+export type Fail = (line: number, reason: string) => never
+
+/**
+ * Os campos de um `z.object({ ... })`, pela árvore: nome, tipo e `.optional()`. `owner` é o nome do
+ * objeto nas mensagens. Com `entity`, `id` e `createdAt` são os do schema de uma entidade (precisam
+ * ser `z.string()` e ficam fora da lista); sem ele, são campos como os outros, e o tipo aceita o que
+ * a pessoa refinou à mão (`z.string().min(8)`, `z.email()`), como no Input de um use case.
+ */
+export function readObjectFields(
+  object: ObjectLiteralExpression,
+  fail: Fail,
+  owner: string,
+  { entity }: { entity: boolean },
+): { fields: Field[]; seen: Set<string> } {
+  const fields: Field[] = []
+  const seen = new Set<string>()
+  for (const property of object.getProperties()) {
+    const line = property.getStartLineNumber()
+    if (!Node.isPropertyAssignment(property) || !Node.isIdentifier(property.getNameNode())) {
+      fail(
+        line,
+        `não reconheço '${property.getText().split('\n')[0]}' no ${owner} (só campos 'nome: z.tipo()', com o nome sem aspas, nos tipos do --fields)`,
+      )
+    }
+    const name = (property as PropertyAssignment).getName()
+    const initializer = (property as PropertyAssignment).getInitializer()
+    if (seen.has(name)) fail(line, `o campo '${name}' aparece mais de uma vez`)
+    seen.add(name)
+    if (!initializer) fail(line, `o campo '${name}' não tem tipo`)
+    const { inner, optional } = withoutOptional(initializer!)
+    if (entity && RESERVED_FIELDS.has(name)) {
+      const parsedType = typeOfZod(inner)
+      if (optional || typeof parsedType === 'string' || parsedType.type !== 'string') {
+        fail(line, `o campo '${name}' precisa ser z.string(): o repositório dá ${name} a todo registro`)
+      }
+      continue
+    }
+    if (!FIELD_NAME.test(name)) {
+      fail(line, `'${name}' não é um nome em camelCase (letra minúscula primeiro; só letras e números)`)
+    }
+    const parsed = typeOfZod(inner, !entity)
+    if (typeof parsed === 'string') fail(line, `campo '${name}': ${parsed}`)
+    fields.push({ name, ...(parsed as Omit<Field, 'name' | 'optional'>), optional })
+  }
+  return { fields, seen }
 }
 
 /**
@@ -104,36 +182,7 @@ export function readEntityFields(plan: ChangePlan, names: DomainNames): Field[] 
   const fail = (line: number, reason: string): never => {
     throw new UsageError(`${relative}:${line}: ${reason}.`)
   }
-  const fields: Field[] = []
-  const seen = new Set<string>()
-  for (const property of object.getProperties()) {
-    const line = property.getStartLineNumber()
-    if (!Node.isPropertyAssignment(property) || !Node.isIdentifier(property.getNameNode())) {
-      fail(
-        line,
-        `não reconheço '${property.getText().split('\n')[0]}' no ${names.singular.camel}Schema (só campos 'nome: z.tipo()', com o nome sem aspas, nos tipos do --fields)`,
-      )
-    }
-    const name = (property as PropertyAssignment).getName()
-    const initializer = (property as PropertyAssignment).getInitializer()
-    if (seen.has(name)) fail(line, `o campo '${name}' aparece mais de uma vez`)
-    seen.add(name)
-    if (!initializer) fail(line, `o campo '${name}' não tem tipo`)
-    const { inner, optional } = withoutOptional(initializer!)
-    if (RESERVED_FIELDS.has(name)) {
-      const parsedType = typeOfZod(inner)
-      if (optional || typeof parsedType === 'string' || parsedType.type !== 'string') {
-        fail(line, `o campo '${name}' precisa ser z.string(): o repositório dá ${name} a todo registro`)
-      }
-      continue
-    }
-    if (!FIELD_NAME.test(name)) {
-      fail(line, `'${name}' não é um nome em camelCase (letra minúscula primeiro; só letras e números)`)
-    }
-    const parsed = typeOfZod(inner)
-    if (typeof parsed === 'string') fail(line, `campo '${name}': ${parsed}`)
-    fields.push({ name, ...(parsed as Omit<Field, 'name' | 'optional'>), optional })
-  }
+  const { fields, seen } = readObjectFields(object, fail, `${names.singular.camel}Schema`, { entity: true })
   for (const reserved of RESERVED_FIELDS) {
     if (!seen.has(reserved)) {
       fail(

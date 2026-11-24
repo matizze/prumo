@@ -1,10 +1,11 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { listPages, pageOf } from '@matizze/prumo-rules/check'
 import { addRouteSnippet, messageLanguages, registerMessageNamespace } from '../codemods/index.ts'
 import { UsageError } from '../errors.ts'
 import { contractEntity } from '../lib/contract.ts'
-import { domainIdSample, domainShapeOf, literal, type DomainShape } from '../lib/fields/index.ts'
+import { readIfExists, shapeOf } from '../lib/entity.ts'
+import { domainIdSample, literal } from '../lib/fields/index.ts'
 import {
   assertValidName,
   deriveNames,
@@ -17,9 +18,10 @@ import { displayPath } from '../lib/paths.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'
 import { nameVars, renderTemplate, renderTemplateFile } from '../lib/templates.ts'
+import { useCasePage, type UseCasePage } from './page-usecase.ts'
 
 /** Um arquivo da tela: o modelo (em `templates/`) e onde ele cai no projeto, os dois com marcadores. */
-interface PageFile {
+export interface PageFile {
   template: string
   to: string
 }
@@ -61,9 +63,14 @@ export const PAGE_DETAIL_FILES: readonly PageFile[] = [
 /** Os messageLangs dos modelos de mensagens: o `pt-BR` e o `en`. */
 export const MESSAGE_LANGUAGES = ['pt-BR', 'en'] as const
 
-/** O modelo do JSON de mensagens de um idioma, com ou sem `--query` (os textos de carregando e de erro). */
-export function messagesTemplate(language: (typeof MESSAGE_LANGUAGES)[number], withQuery: boolean) {
-  return `page/messages${withQuery ? '-domain' : ''}.${language}.json.tpl`
+/** Os textos que a tela leva além do título: os da lista com `--query` (`domain`) ou os de cada tela de use case. */
+export const MESSAGE_VARIANTS = ['title', 'domain', 'usecase-list', 'usecase-detail', 'usecase-form'] as const
+
+export type MessagesVariant = (typeof MESSAGE_VARIANTS)[number]
+
+/** O modelo do JSON de mensagens de um idioma, na variação da tela. */
+export function messagesTemplate(language: (typeof MESSAGE_LANGUAGES)[number], variant: MessagesVariant) {
+  return `page/messages${variant === 'title' ? '' : `-${variant}`}.${language}.json.tpl`
 }
 
 /**
@@ -144,6 +151,11 @@ export interface PageRequest {
   /** O domínio cuja query a tela usa (o nome dele, no plural), criada por `make:query`. */
   query?: string | undefined
   /**
+   * O use case que a tela usa (`<domínio>.<ação>`, como `livros.list-livros`): lista, detalhe ou
+   * formulário, conforme ele. Não combina com `query`.
+   */
+  useCase?: string | undefined
+  /**
    * A rota da tela (`--path`). Padrão: `/<nome>`. A tela inicial de um app novo usa `/`. Com um
    * parâmetro (`/livros/:id`), a tela o lê com o `useParams`; com `query`, vira a tela de detalhe.
    */
@@ -162,6 +174,8 @@ export interface PageResult {
   names: PageNames
   /** O domínio da query, se a tela tem uma. */
   query?: Names
+  /** O use case da tela e o que ela mostra dele, se a tela tem um. */
+  useCase?: UseCasePage
   /** A rota nova no `src/App.tsx`: `/clientes`. */
   route: string
   /** Avisos que o comando mostra (por exemplo, a tela mostra o `id` por falta de campo de texto). */
@@ -204,36 +218,11 @@ function routeElement(names: Names, route: string): string {
   return `<Route path="${route}">\n  <${names.pascal}Page />\n</Route>`
 }
 
-/** Lê o arquivo, ou `undefined` se não existe. */
-function readIfExists(file: string): string | undefined {
-  return existsSync(file) ? readFileSync(file, 'utf8') : undefined
-}
-
 /** O `src/queries/<domínio>.ts` (ou `.tsx`, ou a pasta com `index`), se existe. */
 function queryFileOf(project: Project, kebab: string): string | undefined {
   return [`${kebab}.ts`, `${kebab}.tsx`, `${kebab}/index.ts`, `${kebab}/index.tsx`]
     .map((file) => path.join(project.src, 'queries', file))
     .find((file) => existsSync(file))
-}
-
-/** `Livro` vira `livro`: o nome do schema, que é um identificador (o kebab da entidade não se refaz dele). */
-function camelOf(pascal: string): string {
-  return pascal.charAt(0).toLowerCase() + pascal.slice(1)
-}
-
-/**
- * O arquivo do schema da entidade, relativo à raiz: o de `src/schemas/entities/` que exporta o
- * `<camel>Schema`. Não refaz o nome do arquivo a partir do PascalCase (`Fase2` pode ser `fase-2`).
- */
-function schemaFileOf(project: Project, entity: string): string | undefined {
-  const dir = path.join(project.src, 'schemas', 'entities')
-  if (!existsSync(dir)) return undefined
-  const declaration = new RegExp(`\\bexport\\s+const\\s+${camelOf(entity)}Schema\\b`)
-  const found = readdirSync(dir)
-    .filter((file) => file.endsWith('.ts'))
-    .sort()
-    .find((file) => declaration.test(readFileSync(path.join(dir, file), 'utf8')))
-  return found ? `src/schemas/entities/${found}` : undefined
 }
 
 /**
@@ -281,37 +270,6 @@ function queryOf(
 }
 
 /**
- * O que a tela mostra do registro: o primeiro campo de texto do schema que o projeto tem hoje
- * (lido de um jeito tolerante, veja `domainShapeOf`), ou o `id`, com um aviso. Com `needSample` (a
- * tela de detalhe, cujo teste confere o texto), um campo sem valor nas fixtures também cai no `id`.
- */
-function shapeOf(
-  project: Project,
-  domain: Names,
-  entity: string | undefined,
-  needSample: boolean,
-): DomainShape {
-  const found = entity ? schemaFileOf(project, entity) : undefined
-  const file = found ?? 'src/schemas/entities/<entidade>.ts'
-  const fixturesFile = `src/repositories/${domain.kebab}/fixtures.ts`
-  const fixtures = readIfExists(path.join(project.root, fixturesFile))
-  const shape = domainShapeOf(
-    {
-      file,
-      source: found ? readIfExists(path.join(project.root, found)) : undefined,
-      camel: entity ? camelOf(entity) : undefined,
-    },
-    fixtures,
-  )
-  if (!needSample || shape.field === 'id' || shape.sample !== undefined) return shape
-  return {
-    field: 'id',
-    ...domainIdSample(fixtures),
-    warning: `não achei o valor de '${shape.field}' no primeiro registro de ${fixturesFile}: a tela mostra o id do registro. Troque pelo campo certo na view (e no teste).`,
-  }
-}
-
-/**
  * Monta o plano de uma tela nova: `index`, `model`, `view` e o teste a partir dos modelos, as
  * mensagens (`title` e, com `--query`, os textos de carregando e de erro) em cada idioma, o
  * namespace nos índices de mensagens e a rota no `src/App.tsx`. São quatro variações: só o título;
@@ -321,10 +279,13 @@ function shapeOf(
  */
 export function generatePage(
   project: Project,
-  { name, query, route }: PageRequest,
+  { name, query, route, useCase }: PageRequest,
   { plan = new ChangePlan(project), languages }: PageOptions = {},
 ): PageResult {
   const names = pageNames(name)
+  if (query !== undefined && useCase !== undefined) {
+    throw new UsageError("use '--query' ou '--usecase', não os dois: a tela usa um use case ou a query de um domínio.")
+  }
   let domain: Names | undefined
   if (query !== undefined) {
     assertValidName(query, 'o nome do domínio da query')
@@ -333,20 +294,23 @@ export function generatePage(
   assertPageFree(project, names)
   const pagePath = route ?? `/${names.path}`
   const routePath = parseRoutePath(pagePath)
+  const usecasePage = useCase === undefined ? undefined : useCasePage(plan, useCase, routePath)
   const detailPage = domain !== undefined && routePath.param !== undefined
   const used = domain ? queryOf(project, domain, detailPage) : undefined
-  const shape = domain ? shapeOf(project, domain, used?.entity, detailPage) : undefined
+  const fixtures = domain && {
+    file: `src/repositories/${domain.kebab}/fixtures.ts`,
+    text: readIfExists(path.join(project.src, 'repositories', domain.kebab, 'fixtures.ts')),
+  }
+  const shape = domain && fixtures ? shapeOf(project, used?.entity, fixtures, detailPage) : undefined
   // O id do primeiro registro das fixtures: o teste de detalhe abre a rota com ele
-  const firstId = domain
-    ? (domainIdSample(readIfExists(path.join(project.src, 'repositories', domain.kebab, 'fixtures.ts')))
-        .sample ?? 'registro-1')
-    : 'exemplo'
+  const firstId = usecasePage?.firstId ?? (fixtures ? (domainIdSample(fixtures.text).sample ?? 'registro-1') : 'exemplo')
   if (detailPage && routePath.param === `use${used?.entity}Detail`) {
     throw new UsageError(
       `o parâmetro ':${routePath.param}' tem o nome do hook de detalhe que o model gerado chama: use outro, como :id.`,
     )
   }
   const messageLangs = languages ?? messageLanguages(project)
+  const detailLike = detailPage || usecasePage?.kind === 'detail'
 
   const vars = {
     ...nameVars('page', names),
@@ -363,18 +327,22 @@ export function generatePage(
       ? {
           'param.name': routePath.param,
           'param.example': 'exemplo',
-          'route.example': routePath.example(detailPage ? firstId : 'exemplo'),
+          'route.example': routePath.example(detailLike ? firstId : 'exemplo'),
           ...(detailPage ? { 'detail.hook': `use${used?.entity}Detail` } : {}),
         }
       : {}),
+    ...usecasePage?.vars,
   }
-  const files = detailPage
-    ? PAGE_DETAIL_FILES
-    : routePath.param
-      ? PAGE_PARAM_FILES
-      : domain
-        ? PAGE_LIST_FILES
-        : PAGE_FILES
+  const files =
+    usecasePage?.files ??
+    (detailPage
+      ? PAGE_DETAIL_FILES
+      : routePath.param
+        ? PAGE_PARAM_FILES
+        : domain
+          ? PAGE_LIST_FILES
+          : PAGE_FILES)
+  const variant: MessagesVariant = usecasePage ? `usecase-${usecasePage.kind}` : domain ? 'domain' : 'title'
   for (const { template, to } of files) {
     plan.createSource(
       path.join(project.root, renderTemplate(to, vars)),
@@ -384,7 +352,7 @@ export function generatePage(
   for (const language of messageLangs) {
     plan.createText(
       path.join(project.messages, language, `${names.kebab}.json`),
-      renderTemplateFile(messagesTemplate(messagesLanguageOf(language), domain !== undefined), vars),
+      renderTemplateFile(messagesTemplate(messagesLanguageOf(language), variant), vars),
     )
   }
 
@@ -399,7 +367,8 @@ export function generatePage(
     plan,
     names,
     route: pagePath,
-    warnings: shape?.warning ? [shape.warning] : [],
+    warnings: [...(shape?.warning ? [shape.warning] : []), ...(usecasePage?.warnings ?? [])],
     ...(domain ? { query: domain } : {}),
+    ...(usecasePage ? { useCase: usecasePage } : {}),
   }
 }

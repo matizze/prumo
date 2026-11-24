@@ -11,7 +11,7 @@ export function literal(value: Value): string {
 }
 
 /** `publicadoEm` vira `Publicado em`: o nome do campo como texto de exemplo. */
-function camelToSentence(name: string): string {
+export function camelToSentence(name: string): string {
   const words = name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase()
   return words.charAt(0).toUpperCase() + words.slice(1)
 }

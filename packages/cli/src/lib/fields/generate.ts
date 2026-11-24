@@ -128,6 +128,7 @@ export function domainFieldVars(
     ),
     'fields.sortKeys': union([...sortable.map((field) => `'${field.name}'`), "'createdAt'"], idBase),
     'fields.searchPhrase': searchPhrase,
+    'fields.searchList': (searchFields.length > 0 ? searchFields : ['item.id']).join(', '),
     'fields.search': searchStatement(searchFields.length > 0 ? searchFields : ['item.id']),
     'fields.sortAccessors': [
       ...sortable.map(accessor),

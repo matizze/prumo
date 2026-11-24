@@ -70,18 +70,18 @@ export interface UseCaseResult {
 }
 
 /** O que o Output é: o padrão, os campos dados ou uma entidade que já tem schema. */
-type OutputSpec =
+export type OutputSpec =
   | { kind: 'default' }
   | { kind: 'fields'; fields: Field[] }
   | { kind: 'entity'; entity: string; fields: Field[]; list: boolean }
 
 /** Um modelo e onde ele cai no projeto, os dois com marcadores. */
-interface UseCaseFile {
+export interface UseCaseFile {
   template: string
   to: string
 }
 
-const FOLDER = 'src/use-cases/{{domain.kebab}}'
+export const FOLDER = 'src/use-cases/{{domain.kebab}}'
 
 /** Os arquivos de um use case com API, na ordem em que o plano os lista. */
 export const USE_CASE_FILES: readonly UseCaseFile[] = [
@@ -111,7 +111,7 @@ const PARAM_TYPES: readonly FieldType[] = ['string', 'number', 'int', 'boolean',
 const EXECUTE_LOCALS: ReadonlySet<string> = new Set(['input', 'path', 'body', 'query', 'response', 'error'])
 
 /** O texto do erro de cada tipo de use case, em cada língua dos modelos. */
-const FAILED_TEXT: Record<Access, ErrorText> = {
+export const FAILED_TEXT: Record<Access, ErrorText> = {
   read: { 'pt-BR': 'Não foi possível carregar os dados.', en: 'Could not load the data.' },
   write: { 'pt-BR': 'Não foi possível concluir a ação.', en: 'Could not complete the action.' },
 }
@@ -188,7 +188,7 @@ function readOutput(plan: ChangePlan, text: string | undefined): OutputSpec {
 }
 
 /** O `z.object({ ... })` dos campos, um por linha. */
-function zodObject(fields: readonly Field[]): string {
+export function zodObject(fields: readonly Field[]): string {
   if (fields.length === 0) return 'z.object({})'
   return `z.object({\n${fields.map((field) => `  ${field.name}: ${zodOf(field)},`).join('\n')}\n})`
 }
@@ -225,7 +225,7 @@ function outputSample(output: OutputSpec): Sample {
 const asExpression = (code: string) => (code.startsWith('{') ? `(${code})` : code)
 
 /** Os blocos de `<ação>.types.ts` que variam: o import da entidade, o `ENDPOINT` e a chave de cache. */
-function typesVars(
+export function typesVars(
   { domain, action }: UseCaseNames,
   endpoint: Endpoint | null,
   access: Access,
@@ -238,6 +238,7 @@ function typesVars(
     'types.endpoint': endpoint
       ? `/** O endereço da API: o use case chama e o mock responde por ele. */\nexport const ENDPOINT = { method: '${endpoint.method}', path: '${endpoint.path}' } as const\n\n`
       : '',
+    'types.inputType': `z.infer<typeof ${action.pascal}Input>`,
     'types.key':
       access === 'read'
         ? `\n\n/** A chave de cache da consulta (\`queryKey\`): o prefixo é o domínio, e uma escrita invalida \`['${domain.kebab}']\`. */\nexport function ${key}(input: ${action.pascal}Input) {\n  return ['${domain.kebab}', '${action.kebab}', input] as const\n}`
@@ -249,7 +250,7 @@ function typesVars(
  * Do `execute` com API: valida o Input e monta a chamada. O Input vai na query (leitura) ou no
  * corpo (escrita), menos os campos que são `:parâmetros` do caminho, que entram nele, codificados.
  */
-function requestVars({ action }: UseCaseNames, endpoint: Endpoint, access: Access, input: readonly Field[]) {
+export function requestVars({ action }: UseCaseNames, endpoint: Endpoint, access: Access, input: readonly Field[]) {
   const slot = access === 'read' ? 'query' : 'body'
   const parse = `${action.pascal}Input.parse(input)`
   if (endpoint.params.length === 0) {
@@ -285,6 +286,39 @@ function ruleVars({ action }: UseCaseNames, access: Access, sample: Sample): Rec
   return { 'usecase.rule': rule }
 }
 
+/** Recusa o use case que já existe e a chave que já é de outro use case (as chaves são únicas no app). */
+export function assertUseCaseFree(project: Project, { domain, action }: UseCaseNames): void {
+  const clash = listUseCases(project).find((existing) => existing.key === action.camel)
+  if (clash?.domain === domain.kebab && clash.name === action.kebab) {
+    throw new UsageError(`o use case '${domain.kebab}.${action.kebab}' já existe.`)
+  }
+  if (clash) {
+    throw new UsageError(
+      `a chave '${action.camel}' do registro já é do use case '${clash.domain}.${clash.name}': as chaves são únicas no app (o useUseCases() devolve todas num só objeto). Dê outro nome à ação.`,
+    )
+  }
+}
+
+/**
+ * Acrescenta ao plano os `files` de um use case (e o índice do domínio, se falta) e o registra no
+ * índice do domínio e no registro geral.
+ */
+export function addUseCase(
+  plan: ChangePlan,
+  names: UseCaseNames,
+  vars: Record<string, string>,
+  files: readonly UseCaseFile[],
+  { local }: { local: boolean },
+): void {
+  const create = ({ template, to }: UseCaseFile) =>
+    plan.createSource(path.join(plan.project.root, renderTemplate(to, vars)), renderTemplateFile(template, vars))
+  const domainIndex = path.join(plan.project.root, renderTemplate(DOMAIN_INDEX_FILE.to, vars))
+  if (!plan.has(domainIndex)) create(DOMAIN_INDEX_FILE)
+  files.forEach(create)
+  registerUseCase(plan, names, { local })
+  registerUseCaseDomain(plan, names)
+}
+
 /**
  * Monta o plano de um use case: os arquivos de `src/use-cases/<domínio>/` (tipos, classe, rota de
  * mock e teste), o registro no índice do domínio (criado, se falta) e no registro geral
@@ -311,34 +345,21 @@ export function generateUseCase(project: Project, request: UseCaseRequest): UseC
     throw new UsageError("uma escrita não pode usar GET (o GET não leva corpo): use '--read' ou outro método no --endpoint.")
   }
 
-  const clash = listUseCases(project).find((existing) => existing.key === action.camel)
-  if (clash?.domain === domain.kebab && clash.name === action.kebab) {
-    throw new UsageError(`o use case '${domain.kebab}.${action.kebab}' já existe.`)
-  }
-  if (clash) {
-    throw new UsageError(
-      `a chave '${action.camel}' do registro já é do use case '${clash.domain}.${clash.name}': as chaves são únicas no app (o useUseCases() devolve todas num só objeto). Dê outro nome à ação.`,
-    )
-  }
+  assertUseCaseFree(project, names)
 
   const sample = outputSample(output)
   const vars: Record<string, string> = {
     ...nameVars('domain', domain),
     ...nameVars('action', action),
     ...typesVars(names, endpoint, access, output),
+    'usecase.notFound': '',
     'types.input': zodObject(input),
     'types.output': outputZod(output),
     'test.input': sampleCode(sampleRecord(input, 1)),
     'mock.response': asExpression(sampleCode(sample, '  ')),
     ...(endpoint ? requestVars(names, endpoint, access, input) : ruleVars(names, access, sample)),
   }
-  const create = ({ template, to }: UseCaseFile) =>
-    plan.createSource(path.join(project.root, renderTemplate(to, vars)), renderTemplateFile(template, vars))
-  const domainIndex = path.join(project.root, renderTemplate(DOMAIN_INDEX_FILE.to, vars))
-  if (!plan.has(domainIndex)) create(DOMAIN_INDEX_FILE)
-  ;(local ? LOCAL_USE_CASE_FILES : USE_CASE_FILES).forEach(create)
-  registerUseCase(plan, names, { local })
-  registerUseCaseDomain(plan, names)
+  addUseCase(plan, names, vars, local ? LOCAL_USE_CASE_FILES : USE_CASE_FILES, { local })
 
   const warnings: string[] = []
   const types = `src/use-cases/${domain.kebab}/${action.kebab}.types.ts`

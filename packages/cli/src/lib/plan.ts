@@ -3,13 +3,14 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
 import path from 'node:path'
 import { IndentationText, Project as MorphProject, QuoteKind, ts, type SourceFile } from 'ts-morph'
-import { UsageError } from '../errors.ts'
+import { ExitError, UsageError } from '../errors.ts'
 import type { Project } from './project.ts'
 
 /** O que o plano criaria e alteraria, com caminhos relativos à raiz do projeto, em ordem. */
@@ -130,11 +131,11 @@ export class ChangePlan {
   }
 
   /**
-   * Grava o plano no disco. Antes de escrever, confere de novo que nenhum arquivo novo apareceu
-   * no caminho de um que o plano ia criar. Os arquivos novos saem primeiro e os alterados depois.
+   * Confere o plano sem escrever nada, com as mesmas regras do `commit()`: nenhum arquivo novo
+   * apareceu no caminho de um que o plano ia criar, e nenhum arquivo leva a escrita para fora do
+   * projeto. O `--dry-run` usa este método, para a simulação falhar onde a execução falharia.
    */
-  commit(): PlanSummary {
-    const summary = this.summary()
+  verify(): PlanSummary {
     const created = [...this.#createdSources.keys(), ...this.#createdFiles.keys()]
     for (const file of created) {
       if (existsSync(file))
@@ -147,6 +148,15 @@ export class ChangePlan {
       ...[...this.#editedTexts].filter(([, t]) => t.content !== t.original).map(([f]) => f),
     ]
     this.#assertInside([...created, ...modified])
+    return this.summary()
+  }
+
+  /**
+   * Grava o plano no disco, depois de `verify()`. Os arquivos novos saem primeiro e os alterados
+   * depois.
+   */
+  commit(): PlanSummary {
+    const summary = this.verify()
     for (const [file, source] of this.#createdSources) write(file, source.getFullText())
     for (const [file, content] of this.#createdFiles) write(file, content)
     for (const [file, { file: source, original }] of this.#loadedSources) {
@@ -160,33 +170,40 @@ export class ChangePlan {
 
   /**
    * Cada arquivo que o plano vai escrever fica dentro do projeto também no disco: o caminho real,
-   * com os links simbólicos resolvidos, não sai da raiz real do projeto. Os nomes já são validados
-   * antes, mas um link que já existe no projeto (o próprio `src`, uma pasta dentro dele, o
-   * `App.tsx`) levaria a escrita para fora; com o `prumo mcp`, quem escolhe os nomes é um agente.
-   * Link dentro do projeto que aponta para dentro dele continua valendo.
+   * resolvido pelo sistema (`realpathSync.native`, que segue cada link antes de um `..` e devolve
+   * as maiúsculas do disco), não sai da raiz real do projeto. Os nomes já são validados antes, mas
+   * um link que já existe no projeto (o próprio `src`, uma pasta dentro dele, o `App.tsx`) levaria
+   * a escrita para fora; com o `prumo mcp`, quem escolhe os nomes é um agente. Link dentro do
+   * projeto que aponta para dentro dele continua valendo. Link físico (hard link) não é detectado.
    */
   #assertInside(files: string[]): void {
-    const root = realPathOf(this.project.root)
+    let root: string
+    try {
+      root = realPathOf(this.project.root)
+    } catch {
+      throw new ExitError(
+        2,
+        `prumo: a pasta do projeto (${this.project.root}) passa por um link simbólico quebrado: nada foi escrito.`,
+      )
+    }
     for (const file of files) {
-      let real: string
+      let real: string | undefined
       try {
         real = realPathOf(file)
       } catch {
-        throw new UsageError(
-          `'${this.#display(file)}' passa por um link simbólico quebrado: nada foi escrito.`,
-        )
+        real = undefined
       }
-      const relative = path.relative(root, real)
-      if (
-        relative === '' ||
-        relative === '..' ||
-        relative.startsWith(`..${path.sep}`) ||
-        path.isAbsolute(relative)
-      ) {
-        throw new UsageError(
-          `'${this.#display(file)}' leva para fora do projeto, por um link simbólico (${real}): nada foi escrito.`,
-        )
-      }
+      if (real !== undefined && isInside(root, real)) continue
+      const link = firstLink(this.project.root, file)
+      const reason =
+        real === undefined ? 'passa por um link simbólico quebrado' : 'levaria a escrita para fora do projeto'
+      const where = link
+        ? `'${this.#display(link.path)}' é um link simbólico para '${link.target}'`
+        : `o caminho real é ${real ?? 'desconhecido'}`
+      throw new ExitError(
+        2,
+        `prumo: '${this.#display(file)}' ${reason}: ${where}. Troque o link por uma pasta (ou um arquivo) de verdade dentro do projeto, ou abra o projeto na pasta real. Nada foi escrito.`,
+      )
     }
   }
 
@@ -217,20 +234,43 @@ function exists(file: string): boolean {
 }
 
 /**
- * O caminho real de `file`: resolve os links simbólicos do trecho que já existe no disco e
- * acrescenta o resto, que ainda vai ser criado. Lança se o trecho que existe passa por um link
- * quebrado (o `realpathSync` não o resolve).
+ * O caminho real de `file`, como o sistema o resolve: segue os links simbólicos do trecho que já
+ * existe no disco (`realpathSync.native`) e acrescenta o resto, que ainda vai ser criado. Lança se
+ * o trecho que existe passa por um link quebrado.
  */
 function realPathOf(file: string): string {
   const rest: string[] = []
   let current = path.resolve(file)
   for (;;) {
-    if (exists(current)) return path.join(realpathSync(current), ...rest.reverse())
+    if (exists(current)) return path.join(realpathSync.native(current), ...rest.reverse())
     const parent = path.dirname(current)
     if (parent === current) return path.join(current, ...rest.reverse())
     rest.push(path.basename(current))
     current = parent
   }
+}
+
+/** Se `real` fica dentro de `root` (os dois já resolvidos), sem ser a própria raiz. */
+function isInside(root: string, real: string): boolean {
+  const relative = path.relative(root, real)
+  return (
+    relative !== '' &&
+    relative !== '..' &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  )
+}
+
+/** O primeiro link simbólico no caminho de `file`, a partir da raiz do projeto, e para onde aponta. */
+function firstLink(root: string, file: string): { path: string; target: string } | undefined {
+  const parts = path.relative(path.resolve(root), path.resolve(file)).split(path.sep)
+  let current = path.resolve(root)
+  for (const part of parts) {
+    current = path.join(current, part)
+    if (!exists(current)) return undefined
+    if (lstatSync(current).isSymbolicLink()) return { path: current, target: readlinkSync(current) }
+  }
+  return undefined
 }
 
 function write(file: string, content: string): void {

@@ -55,7 +55,7 @@ Valida tudo antes de escrever (nome, entidade, campos, schema que já existe e o
         fields: options.fields,
       })
       const dryRun = options.dryRun === true
-      const summary = dryRun ? plan.summary() : plan.commit()
+      const summary = dryRun ? plan.verify() : plan.commit()
       const heading = `prumo make:schema: ${names.plural.kebab} (entidade ${names.singular.kebab})${dryRun ? ' (simulação)' : ''}.`
       const entityLine =
         options.entity === undefined

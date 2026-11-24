@@ -64,7 +64,7 @@ Valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada p
         route: options.path,
       })
       const dryRun = options.dryRun === true
-      const summary = dryRun ? plan.summary() : plan.commit()
+      const summary = dryRun ? plan.verify() : plan.commit()
       const heading = `prumo make:page: ${names.kebab} (rota ${route}${query ? `, query ${query.kebab}` : ''})${dryRun ? ' (simulação)' : ''}.`
       const warningLines = warnings.map((warning) => `Aviso: ${warning}\n`).join('')
       const warningText = warningLines === '' ? '' : `${warningLines}\n`

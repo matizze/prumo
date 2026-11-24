@@ -278,7 +278,7 @@ it('usa a sessão do membro no hook', () => {
 
 ## Testar um componente
 
-Componentes recebem tudo por props, então o `render` simples do Testing Library basta, como no teste gerado pelo `make:component`:
+Componentes recebem tudo por props, então o `render` simples do Testing Library basta, como em um teste de componente do produto (ele não é gerado: o Prumo não tem comando de componente):
 
 ```tsx
 import { render, screen } from '@testing-library/react'

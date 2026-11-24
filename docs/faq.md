@@ -16,11 +16,11 @@ Os geradores supõem um app Vite com o wouter como roteador e o alias `@/`. As r
 
 ### Posso usar npm ou yarn?
 
-O Prumo usa o pnpm: o `prumo new` roda `pnpm install`, os scripts do app chamam `pnpm`, e o `prumo doctor` avisa se o `packageManager` não é pnpm. Os pacotes em si são pacotes npm comuns e se instalam com qualquer gerenciador, mas o fluxo documentado e testado é com o pnpm.
+O Prumo usa o pnpm: o `prumo new` roda `pnpm install`, os scripts do app chamam `pnpm` e o `package.json` fixa o pnpm em `packageManager`. Os pacotes em si são pacotes npm comuns e se instalam com qualquer gerenciador, mas o fluxo documentado e testado é com o pnpm.
 
 ### Por que Node 24?
 
-O Node 24 é a versão mínima que o Prumo testa e o `prumo doctor` cobra. A CLI é escrita em TypeScript moderno e compilados para ES2023.
+O Node 24 é a versão mínima que o Prumo testa: a CLI roda TypeScript direto e usa recursos do Node moderno.
 
 ### Preciso usar os geradores?
 
@@ -36,25 +36,47 @@ O Prumo não decide. Estado de tela fica no model; dado do servidor fica no cach
 
 ### Como atualizo o Prumo num app existente?
 
-Atualize os pacotes com o pnpm (`pnpm up "@matizze/prumo-*" --latest`) e rode `pnpm exec prumo doctor`: ele confere se as versões instaladas estão na faixa que a CLI espera. As mudanças de cada versão estão no `CHANGELOG.md` de cada pacote. Os arquivos que o `prumo new` já gerou são do app e não mudam com a atualização.
+Atualize os pacotes com o pnpm (`pnpm up "@matizze/prumo-*" --latest`) e rode `pnpm verify`. As mudanças de cada versão estão no `CHANGELOG.md` de cada pacote. Os arquivos que o `prumo new` já gerou são do app e não mudam com a atualização.
+
+### Cadê o `make:domain`, o `make:component`, o `doctor` e o MCP?
+
+Saíram na v1 (`@matizze/prumo-cli` 0.7.0):
+
+- `make:domain` virou três comandos, um por camada: `make:schema`, `make:repository` e `make:query`.
+- `--domain` do `make:page` virou `--query`.
+- A fonte de dados `memory` virou `mock`.
+- `make:component` e `move:component` saíram sem substituto: os componentes de interface vêm do design system do produto, e os do produto se criam à mão (veja [Telas](guides/pages.md#componentes)).
+- `doctor` e o servidor MCP (`@matizze/prumo-mcp`) saíram sem substituto: o agente de IA usa os mesmos comandos no terminal (veja [Agentes de IA](guides/ai-agents.md)).
 
 ## Solução de problemas
 
-### `prumo make:domain` recusa o nome do domínio
+### `prumo make:schema` recusa o nome do domínio
 
 ```text
-prumo make:domain: tirar o 's' de 'categories' daria 'categorie', que provavelmente não é o singular: informe a entidade com --entity (provavelmente --entity category).
+prumo make:schema: tirar o 's' de 'categories' daria 'categorie', que provavelmente não é o singular: informe a entidade com --entity (provavelmente --entity category).
 ```
 
-O nome do domínio vai no plural, e a entidade sai dele tirando o `s`. Quando a regra erra, informe a entidade: `prumo make:domain categories --entity category`.
+O nome do domínio vai no plural, e a entidade sai dele tirando o `s`. Quando a regra erra, informe a entidade: `prumo make:schema categories --entity category`. Use o mesmo `--entity` no `make:repository` e no `make:query`.
 
-### Um componente recém-gerado com `--shared` aparece no `prumo check`
+### O `make:repository` ou o `make:query` diz que falta uma camada
+
+```text
+prumo make:repository: falta o schema clientes (src/schemas/entities/cliente.ts); rode prumo make:schema clientes.
+```
+
+Cada camada usa a de baixo, e o comando recusa sem criar nada quando ela não existe. Rode, em ordem, `make:schema`, `make:repository` e `make:query`. Se o schema foi gerado com `--entity`, a mensagem lembra de repetir a opção.
+
+### O `make:repository` não reconhece um campo do schema
+
+O comando lê os campos do schema com os tipos do `--fields` (`string`, `number`, `int`, `boolean`, `date`, `datetime` e `enum`). Um campo como `z.string().min(3)` é erro de uso, com a linha. Deixe o campo no tipo simples, gere o repositório e acrescente a validação depois. Veja [O leitor de campos](guides/domains.md#o-leitor-de-campos).
+
+### Um componente em `shared` aparece no `prumo check`
 
 ```text
 src/components/shared/cartao.tsx  [shared-usage]  O módulo não é usado por nenhuma tela, ...
 ```
 
-É esperado: o que está em `shared` precisa ser usado por duas telas ou mais, e o componente novo ainda não é usado. A violação some quando duas telas o importarem. Se só uma tela vai usá-lo, gere-o com `--page <tela>`.
+É esperado: o que está em `shared` precisa ser usado por duas telas ou mais. A violação some quando duas telas o importarem. Se só uma tela o usa, mova-o para `src/pages/<tela>/components/`.
 
 ### O `prumo check` acusa uma chave que falta num idioma
 
@@ -67,19 +89,6 @@ A regra vale também para testes: um teste dentro de `src/pages/<tela>/` não im
 ### Os testes encontram os textos em inglês
 
 O jsdom diz que o navegador está em `en-US`, e o i18n detecta o inglês. Fixe o idioma no `src/test/setup.ts`; veja [Testes](guides/test.md#o-idioma-dos-testes).
-
-### O `prumo doctor` avisa que falta o `packageManager`
-
-Fixe a versão do pnpm no `package.json` com `"packageManager": "pnpm@<versão>"` (a mensagem do `doctor` sugere a versão instalada). Apps criados pelo `prumo new` já vêm com o campo.
-
-### O `prumo doctor` avisa que um pacote está fora da faixa
-
-- **"está atrás da faixa"**: o pacote é mais antigo do que a CLI espera. Atualize-o.
-- **"está à frente da faixa"**: a CLI é mais antiga que o pacote. Atualize o `@matizze/prumo-cli`.
-
-### O `prumo doctor` avisa sobre o `.npmrc` e o GitHub Packages
-
-Os pacotes do Prumo passaram por uma fase provisória no GitHub Packages. Hoje eles estão no npm público: a linha `@matizze:registry=https://npm.pkg.github.com` pode sair do `.npmrc`, e o token também.
 
 ### O `pnpm install` do `prumo new` falhou
 

@@ -13,19 +13,19 @@ A documentação segue quatro tipos de texto, cada um para um momento:
 
 ## Tutorial
 
-- [Primeiros passos](getting-started.md): cria um app, gera um domínio, uma tela e um componente, roda os testes e a verificação. Leva cerca de 15 minutos.
+- [Primeiros passos](getting-started.md): cria um app, gera o schema, o repositório, as queries e uma tela que lista, muda os textos, roda os testes e a verificação. Leva cerca de 15 minutos.
 
 ## Conceitos
 
 - [Arquitetura](concepts/architecture.md): as camadas, as regras que o Prumo cobra e o motivo de cada uma.
-- [Anatomia do app gerado](concepts/generated-app.md): arquivo por arquivo, o que o `prumo new` cria e quais pontos os geradores usam.
+- [Anatomia do app gerado](concepts/generated-app.md): arquivo por arquivo, o que o `prumo new` cria e quais pontos os comandos usam.
 
 ## Guias
 
 | Guia                                                     | Para                                                                                      |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| [Telas](guides/pages.md)                                  | Criar telas, separar model e view, rotas com parâmetro, navegação e rotas protegidas      |
-| [Domínios de dados](guides/domains.md)                   | Criar um domínio, mudar o schema, as fixtures e o contrato, usar queries e mutations, regras de negócio e operações entre domínios |
+| [Telas](guides/pages.md)                                  | Criar telas, separar model e view, componentes do produto, rotas com parâmetro, navegação e rotas protegidas      |
+| [Domínios de dados](guides/domains.md)                   | Criar um domínio (`make:schema`, `make:repository` e `make:query`), os campos, o leitor do schema, mudar a forma do dado, o contrato, usar queries e mutations, regras de negócio e operações entre domínios |
 | [Ligar uma API real](guides/real-api.md)                  | Gerar a fonte http (ou storage), escolher a fonte de dados por ambiente e validar o contrato, inclusive contra uma API que não grava |
 | [Sessão e login](guides/auth.md)                          | A sessão dentro e fora do React, o login, o logout, o `AuthGuard` com origem e a guarda por perfil |
 | [Textos e idiomas](guides/i18n.md)            | Textos por tela, ICU (plural, select), formatação de números e datas, trocar e criar idiomas |
@@ -39,7 +39,7 @@ A documentação segue quatro tipos de texto, cada um para um momento:
 
 | Referência                               | Conteúdo                                                                          |
 | ---------------------------------------- | --------------------------------------------------------------------------------- |
-| [CLI](reference/cli.md)                 | Opções globais, a ajuda e os códigos de saída do `prumo` (os comandos estão sendo reescritos) |
+| [CLI](reference/cli.md)                 | Os comandos `new`, `make:schema`, `make:repository`, `make:query`, `make:page` e `check`, com opções, a ajuda e os códigos de saída |
 | [core](reference/core.md)               | `@matizze/prumo-core`: repositórios, query, i18n, erros, dados, mock e auth       |
 | [rules](reference/rules.md)             | `@matizze/prumo-rules`: as regras de ESLint e a análise do `prumo check`          |
 | [testing](reference/testing.md)         | `@matizze/prumo-testing`: render com provedores, DOM e teste de contrato          |

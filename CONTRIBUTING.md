@@ -39,7 +39,7 @@ Não há CI de verificação: **a verificação é local**, e todo pull request 
 | `pnpm verify`      | Typecheck, lint e testes dos quatro pacotes, sem navegador (cerca de 1 minuto)                                | Sempre                                                       |
 | `pnpm build`       | Compila os pacotes (`dist/`)                                                                                 | Para inspecionar o que vai para o npm                        |
 | `pnpm pack:all`    | Compila e empacota os quatro pacotes em `.packs/`                                                             | Para testar um app com os tarballs (`prumo new <nome> --packages .packs`) |
-| `pnpm verify:new`  | Empacota, cria um app com `prumo new --packages` fora do monorepo, roda nele os comandos já prontos e o `pnpm verify` dele | Ao mudar os modelos (`packages/cli/templates`), o `new` ou os geradores |
+| `pnpm verify:new`  | Empacota, cria um app com `prumo new --packages` fora do monorepo, roda nele todos os comandos (`make:schema`, `make:repository`, `make:query` e `make:page`) e o `pnpm verify` dele (cerca de 1 minuto) | Ao mudar os modelos (`packages/cli/templates`), o `new` ou os `make:*` |
 
 Rode um comando pesado por vez: `tsc`, `eslint` e `vitest` juntos pesam, e em máquinas com pouca memória dois ao mesmo tempo atrapalham um ao outro.
 
@@ -56,7 +56,7 @@ Rode um comando pesado por vez: `tsc`, `eslint` e `vitest` juntos pesam, e em m�
 Mensagens em português, no padrão [Conventional Commits](https://www.conventionalcommits.org/pt-br/), com o escopo do pacote quando houver:
 
 ```text
-feat(cli): prumo make:page aceita --domain
+feat(cli): prumo make:page aceita --path
 fix: o app gerado fixa o pnpm em packageManager
 docs: guia de testes
 chore: versões cli 0.5.1 e core 0.1.2
@@ -76,7 +76,7 @@ Os únicos workflows do GitHub são os de publicação: o `release.yml` (pacotes
 - **Idioma.** Comentários, documentação, mensagens da CLI e commits em **português**. Nomes de função, variável, tipo e **arquivo** em **inglês** (inclusive os arquivos da documentação).
 - **Formatação.** O `.prettierrc.json` e o `.editorconfig` registram o estilo: sem ponto e vírgula, aspas simples, vírgula no fim, 100 colunas, 2 espaços.
 - **TypeScript estrito**, com `verbatimModuleSyntax` e `erasableSyntaxOnly`: `import type` para tipos, sem `enum`, `namespace` nem propriedades no construtor.
-- **Sem saída direta no terminal** no código da CLI: os comandos escrevem pelo `Runtime` (o `no-leak.test.ts` cobra).
+- **Sem saída direta no terminal** no código da CLI: os comandos escrevem pelo `io` (veja [Por dentro](docs/contributing/internals.md#a-cli)).
 - **Mensagens para pessoas.** Erros dizem o que está errado e o que fazer, em português, com o nome do arquivo ou da opção.
 
 ### Documentação

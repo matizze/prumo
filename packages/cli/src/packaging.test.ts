@@ -3,18 +3,16 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
   realpathSync,
-  rmSync,
   statSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { makeDir } from './test/fs.ts'
 
 /** A raiz do monorepo: o empacotamento é um script da raiz, e o teste o roda e confere os tarballs. */
 const REPO = path.resolve(import.meta.dirname, '../../..')
@@ -77,7 +75,7 @@ function exportedFiles(manifest: Manifest): string[] {
 }
 
 beforeAll(() => {
-  work = mkdtempSync(path.join(tmpdir(), 'prumo-packaging-'))
+  work = makeDir('prumo-packaging-')
   packs = path.join(work, 'packs')
   const result = spawnSync('bash', [SCRIPT, packs], { encoding: 'utf8' })
   expect(result.status, `${result.stdout}${result.stderr}`).toBe(0)
@@ -91,10 +89,6 @@ beforeAll(() => {
     expect(untar.status, untar.stderr).toBe(0)
   }
 }, 240_000)
-
-afterAll(() => {
-  if (work) rmSync(work, { recursive: true, force: true })
-})
 
 describe('empacotamento (scripts/pack-packages.sh)', () => {
   it('deixa um tarball por pacote publicável na pasta, e só eles', () => {
@@ -146,7 +140,7 @@ describe.each(PACKAGES)('tarball de @matizze/prumo-%s', (name) => {
     )
     expect(outside).toEqual([])
     const unwanted = files.filter((file) =>
-      /(\.test\.|test-support|rule-tester|__fixtures__|tsconfig|\.tsbuildinfo)/.test(file),
+      /(\.test\.|dist\/test\/|rule-tester|__fixtures__|tsconfig|\.tsbuildinfo)/.test(file),
     )
     expect(unwanted).toEqual([])
     // Código de teste não vai: um .js só importa o vitest se o pacote o declara (o testing, que é

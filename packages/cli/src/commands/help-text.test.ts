@@ -1,15 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import type { Io } from '../io.ts'
 import { run } from '../program.ts'
+import { captureIo } from '../test/run.ts'
 import { MCP_JSON } from './mcp.ts'
 
 async function help(argv: string[], columns?: number): Promise<{ code: number; out: string; err: string }> {
-  let out = ''
-  let err = ''
-  const io: Io = { cwd: '/tmp', columns, out: (t) => void (out += t), err: (t) => void (err += t) }
+  const { io, stdout, stderr } = captureIo('/tmp', { columns })
   const code = await run(argv, io)
-  return { code, out, err }
+  return { code, out: stdout(), err: stderr() }
 }
 
 const ANCHORS: Record<string, string> = {

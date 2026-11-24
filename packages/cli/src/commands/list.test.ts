@@ -1,9 +1,10 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { fixtureProject } from '../codemods/test-support.ts'
+import { fixtureProject } from '../test/fixture-project.ts'
 import { listProject, type ProjectListing } from '../lib/listing.ts'
-import { exec, makeDir, makeProject } from '../test-support.ts'
+import { makeDir, makeProject } from '../test/fs.ts'
+import { exec } from '../test/run.ts'
 
 async function make(root: string, ...commands: string[][]) {
   for (const args of commands) {

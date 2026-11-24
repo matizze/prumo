@@ -3,10 +3,10 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { UsageError } from '../errors.ts'
 import { findProject } from '../lib/project.ts'
-import { makeProject } from '../test-support.ts'
+import { makeProject } from '../test/fs.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import { registerMessageNamespace } from './register-messages.ts'
-import { fixturePlan } from './test-support.ts'
+import { fixturePlan } from '../test/fixture-project.ts'
 
 const indexOf = (plan: ChangePlan, language: string) =>
   plan.source(path.join(plan.project.messages, language, 'index.ts')).getFullText()

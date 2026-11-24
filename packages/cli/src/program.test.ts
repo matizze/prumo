@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { RegisterCommand } from './commands/index.ts'
 import { ExitError, UsageError } from './errors.ts'
 import { execute, run } from './program.ts'
+import { captureIo } from './test/run.ts'
 
 const { version } = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
@@ -45,14 +46,9 @@ async function exec(
   commands: readonly RegisterCommand[] = [fake],
   env?: Readonly<Record<string, string | undefined>>,
 ) {
-  let out = ''
-  let err = ''
-  const outcome = await execute(
-    argv,
-    { cwd: '/tmp', env, out: (text) => (out += text), err: (text) => (err += text) },
-    commands,
-  )
-  return { code: outcome.code, kind: outcome.kind, out, err }
+  const { io, stdout, stderr } = captureIo('/tmp', { env })
+  const outcome = await execute(argv, io, commands)
+  return { code: outcome.code, kind: outcome.kind, out: stdout(), err: stderr() }
 }
 
 /** Palavras que o commander escreve em inglês e que nada do que sai pode ter. */
@@ -331,8 +327,7 @@ describe('outros códigos de saída', () => {
   })
 
   it('o run devolve só o código', async () => {
-    const io = { cwd: '/tmp', out: () => undefined, err: () => undefined }
-    expect(await run(['exit-three'], io, [fake])).toBe(3)
+    expect(await run(['exit-three'], captureIo('/tmp').io, [fake])).toBe(3)
   })
 })
 

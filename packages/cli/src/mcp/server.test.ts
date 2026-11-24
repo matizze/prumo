@@ -1,9 +1,9 @@
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { cpSync, existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { Client, InMemoryTransport } from '@modelcontextprotocol/client'
 import { afterAll, describe, expect, it } from 'vitest'
-import { fixtureProject } from '../codemods/test-support.ts'
+import { fixtureProject } from '../test/fixture-project.ts'
+import { makeDir } from '../test/fs.ts'
 import type { RegisterCommand } from '../commands/index.ts'
 import { callTool, createMcpServer, resultOf } from './server.ts'
 import { describeTools, type ToolSpec } from './tools.ts'
@@ -119,19 +119,15 @@ describe('prumo mcp, cliente e servidor no mesmo processo', () => {
   it('não escreve fora do projeto', async () => {
     // Uma pasta-mãe só deste teste: a pasta temporária do sistema muda com os outros testes, que
     // rodam ao mesmo tempo, então compará-la antes e depois não prova nada
-    const parent = mkdtempSync(path.join(tmpdir(), 'prumo-mcp-fora-'))
-    try {
-      const root = path.join(parent, 'app')
-      cpSync(fixtureProject().root, root, { recursive: true })
-      const connection = await connect(root)
-      connections.push(connection)
-      await connection.call('make_schema', { dominio: 'livros', fields: 'title:string' })
-      await connection.call('make_page', { nome: 'sobre' })
-      expect(readdirSync(parent)).toEqual(['app'])
-      expect(existsSync(path.join(root, 'src/pages/sobre/index.tsx'))).toBe(true)
-    } finally {
-      rmSync(parent, { recursive: true, force: true })
-    }
+    const parent = makeDir('prumo-mcp-fora-')
+    const root = path.join(parent, 'app')
+    cpSync(fixtureProject().root, root, { recursive: true })
+    const connection = await connect(root)
+    connections.push(connection)
+    await connection.call('make_schema', { dominio: 'livros', fields: 'title:string' })
+    await connection.call('make_page', { nome: 'sobre' })
+    expect(readdirSync(parent)).toEqual(['app'])
+    expect(existsSync(path.join(root, 'src/pages/sobre/index.tsx'))).toBe(true)
   })
 
   it('chamadas juntas rodam uma de cada vez, sem se atropelar', async () => {

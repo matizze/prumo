@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { ChangePlan } from '../lib/plan.ts'
 import { findProject } from '../lib/project.ts'
-import { makeProject } from '../test-support.ts'
+import { makeProject } from '../test/fs.ts'
 import { addRouteSnippet, type RouteSnippet } from './add-route.ts'
 
 const SHELL = `import type { ReactNode } from 'react'

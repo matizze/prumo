@@ -108,7 +108,7 @@ describe('zodOf', () => {
 })
 
 describe('domainFieldVars', () => {
-  it('sem --fields o campo name gera o que o make:domain sempre gerou', () => {
+  it('sem --fields, o schema tem só o campo name', () => {
     const vars = domainFieldVars(DEFAULT_FIELDS, 'cliente')
 
     expect(vars['fields.schema']).toBe('  name: z.string(),')

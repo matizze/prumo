@@ -48,9 +48,9 @@ export const APP_FILES: readonly AppFile[] = [
 export const HOME_PAGE = 'home'
 
 /**
- * As dependências do app, só as bibliotecas e versões que o app de referência das fases anteriores
- * já usava (React, wouter, TanStack Query, zod e i18next são o que o `@matizze/prumo-core` pede por
- * peer). Os pacotes do Prumo entram à parte, com a versão deles.
+ * As dependências do app: as bibliotecas que o `@matizze/prumo-core` pede por peer (React, wouter,
+ * TanStack Query, zod e i18next), com as versões do app gerado. Os pacotes do Prumo entram à
+ * parte, com a versão deles.
  */
 const DEPENDENCIES: Readonly<Record<string, string>> = {
   '@tanstack/react-query': '^5.105.0',

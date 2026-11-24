@@ -15,8 +15,6 @@ pnpm --version   # 10.x ou mais novo
 
 Se o pnpm não estiver instalado: `npm install -g pnpm` (no Node 24, também dá para usar o Corepack, que vem com ele: `corepack enable`).
 
-Os pacotes do Prumo estão no npm público. Não há token, `.npmrc` nem configuração a fazer.
-
 ## 1. Crie o app
 
 ```bash

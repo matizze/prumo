@@ -4,8 +4,6 @@ App React criado pelo Prumo (`prumo new`). O guia para pessoas e agentes de IA e
 
 ## Instalação
 
-Os pacotes `@matizze/prumo-*` vêm do npm público, sem token nem configuração extra:
-
 ```sh
 pnpm install
 ```

@@ -153,7 +153,7 @@ function addErrorMessages(
   }
   if (missing.length === 0) return []
   return [
-    `o texto de ${keys.join(' e ')} não foi acrescentado: falta o namespace de erros: ${missing.join(', ')}. Sem ele, a tela mostra o texto genérico; veja o guia de erros (docs/guides/errors-and-notifications.md) para criar o errors.json e o src/errors.ts.`,
+    `o texto de ${keys.join(' e ')} não foi acrescentado: falta o namespace de erros: ${missing.join(', ')}. Sem ele, a tela mostra o texto genérico; veja o guia de erros (https://docs.prumo.matizze.com.br/guides/errors-and-notifications) para criar o errors.json e o src/errors.ts.`,
   ]
 }
 

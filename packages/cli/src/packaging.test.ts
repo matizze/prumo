@@ -27,6 +27,7 @@ type Manifest = {
   name: string
   version: string
   private?: boolean
+  keywords?: string[]
   repository?: { type?: string; url?: string; directory?: string }
   bin?: Record<string, string>
   exports: Record<string, { types: string; default: string }>
@@ -128,15 +129,17 @@ describe.each(PACKAGES)('tarball de @matizze/prumo-%s', (name) => {
     }
     expect(files).toContain('package.json')
     expect(files).toContain('README.md')
+    expect(files).toContain('LICENSE')
   })
 
-  it('só leva o dist, o package.json e o README (e os modelos, no cli): sem código-fonte, teste, fixture nem tsconfig', () => {
+  it('só leva o dist, o package.json, o README e a licença (e os modelos, no cli): sem código-fonte, teste, fixture nem tsconfig', () => {
     const files = entries(name)
     const outside = files.filter(
       (file) =>
         !(
           file === 'package.json' ||
           file === 'README.md' ||
+          file === 'LICENSE' ||
           file.startsWith('dist/') ||
           (name === 'cli' && file.startsWith('templates/'))
         ),
@@ -208,6 +211,13 @@ describe.each(PACKAGES)('tarball de @matizze/prumo-%s', (name) => {
     // A publicação em si é de uma pessoa (com o token do npm); aqui só se confere que o pacote pode sair.
     for (const manifest of [workspaceManifest(name), packedManifest(name)]) {
       expect(manifest.private, 'um pacote private não publica').toBeUndefined()
+      expect(manifest).toMatchObject({
+        license: 'MIT',
+        homepage: 'https://docs.prumo.matizze.com.br',
+        bugs: { url: 'https://github.com/matizze/prumo/issues' },
+        engines: { node: '>=24' },
+      })
+      expect(manifest.keywords?.length, 'faltam palavras-chave').toBeGreaterThan(0)
       // O repository liga o pacote ao repositório
       expect(manifest.repository).toEqual({
         type: 'git',

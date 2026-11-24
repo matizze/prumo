@@ -103,7 +103,7 @@ function enumValues(field: Field): string[] {
   return field.values && field.values.length > 0 ? field.values : ['a', 'b']
 }
 
-/** O campo `name` de texto: nele os exemplos seguem o que o `make:domain` sempre gerou. */
+/** O campo `name` de texto: é o campo padrão do schema, quando não há `--fields`. */
 function isLegacy(field: Field): boolean {
   return field.name === 'name' && field.type === 'string'
 }
@@ -381,7 +381,7 @@ export function domainIdSample(fixtures: string | undefined): { sample?: string 
 
 /**
  * Descobre o que mostrar de um registro do domínio, do schema e das fixtures que existem hoje (o app
- * pode ter editado os dois depois do `make:domain`). O campo é o primeiro de texto obrigatório
+ * pode ter editado os dois depois de gerados). O campo é o primeiro de texto obrigatório
  * (`z.string()`, fora `id` e `createdAt`), ou o primeiro de texto opcional; sem nenhum, ou sem achar o
  * schema, é o `id`, com um aviso.
  */

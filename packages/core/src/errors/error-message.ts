@@ -1,7 +1,7 @@
 import type { i18n as I18nInstance } from 'i18next'
 import { UIError, type ErrorParams } from './ui-error.ts'
 
-/** Opções de `createErrorMessage`; os padrões são as convenções do app de referência. */
+/** Opções de `createErrorMessage`; os padrões são as convenções do app gerado pelo `prumo new`. */
 export interface ErrorMessageOptions {
   /** Prefixo das chaves de erro; a chave de um `UIError` é `<prefix><code>` (padrão `errors.`). */
   prefix?: string

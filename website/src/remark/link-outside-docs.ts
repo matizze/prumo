@@ -10,19 +10,17 @@ interface Node {
 export interface LinkOutsideDocsOptions {
   /** A pasta publicada como site (a `docs/` do repositório), caminho absoluto. */
   docsDir: string
-  /** Arquivos de `docs/` que o site não publica, relativos a ela (`plan.md`). */
-  excluded: readonly string[]
   /** O endereço do repositório no GitHub. */
   repository: string
 }
 
 /**
  * Plugin de remark que leva para o GitHub os links que saem do site. A documentação é escrita para
- * ser lida no GitHub, com links relativos para o CONTRIBUTING.md, o SECURITY.md e o plano; o site só
- * publica a pasta `docs/`, e esses links quebrariam. O link para um arquivo fora de `docs/`, ou para
- * um arquivo de `docs/` que o site não publica, vira o endereço do arquivo na `main`, com a âncora.
+ * ser lida no GitHub, com links relativos para o CONTRIBUTING.md e o SECURITY.md; o site só
+ * publica a pasta `docs/`, e esses links quebrariam. O link para um arquivo fora de `docs/` vira o
+ * endereço do arquivo na `main`, com a âncora.
  */
-export function linkOutsideDocs({ docsDir, excluded, repository }: LinkOutsideDocsOptions) {
+export function linkOutsideDocs({ docsDir, repository }: LinkOutsideDocsOptions) {
   const root = path.dirname(docsDir)
 
   function rewrite(node: Node, from: string): void {
@@ -34,7 +32,7 @@ export function linkOutsideDocs({ docsDir, excluded, repository }: LinkOutsideDo
     const [target = '', hash] = url.split('#')
     const absolute = path.resolve(path.dirname(from), target)
     const inDocs = absolute.startsWith(`${docsDir}${path.sep}`)
-    if (inDocs && !excluded.includes(path.relative(docsDir, absolute))) return
+    if (inDocs) return
     const file = path.relative(root, absolute).split(path.sep).join('/')
     node.url = `${repository}/blob/main/${file}${hash ? `#${hash}` : ''}`
   }

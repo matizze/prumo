@@ -1,8 +1,8 @@
 # @matizze/prumo-rules
 
-As regras da arquitetura do [Prumo](https://github.com/matizze/prumo): um plugin de ESLint, que avisa no editor, e a análise do projeto inteiro que o `prumo check` roda. As regras cobram a estrutura (as camadas, as pastas e os textos), nunca a interface.
+As regras da arquitetura do [Prumo](https://docs.prumo.matizze.com.br): um plugin de ESLint, que avisa no editor, e a análise do projeto inteiro que o `prumo check` roda. As regras cobram a estrutura (as camadas, as pastas e os textos), nunca a interface.
 
-**[Documentação](https://github.com/matizze/prumo/blob/main/docs/README.md)** · **[Referência deste pacote](https://github.com/matizze/prumo/blob/main/docs/reference/rules.md)** · **[Changelog](https://github.com/matizze/prumo/blob/main/packages/rules/CHANGELOG.md)**
+**[Documentação](https://docs.prumo.matizze.com.br)** · **[Referência deste pacote](https://docs.prumo.matizze.com.br/reference/rules)**
 
 ## Instalação
 
@@ -47,8 +47,8 @@ const violations = check({ root: process.cwd() })
 | `page-structure`     | Toda pasta de `src/pages` tem `index.tsx`, `model.ts` e `view.tsx`                                 |
 | `messages`           | Os idiomas têm as mesmas chaves e os mesmos argumentos ICU, nenhum texto vazio e os mesmos namespaces registrados |
 
-As opções (pastas, alias, idiomas) e as mensagens de cada verificação estão em [docs/reference/rules.md](https://github.com/matizze/prumo/blob/main/docs/reference/rules.md).
+As opções (pastas, alias, idiomas) e as mensagens de cada verificação estão na [referência do rules](https://docs.prumo.matizze.com.br/reference/rules).
 
 ## Suporte
 
-Mantido pela [Matizze](https://github.com/matizze). Problemas e sugestões em [issues](https://github.com/matizze/prumo/issues).
+Mantido pela [Matizze](https://github.com/matizze). Problemas e sugestões em [issues](https://github.com/matizze/prumo/issues). Licença MIT.

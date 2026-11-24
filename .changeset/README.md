@@ -20,7 +20,7 @@ Na hora de lançar uma versão, um pull request para a `develop` roda `pnpm chan
 
 - **Acesso público.** O `access` é `public`, como o `publishConfig` de cada pacote: os pacotes vão para o npm público, no escopo `@matizze`.
 - **Sem formatação automática.** O `format` está desligado porque o Prettier não é dependência da raiz.
-- **Changelog padrão.** Quando o repositório estiver no GitHub, dá para trocar pelo `@changesets/changelog-github`, que liga cada linha ao pull request. É outro pacote, então precisa de aprovação antes.
+- **Changelog padrão.** Dá para trocar pelo `@changesets/changelog-github`, que liga cada linha ao pull request. É outro pacote, então precisa de aprovação antes.
 
 ## Publicação
 

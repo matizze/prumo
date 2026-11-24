@@ -3,6 +3,8 @@
 [![npm](https://img.shields.io/npm/v/@matizze/prumo-cli?label=%40matizze%2Fprumo-cli)](https://www.npmjs.com/package/@matizze/prumo-cli)
 [![Node](https://img.shields.io/badge/node-%3E%3D24-339933)](https://nodejs.org)
 [![pnpm](https://img.shields.io/badge/pnpm-10-F69220)](https://pnpm.io)
+[![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)](LICENSE)
+[![Documentação](https://img.shields.io/badge/docs-docs.prumo.matizze.com.br-0A7EA4)](https://docs.prumo.matizze.com.br)
 
 **Prumo cria e mantém aplicações React organizadas em camadas.** Ele gera a estrutura (telas, domínios de dados, textos em dois idiomas e testes) e confere a arquitetura a cada mudança, no terminal, no editor e para agentes de IA.
 
@@ -32,6 +34,7 @@ Em menos de um minuto, você tem um app com Vite, React 19, TypeScript, TanStack
 - [Documentação](#documentação)
 - [Situação do projeto](#situação-do-projeto)
 - [Contribuindo](#contribuindo)
+- [Licença](#licença)
 
 ## Por que o Prumo
 
@@ -45,7 +48,7 @@ O Prumo transforma o combinado em ferramenta:
 
 ## Começando
 
-Requisitos: **Node.js 24** ou mais novo e **pnpm 10** ou mais novo. Os pacotes estão no npm público, sem token nem configuração.
+Requisitos: **Node.js 24** ou mais novo e **pnpm 10** ou mais novo.
 
 ```bash
 pnpm dlx @matizze/prumo-cli new meu-app   # cria o app, roda git init e pnpm install
@@ -117,18 +120,22 @@ Os pacotes versionam separados. Um app criado pelo `prumo new` já tem os quatro
 
 ## Documentação
 
-A documentação completa está em [`docs/`](docs/README.md):
+A documentação completa está em [docs.prumo.matizze.com.br](https://docs.prumo.matizze.com.br) (os mesmos arquivos de [`docs/`](docs/README.md)):
 
 - **Tutorial:** [Primeiros passos](docs/getting-started.md)
 - **Conceitos:** [Arquitetura](docs/concepts/architecture.md) e [Anatomia do app gerado](docs/concepts/generated-app.md)
-- **Guias:** [telas](docs/guides/pages.md), [domínios de dados](docs/guides/domains.md), [ligar uma API real](docs/guides/real-api.md), [textos e idiomas](docs/guides/i18n.md), [erros e notificações](docs/guides/errors-and-notifications.md), [testes](docs/guides/test.md), [design system](docs/guides/design-system.md), [agentes de IA](docs/guides/ai-agents.md) e [projeto existente](docs/guides/existing-project.md)
+- **Guias:** [telas](docs/guides/pages.md), [domínios de dados](docs/guides/domains.md), [ligar uma API real](docs/guides/real-api.md), [sessão e login](docs/guides/auth.md), [textos e idiomas](docs/guides/i18n.md), [erros e notificações](docs/guides/errors-and-notifications.md), [testes](docs/guides/test.md), [design system](docs/guides/design-system.md), [agentes de IA](docs/guides/ai-agents.md) e [projeto existente](docs/guides/existing-project.md)
 - **Referência:** [CLI](docs/reference/cli.md), [core](docs/reference/core.md), [rules](docs/reference/rules.md), [testing](docs/reference/testing.md)
-- [Perguntas frequentes e solução de problemas](docs/faq.md)
+- [Perguntas frequentes e solução de problemas](docs/faq.md) e o [roadmap](docs/roadmap.md)
 
 ## Situação do projeto
 
-O Prumo está em versão `0.x` e é mantido pela Matizze. A estrutura que ele gera é estável; a API dos pacotes ainda pode mudar entre versões menores, sempre registrada no `CHANGELOG.md` de cada pacote. O repositório é público para consulta, e o plano está em [docs/plan.md](docs/plan.md).
+O Prumo está em versão `0.x` e é mantido pela Matizze. A estrutura que ele gera é estável; a API dos pacotes ainda pode mudar entre versões menores. O que vem depois está no [roadmap](docs/roadmap.md).
 
 ## Contribuindo
 
 Como montar o ambiente, as verificações locais, as convenções e o fluxo de versão estão em [CONTRIBUTING.md](CONTRIBUTING.md). Para relatar uma vulnerabilidade, veja [SECURITY.md](SECURITY.md).
+
+## Licença
+
+[MIT](LICENSE), © 2026 Matizze.

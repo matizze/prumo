@@ -24,6 +24,34 @@ Para avaliar o risco, vale saber o que cada peça executa:
 - **`prumo new`** cria arquivos numa pasta nova e roda `git init` e `pnpm install` nela.
 - **`prumo make:*`** cria e edita arquivos dentro da pasta do projeto (`--root`), e só depois de validar tudo.
 - **`prumo check`** e **`prumo list`** só leem arquivos, sem rede.
-- **`prumo mcp`** abre um servidor MCP por stdio, que só conversa com o programa que o abriu (o agente de IA): não abre porta de rede nem faz requisição. Cada ferramenta roda o comando de mesmo nome, em processo, e escreve no projeto pelas mesmas regras da CLI (valida tudo antes e nunca sobrescreve arquivo), e só nele: a pasta é a de onde o servidor abriu (ou a `--root`), e nenhuma ferramenta recebe outra. Os nomes e caminhos que as ferramentas aceitam são validados e ficam sob a raiz do projeto, e antes de gravar a CLI confere o caminho real de cada arquivo, com os links simbólicos resolvidos: se ele sai do projeto (o próprio `src`, uma pasta dentro dele ou um arquivo como o `App.tsx` sendo link para fora), ou passa por um link quebrado, o comando sai com 2, diz qual é o link e não escreve nada (o `--dry-run` confere o mesmo). Link dentro do projeto que aponta para dentro dele continua valendo. O que a conferência não vê: um link físico (hard link) de um arquivo do projeto para um de fora, que só existe se alguém o criou na máquina (o git não o carrega). Ele não cria app (o `new` não é ferramenta), não roda comandos do sistema nem instala dependências. Quem aprova o servidor é a pessoa, no cliente do agente, ao confiar no `.mcp.json` do projeto: um `.mcp.json` de origem desconhecida abre o programa que ele disser, então confie nele como confiaria num script do projeto.
+- **`prumo mcp`** abre um servidor MCP por stdio. Detalhes abaixo.
+
+### O servidor MCP (`prumo mcp`)
+
+**O que ele faz**
+
+- Só conversa com o programa que o abriu (o agente de IA): não abre porta de rede nem faz requisição.
+- Cada ferramenta roda o comando de mesmo nome, em processo, com as mesmas regras da CLI: valida tudo antes e nunca sobrescreve arquivo.
+- Não cria app (o `new` não é ferramenta), não roda comandos do sistema nem instala dependências.
+
+**Onde escreve**
+
+- Só no projeto: a pasta de onde o servidor abriu (ou a `--root`). Nenhuma ferramenta recebe outra pasta.
+- Os nomes e caminhos que as ferramentas aceitam são validados e ficam sob a raiz do projeto.
+
+**O que a trava de links garante**
+
+- Antes de gravar, a CLI confere o caminho real de cada arquivo, com os links simbólicos resolvidos.
+- Se o caminho sai do projeto (o próprio `src`, uma pasta dentro dele ou um arquivo como o `App.tsx` sendo link para fora) ou passa por um link quebrado, o comando sai com 2, diz qual é o link e não escreve nada. O `--dry-run` confere o mesmo.
+- Link dentro do projeto que aponta para dentro dele continua valendo.
+
+**O que não protege**
+
+- Um link físico (hard link) de um arquivo do projeto para um de fora. Ele só existe se alguém o criou na máquina (o git não o carrega).
+
+**Em quem confiar**
+
+- Quem aprova o servidor é a pessoa, no cliente do agente, ao confiar no `.mcp.json` do projeto.
+- Um `.mcp.json` de origem desconhecida abre o programa que ele disser: confie nele como confiaria num script do projeto.
 
 Os pacotes são publicados pelo workflow do repositório com o Trusted Publishing do npm, sem token guardado.

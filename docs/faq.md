@@ -36,18 +36,11 @@ O Prumo não decide. Estado de tela fica no model; dado do servidor fica no cach
 
 ### Como atualizo o Prumo num app existente?
 
-Atualize os pacotes com o pnpm (`pnpm up "@matizze/prumo-*" --latest`) e rode `pnpm verify`. As mudanças de cada versão estão no `CHANGELOG.md` de cada pacote. Os arquivos que o `prumo new` já gerou são do app e não mudam com a atualização.
+Atualize os pacotes com o pnpm (`pnpm up "@matizze/prumo-*" --latest`) e rode `pnpm verify`. Os arquivos que o `prumo new` já gerou são do app e não mudam com a atualização.
 
-### Cadê o `make:domain`, o `make:component`, o `doctor` e o MCP?
+### Usei uma versão anterior e um comando sumiu. O que mudou?
 
-Saíram na v1 (`@matizze/prumo-cli` 0.7.0):
-
-- `make:domain` virou três comandos, um por camada: `make:schema`, `make:repository` e `make:query`.
-- `--domain` do `make:page` virou `--query`.
-- A fonte de dados `memory` virou `mock`.
-- `make:component` e `move:component` saíram sem substituto: os componentes de interface vêm do design system do produto, e os do produto se criam à mão (veja [Telas](guides/pages.md#componentes)).
-- `doctor` saiu sem substituto.
-- O servidor MCP voltou como um comando da própria cli, o [`prumo mcp`](reference/cli.md#prumo-mcp), com uma ferramenta por comando (veja [Agentes de IA](guides/ai-agents.md#o-servidor-mcp)). O pacote `@matizze/prumo-mcp` não volta: use `prumo mcp`, a partir do `@matizze/prumo-cli` 0.8.0.
+A 0.7.0 do `@matizze/prumo-cli` reescreveu a CLI: `make:domain` virou `make:schema`, `make:repository` e `make:query`; `--domain` virou `--query`; a fonte `memory` virou `mock`; `make:component`, `move:component` e `doctor` saíram. Os comandos de hoje estão na [referência da CLI](reference/cli.md).
 
 ## Solução de problemas
 

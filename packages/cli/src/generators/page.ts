@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { addRouteSnippet, messageLanguages, registerMessageNamespace } from '../codemods/index.ts'
 import { UsageError } from '../errors.ts'
+import { contractEntity } from '../lib/contract.ts'
 import { domainIdSample, domainShapeOf, literal, type DomainShape } from '../lib/fields.ts'
 import { assertValidName, deriveNames, usableNames, type Names } from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
@@ -211,10 +212,7 @@ function entityOf(project: Project, domain: Names, queryText: string): string | 
   const contract = readIfExists(
     path.join(project.src, 'repositories', domain.kebab, 'repository.contract.ts'),
   )
-  const fromContract = contract
-    ? (/\bPage<\s*([A-Z][A-Za-z0-9]*)Schema\s*>/.exec(contract)?.[1] ??
-      /\b([A-Z][A-Za-z0-9]*)Schema\b/.exec(contract)?.[1])
-    : undefined
+  const fromContract = contract ? contractEntity(contract) : undefined
   return fromContract ?? /\buse([A-Z][A-Za-z0-9]*)Detail\b/.exec(queryText)?.[1]
 }
 

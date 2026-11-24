@@ -14,6 +14,7 @@ prumo [opções] [comando]
 | [`make:query <domínio>`](#prumo-makequery) | Cria as queries e mutations de um domínio (chaves e hooks de lista, detalhe e escrita) |
 | [`make:page <nome>`](#prumo-makepage) | Cria uma tela (index, model, view, teste), os textos e a rota |
 | [`check`](#prumo-check)            | Confere a arquitetura do projeto                      |
+| [`list`](#prumo-list)              | Mostra o que o projeto tem (schemas, repositórios, queries, telas, idiomas) |
 
 ## Como rodar
 
@@ -235,6 +236,87 @@ Confere as pastas de `src/components`, o uso de `components/shared` pelas telas,
 | `1`    | Há violação                                                                     |
 | `2`    | A pasta não existe ou não é um projeto (sem `package.json` e `src`)             |
 
+## `prumo list`
+
+```text
+prumo list [--root <pasta>] [--json]
+```
+
+Mostra o que o projeto tem, lendo os arquivos. Nunca escreve. Sai com 2 se a pasta não é um projeto (sem `package.json` e `src`), como o `check`. Sem `--json`, escreve uma seção por tipo, em português, com uma linha por item; a seção vazia diz `nenhum`:
+
+```text
+Schemas (1):
+  Livro  src/schemas/entities/livro.ts  title: string, year?: int
+
+Repositórios (1):
+  livros  Livro  fontes: mock, http, storage
+
+Queries (1):
+  livros  Livro  useLivrosList, useLivroDetail, useCreateLivro, useUpdateLivro, useRemoveLivro
+
+Telas (2):
+  livro  rota: /livros/:id  detalhe  query: livros
+  sobre  rota: nenhuma  titulo
+
+Idiomas (2):
+  en
+  pt-BR
+```
+
+Um schema que o leitor do Prumo recusa (editado à mão com algo fora dos tipos do `--fields`) aparece como `editado à mão (<motivo>)`.
+
+| Opção             | O que faz                                                     |
+| ----------------- | ------------------------------------------------------------- |
+| `--root <pasta>`  | A pasta do projeto, a que tem o `src` (padrão: a pasta atual) |
+| `--json`          | Escreve o levantamento em JSON, no formato abaixo             |
+
+### A saída `--json`
+
+Um objeto com cinco listas, sempre presentes (vazias quando não há nada), ordenadas pelo nome do arquivo ou da pasta. Os tipos estão no `ProjectListing` (exportado por `@matizze/prumo-cli`).
+
+```json
+{
+  "schemas": [
+    {
+      "entity": "Livro",
+      "file": "src/schemas/entities/livro.ts",
+      "fields": [{ "name": "title", "type": "string", "optional": false }],
+      "problem": null
+    }
+  ],
+  "repositories": [{ "domain": "livros", "entity": "Livro", "sources": ["mock", "http", "storage"] }],
+  "queries": [
+    {
+      "domain": "livros",
+      "file": "src/queries/livros.ts",
+      "entity": "Livro",
+      "hooks": ["useLivrosList", "useLivroDetail"]
+    }
+  ],
+  "pages": [{ "name": "livro", "route": "/livros/:id", "variation": "detalhe", "query": "livros" }],
+  "languages": ["en", "pt-BR"]
+}
+```
+
+| Lista          | Campo       | Valor                                                                                                                                  |
+| -------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `schemas`      | `entity`    | A entidade, em PascalCase                                                                                                              |
+|                | `file`      | O arquivo, relativo à raiz                                                                                                             |
+|                | `fields`    | Os campos que o leitor reconhece (`name`, `type`, `optional` e, no `enum`, `values`), sem `id` e `createdAt`; `null` se o schema foi editado à mão e o leitor o recusa |
+|                | `problem`   | O motivo curto da recusa; `null` quando `fields` foi lido                                                                              |
+| `repositories` | `domain`    | O nome da pasta em `src/repositories`                                                                                                  |
+|                | `entity`    | A entidade lida do contrato (`repository.contract.ts`); `null` se o contrato não existe ou não diz                                     |
+|                | `sources`   | As fontes que existem, em ordem: `mock`, `http`, `storage`. Uma fonte conta quando o arquivo `repository.<fonte>.ts` existe e a fábrica (`index.ts`) a escolhe |
+| `queries`      | `domain`    | O nome do arquivo (ou pasta) em `src/queries`                                                                                          |
+|                | `file`      | O arquivo, relativo à raiz                                                                                                             |
+|                | `entity`    | A entidade (do contrato do repositório, ou do hook `use<Entidade>Detail`); `null` se nenhum diz                                        |
+|                | `hooks`     | Os hooks (`use...`) que o arquivo exporta, na ordem do arquivo                                                                         |
+| `pages`        | `name`      | O nome da pasta em `src/pages`                                                                                                         |
+|                | `route`     | O `path` da `<Route>` do `src/App.tsx` que usa a tela; `null` se nenhuma                                                               |
+|                | `variation` | `titulo` (só o título), `lista` (com query), `parametro` (rota com parâmetro) ou `detalhe` (query e parâmetro)                          |
+|                | `query`     | O domínio da query que o model da tela importa de `@/queries`; `null` se não usa                                                        |
+| `languages`    |             | As pastas de `src/messages`, em ordem                                                                                                  |
+
 ## Opções globais
 
 | Opção             | O que faz           |
@@ -272,6 +354,8 @@ Comandos:
                                       mensagens e rota.
   check [opções]                      Analisa o projeto e lista as violações da
                                       arquitetura.
+  list [opções]                       Mostra o que o projeto tem: schemas,
+                                      repositórios, queries, telas e idiomas.
 ```
 
 ## Códigos de saída

@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import {
   addDataSource,
-  messageLanguages,
   readDataSourceFromEnv,
   registerContractSource,
   registerFactorySource,
@@ -15,7 +14,7 @@ import { domainNames, type DomainNames } from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'
 import { nameVars, renderTemplate, renderTemplateFile } from '../lib/templates.ts'
-import { messagesLanguageOf } from './page.ts'
+import { addErrorMessages } from './error-messages.ts'
 
 /** As fontes de dados que o comando aceita: o mock (sempre existe) e as que se acrescentam a ele. */
 export const DATA_SOURCE_CHOICES = ['mock', 'http', 'storage'] as const
@@ -87,12 +86,11 @@ export const SOURCE_FILES: Readonly<Record<RepositorySource, RepositoryFile>> = 
 }
 
 /**
- * O que a primeira fonte http do app cria, comum a todos os domínios: o cliente, a instância dele
- * e os tipos do `import.meta.env`. Cada arquivo que já existe é aproveitado, não recriado.
+ * O que a primeira fonte http do app cria, se faltam (o app novo já os traz): a instância do cliente
+ * da API e os tipos do `import.meta.env`. Cada arquivo que já existe é aproveitado, não recriado.
  */
 export const HTTP_CLIENT_FILES: readonly RepositoryFile[] = [
-  { template: 'app/src/repositories/http.ts.tpl', to: 'src/repositories/http.ts' },
-  { template: 'app/src/repositories/api.ts.tpl', to: 'src/repositories/api.ts' },
+  { template: 'app/src/http/api.ts.tpl', to: 'src/http/api.ts' },
   { template: 'app/src/vite-env.d.ts.tpl', to: 'src/vite-env.d.ts' },
 ]
 
@@ -104,57 +102,17 @@ const ERROR_TEXT = {
 
 type ErrorSuffix = keyof typeof ERROR_TEXT
 
-/**
- * Acrescenta `<ENTIDADE>_<sufixo>` (`NOT_FOUND`, e `INVALID` no storage) ao `src/messages/<idioma>/errors.json` de cada idioma, para a
- * pessoa ver o texto do erro, não o genérico. Um app sem o namespace de erros (o arquivo falta ou
- * é inválido) fica sem a chave naquele idioma, e o comando devolve um aviso, sem falhar. A chave
- * que já existe não é trocada.
- */
-function addErrorMessages(
+/** Acrescenta `<ENTIDADE>_<sufixo>` aos `errors.json` do projeto (veja `addErrorMessages`). */
+function addEntityErrors(
   plan: ChangePlan,
   names: DomainNames,
   suffixes: readonly ErrorSuffix[],
 ): string[] {
   const base = nameVars('singular', names.singular)['singular.constant']
-  const keys = suffixes.map((suffix) => `${base}_${suffix}`)
-  const missing: string[] = []
-  let languages: string[]
-  try {
-    languages = messageLanguages(plan.project)
-  } catch {
-    languages = []
-    missing.push('src/messages (o projeto não tem idioma)')
-  }
-  for (const language of languages) {
-    const file = path.join(plan.project.messages, language, 'errors.json')
-    const relative = `src/messages/${language}/errors.json`
-    if (!plan.hasFile(file)) {
-      missing.push(relative)
-      continue
-    }
-    let messages: unknown
-    try {
-      messages = JSON.parse(plan.readText(file))
-    } catch {
-      missing.push(`${relative} (JSON inválido)`)
-      continue
-    }
-    if (typeof messages !== 'object' || messages === null || Array.isArray(messages)) {
-      missing.push(`${relative} (não é um objeto)`)
-      continue
-    }
-    const added: Record<string, string> = {}
-    for (const [index, suffix] of suffixes.entries()) {
-      const key = keys[index]!
-      if (!(key in messages)) added[key] = ERROR_TEXT[suffix][messagesLanguageOf(language)]
-    }
-    if (Object.keys(added).length === 0) continue
-    plan.editText(file, `${JSON.stringify({ ...messages, ...added }, null, 2)}\n`)
-  }
-  if (missing.length === 0) return []
-  return [
-    `o texto de ${keys.join(' e ')} não foi acrescentado: falta o namespace de erros: ${missing.join(', ')}. Sem ele, a tela mostra o texto genérico; veja o guia de erros (https://docs.prumo.matizze.com.br/guides/errors-and-notifications) para criar o errors.json e o src/errors.ts.`,
-  ]
+  return addErrorMessages(
+    plan,
+    Object.fromEntries(suffixes.map((suffix) => [`${base}_${suffix}`, ERROR_TEXT[suffix]])),
+  )
 }
 
 /** O nome do app (o `name` do `package.json`), que separa as chaves do `localStorage`; sem ele, o da pasta. */
@@ -220,7 +178,7 @@ export function generateRepository(
   if (!exists) {
     REPOSITORY_FILES.forEach(create)
     registerRepository(plan, names)
-    warnings.push(...addErrorMessages(plan, names, dataSource === 'storage' ? ['NOT_FOUND', 'INVALID'] : ['NOT_FOUND']))
+    warnings.push(...addEntityErrors(plan, names, dataSource === 'storage' ? ['NOT_FOUND', 'INVALID'] : ['NOT_FOUND']))
   }
   if (dataSource !== 'mock') {
     create(SOURCE_FILES[dataSource])
@@ -235,7 +193,7 @@ export function generateRepository(
     const containerWarning = readDataSourceFromEnv(plan)
     if (containerWarning) warnings.push(containerWarning)
     if (exists && dataSource === 'storage') {
-      warnings.push(...addErrorMessages(plan, names, ['INVALID']))
+      warnings.push(...addEntityErrors(plan, names, ['INVALID']))
     }
     addDataSource(plan, dataSource)
     registerFactorySource(plan, names, dataSource)

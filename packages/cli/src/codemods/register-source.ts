@@ -5,7 +5,7 @@ import type { DomainNames } from '../lib/names.ts'
 import type { ChangePlan } from '../lib/plan.ts'
 import { displayPath } from '../lib/paths.ts'
 import { isTextLiteral } from '../lib/ast.ts'
-import { applyEdits, indentOf, insertSorted, specifierOf, styleOf, type TextEdit } from './edit.ts'
+import { applyEdits, indentOf, insertSorted, mergeInsertions, specifierOf, styleOf, type TextEdit } from './edit.ts'
 
 /** As fontes que o `make:repository --data-source` acrescenta ao mock. */
 export type RepositorySource = 'http' | 'storage'
@@ -35,20 +35,6 @@ const SOURCES: Record<RepositorySource, SourceShape> = {
     argument: (latencyMs) => latencyMs === 'latencyMs' ? '{ latencyMs }' : `{ latencyMs: ${latencyMs} }`,
     options: ['dataSource', 'latencyMs'],
   },
-}
-
-/**
- * Junta as inserções que caem na mesma posição numa só, na ordem em que vieram: o `applyEdits`
- * poria a segunda antes da primeira.
- */
-function mergeInsertions(edits: TextEdit[]): TextEdit[] {
-  const merged: TextEdit[] = []
-  for (const edit of edits) {
-    const same = edit.pos === edit.end ? merged.find((e) => e.pos === edit.pos && e.end === edit.pos) : undefined
-    if (same) same.text += edit.text
-    else merged.push({ ...edit })
-  }
-  return merged
 }
 
 /**
@@ -175,8 +161,15 @@ export function registerFactorySource(
   const ifLine = `if (${locals.dataSource} === ${quote}${source}${quote}) return new ${className}(${shape.argument(locals.latencyMs ?? 'latencyMs')})${semicolon}`
 
   const importEdits: TextEdit[] = []
+  const firstRelative = relative[0]
   if (source === 'http') {
-    importEdits.push(insertSorted<ImportDeclaration>(relative, '../api', importLine('api', '../api'), lastImport, where))
+    // O `api` do app vem pelo alias `@/`, que fica antes dos imports relativos
+    const apiLine = `${importLine('api', '@/http/api')}\n`
+    importEdits.push(
+      firstRelative
+        ? { pos: firstRelative.getStart(), end: firstRelative.getStart(), text: apiLine }
+        : { pos: lastImport!.getEnd(), end: lastImport!.getEnd(), text: `\n${apiLine.trimEnd()}` },
+    )
   }
   importEdits.push(
     insertSorted<ImportDeclaration>(relative, shape.module, importLine(className, shape.module), lastImport, where),
@@ -236,7 +229,9 @@ export function registerContractSource(
   const edits: TextEdit[] = []
   let block: string
   if (source === 'http') {
-    edits.push(insertSorted<ImportDeclaration>(relative, '../http', importLine('createHttp', '../http'), lastImport, where))
+    const packages = imports.filter((declaration) => !specifierOf(declaration).startsWith('.'))
+    const coreHttp = '@matizze/prumo-core/http'
+    edits.push(insertSorted<ImportDeclaration>(packages, coreHttp, importLine('createHttp', coreHttp), lastImport, where))
     edits.push(insertSorted<ImportDeclaration>(relative, SOURCES.http.module, importLine(className, SOURCES.http.module), lastImport, where))
     const vitest = imports.find((declaration) => specifierOf(declaration) === 'vitest')
     const named = vitest?.getNamedImports() ?? []

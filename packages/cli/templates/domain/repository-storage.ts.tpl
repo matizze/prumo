@@ -14,13 +14,16 @@ import type { I{{plural.pascal}}Repository } from './repository.contract'
 /** A chave no localStorage: `<app>:<domínio>`, para dois apps no mesmo endereço não dividirem os dados. */
 export const STORAGE_KEY = '{{app.kebab}}:{{plural.kebab}}'
 
-/** O que fica gravado: os registros e o contador dos ids. */
+/** O que fica gravado: os registros (cada um é conferido na leitura) e o contador dos ids. */
 const stateSchema = z.object({
   sequence: z.number().int(),
-  items: z.array({{singular.camel}}Schema),
+  items: z.array(z.unknown()),
 })
 
-type State = z.infer<typeof stateSchema>
+interface State {
+  sequence: number
+  items: {{singular.pascal}}Schema[]
+}
 
 export interface Storage{{plural.pascal}}RepositoryOptions {
   /** Latência simulada por operação, em ms (padrão 300). Use 0 em testes. */
@@ -29,7 +32,9 @@ export interface Storage{{plural.pascal}}RepositoryOptions {
 
 /**
  * O mesmo do mock, gravando no `localStorage`: os dados sobrevivem ao recarregar a página. Sem nada
- * gravado (ou com dado que o schema não aceita mais), parte das fixtures.
+ * gravado, ou com o JSON ilegível, parte das fixtures. Um registro que o schema não aceita mais é
+ * descartado na leitura (com um aviso no console), e os outros ficam. Nenhum registro inválido é
+ * gravado: o `create` e o `update` rejeitam com `UIError('{{singular.constant}}_INVALID')`.
  */
 export class Storage{{plural.pascal}}Repository implements I{{plural.pascal}}Repository {
   private readonly latencyMs: number
@@ -61,15 +66,20 @@ export class Storage{{plural.pascal}}Repository implements I{{plural.pascal}}Rep
 {{fields.create}}
       createdAt: new Date().toISOString(),
     }
-    this.write({ sequence, items: [...state.items, item] })
-    return item
+    const valid = this.validate(item)
+    this.write({ sequence, items: [...state.items, valid] })
+    return valid
   }
 
   async update(id: string, input: Partial<{{singular.pascal}}Input>): Promise<{{singular.pascal}}Schema> {
     await wait(this.latencyMs)
     const state = this.read()
     const { at, item } = this.find(state.items, id)
-    const updated = { ...item, ...input }
+    // Um campo indefinido vale "não muda": só os enviados trocam
+    const changes = Object.fromEntries(
+      Object.entries(input).filter(([, value]) => value !== undefined),
+    ) as Partial<{{singular.pascal}}Input>
+    const updated = this.validate({ ...item, ...changes })
     this.write({ ...state, items: state.items.with(at, updated) })
     return updated
   }
@@ -88,12 +98,27 @@ export class Storage{{plural.pascal}}Repository implements I{{plural.pascal}}Rep
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored !== null) {
       try {
-        return stateSchema.parse(JSON.parse(stored))
+        const state = stateSchema.parse(JSON.parse(stored))
+        const items = state.items.flatMap((raw) => {
+          const parsed = {{singular.camel}}Schema.safeParse(raw)
+          if (parsed.success) return [parsed.data]
+          const id = typeof raw === 'object' && raw !== null && 'id' in raw ? String(raw.id) : '?'
+          console.warn(`${STORAGE_KEY}: o registro ${id} é inválido e foi descartado.`)
+          return []
+        })
+        return { sequence: state.sequence, items }
       } catch {
-        // Dado corrompido ou de um schema antigo: recomeça das fixtures
+        console.warn(`${STORAGE_KEY}: os dados gravados não se leem, e o repositório recomeçou das fixtures.`)
       }
     }
     return { sequence: MOCK_{{plural.constant}}.length, items: [...MOCK_{{plural.constant}}] }
+  }
+
+  /** Confere o registro com o schema antes de gravar: o inválido não chega ao `localStorage`. */
+  private validate(item: {{singular.pascal}}Schema): {{singular.pascal}}Schema {
+    const parsed = {{singular.camel}}Schema.safeParse(item)
+    if (!parsed.success) throw new UIError('{{singular.constant}}_INVALID', 'Dados inválidos.')
+    return parsed.data
   }
 
   private write(state: State): void {

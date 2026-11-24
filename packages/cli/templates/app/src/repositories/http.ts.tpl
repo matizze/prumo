@@ -41,12 +41,14 @@ export class HttpError extends Error {
 
 /**
  * O cliente HTTP, comum a todos os domínios com fonte http: junta o endereço da API, o token da
- * sessão e o tratamento do 401. Devolve o corpo da resposta em JSON (ou `undefined` no 204) e lança
+ * sessão e o tratamento do 401. Devolve o corpo da resposta em JSON (ou `undefined` quando o corpo é vazio ou não é JSON) e lança
  * `HttpError` nos status de erro.
  */
 export function createHttp({ baseUrl, headers, auth, fetch: fetchOverride }: HttpOptions): Http {
+  // `http://api/` e `http://api` dão no mesmo: o caminho de cada chamada começa com a barra
+  const base = baseUrl.replace(/\/+$/, '')
   const send = (path: string, { method = 'GET', body }: HttpRequest, token: string | null) =>
-    (fetchOverride ?? fetch)(`${baseUrl}${path}`, {
+    (fetchOverride ?? fetch)(`${base}${path}`, {
       method,
       headers: {
         'Content-Type': 'application/json',
@@ -69,6 +71,10 @@ export function createHttp({ baseUrl, headers, auth, fetch: fetchOverride }: Htt
         `${request.method ?? 'GET'} ${path}: HTTP ${response.status}`,
       )
     }
-    return response.status === 204 ? undefined : response.json()
+    // Só o corpo em JSON é lido: um 204, um 200 vazio ou um `OK` não têm o que devolver, e quem
+    // precisa do corpo (a lista, o get) valida com o schema e falha ali
+    const text = await response.text()
+    const isJson = /json/i.test(response.headers.get('content-type') ?? '')
+    return text === '' || !isJson ? undefined : JSON.parse(text)
   }
 }

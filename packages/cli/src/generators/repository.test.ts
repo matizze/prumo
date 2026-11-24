@@ -50,7 +50,7 @@ describe('generateRepository', () => {
     for (const source of plan.createdSources()) {
       const file = check.createSourceFile(path.basename(source.getFilePath()), source.getFullText())
       expect(file.getPreEmitDiagnostics().filter((d) => d.getCode() < 2000)).toEqual([])
-      expect(source.getFullText()).not.toMatch(/\{\{|undefined/)
+      expect(source.getFullText()).not.toMatch(/\{\{|(?<!(?:: |!== ))undefined/)
     }
     const text = (name: string) =>
       plan.createdSources().find((s) => s.getFilePath().endsWith(name))!.getFullText()
@@ -192,7 +192,7 @@ describe('generateRepository', () => {
       expect(http).toContain("'LIVRO_NOT_FOUND'")
       expect(http).toContain('encodeURIComponent(id)')
       expect(http).toContain("`${query.sort.key}:${query.sort.direction}`")
-      expect(text(plan, 'src/repositories/api.ts')).toContain("import.meta.env.VITE_API_URL ?? '/api'")
+      expect(text(plan, 'src/repositories/api.ts')).toContain("import.meta.env.VITE_API_URL || '/api'")
       expect(text(plan, 'src/repositories/api.ts')).toContain('// auth: {')
     })
 

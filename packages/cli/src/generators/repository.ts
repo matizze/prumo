@@ -3,6 +3,7 @@ import path from 'node:path'
 import {
   addDataSource,
   messageLanguages,
+  readDataSourceFromEnv,
   registerContractSource,
   registerFactorySource,
   registerRepository,
@@ -95,17 +96,27 @@ export const HTTP_CLIENT_FILES: readonly RepositoryFile[] = [
   { template: 'app/src/vite-env.d.ts.tpl', to: 'src/vite-env.d.ts' },
 ]
 
-/** O texto de `<ENTIDADE>_NOT_FOUND` em cada língua dos modelos (o mock gerado lança esse código). */
-const NOT_FOUND_TEXT = { 'pt-BR': 'Registro não encontrado.', en: 'Record not found.' } as const
+/** Os códigos de erro que os repositórios gerados lançam, e o texto de cada um em cada língua dos modelos. */
+const ERROR_TEXT = {
+  NOT_FOUND: { 'pt-BR': 'Registro não encontrado.', en: 'Record not found.' },
+  INVALID: { 'pt-BR': 'Dados inválidos.', en: 'Invalid data.' },
+} as const
+
+type ErrorSuffix = keyof typeof ERROR_TEXT
 
 /**
- * Acrescenta `<ENTIDADE>_NOT_FOUND` ao `src/messages/<idioma>/errors.json` de cada idioma, para a
+ * Acrescenta `<ENTIDADE>_<sufixo>` (`NOT_FOUND`, e `INVALID` no storage) ao `src/messages/<idioma>/errors.json` de cada idioma, para a
  * pessoa ver o texto do erro, não o genérico. Um app sem o namespace de erros (o arquivo falta ou
  * é inválido) fica sem a chave naquele idioma, e o comando devolve um aviso, sem falhar. A chave
  * que já existe não é trocada.
  */
-function addNotFoundMessages(plan: ChangePlan, names: DomainNames): string[] {
-  const key = `${nameVars('singular', names.singular)['singular.constant']}_NOT_FOUND`
+function addErrorMessages(
+  plan: ChangePlan,
+  names: DomainNames,
+  suffixes: readonly ErrorSuffix[],
+): string[] {
+  const base = nameVars('singular', names.singular)['singular.constant']
+  const keys = suffixes.map((suffix) => `${base}_${suffix}`)
   const missing: string[] = []
   let languages: string[]
   try {
@@ -132,13 +143,17 @@ function addNotFoundMessages(plan: ChangePlan, names: DomainNames): string[] {
       missing.push(`${relative} (não é um objeto)`)
       continue
     }
-    if (key in messages) continue
-    const text = NOT_FOUND_TEXT[messagesLanguageOf(language)]
-    plan.editText(file, `${JSON.stringify({ ...messages, [key]: text }, null, 2)}\n`)
+    const added: Record<string, string> = {}
+    for (const [index, suffix] of suffixes.entries()) {
+      const key = keys[index]!
+      if (!(key in messages)) added[key] = ERROR_TEXT[suffix][messagesLanguageOf(language)]
+    }
+    if (Object.keys(added).length === 0) continue
+    plan.editText(file, `${JSON.stringify({ ...messages, ...added }, null, 2)}\n`)
   }
   if (missing.length === 0) return []
   return [
-    `o texto de ${key} não foi acrescentado: falta o namespace de erros: ${missing.join(', ')}. Sem ele, a tela mostra o texto genérico; veja o guia de erros (docs/guides/errors-and-notifications.md) para criar o errors.json e o src/errors.ts.`,
+    `o texto de ${keys.join(' e ')} não foi acrescentado: falta o namespace de erros: ${missing.join(', ')}. Sem ele, a tela mostra o texto genérico; veja o guia de erros (docs/guides/errors-and-notifications.md) para criar o errors.json e o src/errors.ts.`,
   ]
 }
 
@@ -205,7 +220,7 @@ export function generateRepository(
   if (!exists) {
     REPOSITORY_FILES.forEach(create)
     registerRepository(plan, names)
-    warnings.push(...addNotFoundMessages(plan, names))
+    warnings.push(...addErrorMessages(plan, names, dataSource === 'storage' ? ['NOT_FOUND', 'INVALID'] : ['NOT_FOUND']))
   }
   if (dataSource !== 'mock') {
     create(SOURCE_FILES[dataSource])
@@ -213,6 +228,14 @@ export function generateRepository(
       for (const file of HTTP_CLIENT_FILES) {
         if (!plan.has(path.join(project.root, file.to))) create(file)
       }
+    }
+    // O container lê a fonte do ambiente, e o tipo do `import.meta.env` precisa existir
+    const envTypes = HTTP_CLIENT_FILES.find((file) => file.to === 'src/vite-env.d.ts')!
+    if (!plan.has(path.join(project.root, envTypes.to))) create(envTypes)
+    const containerWarning = readDataSourceFromEnv(plan)
+    if (containerWarning) warnings.push(containerWarning)
+    if (exists && dataSource === 'storage') {
+      warnings.push(...addErrorMessages(plan, names, ['INVALID']))
     }
     addDataSource(plan, dataSource)
     registerFactorySource(plan, names, dataSource)

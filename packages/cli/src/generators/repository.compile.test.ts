@@ -138,6 +138,11 @@ vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit)
   }
   if (method === 'DELETE') {
     items.splice(at, 1)
+    // O backend pode confirmar de três jeitos: 204, 200 sem corpo ou 200 com um texto qualquer
+    if (process.env.FAKE_DELETE === 'empty') return new Response('', { status: 200 })
+    if (process.env.FAKE_DELETE === 'ok') {
+      return new Response('OK', { status: 200, headers: { 'Content-Type': 'text/plain' } })
+    }
     return json(204)
   }
   return json(200, found)
@@ -361,28 +366,117 @@ describe('as fontes storage e http compilam (tsc estrito) e passam no contrato',
     expect(tests.output).toMatch(/StorageClientesRepository > ordena e pagina/)
   }, 120_000)
 
-  it('storage: os dados sobrevivem a um repositório novo, e dado corrompido volta às fixtures', async () => {
+  it('storage: grava com a chave do app, ignora undefined no update, rejeita o inválido e descarta só o registro corrompido', async () => {
     const root = await project('nome:string')
     await generate(root, '--data-source', 'storage')
     writeFileSync(
       path.join(root, 'src/repositories/clientes/persistence.test.ts'),
-      `import { expect, it } from 'vitest'
+      `import { afterEach, expect, it, vi } from 'vitest'
 import { MOCK_CLIENTES } from './fixtures'
 import { STORAGE_KEY, StorageClientesRepository } from './repository.storage'
+
+const repo = () => new StorageClientesRepository({ latencyMs: 0 })
+
+afterEach(() => vi.restoreAllMocks())
 
 it('grava no localStorage com a chave do app e lê de volta', async () => {
   localStorage.removeItem(STORAGE_KEY)
   expect(STORAGE_KEY).toBe('app:clientes')
-  const first = new StorageClientesRepository({ latencyMs: 0 })
-  const created = await first.create({ nome: 'Gravado' })
+  const created = await repo().create({ nome: 'Gravado' })
   expect(localStorage.getItem(STORAGE_KEY)).toContain('Gravado')
-  const second = new StorageClientesRepository({ latencyMs: 0 })
-  expect(await second.get(created.id)).toEqual(created)
+  expect(await repo().get(created.id)).toEqual(created)
+})
+
+it('update com campo undefined não muda o campo, nem no que fica gravado', async () => {
+  localStorage.removeItem(STORAGE_KEY)
+  const before = await repo().get('cliente-1')
+  expect(await repo().update('cliente-1', { nome: undefined })).toEqual(before)
+  expect((await repo().get('cliente-1')).nome).toBe(before.nome)
+  expect(localStorage.getItem(STORAGE_KEY)).toContain(before.nome)
+})
+
+it('create e update inválidos rejeitam com CLIENTE_INVALID e não gravam nada', async () => {
+  localStorage.removeItem(STORAGE_KEY)
+  await expect(repo().create({ nome: 123 as unknown as string })).rejects.toMatchObject({ code: 'CLIENTE_INVALID' })
+  await expect(repo().update('cliente-1', { nome: 123 as unknown as string })).rejects.toMatchObject({ code: 'CLIENTE_INVALID' })
+  expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+  expect((await repo().list()).total).toBe(MOCK_CLIENTES.length)
+})
+
+it('um registro corrompido é descartado, com aviso, e os outros ficam', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({ sequence: 9, items: [MOCK_CLIENTES[0], { id: 'quebrado', nome: 5 }, MOCK_CLIENTES[1]] }),
+  )
+  const { items, total } = await repo().list()
+  expect(total).toBe(2)
+  expect(items.map((item) => item.id)).toEqual([MOCK_CLIENTES[0]!.id, MOCK_CLIENTES[1]!.id])
+  expect(warn).toHaveBeenCalledWith(expect.stringContaining('app:clientes'))
+  expect(warn).toHaveBeenCalledWith(expect.stringContaining('quebrado'))
+})
+
+it('JSON ilegível volta às fixtures, com aviso', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
   localStorage.setItem(STORAGE_KEY, '{ não é json')
-  expect((await second.list()).total).toBe(MOCK_CLIENTES.length)
+  expect((await repo().list()).total).toBe(MOCK_CLIENTES.length)
+  expect(warn).toHaveBeenCalledWith(expect.stringContaining('app:clientes'))
 })
 `,
     )
+    expect(tsc(root)).toEqual({ status: 0, output: '' })
+    const tests = vitest(root)
+    expect(tests.status, tests.output).toBe(0)
+  }, 120_000)
+
+  it('http: o cliente tira a barra do fim, só lê corpo em JSON, e a VITE_API_URL vazia vale como ausente', async () => {
+    const root = await project('nome:string')
+    await generate(root, '--data-source', 'http')
+    writeFileSync(
+      path.join(root, 'src/repositories/http.test.ts'),
+      `import { expect, it, vi } from 'vitest'
+import { createHttp, HttpError } from './http'
+
+const withFetch = (reply: () => Response, calls: string[] = []) =>
+  createHttp({
+    baseUrl: 'http://api.test///',
+    fetch: (async (url: string) => {
+      calls.push(url)
+      return reply()
+    }) as unknown as typeof fetch,
+  })
+
+it('tira as barras do fim do baseUrl', async () => {
+  const calls: string[] = []
+  await withFetch(() => Response.json({}), calls)('/clientes')
+  expect(calls).toEqual(['http://api.test/clientes'])
+})
+
+it('devolve undefined para o corpo vazio, o que não é JSON e o 204; lê o JSON; erro lança', async () => {
+  expect(await withFetch(() => new Response(null, { status: 204 }))('/a')).toBeUndefined()
+  expect(await withFetch(() => new Response('', { status: 200 }))('/a')).toBeUndefined()
+  expect(await withFetch(() => new Response('OK', { status: 200 }))('/a')).toBeUndefined()
+  expect(await withFetch(() => Response.json({ a: 1 }))('/a')).toEqual({ a: 1 })
+  await expect(withFetch(() => new Response('', { status: 500 }))('/a')).rejects.toBeInstanceOf(HttpError)
+})
+
+it('a VITE_API_URL vazia vale como ausente (/api), e a com barra no fim é aparada', async () => {
+  const urls: string[] = []
+  vi.stubGlobal('fetch', async (url: string) => {
+    urls.push(url)
+    return Response.json({})
+  })
+  for (const value of ['', 'http://api.test/']) {
+    vi.stubEnv('VITE_API_URL', value)
+    vi.resetModules()
+    const { api } = await import('./api')
+    await api('/ping')
+  }
+  expect(urls).toEqual(['/api/ping', 'http://api.test/ping'])
+})
+`,
+    )
+    writeFileSync(path.join(root, 'src/test/setup.ts'), SETUP_FAKE_API)
     expect(tsc(root)).toEqual({ status: 0, output: '' })
     const tests = vitest(root)
     expect(tests.status, tests.output).toBe(0)
@@ -399,11 +493,15 @@ it('grava no localStorage com a chave do app e lê de volta', async () => {
     expect(skipped.output).toMatch(/skipped/)
     expect(skipped.output).toMatch(/pulado: defina API_TEST_URL/)
 
-    const ran = vitest(root, { API_TEST_URL: 'http://api.test' })
-    expect(ran.status, ran.output).toBe(0)
-    expect(ran.output).toMatch(/HttpClientesRepository > cria um registro/)
-    expect(ran.output).toMatch(/HttpClientesRepository > remove um registro/)
-    expect(ran.output).not.toMatch(/skipped/)
+    // O remove passa com o DELETE respondendo 204, 200 sem corpo e 200 com 'OK'
+    for (const FAKE_DELETE of ['204', 'empty', 'ok']) {
+      const ran = vitest(root, { API_TEST_URL: 'http://api.test', FAKE_DELETE })
+      expect(ran.status, `${FAKE_DELETE}: ${ran.output}`).toBe(0)
+      expect(ran.output).toMatch(/HttpClientesRepository > cria um registro/)
+      expect(ran.output).toMatch(/HttpClientesRepository > remove um registro/)
+      expect(ran.output).toMatch(/HttpClientesRepository > ignora o campo indefinido/)
+      expect(ran.output).not.toMatch(/skipped/)
+    }
   }, 120_000)
 
   it('http e storage no mesmo domínio, com o app já tendo o cliente http', async () => {

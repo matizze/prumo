@@ -4,7 +4,7 @@ import { domainNames } from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import { findProject } from '../lib/project.ts'
 import { makeProject } from '../test-support.ts'
-import { addDataSource, registerContractSource, registerFactorySource } from './register-source.ts'
+import { addDataSource, readDataSourceFromEnv, registerContractSource, registerFactorySource } from './register-source.ts'
 
 const clientes = domainNames('clientes')
 
@@ -190,5 +190,32 @@ describe('registerContractSource', () => {
     })
     expect(registerContractSource(edited, clientes, 'storage')).toContain("não tem o 'clientesContract'")
     expect(edited.summary().modified).toEqual([])
+  })
+})
+
+describe('readDataSourceFromEnv', () => {
+  const container = (call: string) =>
+    `import { resolveDataSource } from 'x'\n\nexport function createRepositories(options: { dataSource?: string } = {}) {\n  const dataSource =\n    options.dataSource ?? ${call}\n  return dataSource\n}\n`
+  const NEW = "resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')"
+
+  it('troca a chamada do modelo antigo, mesmo quebrada em linhas', () => {
+    const plan = planWith({
+      'src/repositories/index.ts': container("resolveDataSource(\n      undefined,\n      DATA_SOURCES,\n      'mock',\n    )"),
+    })
+    expect(readDataSourceFromEnv(plan)).toBeUndefined()
+    expect(read(plan, 'repositories/index.ts')).toContain(`options.dataSource ?? ${NEW}`)
+  })
+
+  it('não toca no container que já lê a variável', () => {
+    const plan = planWith({ 'src/repositories/index.ts': container(NEW) })
+    expect(readDataSourceFromEnv(plan)).toBeUndefined()
+    expect(plan.summary().modified).toEqual([])
+  })
+
+  it('avisa, sem tocar, quando a chamada é outra ou o container falta', () => {
+    const other = planWith({ 'src/repositories/index.ts': container("resolveDataSource(undefined, DATA_SOURCES, 'http')") })
+    expect(readDataSourceFromEnv(other)).toContain('não lê a VITE_DATA_SOURCE')
+    expect(other.summary().modified).toEqual([])
+    expect(readDataSourceFromEnv(planWith({ 'src/a.ts': '' }))).toContain('não achei src/repositories/index.ts')
   })
 })

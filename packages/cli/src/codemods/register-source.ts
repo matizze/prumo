@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { Node, type ExportDeclaration, type FunctionDeclaration, type ImportDeclaration } from 'ts-morph'
+import { Node, SyntaxKind, type ExportDeclaration, type FunctionDeclaration, type ImportDeclaration } from 'ts-morph'
 import { UsageError } from '../errors.ts'
 import type { DomainNames } from '../lib/names.ts'
 import type { ChangePlan } from '../lib/plan.ts'
@@ -287,5 +287,38 @@ runContractSuite(${contract}, {
   }
   edits.push({ pos: last.getEnd(), end: last.getEnd(), text: `\n\n${block}` })
   applyEdits(test, mergeInsertions(edits))
+  return undefined
+}
+
+/** A chamada em uma linha, sem a vírgula do fim: a que o modelo escreve, mesmo quebrada em linhas. */
+const normalized = (text: string) =>
+  text.replace(/\s+/g, ' ').replace('( ', '(').replace(/,? \)$/, ')')
+
+const OLD_RESOLVE = "resolveDataSource(undefined, DATA_SOURCES, 'mock')"
+const NEW_RESOLVE =
+  "resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')"
+
+/**
+ * Faz o container `src/repositories/index.ts` ler a fonte da `VITE_DATA_SOURCE`. Um app criado antes
+ * disso tem `resolveDataSource(undefined, DATA_SOURCES, 'mock')`, que é trocado pela versão do
+ * ambiente. Container que já lê a variável fica como está; qualquer outra forma não é tocada, e o
+ * retorno é um aviso de como ligar à mão.
+ */
+export function readDataSourceFromEnv(plan: ChangePlan): string | undefined {
+  const file = path.join(plan.project.src, 'repositories', 'index.ts')
+  const where = display(plan, file)
+  const how = `Troque a chamada do resolveDataSource por ${NEW_RESOLVE}.`
+  if (!plan.hasFile(file)) {
+    return `não achei ${where}, então não sei se o container lê a VITE_DATA_SOURCE. ${how}`
+  }
+  const index = plan.source(file)
+  if (index.getFullText().includes('import.meta.env.VITE_DATA_SOURCE')) return undefined
+  const call = index
+    .getDescendantsOfKind(SyntaxKind.CallExpression)
+    .find((candidate) => normalized(candidate.getText()) === OLD_RESOLVE)
+  if (!call) {
+    return `o container ${where} não lê a VITE_DATA_SOURCE: a fonte escolhida no .env não vale. ${how}`
+  }
+  applyEdits(index, [{ pos: call.getStart(), end: call.getEnd(), text: NEW_RESOLVE }])
   return undefined
 }

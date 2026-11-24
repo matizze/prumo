@@ -6,6 +6,7 @@ export { registerRepository, registerRepositoryEntry, type RepositoryEntry } fro
 export {
   addDataSource,
   registerContractSource,
+  readDataSourceFromEnv,
   registerFactorySource,
   type RepositorySource,
 } from './register-source.ts'

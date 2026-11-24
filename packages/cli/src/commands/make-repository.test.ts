@@ -162,9 +162,15 @@ describe('prumo make:repository', () => {
 
       expect(result.code, result.stderr).toBe(0)
       expect(result.stdout).toContain('fonte storage, repositório que já existia)')
-      expect(result.stdout).toContain('Criados (1):\n  src/repositories/clientes/repository.storage.ts')
-      expect(result.stdout).toContain('Alterados (3):')
-      expect(read(root, 'src/repositories/index.ts')).toBe(container)
+      expect(result.stdout).toContain('Criados (2):\n  src/repositories/clientes/repository.storage.ts\n  src/vite-env.d.ts')
+      expect(result.stdout).toContain('Alterados (4):')
+      // O container só muda para ler a fonte do ambiente; o domínio continua registrado igual
+      expect(read(root, 'src/repositories/index.ts')).toBe(
+        container.replace(
+          "resolveDataSource(undefined, DATA_SOURCES, 'mock')",
+          "resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')",
+        ),
+      )
       expect(read(root, 'src/repositories/clientes/repository.mock.ts')).toBe(mock)
       expect(existsSync(path.join(root, 'src/repositories/http.ts'))).toBe(false)
       expect(read(root, 'src/repositories/options.ts')).toContain("['mock', 'storage']")
@@ -250,6 +256,63 @@ describe('prumo make:repository', () => {
       const result = await exec(['make:repository', 'clientes', '--data-source', 'storage'], root)
       expect(result.code, result.stderr).toBe(0)
       expect(result.stdout).toContain('Aviso: o teste de contrato da fonte storage não foi acrescentado')
+    })
+    it('storage acrescenta o texto de <ENTIDADE>_INVALID ao errors.json de cada idioma', async () => {
+      const root = await withSchema()
+      writeFileSync(path.join(root, 'src/messages/pt-BR/errors.json'), '{}\n')
+      writeFileSync(path.join(root, 'src/messages/en/errors.json'), '{}\n')
+      expect((await exec(['make:repository', 'clientes'], root)).code).toBe(0)
+      const result = await exec(['make:repository', 'clientes', '--data-source', 'storage'], root)
+      expect(result.code, result.stderr).toBe(0)
+      expect(JSON.parse(read(root, 'src/messages/pt-BR/errors.json'))).toEqual({
+        CLIENTE_NOT_FOUND: 'Registro não encontrado.',
+        CLIENTE_INVALID: 'Dados inválidos.',
+      })
+      expect(JSON.parse(read(root, 'src/messages/en/errors.json')).CLIENTE_INVALID).toBe('Invalid data.')
+    })
+
+    it('app de antes deste passo: troca o resolveDataSource(undefined, ...) pelo que lê a VITE_DATA_SOURCE', async () => {
+      const root = await withSchema()
+      const container = 'src/repositories/index.ts'
+      expect(read(root, container)).toContain("resolveDataSource(undefined, DATA_SOURCES, 'mock')")
+      const result = await exec(['make:repository', 'clientes', '--data-source', 'http'], root)
+      expect(result.code, result.stderr).toBe(0)
+      expect(result.stdout).not.toContain('Aviso: o container')
+      expect(read(root, container)).toContain(
+        "resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')",
+      )
+      expect(read(root, container)).not.toContain('undefined')
+    })
+
+    it('container que não é o do modelo: avisa como ligar e não o toca', async () => {
+      const root = await withSchema()
+      const container = 'src/repositories/index.ts'
+      const custom = read(root, container).replace(
+        "resolveDataSource(undefined, DATA_SOURCES, 'mock')",
+        "resolveDataSource(window.location.hash, DATA_SOURCES, 'mock')",
+      )
+      writeFileSync(path.join(root, container), custom)
+      const result = await exec(['make:repository', 'clientes', '--data-source', 'storage'], root)
+      expect(result.code, result.stderr).toBe(0)
+      expect(result.stdout).toContain('Aviso: o container src/repositories/index.ts não lê a VITE_DATA_SOURCE')
+      expect(result.stdout).toContain("resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')")
+      expect(read(root, container)).toContain('window.location.hash')
+    })
+
+    it('container que já lê a VITE_DATA_SOURCE (app novo) não muda nem avisa', async () => {
+      const root = await withSchema()
+      const container = 'src/repositories/index.ts'
+      writeFileSync(
+        path.join(root, container),
+        read(root, container).replace(
+          "resolveDataSource(undefined, DATA_SOURCES, 'mock')",
+          "resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')",
+        ),
+      )
+      const result = await exec(['make:repository', 'clientes', '--data-source', 'storage'], root)
+      expect(result.code, result.stderr).toBe(0)
+      expect(result.stdout).not.toContain('Aviso: o container')
+      expect(read(root, container)).toContain('VITE_DATA_SOURCE')
     })
   })
 })

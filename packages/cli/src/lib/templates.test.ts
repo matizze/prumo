@@ -139,7 +139,7 @@ describe('os modelos', () => {
     for (const { template } of GENERATED.filter(({ template }) => !needsFields(template))) {
       const text = renderTemplateFile(template, vars)
       // O app tem `undefined` de verdade no código (resolveDataSource(undefined, ...))
-      expect(text, template).not.toMatch(template.startsWith('app/') ? /\{\{/ : /\{\{|undefined/)
+      expect(text, template).not.toMatch(template.startsWith('app/') ? /\{\{/ : /\{\{|(?<!(?:: |!== ))undefined/)
     }
   })
 })

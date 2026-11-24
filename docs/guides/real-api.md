@@ -53,7 +53,7 @@ O `HttpClientesRepository` **não traduz formato**: o backend responde no format
 | `GET /clientes/:id`                      | nenhum                  | o cliente                                                          |
 | `POST /clientes`                         | os campos do input      | o cliente criado, com `id` e `createdAt`                           |
 | `PATCH /clientes/:id`                    | só os campos que mudam  | o cliente inteiro, já atualizado                                   |
-| `DELETE /clientes/:id`                   | nenhum                  | `204` (ou qualquer `2xx`, o corpo é ignorado)                      |
+| `DELETE /clientes/:id`                   | nenhum                  | `204` (ou qualquer `2xx`: um corpo vazio ou que não é JSON é ignorado) |
 | `GET`, `PATCH` ou `DELETE` de id que não existe | nenhum           | `404`, que vira `UIError('CLIENTE_NOT_FOUND')`                     |
 
 Os parâmetros da lista, todos opcionais:
@@ -86,7 +86,7 @@ export const api = createHttp({
 })
 ```
 
-Sem login, deixe como está: o cliente só envia o corpo. Com login, o token vem da sessão (que é lida fora do React, por isso é um módulo puro): descomente o `auth` e importe o `appSession` do app. Veja [Sessão e login](auth.md).
+O endereço vem da `VITE_API_URL`; vazia, vale como ausente (`/api`), e a barra no fim é aparada. Sem login, deixe como está: o cliente só envia o corpo. Com login, o token vem da sessão (que é lida fora do React, por isso é um módulo puro): descomente o `auth` e importe o `appSession` do app. Veja [Sessão e login](auth.md).
 
 Três pontos do tratamento do 401:
 
@@ -143,7 +143,7 @@ Para o caso das chamadas simultâneas, teste a sessão (o `refresh` dela é quem
 
 ## 4. Escolha a fonte por ambiente
 
-O `createRepositories` do app (`src/repositories/index.ts`) já nasce lendo a fonte da variável de ambiente `VITE_DATA_SOURCE`. O `resolveDataSource` do core usa `mock` quando a variável falta e **lança um erro** quando ela tem um valor desconhecido, para a inicialização falhar em vez de cair em silêncio em outra fonte:
+O `createRepositories` do app (`src/repositories/index.ts`) já nasce lendo (num app criado antes, o primeiro `--data-source` troca o `resolveDataSource(undefined, ...)` pela versão que lê a variável, ou avisa como fazer, se o container foi mudado) a fonte da variável de ambiente `VITE_DATA_SOURCE`. O `resolveDataSource` do core usa `mock` quando a variável falta e **lança um erro** quando ela tem um valor desconhecido, para a inicialização falhar em vez de cair em silêncio em outra fonte:
 
 ```ts
 const dataSource =
@@ -271,4 +271,4 @@ O `repository.http.ts` é seu depois de gerado: edite-o onde a API difere.
 pnpm exec prumo make:repository clientes --data-source storage
 ```
 
-Cria `repository.storage.ts`, a classe `StorageClientesRepository`: o mock gravando no `localStorage`, com a chave `<nome do app>:clientes` (o nome é o `name` do `package.json`). Começa com as fixtures quando a chave não existe, usa a mesma busca, ordem e paginação do mock e respeita o contrato inteiro. Serve para um protótipo que guarda os dados entre uma visita e outra, sem backend. Os dados que o schema não aceita mais (ou que estão corrompidos) são descartados, e o repositório recomeça das fixtures. Para usar, `VITE_DATA_SOURCE=storage`. O contrato roda contra ele no `pnpm test` (o jsdom do app tem `localStorage`), limpando a chave antes de cada repositório novo.
+Cria `repository.storage.ts`, a classe `StorageClientesRepository`: o mock gravando no `localStorage`, com a chave `<nome do app>:clientes` (o nome é o `name` do `package.json`). Começa com as fixtures quando a chave não existe, usa a mesma busca, ordem e paginação do mock e respeita o contrato inteiro. Serve para um protótipo que guarda os dados entre uma visita e outra, sem backend. Na leitura, cada registro é conferido com o schema: o que não é aceito (corrompido, ou de um schema antigo) é descartado, com um `console.warn` com a chave e o id, e os outros ficam; se o JSON inteiro não se lê, o repositório recomeça das fixtures, também com aviso. Na escrita, o registro resultante é conferido antes de gravar, e o inválido rejeita com `UIError('<ENTIDADE>_INVALID')` (o comando acrescenta o texto ao `errors.json`) sem gravar nada. No `update`, um campo `undefined` não muda o campo (no storage e no mock). Para usar, `VITE_DATA_SOURCE=storage`. O contrato roda contra ele no `pnpm test` (o jsdom do app tem `localStorage`), limpando a chave antes de cada repositório novo.

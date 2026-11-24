@@ -93,6 +93,15 @@ stage_cli() {
   prumo make:query livros
   prumo make:query paes --entity pao
   prumo make:query pedidos
+  # passo 7: make:page, as quatro variações (título, lista com --query, parâmetro e detalhe). O
+  # campo de texto sai do schema: o livros mostra o titulo, e o pedidos (o campo padrão) o name
+  prumo make:page sobre
+  prumo make:page clientes --query clientes
+  prumo make:page cliente --query clientes --path /clientes/:id
+  prumo make:page livros --query livros
+  prumo make:page livro --query livros --path /livros/:id
+  prumo make:page perfil --path /perfil/:usuario
+  prumo make:page pedidos --query pedidos
 }
 
 stage_verify() {

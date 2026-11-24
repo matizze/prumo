@@ -191,7 +191,7 @@ O `renderWithProviders` e o `renderHookWithProviders` (para testar hooks) do app
 
 ```text
 src/pages/<tela>/index.tsx         a rota: chama o model e entrega à view
-src/pages/<tela>/model.ts          use<Tela>Model: os textos (e, com --domain, a lista)
+src/pages/<tela>/model.ts          use<Tela>Model: os textos (e, com --query, a lista)
 src/pages/<tela>/view.tsx          <Tela>View: HTML semântico, recebe o model por props
 src/pages/<tela>/index.test.tsx    renderiza a tela e confere o título
 src/messages/<idioma>/<tela>.json  os textos, em cada idioma do projeto
@@ -244,7 +244,7 @@ Além desses, o código gerado importa alguns módulos do app, que precisam exis
 | `renderWithProviders` de `@/test/render`  | o teste de toda tela             |
 | `useRepositories` de `@/providers/repository` | as queries de todo domínio   |
 | `RepositoryOptions` de `src/repositories/options.ts` | a fábrica de todo domínio |
-| `use<Domínio>List` de `@/queries/<domínio>` | o model de uma tela com `--domain` |
+| `use<Domínio>List` de `@/queries/<domínio>` | o model de uma tela com `--query` |
 
 Quando um ponto de registro falta ou não tem a forma esperada, o gerador recusa com uma mensagem clara e código de saída 2, **sem escrever nada**: todas as mudanças são montadas em memória e só vão para o disco se nada falhar.
 

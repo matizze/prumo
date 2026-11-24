@@ -61,7 +61,7 @@ A partir dos campos, o comando gera coerentes entre si:
 - **as fixtures**: três registros com valores de exemplo por tipo (texto `Titulo 1`, número `10`, `20`, `30`, booleano alternado, datas crescentes), para a ordem do contrato ser previsível;
 - **o mock**: a busca nos campos de texto (sem campo de texto, no `id`), a ordem por cada campo que ordena, e `create` e `update` com todos os campos;
 - **o teste de contrato**: busca, ordem, criação e edição usam os campos gerados;
-- **as telas** de `make:page --domain`: a lista e o detalhe mostram o primeiro campo de texto obrigatório do schema (um `enum` não é texto de exibição: sem outro campo de texto, a tela mostra o `id`, com um aviso) (veja [Páginas](pages.md)).
+- **as telas** de `make:page --query`: a lista e o detalhe mostram o primeiro campo de texto obrigatório do schema (um `enum` não é texto de exibição: sem outro campo de texto, a tela mostra o `id`, com um aviso) (veja [Páginas](pages.md)).
 
 Com muitos campos, o `pick` do schema de entrada, a busca do mock e a entrada do teste de contrato saem quebrados em várias linhas quando passam de cerca de 100 colunas. O gerador não formata o resto do código: rode o formatador do projeto, se tiver um.
 
@@ -179,13 +179,13 @@ Trocar ou tirar o `name` (em vez de só acrescentar campos) mexe em todos estes 
 | `repository.mock.ts`, `create`                                              | `name: input.name`, se você não usa `...input`                      |
 | `repository.mock.ts`, `list`                                                | a busca (`matchesSearch([item.name], ...)`) e o acessor `name` do `sortBy` |
 | `repository.contract.test.ts`                                               | a busca por `'EXEMPLO 2'`, a ordem esperada, o `name` do `create` e do `update` |
-| `src/pages/<tela>/view.tsx`, das telas geradas com `--domain`               | `item.name` na lista (e no detalhe, se a tela é de detalhe)         |
-| `src/pages/<tela>/index.test.tsx`, das telas de detalhe geradas com `--domain`  | o texto `Exemplo 1`, que é o `name` da primeira fixture              |
+| `src/pages/<tela>/view.tsx`, das telas geradas com `--query`               | `item.name` na lista (e no detalhe, se a tela é de detalhe)         |
+| `src/pages/<tela>/index.test.tsx`, das telas de detalhe geradas com `--query`  | o texto `Exemplo 1`, que é o `name` da primeira fixture              |
 | `src/queries/clientes.ts`                                                   | `ClienteListQuery` e `ClienteSortKey`, se citam o campo             |
 
 O `pnpm verify` (com o `typecheck` e os testes) mostra o que sobrou.
 
-Rode `pnpm verify`. **Só campo acrescentado** deixa as telas que usam o domínio compilando, e as que precisam do campo novo o recebem já tipado. Trocar ou tirar um campo quebra o que o citava: as views geradas com `--domain` (`item.name`), por exemplo.
+Rode `pnpm verify`. **Só campo acrescentado** deixa as telas que usam o domínio compilando, e as que precisam do campo novo o recebem já tipado. Trocar ou tirar um campo quebra o que o citava: as views geradas com `--query` (`item.name`), por exemplo.
 
 ## Filtros na consulta da lista
 

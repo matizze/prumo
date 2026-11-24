@@ -1,5 +1,8 @@
 import { spawnSync } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import path from 'node:path'
+import type { Project } from './project.ts'
 
 /** Uma versão simples do pnpm: x.y.z, com pré-lançamento opcional (10.5.0, 11.0.0-rc.1). */
 const SIMPLE_SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?$/
@@ -41,4 +44,35 @@ export function detectPnpmVersion(
 ): string | undefined {
   const agent = /^pnpm\/(\S+)/.exec(env.npm_config_user_agent ?? '')
   return validPnpmVersion(agent?.[1]) ?? validPnpmVersion(ask())
+}
+
+/** O caminho como o shell o lê: entre aspas simples se tem espaço ou outro caractere especial. */
+export function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(value)) return value
+  return `'${value.replaceAll("'", `'\\''`)}'`
+}
+
+/** Se o `package.json` do projeto tem o script (`test` roda o Vitest do projeto). */
+function hasScript(project: Project, script: string): boolean {
+  const file = path.join(project.root, 'package.json')
+  if (!existsSync(file)) return false
+  try {
+    const scripts = (JSON.parse(readFileSync(file, 'utf8')) as { scripts?: Record<string, string> })
+      .scripts
+    return typeof scripts?.[script] === 'string'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * O comando que roda os testes de uma pasta do projeto (`src/pages/produtos`), para o mesmo
+ * terminal onde o `prumo` rodou: o script `test` do projeto, se houver, e o Vitest direto, se não.
+ * Na pasta do projeto é `pnpm <comando>`; fora dela, `pnpm --dir <pasta> <comando>`.
+ */
+export function testCommandFor(project: Project, cwd: string, target: string): string {
+  const command = hasScript(project, 'test') ? `test ${target}` : `exec vitest run ${target}`
+  const relative = path.relative(cwd, project.root)
+  if (relative === '') return `pnpm ${command}`
+  return `pnpm --dir ${shellQuote(relative.startsWith('..') ? project.root : relative)} ${command}`
 }

@@ -12,7 +12,7 @@ O Prumo **não tem frontend**. Ele não traz componente de interface, ícone, te
 pnpm dlx @matizze/prumo-cli new meu-app
 cd meu-app
 pnpm exec prumo make:domain clientes
-pnpm exec prumo make:page clientes --domain clientes
+pnpm exec prumo make:page clientes --query clientes
 pnpm verify
 ```
 
@@ -92,7 +92,7 @@ A view não busca dado nem guarda estado de dados; o model não tem JSX; uma tel
 | Comando                                               | O que faz                                                                                           |
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | `prumo new <nome>`                                    | Cria um app mínimo com a estrutura, os provedores, uma tela inicial, ESLint e Vitest |
-| `prumo make:page <nome> [--domain <domínio>] [--path <caminho>]` | Gera a tela (index, model, view, teste), os textos nos idiomas do projeto e a rota                  |
+| `prumo make:page <nome> [--query <domínio>] [--path <caminho>]` | Gera a tela (index, model, view, teste), os textos nos idiomas do projeto e a rota                  |
 | `prumo make:domain <nome> [--entity <singular>] [--fields <campos>]` | Gera schema, contrato, repositório em memória, fixtures, queries e o teste de contrato              |
 | `prumo make:component <nome> (--page <tela> \| --shared)` | Gera um componente e o teste dele, na pasta da tela ou em `components/shared`                   |
 | `prumo check`                                         | Analisa o projeto e lista as violações da arquitetura                                               |

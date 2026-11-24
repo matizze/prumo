@@ -2,7 +2,14 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { APP_FILES } from '../generators/app.ts'
-import { MESSAGE_LANGUAGES, PAGE_FILES } from '../generators/page.ts'
+import {
+  MESSAGE_LANGUAGES,
+  messagesTemplate,
+  PAGE_DETAIL_FILES,
+  PAGE_FILES,
+  PAGE_LIST_FILES,
+  PAGE_PARAM_FILES,
+} from '../generators/page.ts'
 import { HTTP_CLIENT_FILES, REPOSITORY_FILES, SOURCE_FILES } from '../generators/repository.ts'
 import { QUERY_FILE } from '../generators/query.ts'
 import { SCHEMA_FILE } from '../generators/schema.ts'
@@ -64,21 +71,26 @@ describe('nameVars', () => {
 const GENERATED: { template: string; to: string }[] = [
   ...APP_FILES,
   ...PAGE_FILES,
+  ...PAGE_LIST_FILES,
+  ...PAGE_PARAM_FILES,
+  ...PAGE_DETAIL_FILES,
   SCHEMA_FILE,
   QUERY_FILE,
   ...REPOSITORY_FILES,
   ...Object.values(SOURCE_FILES),
   ...HTTP_CLIENT_FILES,
-  ...MESSAGE_LANGUAGES.map((language) => ({
-    template: `page/messages.${language}.json.tpl`,
-    to: `${language}.json`,
-  })),
+  ...MESSAGE_LANGUAGES.flatMap((language) =>
+    [false, true].map((withQuery) => ({
+      template: messagesTemplate(language, withQuery),
+      to: `${language}.json`,
+    })),
+  ),
 ]
 
 /**
  * Os modelos que ainda esperam o gerador dos passos seguintes da reescrita (a query e as outras variações da tela). Cada passo tira o seu daqui ao ligar o modelo.
  */
-const WAITING = [/^page\/(index|model|view)-(domain|param|detail)/, /^page\/messages-domain/]
+const WAITING: RegExp[] = []
 
 describe('os modelos', () => {
   const files = (dir: string): string[] =>
@@ -131,8 +143,15 @@ describe('os modelos', () => {
     const vars = {
       ...nameVars('page', names),
       ...nameVars('app', names),
+      ...nameVars('domain', names),
       'app.title': 'Clientes',
-      'route.path': '/clientes',
+      'route.path': '/clientes/:id',
+      'route.example': '/clientes/cliente-1',
+      'param.name': 'id',
+      'param.example': 'exemplo',
+      'field.name': 'nome',
+      'field.sample': "'Exemplo 1'",
+      'detail.hook': 'useClienteDetail',
     }
     // O schema, o repositório e as queries dependem dos nomes de domínio e entidade: os testes dos geradores os renderizam
     const needsFields = (template: string) =>

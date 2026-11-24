@@ -5,7 +5,7 @@ import { ExitError, UsageError } from '../errors.ts'
 import { generateApp } from '../generators/app.ts'
 import type { Io } from '../io.ts'
 import { appNameProblem } from '../lib/names.ts'
-import { detectPnpmVersion } from '../lib/pnpm.ts'
+import { detectPnpmVersion, shellQuote } from '../lib/pnpm.ts'
 import { runChild } from '../lib/process.ts'
 import { readTarballs } from '../lib/tarballs.ts'
 import type { RegisterCommand } from './index.ts'
@@ -86,12 +86,6 @@ function pnpmInstall(io: Io, cwd: string): { status: number; reason?: string } {
   const result = runChild(io, 'pnpm', ['install'], { cwd })
   if (result.error) return { status: 1, reason: result.error.message }
   return { status: result.status ?? 1 }
-}
-
-/** O caminho como o shell o lê: entre aspas simples se tem espaço ou outro caractere especial. */
-function shellQuote(value: string): string {
-  if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(value)) return value
-  return `'${value.replaceAll("'", `'\\''`)}'`
 }
 
 /** O que fazer depois: entrar na pasta, instalar se faltou, conferir, subir o app e gerar as camadas. */

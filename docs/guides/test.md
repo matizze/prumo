@@ -50,7 +50,7 @@ Os exemplos deste guia supõem os testes em português. Para testar outro idioma
 
 ## Testar uma tela
 
-O teste gerado pelo `make:page --domain` confere o título e espera a lista chegar:
+O teste gerado pelo `make:page --query` confere o título e espera a lista chegar:
 
 ```tsx
 import { screen } from '@testing-library/react'
@@ -150,7 +150,7 @@ expect((await repositories.clientes.list()).total).toBe(2)
 
 ### Rotas com parâmetro
 
-O parâmetro de rota só existe dentro de uma `<Route>`. Renderize a tela dentro da rota, com o caminho inicial já com o parâmetro. O teste que o `make:page --path /clientes/:id` gera já é assim (e, sem `--domain`, confere que o valor do parâmetro aparece na tela):
+O parâmetro de rota só existe dentro de uma `<Route>`. Renderize a tela dentro da rota, com o caminho inicial já com o parâmetro. O teste que o `make:page --path /clientes/:id` gera já é assim (e, sem `--query`, confere que o valor do parâmetro aparece na tela):
 
 ```tsx
 // src/pages/cliente/index.test.tsx

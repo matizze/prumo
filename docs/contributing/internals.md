@@ -41,7 +41,7 @@ O tarball leva só o `dist/`, o `package.json` e o README (e, no cli, os `templa
 
 ## A CLI
 
-A CLI usa o [commander](https://github.com/tj/commander.js). Os comandos são `new`, `make:schema`, `make:repository`, `make:query`, `make:page` e `check`; a referência de uso está em [Referência da CLI](../reference/cli.md).
+A CLI usa o [commander](https://github.com/tj/commander.js). Os comandos são `new`, `make:schema`, `make:repository`, `make:query`, `make:page`, `check` e `list`; a referência de uso está em [Referência da CLI](../reference/cli.md).
 
 ```text
 packages/cli/

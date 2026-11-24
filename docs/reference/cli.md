@@ -14,6 +14,7 @@ prumo [opções] [comando]
 | [`make:query <domínio>`](#prumo-makequery) | Cria as queries e mutations de um domínio (chaves e hooks de lista, detalhe e escrita) |
 | [`make:page <nome>`](#prumo-makepage) | Cria uma tela (index, model, view, teste), os textos e a rota |
 | [`check`](#prumo-check)            | Confere a arquitetura do projeto                      |
+| [`list`](#prumo-list)              | Mostra o que o projeto tem (schemas, repositórios, queries, telas, idiomas) |
 
 ## Como rodar
 
@@ -235,6 +236,98 @@ Confere as pastas de `src/components`, o uso de `components/shared` pelas telas,
 | `1`    | Há violação                                                                     |
 | `2`    | A pasta não existe ou não é um projeto (sem `package.json` e `src`)             |
 
+## `prumo list`
+
+```text
+prumo list [--root <pasta>] [--json]
+```
+
+Mostra o que o projeto tem, lendo os arquivos. Nunca escreve. Sai com 2 se a pasta não é um projeto (sem `package.json` e `src`), como o `check`. Sem `--json`, escreve uma seção por tipo, em português, com uma linha por item; a seção vazia diz `nenhum`:
+
+```text
+Schemas (1):
+  Livro  src/schemas/entities/livro.ts  title: string, year?: int
+
+Repositórios (1):
+  livros  Livro  fontes: mock, http, storage
+
+Queries (1):
+  livros  Livro  useLivrosList, useLivroDetail, useCreateLivro, useUpdateLivro, useRemoveLivro
+
+Telas (2):
+  livro  rota: /livros/:id  detalhe  query: livros
+  sobre  rota: nenhuma  titulo
+
+Idiomas (2):
+  en
+  pt-BR
+```
+
+Na tela, `rota: curinga` é a `<Route>` sem `path` (ou com `path="*"`), `rota: {expressão} (expressão)` é um `path` que não é literal e `rota: nenhuma` é a tela que nenhuma `<Route>` usa. Um schema que o leitor do Prumo recusa (editado à mão com algo fora dos tipos do `--fields`) aparece como `editado à mão (<motivo>)`, com a primeira linha da mensagem do leitor (no máximo 160 caracteres).
+
+| Opção             | O que faz                                                     |
+| ----------------- | ------------------------------------------------------------- |
+| `--root <pasta>`  | A pasta do projeto, a que tem o `src` (padrão: a pasta atual) |
+| `--json`          | Escreve o levantamento em JSON, no formato abaixo             |
+
+### A saída `--json`
+
+Um objeto com cinco listas, sempre presentes (vazias quando não há nada), ordenadas pelo nome do arquivo ou da pasta (comparação fixa, a mesma em qualquer máquina). Os tipos estão no `ProjectListing` (exportado por `@matizze/prumo-cli`).
+
+```json
+{
+  "schemas": [
+    {
+      "entity": "Livro",
+      "file": "src/schemas/entities/livro.ts",
+      "fields": [{ "name": "title", "type": "string", "optional": false }],
+      "problem": null
+    }
+  ],
+  "repositories": [{ "domain": "livros", "entity": "Livro", "sources": ["mock", "http", "storage"] }],
+  "queries": [
+    {
+      "domain": "livros",
+      "file": "src/queries/livros.ts",
+      "entity": "Livro",
+      "hooks": ["useLivrosList", "useLivroDetail"]
+    }
+  ],
+  "pages": [
+    {
+      "name": "livro",
+      "route": "/livros/:id",
+      "routeKind": "literal",
+      "routePartial": false,
+      "variation": "detalhe",
+      "query": "livros"
+    }
+  ],
+  "languages": ["en", "pt-BR"]
+}
+```
+
+| Lista          | Campo       | Valor                                                                                                                                  |
+| -------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `schemas`      | `entity`    | A entidade, em PascalCase                                                                                                              |
+|                | `file`      | O arquivo, relativo à raiz                                                                                                             |
+|                | `fields`    | Os campos que o leitor reconhece (`name`, `type`, `optional` e, no `enum`, `values`), sem `id` e `createdAt`; `null` se o schema foi editado à mão e o leitor o recusa |
+|                | `problem`   | O motivo curto da recusa; `null` quando `fields` foi lido                                                                              |
+| `repositories` | `domain`    | O nome da pasta em `src/repositories`                                                                                                  |
+|                | `entity`    | A entidade lida do contrato (`repository.contract.ts`); `null` se o contrato não existe ou não diz                                     |
+|                | `sources`   | As fontes que existem, em ordem: `mock`, `http`, `storage`. Uma fonte conta quando o arquivo `repository.<fonte>.ts` existe e a fábrica (`index.ts`) a escolhe |
+| `queries`      | `domain`    | O nome do arquivo (ou pasta) em `src/queries`                                                                                          |
+|                | `file`      | O arquivo, relativo à raiz                                                                                                             |
+|                | `entity`    | A entidade (do contrato do repositório, ou do hook `use<Entidade>Detail`); `null` se nenhum diz                                        |
+|                | `hooks`     | Os hooks (`use...`) que o arquivo exporta, na ordem do arquivo                                                                         |
+| `pages`        | `name`      | O nome da pasta em `src/pages`                                                                                                         |
+|                | `route`     | A rota da tela no `src/App.tsx`: o `path` da `<Route>` mais interna que a usa, composto com os `<Route nest>` de fora (`/admin` + `/usuarios` vira `/admin/usuarios`); `*` para a curinga (sem `path`, ou `path="*"`); o texto da expressão de um `path={...}` que não é literal (por exemplo, `{ROUTES.lenta}`); `null` só quando nenhuma `<Route>` usa a tela. A tela pode vir de um `import` padrão ou de um `lazy(() => import('@/pages/<nome>'))` |
+|                | `routeKind` | `literal`, `catchAll` ou `expression`; `null` quando `route` é `null`                                                                  |
+|                | `routePartial` | `true` quando um `<Route nest>` de fora não tem `path` literal e não deu para compor: `route` é só o caminho da `<Route>` de dentro |
+|                | `variation` | `titulo` (só o título), `lista` (com query), `parametro` (rota com parâmetro) ou `detalhe` (query e parâmetro)                          |
+|                | `query`     | O domínio da query que o model da tela importa de `@/queries`; `null` se não usa                                                        |
+| `languages`    |             | As pastas de `src/messages`, em ordem                                                                                                  |
+
 ## Opções globais
 
 | Opção             | O que faz           |
@@ -272,6 +365,8 @@ Comandos:
                                       mensagens e rota.
   check [opções]                      Analisa o projeto e lista as violações da
                                       arquitetura.
+  list [opções]                       Mostra o que o projeto tem: schemas,
+                                      repositórios, queries, telas e idiomas.
 ```
 
 ## Códigos de saída

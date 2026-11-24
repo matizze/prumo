@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemods/test-support.ts'
 import { UsageError } from '../errors.ts'
 import { renderTemplateFile, nameVars } from '../lib/templates.ts'
-import { domainFieldVars, parseFields } from '../lib/fields.ts'
+import { domainFieldVars, parseFields } from '../lib/fields/index.ts'
 import { domainNames } from '../lib/names.ts'
 import { generateSchema, SCHEMA_FILE } from './schema.ts'
 

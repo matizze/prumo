@@ -1,6 +1,6 @@
 import { Option } from 'commander'
 import { DATA_SOURCE_CHOICES, generateRepository, type DataSourceChoice } from '../generators/repository.ts'
-import { describeField } from '../lib/fields.ts'
+import { describeField } from '../lib/fields/index.ts'
 import { entityFlag } from '../lib/names.ts'
 import { documentCommand } from './help-text.ts'
 import { DRY_RUN_OPTION, formatWarnings, nonEmpty, projectOf, ROOT_OPTION, runPlan } from './shared.ts'

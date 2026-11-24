@@ -9,7 +9,7 @@ import {
   type RouteElement,
 } from '../codemods/route-elements.ts'
 import { contractEntity } from './contract.ts'
-import { readEntityFields, type FieldType } from './fields.ts'
+import { readEntityFields, type FieldType } from './fields/index.ts'
 import { deriveNames, type DomainNames } from './names.ts'
 import { ChangePlan } from './plan.ts'
 import { displayPath } from './paths.ts'

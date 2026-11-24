@@ -1,5 +1,5 @@
 import { generateSchema } from '../generators/schema.ts'
-import { describeField } from '../lib/fields.ts'
+import { describeField } from '../lib/fields/index.ts'
 import { entityFlag } from '../lib/names.ts'
 import { documentCommand } from './help-text.ts'
 import { DRY_RUN_OPTION, nonEmpty, projectOf, ROOT_OPTION, runPlan } from './shared.ts'

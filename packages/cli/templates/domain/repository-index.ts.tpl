@@ -7,6 +7,7 @@ export { Mock{{plural.pascal}}Repository, type Mock{{plural.pascal}}RepositoryOp
 export { MOCK_{{plural.constant}} } from './fixtures'
 
 export function create{{plural.pascal}}Repository({ latencyMs }: RepositoryOptions): I{{plural.pascal}}Repository {
-  // Só mock por enquanto; a implementação real (API) entra aqui
+  // Uma linha por fonte, antes do mock (prumo make:repository {{plural.kebab}} --data-source http|storage).
+  // Sem a linha da fonte pedida, o domínio devolve o mock.
   return new Mock{{plural.pascal}}Repository({ latencyMs })
 }

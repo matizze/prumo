@@ -12,7 +12,7 @@ prumo [opções] [comando]
 | ---------------------------------- | ----------------------------------------------------- |
 | [`new <nome>`](#prumo-new)         | Cria um app React organizado em camadas               |
 | [`make:schema <domínio>`](#prumo-makeschema) | Cria o schema (zod) de uma entidade, com os campos |
-| [`make:repository <domínio>`](#prumo-makerepository) | Cria o repositório de um domínio (contrato, mock e teste de contrato) |
+| [`make:repository <domínio>`](#prumo-makerepository) | Cria o repositório de um domínio (contrato, mock e teste de contrato) e acrescenta fontes (`http`, `storage`) |
 | [`check`](#prumo-check)            | Confere a arquitetura do projeto                      |
 
 ## Como rodar
@@ -35,7 +35,7 @@ pnpm dlx @matizze/prumo-cli --help
 prumo new <nome> [--dir <pasta>] [--no-install] [--packages <pasta>] [--dry-run]
 ```
 
-Cria `<dir>/<nome>`: um app com Vite, React 19, TypeScript, wouter, TanStack Query, zod e i18next, os pacotes do Prumo (`core`, `rules`, `testing` e `cli`), a estrutura de pastas das camadas, os provedores (query, i18n e repositórios), a tela inicial `home` (a mesma que o `make:page` gera, na rota `/`), o ESLint com o plugin do Prumo, o Vitest com jsdom e o `AGENTS.md`. A fonte de dados padrão é `mock`. Veja o app criado em [Anatomia do app gerado](../concepts/generated-app.md).
+Cria `<dir>/<nome>`: um app com Vite, React 19, TypeScript, wouter, TanStack Query, zod e i18next, os pacotes do Prumo (`core`, `rules`, `testing` e `cli`), a estrutura de pastas das camadas, os provedores (query, i18n e repositórios), a tela inicial `home` (a mesma que o `make:page` gera, na rota `/`), o `src/vite-env.d.ts` (com `VITE_DATA_SOURCE` e `VITE_API_URL`, opcionais), o ESLint com o plugin do Prumo, o Vitest com jsdom e o `AGENTS.md`. A fonte de dados padrão é `mock`. Veja o app criado em [Anatomia do app gerado](../concepts/generated-app.md).
 
 | Argumento ou opção  | O que faz                                                                                                                    |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -105,10 +105,10 @@ Quem lê os campos depois é o `make:repository`, direto do schema gerado. O lei
 ## `prumo make:repository`
 
 ```text
-prumo make:repository <domínio> [--entity <singular>] [--root <pasta>] [--dry-run]
+prumo make:repository <domínio> [--entity <singular>] [--data-source <mock|http|storage>] [--root <pasta>] [--dry-run]
 ```
 
-Cria o repositório do domínio com a fonte `mock` e o registra. Precisa do schema (`prumo make:schema`): os campos (busca, ordem, dados de exemplo e teste de contrato) saem do schema gerado, lido da árvore do arquivo, e por isso o comando não tem `--fields`. Um campo que o Prumo não reconhece (veja o fim da seção do `make:schema`) é erro de uso, com a linha do campo.
+Cria o repositório do domínio com a fonte `mock` e o registra; com `--data-source http` ou `storage`, acrescenta também uma fonte de dados (veja [Fontes de dados](#fontes-de-dados)). Precisa do schema (`prumo make:schema`): os campos (busca, ordem, dados de exemplo e teste de contrato) saem do schema gerado, lido da árvore do arquivo, e por isso o comando não tem `--fields`. Um campo que o Prumo não reconhece (veja o fim da seção do `make:schema`) é erro de uso, com a linha do campo.
 
 O comando também lê, do mesmo arquivo, o `.pick` do `<entidade>InputSchema` e os membros do `<Entidade>SortKey`: o `create`, o `update` e os dados de entrada do teste usam só os campos do `pick`, e os acessores de ordem e o teste de ordem só os da `SortKey`. Assim, um campo acrescentado à mão só ao `z.object` (ou tirado do `pick`, como um campo calculado pelo backend) gera um repositório que compila; o campo fora do `pick` recebe um valor de exemplo no mock. Só o `.pick({ campo: true, ... })` é aceito: um `<entidade>InputSchema` escrito com `.omit({ ... })` é erro de uso, e se reescreve listando no `.pick` os campos que sobram. A `SortKey` não pode ter campo booleano (o `--fields` também não ordena por booleano). Um `pick` ou uma `SortKey` que o comando não lê, ou com nome que não é campo, é erro de uso, com a linha.
 
@@ -128,10 +128,33 @@ O `<domínio>` e o `--entity` são os do `make:schema`: se o schema saiu com `--
 | Opção                 | O que faz                                                                           |
 | --------------------- | ----------------------------------------------------------------------------------- |
 | `--entity <singular>` | A entidade, no singular, a mesma do `make:schema`. Padrão: o nome sem o `s` final   |
+| `--data-source <fonte>` | `mock` (padrão), `http` ou `storage`. Outro valor sai com 2                       |
 | `--root <pasta>`      | A pasta do projeto, a que tem o `src` (padrão: a pasta atual)                       |
 | `--dry-run`           | Lista o que seria criado e alterado, sem escrever nada                              |
 
-O comando valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada pela metade: o schema que falta (a mensagem traz o `prumo make:schema` com o `--entity` certo e, se há schemas sem repositório, lembra de repetir o `--entity` e lista os nomes deles), o repositório que já existe, um campo do schema que não se lê e um container (`src/repositories/index.ts`) sem o mapa `factories`. No fim, mostra o que criou e alterou e o próximo passo: `prumo make:query <domínio>`.
+O comando valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada pela metade: a fonte que não existe (`--data-source graphql`), a fonte que o repositório já tem, o schema que falta (a mensagem traz o `prumo make:schema` com o `--entity` certo e, se há schemas sem repositório, lembra de repetir o `--entity` e lista os nomes deles), o repositório que já existe (sem `--data-source`, ou com `mock`), um campo do schema que não se lê e um container (`src/repositories/index.ts`) sem o mapa `factories`. No fim, mostra o que criou e alterou e o próximo passo: `prumo make:query <domínio>`.
+
+### Fontes de dados
+
+O contrato (`I<Domínio>Repository`) é o formato único, e todas as fontes o implementam; o teste de contrato prova que elas se comportam igual. O app escolhe a fonte pela variável `VITE_DATA_SOURCE` (`mock` quando falta; um valor fora de `DATA_SOURCES` lança erro na inicialização), e a fábrica do domínio devolve a implementação da fonte, ou o mock quando o domínio não tem a fonte.
+
+- Sem `--data-source` (ou com `mock`): o comportamento de cima. O repositório que já existe sai com 2.
+- Com `http` ou `storage`: se o repositório não existe, o comando cria o repositório completo (com o mock) e acrescenta a fonte; se já existe, acrescenta só a fonte. A fonte que já existe (`repository.<fonte>.ts`) sai com 2.
+
+Cada fonte acrescentada:
+
+- cria `repository.<fonte>.ts`;
+- acrescenta a fonte ao `DATA_SOURCES` de `src/repositories/options.ts`, se ainda não está lá;
+- acrescenta à fábrica `src/repositories/<domínio>/index.ts` o import, o export da classe e a linha `if (dataSource === '<fonte>') return new ...`, antes do `return` do mock (a fábrica passa a receber `{ dataSource, latencyMs }`);
+- acrescenta ao `repository.contract.test.ts` uma chamada do `runContractSuite` para a fonte.
+
+| Fonte     | Arquivo                 | Como funciona                                                                                                                                                                                       |
+| --------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mock`    | `repository.mock.ts`    | Em memória, com as fixtures e latência simulada. É a padrão e a dos testes.                                                                                                                         |
+| `storage` | `repository.storage.ts` | A classe `Storage<Domínio>Repository`: o mock gravando no `localStorage`, com a chave `<nome do app>:<domínio>` (o nome é o `name` do `package.json`). Começa com as fixtures, aceita `latencyMs` e usa a mesma busca, ordem e paginação do mock. O teste de contrato limpa a chave antes de cada repositório novo. |
+| `http`    | `repository.http.ts`    | A classe `Http<Domínio>Repository`: `fetch` na API pelo cliente `src/repositories/http.ts`. O backend responde no formato do app (`{ items, total }`, com os campos do schema) e o repositório só valida cada resposta com o schema, sem traduzir formato. A lista envia `search`, `sort=<campo>:<asc\|desc>`, `page` e `page_size`; o id vai codificado na URL; o `update` é `PATCH` (o contrato aceita `Partial<Input>`); o 404 vira `UIError('<ENTIDADE>_NOT_FOUND')`. |
+
+Na primeira fonte `http` do app, o comando cria também `src/repositories/http.ts` (o cliente, com `createHttp`, `HttpError` e o tipo `Http`), `src/repositories/api.ts` (a instância, com `import.meta.env.VITE_API_URL ?? '/api'` e o lugar comentado do token da sessão) e `src/vite-env.d.ts`, se faltar. Das vezes seguintes, reaproveita os que já existem. O contrato do `http` só roda com uma API de teste (`API_TEST_URL`); sem ela fica pulado, com o motivo no título. O guia [Ligar uma API real](../guides/real-api.md) mostra o `.env`, o token e o teste contra uma API de teste.
 
 ## `prumo check`
 

@@ -1,5 +1,13 @@
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { messageLanguages, registerRepository } from '../codemods/index.ts'
+import {
+  addDataSource,
+  messageLanguages,
+  registerContractSource,
+  registerFactorySource,
+  registerRepository,
+  type RepositorySource,
+} from '../codemods/index.ts'
 import { UsageError } from '../errors.ts'
 import { domainFieldVars, readEntityFields, readEntityShape, type Field } from '../lib/fields.ts'
 import { domainNames, type DomainNames } from '../lib/names.ts'
@@ -8,11 +16,21 @@ import type { Project } from '../lib/project.ts'
 import { nameVars, renderTemplate, renderTemplateFile } from '../lib/templates.ts'
 import { messagesLanguageOf } from './page.ts'
 
+/** As fontes de dados que o comando aceita: o mock (sempre existe) e as que se acrescentam a ele. */
+export const DATA_SOURCE_CHOICES = ['mock', 'http', 'storage'] as const
+
+export type DataSourceChoice = (typeof DATA_SOURCE_CHOICES)[number]
+
 export interface RepositoryRequest {
   /** O nome do domínio, no plural e em kebab-case: `clientes`. */
   name: string
   /** A entidade, no singular. Sem ela, sai do nome (tira o `s` final). */
   entity?: string | undefined
+  /**
+   * A fonte a criar. `mock` (padrão) cria o repositório e recusa o que já existe; `http` e `storage`
+   * criam o repositório, se falta, e acrescentam a fonte.
+   */
+  dataSource?: DataSourceChoice | undefined
 }
 
 export interface RepositoryResult {
@@ -20,6 +38,10 @@ export interface RepositoryResult {
   names: DomainNames
   /** Os campos lidos do schema. */
   fields: Field[]
+  /** A fonte pedida. */
+  dataSource: DataSourceChoice
+  /** O repositório foi criado agora (e não só ganhou a fonte). */
+  created: boolean
   /** Avisos que não impedem o comando (o `errors.json` que falta). */
   warnings: string[]
 }
@@ -49,6 +71,28 @@ export const REPOSITORY_FILES: readonly RepositoryFile[] = [
     template: 'domain/repository-contract-test.ts.tpl',
     to: 'src/repositories/{{plural.kebab}}/repository.contract.test.ts',
   },
+]
+
+/** Os arquivos de cada fonte acrescentada, ao lado do mock. */
+export const SOURCE_FILES: Readonly<Record<RepositorySource, RepositoryFile>> = {
+  http: {
+    template: 'domain/repository-http.ts.tpl',
+    to: 'src/repositories/{{plural.kebab}}/repository.http.ts',
+  },
+  storage: {
+    template: 'domain/repository-storage.ts.tpl',
+    to: 'src/repositories/{{plural.kebab}}/repository.storage.ts',
+  },
+}
+
+/**
+ * O que a primeira fonte http do app cria, comum a todos os domínios: o cliente, a instância dele
+ * e os tipos do `import.meta.env`. Cada arquivo que já existe é aproveitado, não recriado.
+ */
+export const HTTP_CLIENT_FILES: readonly RepositoryFile[] = [
+  { template: 'app/src/repositories/http.ts.tpl', to: 'src/repositories/http.ts' },
+  { template: 'app/src/repositories/api.ts.tpl', to: 'src/repositories/api.ts' },
+  { template: 'app/src/vite-env.d.ts.tpl', to: 'src/vite-env.d.ts' },
 ]
 
 /** O texto de `<ENTIDADE>_NOT_FOUND` em cada língua dos modelos (o mock gerado lança esse código). */
@@ -98,25 +142,51 @@ function addNotFoundMessages(plan: ChangePlan, names: DomainNames): string[] {
   ]
 }
 
+/** O nome do app (o `name` do `package.json`), que separa as chaves do `localStorage`; sem ele, o da pasta. */
+function appNameOf(project: Project): string {
+  try {
+    const manifest = JSON.parse(readFileSync(path.join(project.root, 'package.json'), 'utf8')) as {
+      name?: unknown
+    }
+    if (typeof manifest.name === 'string' && manifest.name !== '') return manifest.name
+  } catch {
+    // package.json que não se lê: o nome da pasta serve
+  }
+  return path.basename(project.root)
+}
+
+/** Um texto para dentro de um literal de aspas simples. */
+const inQuotes = (text: string) => text.replace(/[\\']/g, '\\$&')
+
 /**
- * Monta o plano do repositório (fonte `mock`) de um domínio: os arquivos de `src/repositories/<domínio>/`
- * e o registro no container `src/repositories/index.ts`, com o texto de `<ENTIDADE>_NOT_FOUND` nos
- * `errors.json`. Os campos (busca, ordem, fixtures e teste de contrato) saem do schema gerado, lido
- * com `readEntityFields`, e o `create` e a ordem seguem o `pick` e a `SortKey` (`readEntityShape`). Nada vai para o disco: quem chama mostra o `summary()` ou faz o `commit()`.
- * Valida tudo antes de montar o plano; todo erro de uso é um `UsageError` (saída 2).
+ * Monta o plano do repositório de um domínio: os arquivos de `src/repositories/<domínio>/` e o
+ * registro no container `src/repositories/index.ts`, com o texto de `<ENTIDADE>_NOT_FOUND` nos
+ * `errors.json`. Com `dataSource` `http` ou `storage`, acrescenta também `repository.<fonte>.ts`, a
+ * fonte em `DATA_SOURCES`, a linha da fábrica e o teste de contrato da fonte (e, na primeira fonte
+ * http do app, o cliente e a instância dele); se o repositório já existe, só a fonte entra. Os
+ * campos (busca, ordem, fixtures e teste de contrato) saem do schema gerado, lido com
+ * `readEntityFields`, e o `create` e a ordem seguem o `pick` e a `SortKey` (`readEntityShape`). Nada
+ * vai para o disco: quem chama mostra o `summary()` ou faz o `commit()`. Valida tudo antes de montar
+ * o plano; todo erro de uso é um `UsageError` (saída 2).
  */
 export function generateRepository(
   project: Project,
-  { name, entity }: RepositoryRequest,
+  { name, entity, dataSource = 'mock' }: RepositoryRequest,
 ): RepositoryResult {
   const names = domainNames(name, entity)
   const plan = new ChangePlan(project)
   const fields = readEntityFields(plan, names)
   const shape = readEntityShape(plan, names, fields)
   const folder = path.join(project.src, 'repositories', names.plural.kebab)
-  if (plan.has(folder)) {
+  const exists = plan.has(folder)
+  if (dataSource === 'mock' && exists) {
     throw new UsageError(
       `o repositório '${names.plural.kebab}' já existe: a pasta src/repositories/${names.plural.kebab} está no projeto.`,
+    )
+  }
+  if (dataSource !== 'mock' && plan.has(path.join(folder, `repository.${dataSource}.ts`))) {
+    throw new UsageError(
+      `o repositório '${names.plural.kebab}' já tem a fonte ${dataSource}: src/repositories/${names.plural.kebab}/repository.${dataSource}.ts está no projeto.`,
     )
   }
 
@@ -124,14 +194,30 @@ export function generateRepository(
     ...nameVars('plural', names.plural),
     ...nameVars('singular', names.singular),
     ...domainFieldVars(fields, names.singular.kebab, shape),
+    'app.kebab': inQuotes(appNameOf(project)),
   }
-  for (const { template, to } of REPOSITORY_FILES) {
+  const create = ({ template, to }: RepositoryFile) =>
     plan.createSource(
       path.join(project.root, renderTemplate(to, vars)),
       renderTemplateFile(template, vars),
     )
+  const warnings: string[] = []
+  if (!exists) {
+    REPOSITORY_FILES.forEach(create)
+    registerRepository(plan, names)
+    warnings.push(...addNotFoundMessages(plan, names))
   }
-  registerRepository(plan, names)
-  const warnings = addNotFoundMessages(plan, names)
-  return { plan, names, fields, warnings }
+  if (dataSource !== 'mock') {
+    create(SOURCE_FILES[dataSource])
+    if (dataSource === 'http') {
+      for (const file of HTTP_CLIENT_FILES) {
+        if (!plan.has(path.join(project.root, file.to))) create(file)
+      }
+    }
+    addDataSource(plan, dataSource)
+    registerFactorySource(plan, names, dataSource)
+    const warning = registerContractSource(plan, names, dataSource)
+    if (warning) warnings.push(warning)
+  }
+  return { plan, names, fields, dataSource, created: !exists, warnings }
 }

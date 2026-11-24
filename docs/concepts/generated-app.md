@@ -172,12 +172,14 @@ const factories = {
 export type RepositoryContainer = RepositoryContainerOf<typeof factories>
 
 export function createRepositories(options: Partial<RepositoryOptions> = {}): RepositoryContainer {
-  const dataSource = options.dataSource ?? resolveDataSource(undefined, DATA_SOURCES, 'mock')
+  const dataSource =
+    options.dataSource ??
+    resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')
   return createRepositoryContainer(factories, { ...options, dataSource })
 }
 ```
 
-O tipo do container sai do mapa, então registrar um domínio é acrescentar uma linha. O `options.ts` declara as fontes de dados (`DATA_SOURCES = ['mock']`): é onde entra a API real (veja [Ligar uma API real](../guides/real-api.md)).
+O tipo do container sai do mapa, então registrar um domínio é acrescentar uma linha. A fonte vem da `VITE_DATA_SOURCE` (`mock` quando falta; um valor fora de `DATA_SOURCES` lança erro), e o `src/vite-env.d.ts` declara essa variável e a `VITE_API_URL`. O `options.ts` declara as fontes de dados (`DATA_SOURCES = ['mock']`): o `prumo make:repository <domínio> --data-source http|storage` acrescenta a fonte aí (veja [Ligar uma API real](../guides/real-api.md)).
 
 ### `src/test/render.tsx` e `setup.ts`
 

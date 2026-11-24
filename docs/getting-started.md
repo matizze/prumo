@@ -160,7 +160,7 @@ E registrou o domínio nos três índices e no container de repositórios. Rode 
 pnpm test src/repositories/clientes
 ```
 
-O repositório em memória permite construir e testar as telas antes de a API existir. Quando ela existir, você escreve outra implementação do mesmo contrato e o resto do app não muda. O guia [Ligar uma API real](guides/real-api.md) mostra como.
+O repositório em memória permite construir e testar as telas antes de a API existir. Quando ela existir, `prumo make:repository clientes --data-source http` gera outra implementação do mesmo contrato e o resto do app não muda. O guia [Ligar uma API real](guides/real-api.md) mostra como.
 
 ## 5. Gere uma tela que lista o domínio
 
@@ -335,7 +335,7 @@ Typecheck, lint, `prumo check` e testes verdes: o app tem um domínio com contra
 
 ## Próximos passos
 
-- Troque o repositório em memória por uma API: [Ligar uma API real](guides/real-api.md).
+- Ligue uma API no lugar do repositório em memória: [Ligar uma API real](guides/real-api.md).
 - Ponha a interface do produto: [Design system](guides/design-system.md).
 - Teste os estados da tela: [Testes](guides/test.md).
 - Deixe um agente de IA gerar telas com os mesmos comandos: [Agentes de IA](guides/ai-agents.md).

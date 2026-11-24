@@ -26,7 +26,7 @@ A documentação segue quatro tipos de texto, cada um para um momento:
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | [Telas](guides/pages.md)                                  | Criar telas, separar model e view, rotas com parâmetro, navegação e rotas protegidas      |
 | [Domínios de dados](guides/domains.md)                   | Criar um domínio, mudar o schema, as fixtures e o contrato, usar queries e mutations, regras de negócio e operações entre domínios |
-| [Ligar uma API real](guides/real-api.md)                  | Escrever o repositório HTTP, escolher a fonte de dados por ambiente e validar o contrato, inclusive contra uma API que não grava |
+| [Ligar uma API real](guides/real-api.md)                  | Gerar a fonte http (ou storage), escolher a fonte de dados por ambiente e validar o contrato, inclusive contra uma API que não grava |
 | [Sessão e login](guides/auth.md)                          | A sessão dentro e fora do React, o login, o logout, o `AuthGuard` com origem e a guarda por perfil |
 | [Textos e idiomas](guides/i18n.md)            | Textos por tela, ICU (plural, select), formatação de números e datas, trocar e criar idiomas |
 | [Erros e notificações](guides/errors-and-notifications.md)    | Erros com código, tradução do erro, notificação global e o `meta` das queries             |

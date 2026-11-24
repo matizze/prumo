@@ -11,7 +11,7 @@ function display(plan: ChangePlan, file: string): string {
 }
 
 /** O nome do módulo de um import ou export, ou `''` se não tiver (`export { x }` sem `from`). */
-function specifierOf(declaration: ImportDeclaration | ExportDeclaration): string {
+export function specifierOf(declaration: ImportDeclaration | ExportDeclaration): string {
   return declaration.getModuleSpecifierValue() ?? ''
 }
 
@@ -26,7 +26,7 @@ function indexSource(plan: ChangePlan, file: string): SourceFile {
  * antes da primeira declaração que vem depois da nova (pelo módulo), ou depois da última, se
  * nenhuma vem. Sem nenhuma declaração do grupo, vai depois de `fallback`.
  */
-function insertSorted<T extends ImportDeclaration | ExportDeclaration>(
+export function insertSorted<T extends ImportDeclaration | ExportDeclaration>(
   group: T[],
   specifier: string,
   line: string,
@@ -41,7 +41,7 @@ function insertSorted<T extends ImportDeclaration | ExportDeclaration>(
 }
 
 /** As aspas e o ponto e vírgula do estilo do arquivo, copiados de uma declaração com módulo. */
-function styleOf(declaration: ImportDeclaration | ExportDeclaration | undefined): {
+export function styleOf(declaration: ImportDeclaration | ExportDeclaration | undefined): {
   quote: string
   semicolon: string
 } {

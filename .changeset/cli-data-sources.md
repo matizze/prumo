@@ -1,0 +1,5 @@
+---
+'@matizze/prumo-cli': minor
+---
+
+O `prumo make:repository` ganhou a opção `--data-source <mock|http|storage>` (padrão `mock`; outro valor sai com 2). Com `http` ou `storage`, cria o repositório completo se ele ainda não existe e acrescenta a fonte; se já existe, acrescenta só a fonte, e repetir a mesma fonte sai com 2. O `repository.storage.ts` é o mock gravando no `localStorage`, com a chave `<nome do app>:<domínio>`. O `repository.http.ts` usa `fetch` pelo cliente `src/repositories/http.ts` (criado, junto com o `api.ts` e o `vite-env.d.ts`, na primeira fonte http do app), valida cada resposta com o schema, envia `search`, `sort=<campo>:<asc|desc>`, `page` e `page_size` na lista, usa `PATCH` no `update` e transforma o 404 em `<ENTIDADE>_NOT_FOUND`. A fonte entra em `DATA_SOURCES`, na fábrica do domínio (que passa a receber `{ dataSource, latencyMs }` e termina no mock) e no `repository.contract.test.ts` (o contrato do `http` só roda com `API_TEST_URL`; sem ela fica pulado). O `prumo new` agora cria o `src/vite-env.d.ts` e o app lê a fonte de `VITE_DATA_SOURCE`.

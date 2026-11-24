@@ -328,7 +328,7 @@ runContractSuite(clientesContract, {
 - **`dispose`**, opcional na implementação, roda depois de cada teste, também quando ele falha: é onde se apaga um banco ou se restaura uma API de teste.
 - O título de cada grupo é `<contrato>: <implementação>`, então a saída do Vitest mostra qual implementação falhou.
 
-Para rodar o mesmo contrato contra a implementação HTTP, veja [Ligar uma API real](real-api.md#6-rode-o-contrato-contra-a-api). Se a API de teste só simula as escritas (a leitura seguinte não vê a mudança), rode o contrato contra uma [API falsa em memória pelo `fetch` injetável](real-api.md#quando-a-api-de-teste-não-persiste-escritas).
+Para rodar o mesmo contrato contra a implementação HTTP, veja [Ligar uma API real](real-api.md#5-rode-o-contrato-contra-uma-api-de-teste). Se a API de teste só simula as escritas (a leitura seguinte não vê a mudança), rode o contrato contra uma [API falsa em memória pelo `fetch` injetável](real-api.md#quando-a-api-de-teste-não-persiste-escritas).
 
 ## Setup mais completo do DOM
 

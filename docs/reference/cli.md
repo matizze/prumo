@@ -418,6 +418,7 @@ Comandos:
                                       arquitetura.
   list [opções]                       Mostra o que o projeto tem: schemas,
                                       repositórios, queries, telas e idiomas.
+  mcp [opções]                        Abre o servidor MCP do projeto, por stdio.
 ```
 
 ## Códigos de saída

@@ -100,6 +100,7 @@ A view não busca dado nem guarda estado de dados; o model não tem JSX; uma tel
 | `prumo make:page <nome> [--query <domínio>] [--path <caminho>]`                | Gera a tela (index, model, view, teste), os textos nos idiomas do projeto e a rota                 |
 | `prumo check`                                                                  | Analisa o projeto e lista as violações da arquitetura                                              |
 | `prumo list [--json]`                                                          | Mostra o que o projeto tem: schemas, repositórios, queries, telas e idiomas (só lê)                |
+| `prumo mcp`                                                                    | Abre o servidor MCP do projeto, por stdio, com uma ferramenta por comando, para agentes de IA      |
 
 Cada camada usa a de baixo, então a ordem é schema, repositório, query e tela; o comando recusa, sem criar nada, quando a camada de baixo falta. Os comandos que escrevem validam tudo antes, nunca sobrescrevem um arquivo e aceitam `--dry-run` (os `make:*`, o `check` e o `list` aceitam `--root`). Opções, saídas e códigos de saída estão na [referência da CLI](docs/reference/cli.md).
 
@@ -107,7 +108,7 @@ Cada camada usa a de baixo, então a ordem é schema, repositório, query e tela
 
 | Pacote                                       | Versão                                                                                                         | O que entrega                                                                                     |
 | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| [`@matizze/prumo-cli`](packages/cli)         | [![npm](https://img.shields.io/npm/v/@matizze/prumo-cli?label=)](https://www.npmjs.com/package/@matizze/prumo-cli)         | O comando `prumo`: `new`, `make:*` e `check`                                      |
+| [`@matizze/prumo-cli`](packages/cli)         | [![npm](https://img.shields.io/npm/v/@matizze/prumo-cli?label=)](https://www.npmjs.com/package/@matizze/prumo-cli)         | O comando `prumo`: `new`, `make:*`, `check`, `list` e `mcp`                                      |
 | [`@matizze/prumo-core`](packages/core)       | [![npm](https://img.shields.io/npm/v/@matizze/prumo-core?label=)](https://www.npmjs.com/package/@matizze/prumo-core)       | Container de repositórios, query keys, i18n tipado, erros com código, utilitários de mock e guarda de rota |
 | [`@matizze/prumo-rules`](packages/rules)     | [![npm](https://img.shields.io/npm/v/@matizze/prumo-rules?label=)](https://www.npmjs.com/package/@matizze/prumo-rules)     | O plugin de ESLint e a análise do projeto que o `prumo check` roda                                |
 | [`@matizze/prumo-testing`](packages/testing) | [![npm](https://img.shields.io/npm/v/@matizze/prumo-testing?label=)](https://www.npmjs.com/package/@matizze/prumo-testing) | `renderWithProviders` com rota em memória, setup do DOM e o teste de contrato de repositórios     |

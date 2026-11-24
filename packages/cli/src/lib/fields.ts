@@ -354,6 +354,8 @@ function textFields(source: string, camel: string): { name: string; optional: bo
     if (!Node.isPropertyAssignment(property)) return undefined
     const nameNode = property.getNameNode()
     if (Node.isComputedPropertyName(nameNode)) return undefined
+    // Só identificador simples serve de `i.<campo>` na view: chave entre aspas ou numérica fica de fora
+    if (!Node.isIdentifier(nameNode)) continue
     const value = property.getInitializer()?.getText().replace(/\s+/g, '') ?? ''
     const match = /^z\.string\(\)(.*)$/s.exec(value)
     if (!match) continue

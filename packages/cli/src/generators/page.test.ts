@@ -134,6 +134,25 @@ describe('generatePage com --query (a lista)', () => {
     expect(at(plan, 'src/pages/clientes/view.tsx')).toContain('{i.nome}')
   })
 
+  it('chave entre aspas não vira o campo da tela: vale o identificador ou o id', () => {
+    const project = fixtureProject()
+    withQuery(project.root, {
+      fields: "  'nome': z.string(),\n  'data-nascimento': z.string(),\n  apelido: z.string(),\n",
+      fixture: "{ id: 'cliente-1', apelido: 'Ana', createdAt: 'x' }",
+    })
+    const first = generatePage(project, { name: 'clientes', query: 'clientes' })
+    expect(at(first.plan, 'src/pages/clientes/view.tsx')).toContain('{i.apelido}')
+
+    withQuery(project.root, {
+      fields: "  'nome': z.string(),\n  'data-nascimento': z.string(),\n",
+      fixture: "{ id: 'cliente-1', createdAt: 'x' }",
+    })
+    const second = generatePage(project, { name: 'outra', query: 'clientes' })
+    expect(at(second.plan, 'src/pages/outra/view.tsx')).toContain('{i.id}')
+    expect(at(second.plan, 'src/pages/outra/view.tsx')).not.toContain("i.'")
+    expect(second.warnings[0]).toContain('não tem campo de texto')
+  })
+
   it('só com campos de texto aninhados, mostra o id e avisa', () => {
     const project = fixtureProject()
     withQuery(project.root, {

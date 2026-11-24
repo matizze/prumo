@@ -6,7 +6,7 @@ O jeito mais simples de usar o Prumo é começar pelo `prumo new`. Mas um app Re
 | ----------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------- |
 | 1. As regras                  | Aviso no editor e análise da arquitetura no `pnpm check`             | Telas em pastas, com `index`, `model` e `view`             |
 | 2. A infraestrutura do core   | Container de repositórios, query keys, i18n tipado, erros com código | React, TanStack Query, zod, i18next e wouter               |
-| 3. Os geradores               | `make:page`, `make:domain` e `make:component`                        | Os pontos de registro do app gerado                       |
+| 3. Os geradores               | `make:schema`, `make:repository`, `make:query` e `make:page`         | Os pontos de registro do app gerado                       |
 
 Requisitos em qualquer nível: Node.js 24 ou mais novo e pnpm.
 
@@ -121,15 +121,15 @@ O caminho mais curto para ter esses pontos num projeto existente:
 4. Rode um gerador com `--dry-run` para ver o que ele faria: se um ponto de registro falta ou tem outra forma, ele recusa com a explicação e código de saída 2, sem escrever nada.
 
 ```bash
-pnpm exec prumo make:domain clientes --dry-run
+pnpm exec prumo make:schema clientes --dry-run
 ```
 
 Os geradores supõem o wouter como roteador e o `@/` como alias; projetos com outro roteador podem adotar os níveis 1 e 2 e escrever as telas à mão, seguindo a mesma estrutura.
 
-## Conferir o ambiente
+## Conferir a versão
 
 ```bash
-pnpm exec prumo doctor
+pnpm exec prumo --version
 ```
 
-O `doctor` confere a versão do Node e do pnpm, a versão de cada pacote do Prumo instalado contra a faixa que a CLI espera e o `.mcp.json`. Avisos não falham; erros saem com código 1.
+O `prumo check` (nível 1) é a conferência do dia a dia: ele sai com 1 quando acha violação. Os pacotes do Prumo versionam separados; mantenha-os numa faixa compatível com a da CLI (o `package.json` de um app criado pelo `new` já traz as quatro, com `^<versão>`).

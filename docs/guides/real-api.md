@@ -1,8 +1,8 @@
 # Ligar uma API real
 
-O `make:domain` gera um repositório em memória para você construir e testar as telas antes de a API existir. Este guia mostra como escrever a implementação HTTP do mesmo contrato, escolher a fonte de dados por ambiente e provar, com o teste de contrato, que as duas implementações se comportam igual.
+O `prumo make:repository` gera um repositório em memória (`mock`) para você construir e testar as telas antes de a API existir. Este guia mostra o caminho para a API de verdade: um comando gera a implementação HTTP do mesmo contrato, e o app escolhe a fonte por ambiente. O teste de contrato prova que o mock e a API se comportam igual.
 
-O exemplo usa o domínio `clientes` e uma API REST com as rotas `GET /clientes`, `GET /clientes/:id`, `POST /clientes`, `PATCH /clientes/:id` e `DELETE /clientes/:id`. Adapte os caminhos e o formato à sua API: o que não muda é o contrato.
+O exemplo usa o domínio `clientes` e uma API REST com as rotas `GET /clientes`, `GET /clientes/:id`, `POST /clientes`, `PATCH /clientes/:id` e `DELETE /clientes/:id`.
 
 ## Como as peças se encaixam
 
@@ -10,119 +10,89 @@ O exemplo usa o domínio `clientes` e uma API REST com as rotas `GET /clientes`,
 flowchart LR
   env["VITE_DATA_SOURCE"] --> create["createRepositories()"]
   create --> factory["createClientesRepository()"]
-  factory -- memory --> mock["MockClientesRepository"]
+  factory -- mock --> mock["MockClientesRepository"]
+  factory -- storage --> storage["StorageClientesRepository"]
   factory -- http --> http["HttpClientesRepository"]
   http --> client["cliente HTTP<br/>(src/repositories/http.ts)"]
   client --> api[("API")]
 ```
 
-As telas e as queries não mudam: elas usam a interface `IClientesRepository`, e o container entrega a implementação que a configuração escolher.
+As telas e as queries não mudam: elas usam a interface `IClientesRepository`, e o container entrega a implementação que a configuração escolher. Um domínio sem a fonte pedida devolve o mock, então você liga a API domínio por domínio.
 
-## 1. Declare a fonte de dados
+## 1. Gere a fonte http
 
-```ts
-// src/repositories/options.ts
-export const DATA_SOURCES = ['memory', 'http'] as const
+```bash
+pnpm exec prumo make:repository clientes --data-source http
 ```
 
-O tipo `DataSource` passa a ser `'memory' | 'http'`, e toda fábrica de repositório recebe a fonte escolhida em `options.dataSource`.
+Se o repositório `clientes` ainda não existe, o comando cria o repositório inteiro (contrato, mock, dados de exemplo, teste de contrato e fábrica) e acrescenta a fonte; se já existe, acrescenta só a fonte. Repetir a mesma fonte sai com 2. O que o comando faz:
 
-## 2. Escreva o cliente HTTP
-
-Um cliente pequeno, comum a todos os domínios, concentra o endereço da API, o token da sessão, o tratamento do 401 e a resposta. Ele recebe tudo de fora (o `fetch` e a sessão), então os testes o exercitam sem rede:
+- cria `src/repositories/clientes/repository.http.ts`, a classe `HttpClientesRepository`;
+- na primeira fonte http do app, cria também `src/repositories/http.ts` (o cliente: `createHttp`, `HttpError` e o tipo `Http`), `src/repositories/api.ts` (a instância, com o endereço e o lugar do token) e `src/vite-env.d.ts` (se faltar); das vezes seguintes, reaproveita os três;
+- acrescenta `'http'` ao `DATA_SOURCES` de `src/repositories/options.ts`, se ainda não está lá;
+- muda a fábrica `src/repositories/clientes/index.ts`: o import, o export da classe e uma linha por fonte, antes do `return` que devolve o mock:
 
 ```ts
-// src/repositories/http.ts
-export interface HttpRequest {
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-  body?: unknown
-}
-
-/** Faz uma chamada à API e devolve o corpo da resposta (sem validar). */
-export type Http = (path: string, request?: HttpRequest) => Promise<unknown>
-
-/** A sessão vista pelo cliente HTTP: o token da vez e a renovação depois de um 401. */
-export interface HttpAuth {
-  /** O token de acesso da sessão, ou `null` sem sessão. */
-  getToken: () => string | null
-  /**
-   * Renova a sessão depois de um 401 do token `usedToken`. Devolve `true` quando há token novo
-   * para repetir a chamada e `false` quando a renovação falhou (a sessão já foi encerrada).
-   */
-  refresh: (usedToken: string) => Promise<boolean>
-}
-
-export interface HttpOptions {
-  baseUrl: string
-  /** Cabeçalhos de toda chamada. */
-  headers?: () => Record<string, string>
-  /** O Bearer da sessão e o tratamento do 401: renova uma vez e repete a chamada. */
-  auth?: HttpAuth
-  /** Troca o `fetch` (testes, sem rede). */
-  fetch?: typeof fetch
-}
-
-/** Resposta da API com status de erro. O repositório decide o que ela significa no domínio. */
-export class HttpError extends Error {
-  readonly status: number
-
-  constructor(status: number, message: string) {
-    super(message)
-    this.name = 'HttpError'
-    this.status = status
-  }
-}
-
-export function createHttp({ baseUrl, headers, auth, fetch: fetchOverride }: HttpOptions): Http {
-  const send = (path: string, { method = 'GET', body }: HttpRequest, token: string | null) =>
-    (fetchOverride ?? fetch)(`${baseUrl}${path}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers?.(),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
-
-  return async (path, request = {}) => {
-    const token = auth?.getToken() ?? null
-    let response = await send(path, request, token)
-    // 401 com sessão: renova o token (uma vez) e repete a chamada com o token novo
-    if (response.status === 401 && auth && token !== null && (await auth.refresh(token))) {
-      response = await send(path, request, auth.getToken())
-    }
-    if (!response.ok) {
-      throw new HttpError(response.status, `${request.method ?? 'GET'} ${path}: HTTP ${response.status}`)
-    }
-    return response.status === 204 ? undefined : response.json()
-  }
+export function createClientesRepository({ dataSource, latencyMs }: RepositoryOptions): IClientesRepository {
+  if (dataSource === 'http') return new HttpClientesRepository(api)
+  return new MockClientesRepository({ latencyMs })
 }
 ```
+
+- acrescenta ao `repository.contract.test.ts` uma chamada do `runContractSuite` para a fonte (veja o [passo 5](#5-rode-o-contrato-contra-uma-api-de-teste)).
+
+`--dry-run` lista tudo isso sem escrever.
+
+## 2. O que o backend precisa responder
+
+O `HttpClientesRepository` **não traduz formato**: o backend responde no formato do app, e o repositório só valida cada resposta com o schema da entidade (`pageSchema(clienteSchema)` na lista). Se a API mudar o formato, o erro aparece na fronteira, e não numa tela.
+
+| Chamada                                  | Corpo enviado           | Resposta esperada                                                  |
+| ---------------------------------------- | ----------------------- | ------------------------------------------------------------------ |
+| `GET /clientes`                          | nenhum                  | `{ "items": [...], "total": 42 }`                                  |
+| `GET /clientes/:id`                      | nenhum                  | o cliente                                                          |
+| `POST /clientes`                         | os campos do input      | o cliente criado, com `id` e `createdAt`                           |
+| `PATCH /clientes/:id`                    | só os campos que mudam  | o cliente inteiro, já atualizado                                   |
+| `DELETE /clientes/:id`                   | nenhum                  | `204` (ou qualquer `2xx`: um corpo vazio ou que não é JSON é ignorado) |
+| `GET`, `PATCH` ou `DELETE` de id que não existe | nenhum           | `404`, que vira `UIError('CLIENTE_NOT_FOUND')`                     |
+
+Os parâmetros da lista, todos opcionais:
+
+- `search`: o texto da busca;
+- `sort`: `<campo>:<asc|desc>`, por exemplo `sort=nome:desc`;
+- `page`: a página, a partir de 1;
+- `page_size`: o tamanho da página.
+
+O `total` é o de antes da página. Os campos dos registros têm os nomes do schema (camelCase), e o `id` é um texto. Os ids vão codificados na URL (`encodeURIComponent`).
+
+O `update` usa `PATCH`, e não `PUT`, porque o contrato aceita `Partial<Input>`: o repositório envia só o que mudou. Se a sua API só tem `PUT`, troque o método no `repository.http.ts`.
+
+## 3. O cliente HTTP e o token
+
+O `src/repositories/http.ts` é pequeno e comum a todos os domínios: concentra o endereço da API, o token da sessão, o tratamento do 401 e a resposta. Ele recebe tudo de fora (o `fetch` e a sessão), então os testes o exercitam sem rede. Um status de erro vira `HttpError`, e o repositório decide o que ele significa no domínio.
+
+A instância do app é o `src/repositories/api.ts`:
+
+```ts
+import { createHttp } from './http'
+
+export const api = createHttp({
+  baseUrl: import.meta.env.VITE_API_URL || '/api',
+  // O token da sessão: quando o app tiver login, descomente e ligue à sessão do app.
+  // auth: {
+  //   getToken: () => appSession.getAccessToken(),
+  //   refresh: (usedToken) => appSession.refresh(usedToken),
+  // },
+})
+```
+
+O endereço vem da `VITE_API_URL`; vazia, vale como ausente (`/api`), e a barra no fim é aparada. Sem login, deixe como está: o cliente só envia o corpo. Com login, o token vem da sessão (que é lida fora do React, por isso é um módulo puro): descomente o `auth` e importe o `appSession` do app. Veja [Sessão e login](auth.md).
 
 Três pontos do tratamento do 401:
 
 - **Renova uma vez.** Se a chamada repetida também falha com 401, o erro sobe: não há laço de renovação.
 - **Chamadas simultâneas esperam a mesma renovação.** Quem decide isso é a sessão (`refresh(usedToken)` guarda a promessa em andamento): se cinco chamadas levam 401 juntas, a API de renovação recebe um pedido só, e as cinco repetem com o token novo. Um refresh token costuma valer uma vez, então dois pedidos seriam um erro.
-- **Renovação recusada encerra a sessão.** Quando o `refresh` devolve `false`, o cliente lança o `HttpError` 401, e a sessão já está anônima (o provedor limpa o cache e as rotas protegidas redirecionam para o login). Veja [Sessão e login](auth.md).
-
-E a instância do app, com o endereço que vem do ambiente e o token que vem da sessão (que é lida fora do React, por isso é um módulo puro):
-
-```ts
-// src/repositories/api.ts
-import { appSession } from '@/providers/session/app-session'
-import { createHttp } from './http'
-
-export const api = createHttp({
-  baseUrl: import.meta.env.VITE_API_URL ?? '/api',
-  auth: {
-    getToken: () => appSession.getAccessToken(),
-    refresh: (usedToken) => appSession.refresh(usedToken),
-  },
-})
-```
-
-Sem login, omita o `auth`: o cliente só envia o corpo e os `headers`.
+- **Renovação recusada encerra a sessão.** Quando o `refresh` devolve `false`, o cliente lança o `HttpError` 401, e a sessão já está anônima (o provedor limpa o cache e as rotas protegidas redirecionam para o login).
 
 ### Testar o cliente HTTP sem rede
 
@@ -171,132 +141,17 @@ it('refresh recusado: a chamada falha com o 401', async () => {
 
 Para o caso das chamadas simultâneas, teste a sessão (o `refresh` dela é quem junta os pedidos) com uma `AuthApi` falsa que conta as chamadas a `refresh`.
 
-## 3. Implemente o contrato
+## 4. Escolha a fonte por ambiente
 
-A implementação HTTP mora ao lado do mock e implementa a mesma interface. Três cuidados:
-
-- **Valide a resposta** com o schema do domínio. Se a API mudar o formato, o erro aparece na fronteira, e não numa tela.
-- **Traduza os erros do domínio** para `UIError`. O contrato diz que um id inexistente rejeita com `UIError('CLIENTE_NOT_FOUND')`; o 404 da API vira esse erro. Um 403 pode virar `UIError('SEM_PERMISSAO')` e a rede fora do ar, `UIError('API_INDISPONIVEL')`, cada um com texto em `errors.<CÓDIGO>`. Os outros erros seguem como estão, e a interface mostra a mensagem genérica.
-- **Codifique o que vai na URL** (`encodeURIComponent`).
+O `createRepositories` do app (`src/repositories/index.ts`) já nasce lendo (num app criado antes, o primeiro `--data-source` troca o `resolveDataSource(undefined, ...)` pela versão que lê a variável, ou avisa como fazer, se o container foi mudado) a fonte da variável de ambiente `VITE_DATA_SOURCE`. O `resolveDataSource` do core usa `mock` quando a variável falta e **lança um erro** quando ela tem um valor desconhecido, para a inicialização falhar em vez de cair em silêncio em outra fonte:
 
 ```ts
-// src/repositories/clientes/repository.http.ts
-import { pageSchema, type Page } from '@matizze/prumo-core/data'
-import { UIError } from '@matizze/prumo-core/errors'
-import {
-  clienteSchema,
-  type ClienteInput,
-  type ClienteListQuery,
-  type ClienteSchema,
-} from '@/schemas'
-import { HttpError, type Http, type HttpRequest } from '../http'
-import type { IClientesRepository } from './repository.contract'
-
-const clientePageSchema = pageSchema(clienteSchema)
-
-export class HttpClientesRepository implements IClientesRepository {
-  private readonly http: Http
-
-  constructor(http: Http) {
-    this.http = http
-  }
-
-  async list(query: ClienteListQuery = {}): Promise<Page<ClienteSchema>> {
-    const params = new URLSearchParams()
-    if (query.search) params.set('search', query.search)
-    if (query.sort) params.set('sort', `${query.sort.key}:${query.sort.direction}`)
-    if (query.page) params.set('page', String(query.page))
-    if (query.page_size) params.set('page_size', String(query.page_size))
-    return clientePageSchema.parse(await this.http(`/clientes?${params}`))
-  }
-
-  async get(id: string): Promise<ClienteSchema> {
-    return clienteSchema.parse(await this.existing(`/clientes/${encodeURIComponent(id)}`))
-  }
-
-  async create(input: ClienteInput): Promise<ClienteSchema> {
-    return clienteSchema.parse(await this.http('/clientes', { method: 'POST', body: input }))
-  }
-
-  async update(id: string, input: Partial<ClienteInput>): Promise<ClienteSchema> {
-    const path = `/clientes/${encodeURIComponent(id)}`
-    return clienteSchema.parse(await this.existing(path, { method: 'PATCH', body: input }))
-  }
-
-  async remove(id: string): Promise<void> {
-    await this.existing(`/clientes/${encodeURIComponent(id)}`, { method: 'DELETE' })
-  }
-
-  /** Uma chamada a um registro: o 404 da API é o `CLIENTE_NOT_FOUND` do contrato. */
-  private async existing(path: string, request?: HttpRequest): Promise<unknown> {
-    try {
-      return await this.http(path, request)
-    } catch (error) {
-      if (error instanceof HttpError && error.status === 404) {
-        throw new UIError('CLIENTE_NOT_FOUND', 'Registro não encontrado.')
-      }
-      throw error
-    }
-  }
-}
+const dataSource =
+  options.dataSource ??
+  resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')
 ```
 
-> Se a API usa outro formato de lista (por exemplo, `{ data, meta: { total } }`), converta na própria implementação: o contrato devolve sempre `{ items, total }`.
-
-## 4. Escolha a implementação na fábrica
-
-A fábrica do domínio recebe a fonte de dados e cria a implementação certa:
-
-```ts
-// src/repositories/clientes/index.ts
-import { api } from '../api'
-import type { RepositoryOptions } from '../options'
-import type { IClientesRepository } from './repository.contract'
-import { HttpClientesRepository } from './repository.http'
-import { MockClientesRepository } from './repository.mock'
-
-// ... os exports do domínio continuam como estão
-
-export function createClientesRepository({
-  dataSource,
-  latencyMs,
-}: RepositoryOptions): IClientesRepository {
-  if (dataSource === 'http') return new HttpClientesRepository(api)
-  return new MockClientesRepository({ latencyMs })
-}
-```
-
-Domínios que ainda não têm API continuam devolvendo o mock para qualquer fonte. Assim você liga a API domínio por domínio.
-
-## 5. Escolha a fonte por ambiente
-
-O `createRepositories` lê a fonte de uma variável de ambiente do Vite. O `resolveDataSource` do core usa `memory` quando a variável falta e **lança um erro** quando ela tem um valor desconhecido, para a inicialização falhar em vez de cair em silêncio em outra fonte:
-
-```ts
-// src/repositories/index.ts
-export function createRepositories(options: Partial<RepositoryOptions> = {}): RepositoryContainer {
-  const dataSource =
-    options.dataSource ??
-    resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'memory', 'VITE_DATA_SOURCE')
-  return createRepositoryContainer(factories, { ...options, dataSource })
-}
-```
-
-Declare as variáveis para o TypeScript:
-
-```ts
-// src/vite-env.d.ts
-/// <reference types="vite/client" />
-
-interface ImportMetaEnv {
-  /** De onde os repositórios leem: memory (padrão) ou http. */
-  readonly VITE_DATA_SOURCE?: string
-  /** O endereço da API, para a fonte http. */
-  readonly VITE_API_URL?: string
-}
-```
-
-E configure cada ambiente num arquivo `.env` (o `.gitignore` do app ignora os `.env*`, menos o `.env.example`):
+O `src/vite-env.d.ts`, que o `prumo new` cria, declara `VITE_DATA_SOURCE` e `VITE_API_URL` (as duas opcionais) para o TypeScript. Configure cada ambiente num arquivo `.env` (o `.gitignore` do app ignora os `.env*`, menos o `.env.example`):
 
 ```bash
 # .env.local
@@ -304,46 +159,45 @@ VITE_DATA_SOURCE=http
 VITE_API_URL=http://localhost:3000
 ```
 
-Os testes não mudam: o `renderWithProviders` do app cria o container com `dataSource: 'memory'` explícito, então continuam rodando contra o mock, sem rede.
+A fonte vale para todos os domínios do app, e o domínio que não tem a fonte devolve o mock. Reinicie o `pnpm dev` ao mudar o `.env`.
 
-> O `make:domain` continua funcionando depois dessas mudanças: ele só edita os imports, os `export *` e o mapa `factories` do `src/repositories/index.ts`.
+Os testes não mudam: o `renderWithProviders` do app cria o container com `dataSource: 'mock'` explícito, então continuam rodando contra o mock, sem rede.
 
-## 6. Rode o contrato contra a API
+## 5. Rode o contrato contra uma API de teste
 
-O teste de contrato prova que as duas implementações se comportam igual. Acrescente a implementação HTTP no fim do arquivo, rodando só quando houver uma API de teste configurada:
+O comando acrescentou ao `repository.contract.test.ts` a chamada do contrato para a fonte http:
 
 ```ts
-// src/repositories/clientes/repository.contract.test.ts
-import { createHttp } from '../http'
-import { HttpClientesRepository } from './repository.http'
+const apiTestUrl = process.env.API_TEST_URL
 
-const contractApiUrl = process.env.CONTRACT_API_URL
-
-if (contractApiUrl) {
+describe.skipIf(!apiTestUrl)('HttpClientesRepository contra a API de teste (pulado: defina API_TEST_URL)', () => {
   runContractSuite(clientesContract, {
     name: 'HttpClientesRepository',
-    create: () => new HttpClientesRepository(createHttp({ baseUrl: contractApiUrl })),
-    // dispose: () => resetarApiDeTeste(), // volta a API às fixtures depois de cada teste
+    create: () => new HttpClientesRepository(createHttp({ baseUrl: apiTestUrl ?? '' })),
+    // dispose: () => resetApiDeTeste(), // volta a API às fixtures depois de cada teste
   })
-}
+})
 ```
+
+Sem `API_TEST_URL`, os casos ficam **pulados**, e o título do teste diz o motivo; o `pnpm verify` continua verde sem API. Para rodar contra uma API de teste:
 
 ```bash
-CONTRACT_API_URL=http://localhost:3000 pnpm test src/repositories/clientes
+API_TEST_URL=http://localhost:3000 pnpm test src/repositories/clientes
 ```
 
-Um cuidado com os dados: parte dos casos depende das fixtures do mock ("lista as 3 fixtures", "busca por 'Exemplo 2'") e cria ou remove registros. Contra uma API, esses casos só valem se ela partir dos mesmos dados a cada teste. Use o `dispose` (ou o `create`) para restaurar a API de teste, por exemplo com uma rota de reset do ambiente de teste, ou separe os casos que dependem dos dados num contrato só do mock. Os casos que não dependem dos dados (ordenação, paginação, erro de id inexistente) valem para qualquer implementação. A referência do [`runContractSuite`](../reference/testing.md#teste-de-contrato) detalha o ciclo de vida de cada teste.
+Um cuidado com os dados: parte dos casos depende das fixtures do mock ("lista as 3 fixtures", a busca pelo primeiro registro) e cria ou remove registros. Contra uma API, esses casos só valem se ela partir dos mesmos dados a cada teste. Use o `dispose` (ou o `create`) para restaurar a API de teste, por exemplo com uma rota de reset do ambiente de teste. Os casos que não dependem dos dados (ordenação, paginação, erro de id inexistente) valem para qualquer implementação. A referência do [`runContractSuite`](../reference/testing.md#teste-de-contrato) detalha o ciclo de vida de cada teste.
 
 ### Quando a API de teste não persiste escritas
 
-Muitas APIs públicas de demonstração (a DummyJSON, por exemplo) só **simulam** as escritas: o `POST` responde como se tivesse criado, mas a leitura seguinte não vê o registro. Os casos do contrato que criam, editam ou removem e depois leem (`create` e depois `get`, `remove` e depois `list`) falham contra uma API assim, sem que o repositório tenha erro.
+Muitas APIs públicas de demonstração (a DummyJSON, por exemplo) só **simulam** as escritas: o `POST` responde como se tivesse criado, mas a leitura seguinte não vê o registro. Os casos do contrato que criam, editam ou removem e depois leem falham contra uma API assim, sem que o repositório tenha erro.
 
-O caminho é rodar o contrato contra uma **API falsa em memória**, ligada pelo `fetch` injetável do cliente (passo 2). Ela implementa só as rotas do domínio e **grava de verdade**, então o contrato inteiro roda, sem rede, junto com os testes do app, e o repositório HTTP (a montagem da URL, a validação das respostas, o 404 que vira `CLIENTE_NOT_FOUND`) é exercitado de ponta a ponta:
+O caminho é rodar o contrato contra uma **API falsa em memória**, no lugar do `fetch` global. Ela implementa só as rotas do domínio e **grava de verdade**, então o contrato inteiro roda, sem rede, junto com os testes do app, e o repositório HTTP (a montagem da URL, a validação das respostas, o 404 que vira `CLIENTE_NOT_FOUND`) é exercitado de ponta a ponta. Instale-a num arquivo de setup do Vitest e aponte o `API_TEST_URL` para o endereço de mentira:
 
 ```ts
-// src/test/fake-api.ts
-import { MOCK_CLIENTES } from '@/repositories'
-import type { ClienteSchema } from '@/schemas'
+// src/test/fake-api.ts: coloque-o em setupFiles, no vite.config.ts
+import { matchesSearch, paginate, sortBy } from '@matizze/prumo-core/mock'
+import { beforeEach, vi } from 'vitest'
+import { MOCK_CLIENTES } from '@/repositories/clientes/fixtures'
 
 const json = (status: number, body?: unknown) =>
   new Response(body === undefined ? null : JSON.stringify(body), {
@@ -351,59 +205,70 @@ const json = (status: number, body?: unknown) =>
     headers: { 'Content-Type': 'application/json' },
   })
 
-/** Uma API de clientes na memória, com as mesmas rotas da real e escrita que persiste. */
-export function createFakeApi(initial: ClienteSchema[] = MOCK_CLIENTES) {
-  const items = initial.map((item) => ({ ...item }))
-  let nextId = items.length + 1
+let items = MOCK_CLIENTES.map((item) => ({ ...item }))
+let sequence = items.length
+// Cada teste parte das fixtures: os casos do contrato dependem delas
+beforeEach(() => {
+  items = MOCK_CLIENTES.map((item) => ({ ...item }))
+  sequence = items.length
+})
 
-  const fetchFalso = (async (input: string | URL | Request, init?: RequestInit) => {
-    const url = new URL(String(input))
-    const method = init?.method ?? 'GET'
-    const body = init?.body ? JSON.parse(String(init.body)) : undefined
-    const id = /^\/clientes\/([^/]+)$/.exec(url.pathname)?.[1]
+vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit) => {
+  const url = new URL(String(input))
+  const method = init?.method ?? 'GET'
+  const body = init?.body ? JSON.parse(String(init.body)) : {}
 
-    if (url.pathname === '/clientes' && method === 'GET') {
-      const search = (url.searchParams.get('search') ?? '').toLowerCase()
-      const found = items.filter((item) => item.name.toLowerCase().includes(search))
-      return json(200, { items: found, total: found.length })
-    }
-    if (url.pathname === '/clientes' && method === 'POST') {
-      const created = { id: `cliente-${nextId++}`, createdAt: new Date().toISOString(), ...body }
-      items.push(created)
-      return json(201, created)
-    }
-    const index = items.findIndex((item) => item.id === id)
-    if (id === undefined || index === -1) return json(404)
-    if (method === 'GET') return json(200, items[index])
-    if (method === 'PATCH') return json(200, Object.assign(items[index]!, body))
-    items.splice(index, 1) // DELETE
+  if (url.pathname === '/clientes' && method === 'GET') {
+    const found = items.filter((item) =>
+      matchesSearch([item.nome], url.searchParams.get('search') ?? undefined),
+    )
+    const [key = '', direction] = (url.searchParams.get('sort') ?? '').split(':')
+    const sorted = key
+      ? sortBy(found, { key, direction: direction === 'desc' ? 'desc' : 'asc' }, {
+          [key]: (item: (typeof items)[number]) => String((item as Record<string, unknown>)[key]),
+        })
+      : found
+    const page = Number(url.searchParams.get('page') ?? 1)
+    const size = Number(url.searchParams.get('page_size') ?? 0)
+    return json(200, paginate(sorted, page, size || undefined))
+  }
+  if (url.pathname === '/clientes' && method === 'POST') {
+    sequence += 1
+    const created = { id: `cliente-${sequence}`, ...body, createdAt: new Date().toISOString() }
+    items.push(created)
+    return json(201, created)
+  }
+  const id = /^\/clientes\/([^/]+)$/.exec(url.pathname)?.[1]
+  const at = items.findIndex((item) => item.id === id)
+  const found = items[at]
+  if (!found) return json(404)
+  if (method === 'PATCH') return json(200, (items[at] = { ...found, ...body }))
+  if (method === 'DELETE') {
+    items.splice(at, 1)
     return json(204)
-  }) as typeof fetch
-
-  return { fetch: fetchFalso }
-}
-```
-
-```ts
-// src/repositories/clientes/repository.contract.test.ts (no mesmo arquivo do contrato)
-import { createFakeApi } from '@/test/fake-api'
-import { createHttp } from '../http'
-import { HttpClientesRepository } from './repository.http'
-
-runContractSuite(clientesContract, {
-  name: 'HttpClientesRepository (API falsa)',
-  create: () => new HttpClientesRepository(createHttp({ baseUrl: 'https://api.exemplo.test', fetch: createFakeApi().fetch })),
+  }
+  return json(200, found)
 })
 ```
 
-Cada `create()` cria uma API falsa nova, com as fixtures, e por isso os testes não compartilham estado. A diferença para a API real fica registrada no próprio arquivo da API falsa (por exemplo, a busca que olha só o nome): se a real se comportar diferente nesse ponto, o contrato contra `CONTRACT_API_URL` (acima) mostra, nos casos que não dependem de escrita. Mantenha os dois: o falso prova o repositório, e o real prova que a API é o que o falso diz que é.
+```bash
+API_TEST_URL=http://api.exemplo.test pnpm test src/repositories/clientes
+```
 
-## Checklist
+A diferença para a API real fica registrada no próprio arquivo da API falsa (por exemplo, a busca que olha só o campo `nome`): se a real se comportar diferente nesse ponto, o contrato contra a API de teste de verdade mostra, nos casos que não dependem de escrita. Mantenha os dois: o falso prova o repositório, e o real prova que a API é o que o falso diz que é.
 
-- [ ] `DATA_SOURCES` com a fonte nova
-- [ ] Cliente HTTP comum (com o token da sessão, a renovação no 401 e o `fetch` injetável) e a instância do app
-- [ ] `Http<Domínio>Repository` implementando o contrato, validando as respostas e traduzindo o 404
-- [ ] A fábrica do domínio escolhendo pela fonte
-- [ ] `createRepositories` lendo `VITE_DATA_SOURCE`, com as variáveis declaradas em `vite-env.d.ts`
-- [ ] O contrato rodando contra a API de teste, ou contra uma API falsa em memória quando ela não persiste escritas
-- [ ] `pnpm verify` verde
+## 6. Quando a API não segue o formato
+
+O `repository.http.ts` é seu depois de gerado: edite-o onde a API difere.
+
+- **Outro formato de lista.** Se a API responde `{ data, meta: { total } }`, converta no `list`: o contrato devolve sempre `{ items, total }`.
+- **Erros do domínio.** O 404 já vira `UIError('CLIENTE_NOT_FOUND')`. Um 403 pode virar `UIError('SEM_PERMISSAO')` e a rede fora do ar, `UIError('API_INDISPONIVEL')`, cada um com texto em `errors.<CÓDIGO>`. Os outros erros seguem como estão, e a interface mostra a mensagem genérica.
+- **Outro método ou outro caminho.** O caminho de cada rota está no próprio arquivo (`/clientes`, `/clientes/:id`).
+
+## Outra fonte: storage
+
+```bash
+pnpm exec prumo make:repository clientes --data-source storage
+```
+
+Cria `repository.storage.ts`, a classe `StorageClientesRepository`: o mock gravando no `localStorage`, com a chave `<nome do app>:clientes` (o nome é o `name` do `package.json`). Começa com as fixtures quando a chave não existe, usa a mesma busca, ordem e paginação do mock e respeita o contrato inteiro. Serve para um protótipo que guarda os dados entre uma visita e outra, sem backend. Na leitura, cada registro é conferido com o schema: o que não é aceito (corrompido, ou de um schema antigo) é descartado, com um `console.warn` com a chave e o id, e os outros ficam; se o JSON inteiro não se lê, o repositório recomeça das fixtures, também com aviso. Na escrita, o registro resultante é conferido antes de gravar, e o inválido rejeita com `UIError('<ENTIDADE>_INVALID')` (o comando acrescenta o texto ao `errors.json`) sem gravar nada. No `update`, um campo `undefined` não muda o campo (no storage e no mock). Para usar, `VITE_DATA_SOURCE=storage`. O contrato roda contra ele no `pnpm test` (o jsdom do app tem `localStorage`), limpando a chave antes de cada repositório novo.

@@ -11,19 +11,28 @@ import {
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { check } from '@matizze/prumo-rules/check'
-import { defineCommand } from 'citty'
 import { describe, expect, it } from 'vitest'
-import { APP_FILES, listFiles } from '../generate/app.ts'
-import { PRUMO_VERSIONS } from '../new/versions.ts'
-import { createRoot } from '../root.ts'
-import { runCli } from '../run.ts'
-import { createNewCommand } from './new.ts'
-import { captureRuntime, makeDir } from '../test-support.ts'
+import { PRUMO_VERSIONS } from '../lib/versions.ts'
+import { exec as execIn, makeDir } from '../test-support.ts'
+import { createNewCommand, type NewDeps } from './new.ts'
+import { APP_FILES } from '../generators/app.ts'
 
-async function run(args: string[], cwd: string) {
-  const runtime = captureRuntime(cwd)
-  const code = await runCli(createRoot(runtime), args, runtime)
-  return { code, stdout: runtime.stdout, stderr: runtime.stderr }
+/** Roda o prumo com o comando `new` (com as dependências de mentira, se houver) e o `check`. */
+async function run(args: string[], cwd: string, deps: NewDeps = {}) {
+  const { registerCheck } = await import('./check.ts')
+  return execIn(args, cwd, [createNewCommand({ env: {}, askPnpm: () => undefined, ...deps }), registerCheck])
+}
+
+/** Todos os arquivos de uma pasta, relativos a ela e com `/`, em ordem. */
+function listFiles(dir: string, base = dir): string[] {
+  return readdirSync(dir, { withFileTypes: true })
+    .flatMap((entry) => {
+      const file = path.join(dir, entry.name)
+      return entry.isDirectory()
+        ? listFiles(file, base)
+        : [path.relative(base, file).split(path.sep).join('/')]
+    })
+    .sort()
 }
 
 const read = (root: string, file: string) => readFileSync(path.join(root, file), 'utf8')
@@ -64,7 +73,6 @@ describe('prumo new', () => {
     expect(listFiles(root).filter((file) => !file.startsWith('.git/'))).toEqual(
       [
         '.gitignore',
-        '.mcp.json',
         'AGENTS.md',
         'README.md',
         'eslint.config.js',
@@ -92,13 +100,14 @@ describe('prumo new', () => {
         'src/schemas/index.ts',
         'src/test/render.tsx',
         'src/test/setup.ts',
+        'src/vite-env.d.ts',
         'tsconfig.json',
         'vite.config.ts',
       ].sort(),
     )
     expect(result.stdout).toContain(`Destino: ${root}`)
     expect(result.stdout).toContain('Criados (31):')
-    expect(result.stdout).toContain('pnpm exec prumo make:domain <domínio>')
+    expect(result.stdout).toContain('pnpm exec prumo make:page <tela>')
     expect(result.stdout).not.toContain('clientes')
     expect(result.stdout).toContain('docs.prumo.matizze.com.br')
     expect(result.stdout).toContain('  pnpm install\n')
@@ -199,50 +208,55 @@ export default function App() {
     }
   })
 
-  it('o .mcp.json tem só o servidor prumo, e o AGENTS.md diz as camadas e os comandos', async () => {
+  it('não tem .mcp.json nem fala de MCP, e o AGENTS.md diz as camadas e os comandos da v1', async () => {
     const cwd = makeDir()
     await run(['new', 'app-tres', '--no-install'], cwd)
     const root = path.join(cwd, 'app-tres')
 
-    expect(readJson(root, '.mcp.json')).toEqual({
-      mcpServers: { prumo: { command: 'pnpm', args: ['exec', 'prumo-mcp'] } },
-    })
+    expect(existsSync(path.join(root, '.mcp.json'))).toBe(false)
     const agents = read(root, 'AGENTS.md')
     for (const text of [
       'pages/<tela>/',
+      'make:schema',
+      'make:repository',
+      'make:query',
       'make:page',
-      'move:component',
-      'make:domain',
-      'make:component',
+      'prumo check',
       'pnpm verify',
     ]) {
       expect(agents).toContain(text)
     }
+    for (const file of ['AGENTS.md', 'README.md']) {
+      expect(read(root, file), file).not.toMatch(
+        /mcp|make:domain|make:component|move:component|doctor/i,
+      )
+    }
     expect(agents.split('\n').length).toBeLessThan(70)
+  })
+
+  it('a fonte de dados padrão é o mock', async () => {
+    const cwd = makeDir()
+    await run(['new', 'app-mock', '--no-install'], cwd)
+    const root = path.join(cwd, 'app-mock')
+
+    expect(read(root, 'src/repositories/options.ts')).toContain("DATA_SOURCES = ['mock']")
+    expect(read(root, 'src/repositories/index.ts')).toContain(
+      "resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')",
+    )
+    const env = read(root, 'src/vite-env.d.ts')
+    expect(env).toContain('/// <reference types="vite/client" />')
+    expect(env).toContain('readonly VITE_DATA_SOURCE?: string')
+    expect(env).toContain('readonly VITE_API_URL?: string')
+    expect(read(root, 'src/test/render.tsx')).toContain("dataSource: 'mock'")
+    for (const file of listFiles(root).filter((file) => !file.startsWith('.git/'))) {
+      expect(read(root, file), file).not.toMatch(/'memory'/)
+    }
   })
 
   it('o app gerado passa no prumo check', async () => {
     const cwd = makeDir()
     await run(['new', 'app-quatro', '--no-install'], cwd)
     expect(check({ root: path.join(cwd, 'app-quatro') })).toEqual([])
-  })
-
-  it('os geradores funcionam no app novo: domínio, tela com domínio e componente', async () => {
-    const cwd = makeDir()
-    await run(['new', 'app-cinco', '--no-install'], cwd)
-    const root = path.join(cwd, 'app-cinco')
-
-    for (const args of [
-      ['make:domain', 'clientes'],
-      ['make:page', 'clientes', '--domain', 'clientes'],
-      ['make:component', 'resumo', '--page', 'home'],
-    ]) {
-      const result = await run([...args, '--root', root], cwd)
-      expect(result.code, `${args.join(' ')}\n${result.stdout}${result.stderr}`).toBe(0)
-    }
-    const app = read(root, 'src/App.tsx')
-    expect(app).toContain('<Route path="/">')
-    expect(app).toContain('<Route path="/clientes">')
   })
 
   it('--dry-run lista o que faria e não escreve nada', async () => {
@@ -290,6 +304,59 @@ export default function App() {
       expect(existsSync(spec.slice('file:'.length)), name).toBe(true)
     }
     expect(result.stdout).toContain(`tarballs de ${packages}`)
+  })
+
+  it('instala as dependências na pasta do app, depois do git init', async () => {
+    const cwd = makeDir()
+    const calls: string[] = []
+    const result = await run(['new', 'app-instala'], cwd, {
+      install: (_io, folder) => {
+        calls.push(folder)
+        return { status: 0 }
+      },
+    })
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(calls).toEqual([path.join(cwd, 'app-instala')])
+    expect(result.stdout).toContain('Instalando as dependências (pnpm install)...')
+    expect(result.stdout).not.toContain('  pnpm install\n')
+  })
+
+  it('--no-install e --dry-run não instalam', async () => {
+    const cwd = makeDir()
+    const install = () => {
+      throw new Error('não devia instalar')
+    }
+    expect((await run(['new', 'a-um', '--no-install'], cwd, { install })).code).toBe(0)
+    expect((await run(['new', 'a-dois', '--dry-run'], cwd, { install })).code).toBe(0)
+  })
+
+  it('se o pnpm install falha, sai com 1 e deixa o app criado', async () => {
+    const cwd = makeDir()
+    const result = await run(['new', 'app-falha'], cwd, { install: () => ({ status: 1 }) })
+
+    expect(result.code).toBe(1)
+    expect(result.stderr).toContain('o pnpm install falhou')
+    expect(result.stderr).toContain(path.join(cwd, 'app-falha'))
+    expect(existsSync(path.join(cwd, 'app-falha/package.json'))).toBe(true)
+  })
+
+  it('se o pnpm install nem começa, o motivo aparece na mensagem', async () => {
+    const cwd = makeDir()
+    const result = await run(['new', 'app-enoent'], cwd, {
+      install: () => ({ status: 1, reason: 'spawnSync pnpm ENOENT' }),
+    })
+
+    expect(result.code).toBe(1)
+    expect(result.stderr).toContain('o pnpm install falhou (spawnSync pnpm ENOENT)')
+  })
+
+  it('o app gerado confere com o check e o --root do check aponta para ele', async () => {
+    const cwd = makeDir()
+    await run(['new', 'app-check', '--no-install'], cwd)
+    const result = await run(['check', '--root', 'app-check'], cwd)
+
+    expect(result).toEqual({ code: 0, stdout: 'prumo check: nenhuma violação.\n', stderr: '' })
   })
 
   describe('erros de uso (saída 2, sem escrever nada)', () => {
@@ -352,6 +419,17 @@ export default function App() {
       expect(readdirSync(cwd)).toEqual([])
     })
 
+    it('recusa um --dir cujo ancestral existente é um arquivo, sem pilha', async () => {
+      const cwd = makeDir()
+      writeFileSync(path.join(cwd, 'arquivo.txt'), '')
+      const result = await run(['new', 'app', '--dir', 'arquivo.txt/sub', '--no-install'], cwd)
+
+      expect(result.code).toBe(2)
+      expect(result.stderr).toContain('não é uma pasta')
+      expect(result.stderr).toContain('(--dir)')
+      expect(result.stderr).not.toContain('    at ')
+    })
+
     it('exige o nome', async () => {
       const result = await run(['new'], makeDir())
       expect(result.code).toBe(2)
@@ -373,23 +451,18 @@ describe('prumo new: packageManager', () => {
     asked: string | undefined,
   ): Promise<{ manifest: Record<string, unknown>; askedCount: number }> {
     const cwd = makeDir()
-    const runtime = captureRuntime(cwd, env)
     let askedCount = 0
-    const root = defineCommand({
-      meta: { name: 'prumo' },
-      subCommands: {
-        new: createNewCommand(runtime, () => {
-          askedCount += 1
-          return asked
-        }),
+    const result = await run(['new', 'meu-app', '--no-install'], cwd, {
+      env,
+      askPnpm: () => {
+        askedCount += 1
+        return asked
       },
     })
-    const code = await runCli(root, ['new', 'meu-app', '--no-install'], runtime)
-    expect(code, runtime.stderr).toBe(0)
+    expect(result.code, result.stderr).toBe(0)
     const manifest = JSON.parse(readFileSync(path.join(cwd, 'meu-app', 'package.json'), 'utf8'))
     return { manifest, askedCount }
   }
-
   it('grava a versão do pnpm do user agent, sem perguntar ao pnpm', async () => {
     const { manifest, askedCount } = await packageManagerOf(
       { npm_config_user_agent: 'pnpm/10.5.2 npm/? node/v24.1.0 darwin arm64' },

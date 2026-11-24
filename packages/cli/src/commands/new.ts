@@ -1,25 +1,50 @@
 import { spawnSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { accessSync, constants, existsSync, readdirSync, rmSync, statSync } from 'node:fs'
 import path from 'node:path'
-import { defineCommand } from 'citty'
 import { ExitError, UsageError } from '../errors.ts'
-import { generateApp } from '../generate/app.ts'
-import { appNameProblem } from '../new/name.ts'
-import { readTarballs } from '../new/packages.ts'
-import { detectPnpmVersion } from '../pnpm.ts'
-import { childEnv, runChild } from '../process.ts'
-import type { Runtime } from '../runtime.ts'
-import { shellQuote } from './shared.ts'
+import { generateApp } from '../generators/app.ts'
+import type { Io } from '../io.ts'
+import { appNameProblem } from '../lib/names.ts'
+import { detectPnpmVersion, shellQuote } from '../lib/pnpm.ts'
+import { runChild } from '../lib/process.ts'
+import { readTarballs } from '../lib/tarballs.ts'
+import type { RegisterCommand } from './index.ts'
+
+/** O que o comando pede de fora do processo; os testes trocam por versões de mentira. */
+export interface NewDeps {
+  /** As variáveis de ambiente (só o `npm_config_user_agent` interessa). Padrão: as do processo. */
+  env?: Readonly<Record<string, string | undefined>>
+  /** Pergunta a versão ao pnpm quando o user agent não diz. Padrão: `pnpm --version`. */
+  askPnpm?: () => string | undefined
+  /** Roda o `pnpm install` na pasta e devolve o código de saída (e o motivo, se não chegou a rodar). Padrão: o pnpm de verdade. */
+  install?: (io: Io, cwd: string) => { status: number; reason?: string }
+}
+
+type NewOptions = {
+  dir?: string
+  install: boolean
+  packages?: string
+  dryRun?: boolean
+}
 
 /**
  * Valida o destino: `<dir>/<nome>` não pode existir com conteúdo (uma pasta vazia serve), e o pai
  * não pode ser um arquivo. Devolve o caminho absoluto.
  */
-function resolveDestination(runtime: Runtime, dir: string | undefined, name: string): string {
-  const parent = path.resolve(runtime.cwd, dir ?? '.')
-  if (existsSync(parent) && !statSync(parent).isDirectory()) {
-    throw new UsageError(`'${parent}' não é uma pasta (--dir).`)
+function resolveDestination(io: Io, dir: string | undefined, name: string): string {
+  const parent = path.resolve(io.cwd, dir ?? '.')
+  // O ancestral mais próximo que existe: é nele que a pasta nova vai nascer
+  let existing = parent
+  while (!existsSync(existing) && path.dirname(existing) !== existing) existing = path.dirname(existing)
+  if (!statSync(existing).isDirectory()) {
+    throw new UsageError(
+      `'${existing}' não é uma pasta${existing === parent ? '' : `, e '${parent}' (--dir) ficaria dentro dela`} (--dir).`,
+    )
+  }
+  try {
+    accessSync(existing, constants.W_OK)
+  } catch {
+    throw new UsageError(`não posso escrever em '${existing}' (--dir): sem permissão.`)
   }
   const destination = path.join(parent, name)
   if (existsSync(destination)) {
@@ -35,122 +60,9 @@ function resolveDestination(runtime: Runtime, dir: string | undefined, name: str
   return destination
 }
 
-/**
- * `prumo new <nome>`: cria um app mínimo do Prumo. Monta o app numa pasta de rascunho (os modelos, o
- * `package.json` e a tela inicial, que sai do mesmo modelo do `make:page`), e só se tudo deu certo o
- * leva para `<dir>/<nome>`: um erro não deixa pasta pela metade. Depois roda `git init` (sem commit)
- * e `pnpm install`, a não ser com `--no-install`.
- */
-export function createNewCommand(runtime: Runtime, askPnpm?: () => string | undefined) {
-  return defineCommand({
-    meta: {
-      name: 'new',
-      description: `Cria um app React mínimo do Prumo, sem CSS e sem design system.
-
-Cria <dir>/<nome> com Vite, React 19, TypeScript, wouter, TanStack Query, zod e i18next (o que o
-@matizze/prumo-core usa), os pacotes do Prumo (core, rules, testing, cli e mcp), a estrutura de pastas
-(src/pages, src/components/shared, src/schemas, src/repositories, src/queries e src/messages), os
-provedores (query, i18n e repositórios), uma tela inicial (a mesma que o prumo make:page gera, na
-rota /), o eslint com o plugin do Prumo, o vitest com jsdom, o AGENTS.md e o .mcp.json com o servidor
-prumo, que dá a um agente os comandos da CLI.
-
-O package.json do app fixa o pnpm em packageManager (pnpm@<versão>): a versão vem do pnpm que
-rodou o comando (npm_config_user_agent) ou, na falta dela, de pnpm --version; sem nenhuma das duas,
-o campo fica de fora. Assim o prumo doctor do app não avisa que falta o packageManager.
-
-Os scripts do app são dev, build, typecheck, lint, check, test e verify (typecheck, lint, test e
-check, sem navegador; os testes rodam antes do check, para que uma violação do check não os esconda). Os pacotes do Prumo entram como ^<versão>; com --packages, o app instala os
-tarballs da pasta (pnpm.overrides com file:), o que serve a quem ainda não tem os pacotes num
-registry. Roda git init (sem commit) e pnpm install, a não ser com --no-install.
-
-Valida antes de escrever: o nome (kebab-case), a pasta de destino (não pode existir com conteúdo) e
-os tarballs saem com código 2, sem deixar nada pela metade. --dry-run lista o que seria criado e não
-escreve nada. Os tarballs de --packages saem do pnpm pack:all, no monorepo do Prumo.`,
-    },
-    args: {
-      nome: {
-        type: 'positional',
-        required: true,
-        description: 'O nome do app, em kebab-case (meu-app): a pasta e o nome do pacote.',
-      },
-      dir: {
-        type: 'string',
-        valueHint: 'pasta',
-        description: 'A pasta onde criar <nome>. Padrão: a pasta atual.',
-      },
-      packages: {
-        type: 'string',
-        valueHint: 'pasta',
-        description:
-          'Uma pasta com os tarballs dos pacotes @matizze/prumo-* (pnpm pack:all), instalados no lugar do registry.',
-      },
-      install: {
-        type: 'boolean',
-        default: true,
-        description:
-          'Com --no-install, não roda o pnpm install: só cria os arquivos. Sem a opção, instala.',
-      },
-      'dry-run': {
-        type: 'boolean',
-        description: 'Só lista o que seria criado, sem escrever nada.',
-      },
-    },
-    run({ args }) {
-      const name = String(args.nome)
-      const dryRun = Boolean(args['dry-run'])
-      const install = args.install !== false
-
-      // Tudo que dá para conferir, antes de escrever qualquer coisa
-      const problem = appNameProblem(name)
-      if (problem) throw new UsageError(problem)
-      const destination = resolveDestination(runtime, args.dir, name)
-      const overrides =
-        args.packages === undefined
-          ? undefined
-          : readTarballs(path.resolve(runtime.cwd, args.packages))
-
-      // O app inteiro é montado numa pasta de rascunho e só vai ao destino se nada falhou
-      const scratch = mkdtempSync(path.join(tmpdir(), 'prumo-new-'))
-      let files: string[]
-      try {
-        const root = path.join(scratch, name)
-        files = generateApp(root, { name, overrides, pnpm: detectPnpmVersion(runtime, askPnpm) })
-        if (!dryRun) {
-          mkdirSync(path.dirname(destination), { recursive: true })
-          const createdFolder = !existsSync(destination)
-          try {
-            cpSync(root, destination, { recursive: true })
-          } catch (error) {
-            rollback(destination, createdFolder)
-            throw error
-          }
-        }
-      } finally {
-        rmSync(scratch, { recursive: true, force: true })
-      }
-
-      const packagesLine = overrides
-        ? `Pacotes do Prumo: tarballs de ${path.resolve(runtime.cwd, String(args.packages))} (pnpm.overrides com file:).`
-        : 'Pacotes do Prumo: do registry, pela versão (^<versão>) no package.json.'
-      const heading = `prumo new: ${name}${dryRun ? ' (simulação)' : ''}.\nDestino: ${destination}\n`
-      const list = `${dryRun ? 'Seriam criados' : 'Criados'} (${files.length}):\n${files.map((file) => `  ${file}`).join('\n')}\n`
-      if (dryRun) {
-        runtime.out(
-          `${heading}\n${list}\n${packagesLine}\n\n${install ? 'Depois: git init e pnpm install.\n\n' : 'Depois: git init (sem pnpm install, por --no-install).\n\n'}Simulação (--dry-run): nada foi escrito.\n`,
-        )
-        return
-      }
-      runtime.out(`${heading}\n${list}\n${packagesLine}\n`)
-
-      initGit(runtime, destination)
-      if (install) installPackages(runtime, destination)
-      runtime.out(nextSteps(runtime, destination, install))
-    },
-  })
-}
-
 /** Desfaz a escrita que falhou: apaga a pasta se o comando a criou, ou o que pôs numa pasta vazia. */
 function rollback(destination: string, createdFolder: boolean): void {
+  if (!existsSync(destination)) return
   if (createdFolder) {
     rmSync(destination, { recursive: true, force: true })
     return
@@ -161,45 +73,123 @@ function rollback(destination: string, createdFolder: boolean): void {
 }
 
 /** `git init`, sem commit: quem criou o app decide o primeiro commit. Falhar só avisa. */
-function initGit(runtime: Runtime, destination: string): void {
-  const result = spawnSync('git', ['init', '--quiet'], {
-    cwd: destination,
-    encoding: 'utf8',
-    env: childEnv(runtime),
-  })
+function initGit(io: Io, destination: string): void {
+  const result = spawnSync('git', ['init', '--quiet'], { cwd: destination, encoding: 'utf8' })
   if (result.error || result.status !== 0) {
-    runtime.err(
+    io.err(
       `prumo new: não consegui rodar git init em '${destination}': ${result.error?.message ?? result.stderr.trim()}\n`,
     )
   }
 }
 
-/** `pnpm install` no app, com a saída no terminal (ou em `runtime.out` e `runtime.err`, fora dele). Falhar deixa o app criado e diz como seguir. */
-function installPackages(runtime: Runtime, destination: string): void {
-  runtime.out('\nInstalando as dependências (pnpm install)...\n')
-  const result = runChild(runtime, 'pnpm', ['install'], { cwd: destination })
-  if (result.error || result.status !== 0) {
-    throw new ExitError(
-      1,
-      `o pnpm install falhou${result.error ? ` (${result.error.message})` : ''}. O app foi criado em '${destination}': corrija o que o pnpm disse e rode pnpm install ali.`,
-    )
-  }
+function pnpmInstall(io: Io, cwd: string): { status: number; reason?: string } {
+  const result = runChild(io, 'pnpm', ['install'], { cwd })
+  if (result.error) return { status: 1, reason: result.error.message }
+  return { status: result.status ?? 1 }
 }
 
-/** O que fazer depois: entrar na pasta, instalar se faltou, conferir, subir o app e gerar o primeiro domínio. */
-function nextSteps(runtime: Runtime, destination: string, installed: boolean): string {
-  const relative = path.relative(runtime.cwd, destination)
+/** O que fazer depois: entrar na pasta, instalar se faltou, conferir, subir o app e gerar as camadas. */
+function nextSteps(io: Io, destination: string, installed: boolean): string {
+  const relative = path.relative(io.cwd, destination)
   const folder = shellQuote(relative.startsWith('..') ? destination : relative)
   const steps = [
     `cd ${folder}`,
     ...(installed ? [] : ['pnpm install']),
     'pnpm verify                                   # typecheck, lint, test e check',
     'pnpm dev                                      # o app em http://localhost:5173',
-    'pnpm exec prumo make:domain <domínio>         # um domínio de dados (schema, repositório e queries)',
-    'pnpm exec prumo make:page <tela>              # uma tela (com --domain <domínio>, uma que lista o domínio)',
+    'pnpm exec prumo make:page <tela>              # uma tela, com a rota e as mensagens',
   ]
-  const agent =
-    'Um agente de IA (o Claude Code, por exemplo) lê o .mcp.json deste app e ganha o servidor prumo: cada comando da CLI vira uma ferramenta (mcp__prumo__make_page, mcp__prumo__check...).'
   const docs = 'A documentação (tutorial, conceitos e guias): https://docs.prumo.matizze.com.br'
-  return `\nPróximos passos:\n${steps.map((step) => `  ${step}`).join('\n')}\n\n${docs}\n\n${agent}\n`
+  return `\nPróximos passos:\n${steps.map((step) => `  ${step}`).join('\n')}\n\n${docs}\n`
 }
+
+/**
+ * `prumo new <nome>`: cria um app mínimo do Prumo. O gerador monta o plano do app inteiro (os
+ * modelos, o `package.json` e a tela inicial) antes de escrever qualquer coisa, e o nome, o destino
+ * e os tarballs são conferidos antes dele: um erro de uso não deixa pasta pela metade. Depois roda
+ * `git init` (sem commit) e `pnpm install`, a não ser com `--no-install`.
+ */
+export function createNewCommand(deps: NewDeps = {}): RegisterCommand {
+  return (program, io) => {
+    program
+      .command('new')
+      .summary('Cria um app React mínimo do Prumo, sem CSS e sem design system.')
+      .description(
+      `Cria um app React mínimo do Prumo, sem CSS e sem design system.
+
+Cria <dir>/<nome> com Vite, React 19, TypeScript, wouter, TanStack Query, zod e i18next (o que o @matizze/prumo-core usa), os pacotes do Prumo (core, rules, testing e cli), a estrutura de pastas (src/pages, src/components/shared, src/schemas, src/repositories, src/queries e src/messages), os provedores (query, i18n e repositórios), uma tela inicial (a mesma que o prumo make:page gera, na rota /), o eslint com o plugin do Prumo, o vitest com jsdom e o AGENTS.md. A fonte de dados padrão é o mock.
+
+O package.json do app fixa o pnpm em packageManager (pnpm@<versão>): a versão vem do pnpm que rodou o comando (npm_config_user_agent) ou, na falta dela, de pnpm --version; sem nenhuma das duas, o campo fica de fora.
+
+Os scripts do app são dev, build, typecheck, lint, check, test e verify (typecheck, lint, test e check, sem navegador). Os pacotes do Prumo entram como ^<versão>; com --packages, o app instala os tarballs da pasta (pnpm.overrides com file:), o que serve a quem ainda não tem os pacotes num registry. Roda git init (sem commit) e pnpm install, a não ser com --no-install.
+
+Valida antes de escrever: o nome (kebab-case), a pasta de destino (não pode existir com conteúdo) e os tarballs saem com código 2, sem deixar nada pela metade. --dry-run lista o que seria criado e não escreve nada. Os tarballs de --packages saem do pnpm pack:all, no monorepo do Prumo.`,
+    )
+      .argument('<nome>', 'O nome do app, em kebab-case (meu-app): a pasta e o nome do pacote.')
+      .option('--dir <pasta>', 'A pasta onde criar <nome>.', '.')
+      .option(
+        '--packages <pasta>',
+        'Uma pasta com os tarballs dos pacotes @matizze/prumo-* (pnpm pack:all), instalados no lugar do registry.',
+      )
+      .option('--no-install', 'Não roda o pnpm install: só cria os arquivos.')
+      .option('--dry-run', 'Só lista o que seria criado, sem escrever nada.')
+      .action((name: string, options: NewOptions) => {
+        const dryRun = options.dryRun === true
+        const install = options.install
+
+        // Tudo que dá para conferir, antes de escrever qualquer coisa
+        const problem = appNameProblem(name)
+        if (problem) throw new UsageError(problem)
+        const destination = resolveDestination(io, options.dir, name)
+        const packagesDir =
+          options.packages === undefined ? undefined : path.resolve(io.cwd, options.packages)
+        const overrides = packagesDir === undefined ? undefined : readTarballs(packagesDir)
+
+        const plan = generateApp({
+          root: destination,
+          name,
+          overrides,
+          pnpm: detectPnpmVersion(deps.env ?? process.env, deps.askPnpm),
+        })
+        const files = plan.summary().created
+
+        if (!dryRun) {
+          const createdFolder = !existsSync(destination)
+          try {
+            plan.commit()
+          } catch (error) {
+            rollback(destination, createdFolder)
+            throw error
+          }
+        }
+
+        const packagesLine = packagesDir
+          ? `Pacotes do Prumo: tarballs de ${packagesDir} (pnpm.overrides com file:).`
+          : 'Pacotes do Prumo: do registry, pela versão (^<versão>) no package.json.'
+        const heading = `prumo new: ${name}${dryRun ? ' (simulação)' : ''}.\nDestino: ${destination}\n`
+        const list = `${dryRun ? 'Seriam criados' : 'Criados'} (${files.length}):\n${files.map((file) => `  ${file}`).join('\n')}\n`
+        if (dryRun) {
+          io.out(
+            `${heading}\n${list}\n${packagesLine}\n\n${install ? 'Depois: git init e pnpm install.\n\n' : 'Depois: git init (sem pnpm install, por --no-install).\n\n'}Simulação (--dry-run): nada foi escrito.\n`,
+          )
+          return
+        }
+        io.out(`${heading}\n${list}\n${packagesLine}\n`)
+
+        initGit(io, destination)
+        if (install) {
+          io.out('\nInstalando as dependências (pnpm install)...\n')
+          const { status, reason } = (deps.install ?? pnpmInstall)(io, destination)
+          if (status !== 0) {
+            throw new ExitError(
+              1,
+              `o pnpm install falhou${reason ? ` (${reason})` : ''}. O app foi criado em '${destination}': corrija o que o pnpm disse e rode pnpm install ali.`,
+            )
+          }
+        }
+        io.out(nextSteps(io, destination, install))
+      })
+  }
+}
+
+export const registerNew: RegisterCommand = createNewCommand()

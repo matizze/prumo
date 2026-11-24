@@ -55,7 +55,7 @@ export const clienteKeys = createQueryKeys('clientes', {
 // container de repositórios: o tipo sai do mapa de fábricas
 const factories = { clientes: createClientesRepository }
 export type RepositoryContainer = RepositoryContainerOf<typeof factories>
-export const repositories = createRepositoryContainer(factories, { dataSource: 'memory' })
+export const repositories = createRepositoryContainer(factories, { dataSource: 'mock' })
 ```
 
 A referência de cada função, com as opções e os tipos, está em [docs/reference/core.md](https://github.com/matizze/prumo/blob/main/docs/reference/core.md).

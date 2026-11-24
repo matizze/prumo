@@ -24,7 +24,7 @@ A pasta `ui` é do design system, seja qual for: componentes copiados para o pro
 
 ## Trocar uma view gerada
 
-A view gerada pelo `make:page --domain` é HTML puro:
+A view gerada pelo `make:page --query` é HTML puro:
 
 ```tsx
 export function ClientesView(m: ClientesModel) {

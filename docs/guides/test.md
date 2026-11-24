@@ -50,7 +50,7 @@ Os exemplos deste guia supõem os testes em português. Para testar outro idioma
 
 ## Testar uma tela
 
-O teste gerado pelo `make:page --domain` confere o título e espera a lista chegar:
+O teste gerado pelo `make:page --query` confere o título e espera a lista chegar:
 
 ```tsx
 import { screen } from '@testing-library/react'
@@ -150,7 +150,7 @@ expect((await repositories.clientes.list()).total).toBe(2)
 
 ### Rotas com parâmetro
 
-O parâmetro de rota só existe dentro de uma `<Route>`. Renderize a tela dentro da rota, com o caminho inicial já com o parâmetro. O teste que o `make:page --path /clientes/:id` gera já é assim (e, sem `--domain`, confere que o valor do parâmetro aparece na tela):
+O parâmetro de rota só existe dentro de uma `<Route>`. Renderize a tela dentro da rota, com o caminho inicial já com o parâmetro. O teste que o `make:page --path /clientes/:id` gera já é assim (e, sem `--query`, confere que o valor do parâmetro aparece na tela):
 
 ```tsx
 // src/pages/cliente/index.test.tsx
@@ -278,7 +278,7 @@ it('usa a sessão do membro no hook', () => {
 
 ## Testar um componente
 
-Componentes recebem tudo por props, então o `render` simples do Testing Library basta, como no teste gerado pelo `make:component`:
+Componentes recebem tudo por props, então o `render` simples do Testing Library basta, como em um teste de componente do produto (ele não é gerado: o Prumo não tem comando de componente):
 
 ```tsx
 import { render, screen } from '@testing-library/react'
@@ -328,7 +328,7 @@ runContractSuite(clientesContract, {
 - **`dispose`**, opcional na implementação, roda depois de cada teste, também quando ele falha: é onde se apaga um banco ou se restaura uma API de teste.
 - O título de cada grupo é `<contrato>: <implementação>`, então a saída do Vitest mostra qual implementação falhou.
 
-Para rodar o mesmo contrato contra a implementação HTTP, veja [Ligar uma API real](real-api.md#6-rode-o-contrato-contra-a-api). Se a API de teste só simula as escritas (a leitura seguinte não vê a mudança), rode o contrato contra uma [API falsa em memória pelo `fetch` injetável](real-api.md#quando-a-api-de-teste-não-persiste-escritas).
+Para rodar o mesmo contrato contra a implementação HTTP, veja [Ligar uma API real](real-api.md#5-rode-o-contrato-contra-uma-api-de-teste). Se a API de teste só simula as escritas (a leitura seguinte não vê a mudança), rode o contrato contra uma [API falsa em memória pelo `fetch` injetável](real-api.md#quando-a-api-de-teste-não-persiste-escritas).
 
 ## Setup mais completo do DOM
 

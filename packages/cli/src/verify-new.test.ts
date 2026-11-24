@@ -5,11 +5,10 @@ import { describe, expect, it } from 'vitest'
 /**
  * O portão local do app novo (`pnpm verify:new`) pesa e roda fora do verify da raiz (que roda os
  * testes dos pacotes), então o teste confere só a estrutura do script: as etapas, o trap que apaga a
- * pasta temporária e a regra de que o script não escreve no app, só a CLI e o MCP.
+ * pasta temporária e a regra de que o script não escreve no app, só a CLI.
  */
 const REPO = path.resolve(import.meta.dirname, '../../..')
 const script = readFileSync(path.join(REPO, 'scripts', 'verify-new.sh'), 'utf8')
-const driver = readFileSync(path.join(REPO, 'packages/mcp/scripts/drive-mcp.mjs'), 'utf8')
 
 /** O script sem as linhas de comentário, para os testes olharem só o que roda. */
 const code = script
@@ -30,8 +29,8 @@ describe('scripts/verify-new.sh', () => {
     expect(code).toContain('set -euo pipefail')
   })
 
-  it('roda as etapas na ordem: pack, new, cli, mcp e verify', () => {
-    const order = ['pack', 'new', 'cli', 'mcp', 'verify'].map((name) =>
+  it('roda as etapas na ordem: pack, new, cli e verify', () => {
+    const order = ['pack', 'new', 'cli', 'verify'].map((name) =>
       code.indexOf(`step ${name} stage_${name}`),
     )
     expect(order.every((index) => index >= 0)).toBe(true)
@@ -45,25 +44,15 @@ describe('scripts/verify-new.sh', () => {
     expect(code).toContain('pnpm verify')
   })
 
-  it('gera pela CLI um domínio, uma tela com --domain e um componente', () => {
-    expect(code).toContain('prumo make:domain clientes')
-    expect(code).toContain('prumo make:page clientes --domain clientes')
-    expect(code).toContain('prumo make:page cliente --domain clientes --path /clientes/:id')
-    expect(code).toContain('prumo make:component resumo --page clientes')
-    expect(code).toContain('prumo move:component resumo --from clientes --shared --dry-run')
-    expect(code).toContain('prumo make:domain livros --fields "titulo:string')
-    expect(code).toContain('prumo make:page livros --domain livros')
-    expect(code).toContain('prumo make:page livro --domain livros --path /livros/:id')
+  it('tem a etapa cli com o lugar onde os passos seguintes acrescentam os comandos', () => {
+    expect(script).toContain('stage_cli() {')
+    for (const command of ['make:schema', 'make:repository', 'make:query', 'make:page']) {
+      expect(script).toContain(command)
+    }
   })
 
-  it('gera o resto por um cliente MCP, com uma tela de rota com parâmetro', () => {
-    expect(driver).toContain("path: '/fornecedores/:codigo'")
-    expect(driver).toContain('fields:')
-    expect(code).toContain('packages/mcp/scripts/drive-mcp.mjs')
-    expect(driver).toContain('StdioClientTransport')
-    for (const tool of ['make_domain', 'make_page', 'make_component', 'move_component', 'check']) {
-      expect(driver).toContain(`'${tool}'`)
-    }
+  it('não usa o MCP', () => {
+    expect(script).not.toMatch(/mcp/i)
   })
 
   it('apaga a pasta temporária num trap de EXIT, também em caso de falha', () => {
@@ -77,14 +66,12 @@ describe('scripts/verify-new.sh', () => {
     const lines = code.split('\n')
     for (const line of lines) {
       if (!line.includes('$APP')) continue
-      // Só lê o app (cd) ou o passa como argumento à CLI e ao cliente MCP
+      // Só lê o app (cd) ou o passa como argumento à CLI
       expect(line, line).not.toMatch(/>>?\s*"?\$APP/)
       expect(line, line).not.toMatch(/\b(sed -i|tee|cp|mv|rm|touch|mkdir|ln)\b/)
     }
     expect(code).not.toMatch(/>>?\s*"?\$\{?APP/)
     expect(code).not.toMatch(/\bsed -i\b/)
-    // O que o cliente MCP faz também: só chama ferramentas, sem escrever arquivo
-    expect(driver).not.toMatch(/writeFile|appendFile|rmSync|mkdirSync|copyFile|rename/)
   })
 
   it('não usa o navegador nem o GitHub', () => {

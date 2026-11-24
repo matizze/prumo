@@ -3,9 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { createRoot } from '../root.ts'
-import { runCli } from '../run.ts'
-import { captureRuntime, makeDir, makeProject } from '../test-support.ts'
+import { exec, makeDir, makeProject } from '../test-support.ts'
 import { formatViolation } from './check.ts'
 
 /** Projeto temporário com uma violação (pasta de fora em src/components) ou nenhuma. */
@@ -14,10 +12,8 @@ function project(withViolation: boolean): string {
   return makeProject({}, dirs)
 }
 
-async function run(args: string[], cwd?: string) {
-  const runtime = captureRuntime(cwd)
-  const code = await runCli(createRoot(runtime), args, runtime)
-  return { code, stdout: runtime.stdout, stderr: runtime.stderr }
+function run(args: string[], cwd = process.cwd()) {
+  return exec(args, cwd)
 }
 
 describe('prumo check', () => {
@@ -87,10 +83,10 @@ describe('prumo check', () => {
       const result = await run(['check', '--root', root])
       expect(result.code, root).toBe(2)
       expect(result.stdout).toBe('')
-      expect(result.stderr, root).toContain('prumo check: ')
+      expect(result.stderr, root).toContain('prumo: ')
       expect(result.stderr, root).toContain(reason)
       expect(result.stderr, root).toContain(root)
-      expect(result.stderr, root).toContain('Uso: prumo check [--root <pasta>]')
+      expect(result.stderr, root).toContain('Uso: prumo check [opções]')
     }
   })
 
@@ -105,26 +101,27 @@ describe('prumo check', () => {
       const result = await run(['check', flag])
       expect(result.code).toBe(0)
       expect(result.stderr).toBe('')
-      expect(result.stdout).toContain('Uso: prumo check [--root <pasta>]')
-      expect(result.stdout).toContain('--root <pasta>  Pasta do projeto, a que tem o src.')
+      expect(result.stdout).toContain('Uso: prumo check [opções]')
+      expect(result.stdout).toContain('--root <pasta>')
+      expect(result.stdout).toContain('A pasta do projeto, a que tem o src.')
       expect(result.stdout).toContain('-h, --help')
-      expect(result.stdout).toContain('Sai com código 1 quando há violação')
+      expect(result.stdout).toContain('com 1 quando há violação')
     }
   })
 
   it('sai com 2 e mostra o uso quando a opção não existe, falta o valor ou sobra argumento', async () => {
     const cases: [string[], string][] = [
       [['--nope'], "opção desconhecida: '--nope'"],
-      [['--root'], 'a opção --root precisa de um valor'],
-      [['--root='], 'a opção --root precisa de um valor'],
-      [['extra'], "argumento inesperado: 'extra'"],
+      [['--root'], "a opção '--root <pasta>' precisa de um valor"],
+      [['--root='], "a opção '--root' precisa de um valor"],
+      [['extra'], "argumento a mais: 'extra'"],
       [['-x'], "opção desconhecida: '-x'"],
     ]
     for (const [args, reason] of cases) {
       const result = await run(['check', ...args], project(false))
       expect(result.code, args.join(' ')).toBe(2)
       expect(result.stdout).toBe('')
-      expect(result.stderr, args.join(' ')).toContain(`prumo check: ${reason}`)
+      expect(result.stderr, args.join(' ')).toContain(`prumo: ${reason}`)
       expect(result.stderr, args.join(' ')).toContain('Uso: prumo check')
     }
   })
@@ -159,36 +156,11 @@ describe('bin prumo', () => {
     expect(result.stderr).toContain('não existe')
   })
 
-  it('lista os comandos sem argumentos e com --help', () => {
-    for (const args of [[], ['--help'], ['-h']]) {
-      const result = node(args)
-      expect(result.status, args.join(' ')).toBe(0)
-      expect(result.stdout).toContain('Uso: prumo <comando> [opções]')
-      expect(result.stdout).toMatch(
-        /check\s+Analisa o projeto e lista as violações da arquitetura\./,
-      )
-      expect(result.stdout).toMatch(/doctor\s+Confere o ambiente e o projeto/)
-    }
-  })
-
-  it('mostra a sintaxe de um comando com <comando> --help', () => {
-    const result = node(['check', '--help'])
+  it('lista o new e o check na ajuda da raiz', () => {
+    const result = node(['--help'])
     expect(result.status).toBe(0)
-    expect(result.stdout).toContain('Uso: prumo check [--root <pasta>]')
-  })
-
-  it('recusa comando e opção desconhecidos com 2', () => {
-    const command = node(['deploy'])
-    expect(command.status).toBe(2)
-    expect(command.stderr).toContain("prumo: comando desconhecido: 'deploy'.")
-    expect(command.stderr).toContain('Comandos:')
-
-    const option = node(['--nope'])
-    expect(option.status).toBe(2)
-    expect(option.stderr).toContain("prumo: opção desconhecida: '--nope'.")
-
-    const checkOption = node(['check', '--nope'])
-    expect(checkOption.status).toBe(2)
-    expect(checkOption.stderr).toContain("prumo check: opção desconhecida: '--nope'.")
+    expect(result.stdout).toMatch(/check \[opções\]\s+Analisa o projeto e lista as violações\s+da\s+arquitetura\./)
+    expect(result.stdout).toMatch(/make:schema \[opções\] <domínio>\s+Cria o schema/)
+    expect(result.stdout).toMatch(/new \[opções\] <nome>\s+Cria um app React mínimo do Prumo/)
   })
 })

@@ -1,175 +1,141 @@
-import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { fixtureProject } from '../codemod/test-support.ts'
-import { createRoot } from '../root.ts'
-import { runCli } from '../run.ts'
-import { captureRuntime, makeDir } from '../test-support.ts'
+import { fixtureProject } from '../codemods/test-support.ts'
+import { exec } from '../test-support.ts'
 
-async function run(args: string[], cwd: string) {
-  const runtime = captureRuntime(cwd)
-  const code = await runCli(createRoot(runtime), args, runtime)
-  return { code, stdout: runtime.stdout, stderr: runtime.stderr }
-}
+const read = (root: string, file: string) => readFileSync(path.join(root, file), 'utf8')
 
-/** Caminho relativo de cada arquivo da pasta, com o hash do conteúdo, para comparar antes e depois. */
-function snapshot(root: string, dir = root): Record<string, string> {
-  const result: Record<string, string> = {}
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) Object.assign(result, snapshot(root, full))
-    else
-      result[path.relative(root, full)] = createHash('sha1')
-        .update(readFileSync(full))
-        .digest('hex')
+/** Um projeto de fixture com o schema, o repositório e a query (`make:query`) de um domínio. */
+async function withQuery(args: string[] = ['clientes'], schemaArgs: string[] = []) {
+  const { root } = fixtureProject()
+  for (const command of ['make:schema', 'make:repository', 'make:query']) {
+    const made = await exec([command, ...args, ...(command === 'make:schema' ? schemaArgs : [])], root)
+    expect(made.code, made.stderr).toBe(0)
   }
-  return result
-}
-
-function withDomain(root: string) {
-  mkdirSync(path.join(root, 'src/queries'), { recursive: true })
-  writeFileSync(
-    path.join(root, 'src/queries/clientes.ts'),
-    'export function useClientesList() {\n  return null\n}\n',
-  )
+  return root
 }
 
 describe('prumo make:page', () => {
-  it('gera a tela, registra a rota e as mensagens, roda o check e mostra como testar', async () => {
+  it('só o título: cria a tela, registra tudo e diz como rodar os testes', async () => {
     const { root } = fixtureProject()
-    const result = await run(['make:page', 'clientes'], root)
+    const result = await exec(['make:page', 'pedidos-recentes'], root)
 
     expect(result.code, result.stderr).toBe(0)
     expect(result.stderr).toBe('')
-    expect(result.stdout).toBe(`prumo make:page: clientes (rota /clientes).
-
-Criados (6):
-  src/messages/en/clientes.json
-  src/messages/pt-BR/clientes.json
-  src/pages/clientes/index.test.tsx
-  src/pages/clientes/index.tsx
-  src/pages/clientes/model.ts
-  src/pages/clientes/view.tsx
-
-Alterados (3):
-  src/App.tsx
-  src/messages/en/index.ts
-  src/messages/pt-BR/index.ts
-
-prumo check: nenhuma violação.
-
-Edite o model (src/pages/clientes/model.ts), a view (view.tsx) e os textos (src/messages/<idioma>/clientes.json); o teste acompanha.
-
-Para rodar os testes da tela nova:
-  pnpm exec vitest run src/pages/clientes
-`)
-    expect(readFileSync(path.join(root, 'src/messages/en/clientes.json'), 'utf8')).toBe(
-      '{\n  "title": "Clientes"\n}\n',
-    )
-    expect(readFileSync(path.join(root, 'src/App.tsx'), 'utf8')).toContain(
-      '<Route path="/clientes">',
-    )
+    expect(result.stdout).toContain('prumo make:page: pedidos-recentes (rota /pedidos-recentes).')
+    expect(result.stdout).toContain('Criados (6):')
+    expect(result.stdout).toContain('Alterados (3):')
+    expect(result.stdout).toContain('Para rodar os testes da tela nova:\n  pnpm exec vitest run src/pages/pedidos-recentes\n')
+    expect(read(root, 'src/App.tsx')).toContain('<Route path="/pedidos-recentes">')
+    expect(read(root, 'src/messages/pt-BR/index.ts')).toContain('pedidosRecentes')
   })
 
-  it('--domain liga a tela à lista do domínio', async () => {
-    const { root } = fixtureProject()
-    withDomain(root)
-    const result = await run(['make:page', 'clientes', '--domain', 'clientes'], root)
+  it('com --query e --path: o detalhe da entidade do contrato, sem --entity', async () => {
+    const root = await withQuery(['paes', '--entity', 'pao'])
+    const result = await exec(['make:page', 'pao', '--query', 'paes', '--path', '/paes/:id'], root)
 
     expect(result.code, result.stderr).toBe(0)
-    expect(result.stdout).toContain('prumo make:page: clientes (rota /clientes, domínio clientes).')
-    expect(readFileSync(path.join(root, 'src/pages/clientes/model.ts'), 'utf8')).toContain(
-      'useClientesList()',
-    )
+    expect(result.stdout).toContain('prumo make:page: pao (rota /paes/:id, query paes).')
+    expect(read(root, 'src/pages/pao/model.ts')).toContain('usePaoDetail(id)')
+    expect(JSON.parse(read(root, 'src/messages/en/pao.json'))).toHaveProperty('loading')
   })
 
-  it('--root aponta o projeto de fora dele', async () => {
-    const { root } = fixtureProject()
-    const outside = makeDir()
-    const result = await run(['make:page', 'clientes', '--root', root], outside)
+  it('com --query: a lista, com o campo de texto do schema', async () => {
+    const root = await withQuery()
+    const result = await exec(['make:page', 'clientes', '--query', 'clientes'], root)
 
     expect(result.code, result.stderr).toBe(0)
-    expect(existsSync(path.join(root, 'src/pages/clientes/view.tsx'))).toBe(true)
-    expect(result.stdout).toContain(`pnpm --dir ${root} exec vitest run src/pages/clientes`)
-    expect(readdirSync(outside)).toEqual([])
+    expect(read(root, 'src/pages/clientes/view.tsx')).toContain('{i.name}')
+    expect(read(root, 'src/pages/clientes/model.ts')).toContain('useClientesList()')
   })
 
-  it('--dry-run lista o que seria feito e não escreve nada', async () => {
-    const { root } = fixtureProject()
-    const before = snapshot(root)
-    const result = await run(['make:page', 'clientes', '--dry-run'], root)
+  it('sem campo de texto: mostra o id e escreve o aviso, com saída 0', async () => {
+    const root = await withQuery(['clientes'], ['--fields', 'idade:int'])
+    const result = await exec(['make:page', 'clientes', '--query', 'clientes'], root)
 
     expect(result.code, result.stderr).toBe(0)
-    expect(result.stdout).toContain('Seriam criados (6):')
-    expect(result.stdout).toContain('Seriam alterados (3):\n  src/App.tsx\n')
-    expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')
-    expect(result.stdout).not.toContain('prumo check')
-    expect(snapshot(root)).toEqual(before)
+    expect(result.stdout).toContain('Aviso: o schema do domínio (src/schemas/entities/cliente.ts) não tem campo de texto')
+    expect(read(root, 'src/pages/clientes/view.tsx')).toContain('{i.id}')
   })
 
-  it('recusa nome inválido, domínio que falta e tela que já existe, com 2 e sem escrever', async () => {
+  it('--query sem a query: saída 2, a dica, e nada criado', async () => {
     const { root } = fixtureProject()
-    const before = snapshot(root)
-
-    const invalid = await run(['make:page', 'Meus_Clientes'], root)
-    expect(invalid.code).toBe(2)
-    expect(invalid.stdout).toBe('')
-    expect(invalid.stderr).toContain("make:page: o nome da tela 'Meus_Clientes' é inválido")
-    expect(invalid.stderr).toContain('Uso: prumo make:page <nome>')
-
-    const noDomain = await run(['make:page', 'clientes', '--domain', 'clientes'], root)
-    expect(noDomain.code).toBe(2)
-    expect(noDomain.stderr).toContain("o domínio 'clientes' não existe")
-    expect(snapshot(root)).toEqual(before)
-
-    expect((await run(['make:page', 'clientes'], root)).code).toBe(0)
-    const afterFirst = snapshot(root)
-    const again = await run(['make:page', 'clientes'], root)
-    expect(again.code).toBe(2)
-    expect(again.stderr).toContain("a tela 'clientes' já existe")
-    expect(snapshot(root)).toEqual(afterFirst)
-  })
-
-  it('um índice de mensagens que falta sai com 2 e não deixa o projeto pela metade', async () => {
-    const { root } = fixtureProject()
-    writeFileSync(path.join(root, 'src/messages/en/index.ts'), '// vazio\n')
-    const before = snapshot(root)
-
-    const result = await run(['make:page', 'clientes'], root)
+    const result = await exec(['make:page', 'clientes', '--query', 'clientes'], root)
 
     expect(result.code).toBe(2)
-    expect(snapshot(root)).toEqual(before)
+    expect(result.stdout).toBe('')
+    expect(result.stderr).toContain('rode prumo make:query clientes')
+    expect(existsSync(path.join(root, 'src/pages/clientes'))).toBe(false)
   })
 
-  it('uma pasta que não é projeto sai com 2, e sem o nome também', async () => {
-    const outside = await run(['make:page', 'clientes'], makeDir())
-    expect(outside.code).toBe(2)
-    expect(outside.stderr).toContain('não tem package.json')
-
-    const missing = await run(['make:page'], fixtureProject().root)
-    expect(missing.code).toBe(2)
-    expect(missing.stderr).toContain('falta o argumento <nome>.')
-  })
-
-  it('a violação que já existia antes vira preexistente e não faz o comando falhar', async () => {
+  it('--path inválido: saída 2, em português, e nada criado', async () => {
     const { root } = fixtureProject()
-    mkdirSync(path.join(root, 'src/pages/solta'), { recursive: true })
-    writeFileSync(path.join(root, 'src/pages/solta/index.tsx'), 'export {}\n')
+    const before = read(root, 'src/App.tsx')
+    for (const [route, reason] of [
+      ['clientes', 'precisa começar com /'],
+      ['/clientes/:id?', 'modificador do wouter'],
+      ['/a/:x/:y', '2 parâmetros'],
+    ] as const) {
+      const result = await exec(['make:page', 'clientes', '--path', route], root)
+      expect(result.code).toBe(2)
+      expect(result.stderr).toContain(reason)
+    }
+    expect(existsSync(path.join(root, 'src/pages/clientes'))).toBe(false)
+    expect(read(root, 'src/App.tsx')).toBe(before)
+  })
 
-    const result = await run(['make:page', 'clientes'], root)
+  it('--path ou --query vazio: saída 2', async () => {
+    const { root } = fixtureProject()
+    expect((await exec(['make:page', 'a', '--path', ''], root)).code).toBe(2)
+    expect((await exec(['make:page', 'a', '--query', ''], root)).code).toBe(2)
+  })
+
+  it('--dry-run: lista o que seria feito e não escreve nada', async () => {
+    const { root } = fixtureProject()
+    const before = read(root, 'src/App.tsx')
+    const result = await exec(['make:page', 'sobre', '--dry-run'], root)
 
     expect(result.code, result.stderr).toBe(0)
-    expect(result.stderr).toBe('')
-    expect(result.stdout).toContain('prumo check: nenhuma violação nova.')
-    expect(result.stdout).toContain('Preexistentes (')
-    expect(result.stdout).toContain('src/pages/solta')
-    expect(existsSync(path.join(root, 'src/pages/clientes/index.tsx'))).toBe(true)
+    expect(result.stdout).toContain('(simulação)')
+    expect(result.stdout).toContain('Seriam criados (6):')
+    expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')
+    expect(existsSync(path.join(root, 'src/pages/sobre'))).toBe(false)
+    expect(read(root, 'src/App.tsx')).toBe(before)
   })
 
-  it('aparece na lista de comandos do prumo', async () => {
-    const help = await run(['--help'], fixtureProject().root)
+  it('a mesma tela duas vezes, nome reservado e rota repetida: saída 2', async () => {
+    const { root } = fixtureProject()
+    expect((await exec(['make:page', 'sobre'], root)).code).toBe(0)
+    const again = await exec(['make:page', 'sobre'], root)
+    expect(again.code).toBe(2)
+    expect(again.stderr).toContain("a tela 'sobre' já existe")
 
-    expect(help.stdout).toMatch(/\n {2}make:page {2,}Gera uma tela nova/)
+    expect((await exec(['make:page', 'new'], root)).code).toBe(2)
+    const taken = await exec(['make:page', 'outra', '--path', '/sobre'], root)
+    expect(taken.code).toBe(2)
+    expect(taken.stderr).toContain("já tem uma rota '/sobre'")
+    expect(existsSync(path.join(root, 'src/pages/outra'))).toBe(false)
+  })
+
+  it('--path que conflita com uma rota de parâmetro do App.tsx: saída 2 e nada escrito', async () => {
+    const { root } = fixtureProject()
+    expect((await exec(['make:page', 'clientes', '--path', '/clientes/:id'], root)).code).toBe(0)
+    const app = read(root, 'src/App.tsx')
+    const result = await exec(['make:page', 'novo', '--path', '/clientes/novo'], root)
+
+    expect(result.code).toBe(2)
+    expect(result.stderr).toContain("conflita com a rota '/clientes/:id'")
+    expect(existsSync(path.join(root, 'src/pages/novo'))).toBe(false)
+    expect(read(root, 'src/App.tsx')).toBe(app)
+  })
+
+  it('o comando dos testes usa o script test do projeto e a pasta dele, de fora', async () => {
+    const { root } = fixtureProject()
+    writeFileSync(path.join(root, 'package.json'), '{ "name": "app", "scripts": { "test": "vitest run" } }\n')
+    const result = await exec(['make:page', 'sobre', '--root', root], path.dirname(root))
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(result.stdout).toContain(`pnpm --dir ${path.basename(root)} test src/pages/sobre`)
   })
 })

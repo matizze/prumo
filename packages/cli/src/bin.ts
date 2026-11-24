@@ -1,13 +1,10 @@
 #!/usr/bin/env node
-import { createRoot } from './root.ts'
-import { runCli } from './run.ts'
+import { run } from './program.ts'
 
-const runtime = {
-  out: (text: string) => process.stdout.write(text),
-  err: (text: string) => process.stderr.write(text),
+process.exitCode = await run(process.argv.slice(2), {
   cwd: process.cwd(),
-  env: process.env,
+  out: (text) => process.stdout.write(text),
+  err: (text) => process.stderr.write(text),
+  columns: process.stdout.columns,
   inheritStdio: true,
-}
-
-process.exitCode = await runCli(createRoot(runtime), process.argv.slice(2), runtime)
+})

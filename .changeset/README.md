@@ -14,7 +14,7 @@ A descrição do changeset vai para o CHANGELOG do pacote, então escreva em por
 
 ## Versão
 
-Na hora de lançar uma versão, um pull request para a `develop` roda `pnpm changeset version`: sobe as versões, escreve os CHANGELOGs e apaga os changesets. Ao subir a versão de um pacote, o mapa `packages/cli/src/new/versions.ts` acompanha (um teste confere). Depois, um pull request leva a `develop` para a `main`, e o workflow de publicação publica as versões novas (veja Publicação).
+Na hora de lançar uma versão, um pull request para a `develop` roda `pnpm changeset version`: sobe as versões, escreve os CHANGELOGs e apaga os changesets. Nesse pull request, atualize também o mapa de versões do app novo (`packages/cli/src/lib/versions.ts`): o teste `versions.test.ts` falha até ele acompanhar os `package.json` de `packages/*`. Depois, um pull request leva a `develop` para a `main`, e o workflow de publicação publica as versões novas (veja Publicação).
 
 ## Decisões desta configuração
 

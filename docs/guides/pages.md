@@ -10,13 +10,22 @@ pnpm exec prumo make:page pedidos
 
 O comando cria `src/pages/pedidos/` (`index.tsx`, `model.ts`, `view.tsx` e `index.test.tsx`), os textos em `src/messages/<idioma>/pedidos.json` e a rota `/pedidos` no `App.tsx`. O nome vai em kebab-case (`pedidos-recentes`); o Prumo deriva `PedidosRecentesPage`, `usePedidosRecentesModel`, `PedidosRecentesView`, o namespace de textos `pedidosRecentes` e a rota `/pedidos-recentes`.
 
-Para uma tela que lista um domínio de dados, passe `--domain`:
+Para uma tela que lista um domínio de dados, passe `--query`:
 
 ```bash
-pnpm exec prumo make:page pedidos --domain pedidos
+pnpm exec prumo make:page pedidos --query pedidos
 ```
 
-O model passa a ler a lista pelo hook do domínio (`usePedidosList`) e a view mostra o carregando, o erro e a lista. A view mostra o primeiro campo de texto de cada registro, lido do schema que o projeto tem (o `name` num domínio sem `--fields`; o primeiro campo `string` obrigatório num domínio criado com [`--fields`](domains.md#os-campos-do-domínio---fields)). Se o schema não tem campo de texto, ou o Prumo não o encontra, a view mostra o `id` e o comando avisa. O domínio precisa existir (`prumo make:domain pedidos`).
+O model passa a ler a lista pelo hook da query (`usePedidosList`) e a view mostra o carregando, o erro e a lista. A view mostra o primeiro campo de texto de cada registro, lido do schema que o projeto tem (o `name` num schema sem `--fields`; o primeiro campo `string` obrigatório num schema criado com [`--fields`](domains.md#os-campos-do-domínio---fields)). Se o schema não tem campo de texto, ou o Prumo não o encontra, a view mostra o `id` e o comando avisa. A query precisa existir: o fluxo, da camada de baixo para a de cima, é `make:schema` → `make:repository` → `make:query` → `make:page`:
+
+```bash
+pnpm exec prumo make:schema pedidos
+pnpm exec prumo make:repository pedidos
+pnpm exec prumo make:query pedidos
+pnpm exec prumo make:page pedidos --query pedidos
+```
+
+Sem a query, o `make:page` sai com 2 e diz o comando a rodar (`rode prumo make:query pedidos`).
 
 Use `--dry-run` para ver o que seria criado e alterado sem escrever nada.
 
@@ -95,15 +104,17 @@ Os textos novos (`search` e `remove`) entram em `src/messages/pt-BR/clientes.jso
 
 A mutation `useRemoveCliente` tira do cache o detalhe do registro removido e invalida as listas do domínio ao terminar, então a lista se atualiza sozinha e uma tela de detalhe aberta não busca de novo o registro que acabou de sumir (o que viraria uma notificação de "não encontrado").
 
-## Componentes da tela
+## Componentes
 
-```bash
-pnpm exec prumo make:component filtro --page clientes
-```
+O Prumo não traz componente de interface: os componentes de UI (botão, campo, tabela, diálogo) vêm do design system do produto, por exemplo o shadcn, que se instala em `src/components/ui`. Veja [Design system](design-system.md). A view gerada usa só tags nativas, e você as troca por esses componentes.
 
-Cria `src/pages/clientes/components/filtro.tsx` e o teste. Componentes da tela recebem dados e textos por props, como a view: quem traduz e busca é o model.
+Os componentes do **produto** (um resumo de pedido, um cartão de cliente) se criam à mão, e o lugar depende de quem os usa, o que o `prumo check` confere:
 
-Quando uma segunda tela precisar do mesmo componente, promova-o a compartilhado com `prumo move:component <nome> --from <tela> --shared`: ele move o componente e o teste para `src/components/shared` e reescreve os imports. Logo depois, o `prumo check` mostra a violação `shared-usage` como esperada (o componente ainda é de uma tela só) até a segunda tela importá-lo. Gerar um segundo componente com `make:component --shared` não é o caminho: o comando avisa quando já existe um de mesmo nome em outra tela.
+- **Usado só por uma tela:** `src/pages/<tela>/components/` (por exemplo, `src/pages/clientes/components/filtro.tsx`). Recebe dados e textos por props, como a view: quem busca e traduz é o model.
+- **Usado por duas ou mais telas:** `src/components/shared/`. O `check` acusa (`shared-usage`) o componente de `shared` que menos de duas telas usam: ele volta para a pasta da tela que o usa.
+- **A casca do app** (cabeçalho, menu): `src/components/layout/`.
+
+Quando uma segunda tela precisar de um componente da primeira, mova o arquivo para `src/components/shared` e acerte os imports; o `check` mostra a violação até a segunda tela importá-lo. Uma pasta nova em `src/components` fora de `layout`, `shared` e `ui` também é violação (`components-folders`).
 
 ## Rotas
 
@@ -142,10 +153,10 @@ export function useClienteModel() {
 
 O caminho tem **no máximo um parâmetro** (`:nome`, sem `?`, `*` nem `+`); o `make:page` recusa o resto, e o caminho que repete ou conflita com uma rota do `App.tsx`. Precisa de um segundo parâmetro? Gere com um e acrescente o outro ao model à mão.
 
-Com `--domain`, a tela é de **detalhe**: o model busca o registro com o `use<Entidade>Detail` do domínio.
+Com `--query`, a tela é de **detalhe**: o model busca o registro com o `use<Entidade>Detail` da query.
 
 ```bash
-pnpm exec prumo make:page cliente --domain clientes --path /clientes/:id
+pnpm exec prumo make:page cliente --query clientes --path /clientes/:id
 ```
 
 ```ts

@@ -1,45 +1,50 @@
 # Domínios de dados
 
-Um domínio é um conjunto de dados do produto, como clientes, pedidos ou produtos. Este guia mostra como criar um domínio, mudar a forma do dado, entender o teste de contrato e usar as queries e mutations nas telas.
+Um domínio é um conjunto de dados do produto, como clientes, pedidos ou produtos. No Prumo, cada camada do domínio tem o seu comando: `make:schema` (a forma do dado), `make:repository` (de onde ele vem) e `make:query` (como a tela o lê e o grava). Este guia mostra os três, como mudar a forma do dado, o teste de contrato e o uso das queries e mutations nas telas.
 
 ## Criar um domínio
 
 ```bash
-pnpm exec prumo make:domain clientes
+pnpm exec prumo make:schema clientes --fields "nome:string,email:string,ativo:boolean"
+pnpm exec prumo make:repository clientes
+pnpm exec prumo make:query clientes
 ```
 
-Sem `--fields`, a entidade tem um campo de texto, `name`. Para os campos do seu domínio, peça-os na criação (próxima seção).
+A ordem importa, porque cada camada usa a de baixo: o repositório lê o schema, e a query usa o repositório. Se uma camada falta, o comando recusa sem criar nada e diz o que rodar (`rode prumo make:schema clientes`).
 
-O nome é o do domínio, **no plural e em kebab-case**. A entidade é o singular, e o Prumo a deriva tirando o `s` final: `clientes` → `cliente`, `pedidos-recentes` → `pedidos-recente`. Quando a regra erra, informe a entidade com `--entity`:
+O nome é o do domínio, **no plural e em kebab-case**. A entidade é o singular, e o Prumo a deriva tirando o `s` final: `clientes` → `cliente`, `pedidos-recentes` → `pedidos-recente`. Quando a regra erra, informe a entidade com `--entity`, **nos três comandos** (o `make:repository` e o `make:query` precisam da mesma entidade do schema):
 
 ```bash
-pnpm exec prumo make:domain categories --entity category
-pnpm exec prumo make:domain pedidos-recentes --entity pedido-recente
+pnpm exec prumo make:schema paes --entity pao
+pnpm exec prumo make:repository paes --entity pao
+pnpm exec prumo make:query paes --entity pao
 ```
 
 O comando recusa, em vez de adivinhar errado, os plurais terminados em `ies`, `us`, `ss`, `xes`, `ches`, `shes` e `sses` (`categories` daria `categorie`; `status` daria `statu`), e sugere o singular provável quando há um. Ele também recusa nomes que virariam palavra reservada do JavaScript (`new`, `class`, `default`) ou esconderiam um nome global (`Date`, `Record`, `Promise`).
 
-O que é criado, para `clientes`:
+O que cada comando cria, para `clientes`:
 
-| Arquivo                                                  | Conteúdo                                                                                  |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `src/schemas/entities/cliente.ts`                        | `clienteSchema`, `ClienteSchema`, `clienteInputSchema`, `ClienteInput`, `ClienteListQuery` |
-| `src/repositories/clientes/repository.contract.ts`       | A interface `IClientesRepository`                                                         |
-| `src/repositories/clientes/repository.mock.ts`           | `MockClientesRepository`, a implementação em memória                                      |
-| `src/repositories/clientes/fixtures.ts`                  | `MOCK_CLIENTES`, os dados de exemplo                                                      |
-| `src/repositories/clientes/index.ts`                     | `createClientesRepository`, a fábrica que o container chama                               |
-| `src/repositories/clientes/repository.contract.test.ts`  | O contrato, rodado contra o mock                                                          |
-| `src/queries/clientes.ts`                                | `clienteKeys`, `clienteQueries` e os hooks                                                |
+| Comando           | Arquivo                                                  | Conteúdo                                                                                   |
+| ----------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `make:schema`     | `src/schemas/entities/cliente.ts`                        | `clienteSchema`, `ClienteSchema`, `clienteInputSchema`, `ClienteInput`, `ClienteSortKey`, `ClienteListQuery` |
+| `make:repository` | `src/repositories/clientes/repository.contract.ts`       | A interface `IClientesRepository`                                                          |
+|                   | `src/repositories/clientes/repository.mock.ts`           | `MockClientesRepository`, a implementação em memória                                       |
+|                   | `src/repositories/clientes/fixtures.ts`                  | `MOCK_CLIENTES`, os dados de exemplo                                                       |
+|                   | `src/repositories/clientes/index.ts`                     | `createClientesRepository`, a fábrica que o container chama                                |
+|                   | `src/repositories/clientes/repository.contract.test.ts`  | O contrato, rodado contra o mock                                                           |
+| `make:query`      | `src/queries/clientes.ts`                                | `clienteKeys`, `clienteQueries` e os hooks                                                 |
 
-E registra o domínio em `src/schemas/index.ts`, `src/queries/index.ts` e no container (`src/repositories/index.ts`). Rode os testes dele com `pnpm test src/repositories/clientes`.
+Os comandos também registram o domínio: o `make:schema` em `src/schemas/index.ts`, o `make:repository` no container (`src/repositories/index.ts`) e no `errors.json` de cada idioma (o texto de `CLIENTE_NOT_FOUND`), o `make:query` em `src/queries/index.ts`. Rode os testes do repositório com `pnpm test src/repositories/clientes`. Todos aceitam `--dry-run`, que lista o que seria criado sem escrever nada.
 
 ## Os campos do domínio (`--fields`)
 
-Passe os campos da entidade em `--fields`, no formato `nome:tipo` separados por vírgula (entre aspas, por causa do `?` e das vírgulas):
+Só o `make:schema` recebe `--fields`. Passe os campos da entidade no formato `nome:tipo` separados por vírgula (entre aspas, por causa do `?` e das vírgulas):
 
 ```bash
-pnpm exec prumo make:domain livros --fields "titulo:string,autor:string,ano:number,disponivel:boolean,publicadoEm:date,apelido?:string"
+pnpm exec prumo make:schema livros --fields "titulo:string,autor:string,ano:int,disponivel:boolean,publicadoEm:date,situacao:enum(lido|lendo|desejado),apelido?:string"
 ```
+
+Sem `--fields`, a entidade tem um campo de texto, `name`.
 
 | Tipo       | No schema (zod)        | Exemplo de valor                |
 | ---------- | ---------------------- | ------------------------------- |
@@ -51,21 +56,47 @@ pnpm exec prumo make:domain livros --fields "titulo:string,autor:string,ano:numb
 | `datetime` | `z.iso.datetime()`     | `'2026-01-05T12:00:00.000Z'`    |
 | `enum(a\|b\|c)` | `z.enum(['a', 'b', 'c'])` | `'a'`, `'b'`, `'c'`      |
 
-O enum leva os valores entre parênteses, separados por `|` (no mínimo dois, sem repetir, cada um com letras, números e `_`, começando por letra), por exemplo `status:enum(ativo|inativo|pendente)`. Por isso a lista vai entre aspas, como no exemplo acima. As fixtures usam os valores da lista, na ordem.
+O enum leva os valores entre parênteses, separados por `|` (no mínimo dois, sem repetir, cada um com letras, números e `_`, começando por letra), por exemplo `status:enum(ativo|inativo|pendente)`. Por isso a lista vai entre aspas, como no exemplo acima.
 
 O nome do campo é camelCase (começa com letra minúscula; só letras e números). Um `?` depois do nome torna o campo opcional (`apelido?:string` vira `z.string().optional()`). O comando recusa, sem escrever nada, `id` e `createdAt` (o repositório já os dá a todo registro), nomes repetidos, tipos desconhecidos e listas mal formadas.
 
-A partir dos campos, o comando gera coerentes entre si:
+### O leitor de campos
 
-- **o schema** (`livroSchema`) e **o de entrada** (`livroInputSchema`, com todos os campos, sem `id` nem `createdAt`), e a `LivroSortKey` com os campos que ordenam (todos menos os booleanos) e `createdAt`;
-- **as fixtures**: três registros com valores de exemplo por tipo (texto `Titulo 1`, número `10`, `20`, `30`, booleano alternado, datas crescentes), para a ordem do contrato ser previsível;
-- **o mock**: a busca nos campos de texto (sem campo de texto, no `id`), a ordem por cada campo que ordena, e `create` e `update` com todos os campos;
-- **o teste de contrato**: busca, ordem, criação e edição usam os campos gerados;
-- **as telas** de `make:page --domain`: a lista e o detalhe mostram o primeiro campo de texto obrigatório do schema (um `enum` não é texto de exibição: sem outro campo de texto, a tela mostra o `id`, com um aviso) (veja [Páginas](pages.md)).
+O `make:repository` não tem `--fields`: ele **lê os campos do schema** que o `make:schema` gerou, com o ts-morph, e a partir deles gera, coerentes entre si:
+
+- **as fixtures**: três registros com valores de exemplo por tipo (texto `Titulo 1`, número `10`, `20`, `30`, booleano alternado, datas crescentes, os valores do enum na ordem);
+- **o mock**: a busca nos campos de texto (sem campo de texto, no `id`), a ordem por cada campo da `<Entidade>SortKey`, e `create` e `update` com os campos do `pick` do schema de entrada;
+- **o teste de contrato**: busca, ordem, criação e edição usam os campos lidos.
+
+Isso significa que o schema pode ser **editado à mão** antes do `make:repository`, dentro do que o leitor entende:
+
+- `id` e `createdAt` como `z.string()`, e campos em camelCase sem aspas;
+- os tipos da tabela acima, na forma em que o `--fields` os escreve (o enum pode ocupar várias linhas e ter vírgula no fim);
+- o `<entidade>InputSchema` escrito com `.pick({ campo: true, ... })` (um campo que o backend calcula fica de fora do `pick` e recebe um valor de exemplo no mock; `.omit(...)` não é lido);
+- a `<Entidade>SortKey` como a união de nomes de campo (sem campo booleano).
+
+Um campo que o leitor não reconhece, como `z.string().min(3)` ou `z.email()`, é **erro de uso**, com o arquivo, a linha e o nome do campo, e nada é criado. Para validar mais do que o tipo, gere o schema com o tipo simples, rode os três comandos e só então acrescente o `.min(3)` ou o `z.email()` ao schema (veja [Mudar a forma do dado](#mudar-a-forma-do-dado)). O `make:query` não lê os campos, e o `make:page --query` só procura um campo de texto para mostrar (se não o acha, a tela mostra o `id` e o comando avisa).
 
 Com muitos campos, o `pick` do schema de entrada, a busca do mock e a entrada do teste de contrato saem quebrados em várias linhas quando passam de cerca de 100 colunas. O gerador não formata o resto do código: rode o formatador do projeto, se tiver um.
 
 Os textos de exemplo das fixtures são genéricos: troque pelos dados do seu produto. O contrato continua verde enquanto as fixtures e o contrato andam juntos (veja abaixo).
+
+## Fontes de dados
+
+O `make:repository` cria o repositório com a fonte `mock`, a padrão e a dos testes. A opção `--data-source` acrescenta outra implementação do mesmo contrato:
+
+```bash
+pnpm exec prumo make:repository clientes --data-source http      # fetch na API
+pnpm exec prumo make:repository clientes --data-source storage   # o mock gravando no localStorage
+```
+
+| Fonte     | Para quê                                                                                     |
+| --------- | -------------------------------------------------------------------------------------------- |
+| `mock`    | Construir e testar as telas antes de a API existir (em memória, com latência simulada)       |
+| `storage` | Uma demonstração que lembra os dados entre recargas, sem backend (`localStorage`)            |
+| `http`    | A API de verdade: o backend responde no formato do app e o repositório só valida a resposta  |
+
+Se o repositório já existe, o comando acrescenta só a fonte; se não existe, cria o repositório completo e a fonte. O app escolhe a fonte pela variável `VITE_DATA_SOURCE` (`mock` quando falta), e as telas não sabem qual é. O guia [Ligar uma API real](real-api.md) mostra o `.env`, o token e o contrato contra uma API de teste.
 
 ## O contrato
 
@@ -108,11 +139,11 @@ runContractSuite(clientesContract, {
 })
 ```
 
-Cada teste recebe uma instância nova do repositório, então um teste que cria ou remove registros não afeta o seguinte. Quando a implementação HTTP existir, ela roda o mesmo contrato (veja [Ligar uma API real](real-api.md#6-rode-o-contrato-contra-a-api)).
+Cada teste recebe uma instância nova do repositório, então um teste que cria ou remove registros não afeta o seguinte. Quando a implementação HTTP existir, ela roda o mesmo contrato (veja [Ligar uma API real](real-api.md#5-rode-o-contrato-contra-uma-api-de-teste)).
 
 ## Mudar a forma do dado
 
-O caminho principal é pedir os campos na criação, com `--fields` (seção anterior). Esta seção vale para mudar a forma **depois**: o domínio nasceu sem `--fields` (só com `id`, `name` e `createdAt`), ou o produto ganhou um campo. Para acrescentar um campo, comece pelo schema e deixe o TypeScript apontar o resto.
+O caminho principal é pedir os campos na criação, com `--fields` no `make:schema` (seção anterior). Esta seção vale para mudar a forma **depois** de gerar o repositório: o domínio nasceu sem `--fields` (só com `id`, `name` e `createdAt`), ou o produto ganhou um campo. Os comandos não regeneram nada (nunca sobrescrevem arquivo), então a mudança é à mão: comece pelo schema e deixe o TypeScript apontar o resto.
 
 **1. O schema e a entrada:**
 
@@ -170,7 +201,7 @@ Se quiser buscar ou ordenar pelo campo novo, acrescente-o nessas duas listas e a
 
 ### Onde o `name` aparece
 
-Trocar ou tirar o `name` (em vez de só acrescentar campos) mexe em todos estes lugares, e o `tsc` nem sempre acusa todos (um domínio criado com `--fields` já nasce sem eles):
+Em um domínio criado sem `--fields`, trocar ou tirar o `name` (em vez de só acrescentar campos) mexe em todos estes lugares, e o `tsc` nem sempre acusa todos (um domínio criado com `--fields` já nasce sem eles):
 
 | Onde                                                                        | O que o cita                                                        |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------- |
@@ -179,13 +210,13 @@ Trocar ou tirar o `name` (em vez de só acrescentar campos) mexe em todos estes 
 | `repository.mock.ts`, `create`                                              | `name: input.name`, se você não usa `...input`                      |
 | `repository.mock.ts`, `list`                                                | a busca (`matchesSearch([item.name], ...)`) e o acessor `name` do `sortBy` |
 | `repository.contract.test.ts`                                               | a busca por `'EXEMPLO 2'`, a ordem esperada, o `name` do `create` e do `update` |
-| `src/pages/<tela>/view.tsx`, das telas geradas com `--domain`               | `item.name` na lista (e no detalhe, se a tela é de detalhe)         |
-| `src/pages/<tela>/index.test.tsx`, das telas de detalhe geradas com `--domain`  | o texto `Exemplo 1`, que é o `name` da primeira fixture              |
+| `src/pages/<tela>/view.tsx`, das telas geradas com `--query`               | `item.name` na lista (e no detalhe, se a tela é de detalhe)         |
+| `src/pages/<tela>/index.test.tsx`, das telas de detalhe geradas com `--query`  | o texto `Exemplo 1`, que é o `name` da primeira fixture              |
 | `src/queries/clientes.ts`                                                   | `ClienteListQuery` e `ClienteSortKey`, se citam o campo             |
 
 O `pnpm verify` (com o `typecheck` e os testes) mostra o que sobrou.
 
-Rode `pnpm verify`. **Só campo acrescentado** deixa as telas que usam o domínio compilando, e as que precisam do campo novo o recebem já tipado. Trocar ou tirar um campo quebra o que o citava: as views geradas com `--domain` (`item.name`), por exemplo.
+Rode `pnpm verify`. **Só campo acrescentado** deixa as telas que usam o domínio compilando, e as que precisam do campo novo o recebem já tipado. Trocar ou tirar um campo quebra o que o citava: as views geradas com `--query` (`item.name`), por exemplo.
 
 ## Filtros na consulta da lista
 
@@ -434,7 +465,7 @@ it('recusa o pedido e não grava nada', async () => {
 })
 ```
 
-O `prumo check` e o ESLint não olham `src/rules` (a pasta é livre), nem a regra de camadas se aplica a ela: o único cuidado é manter as regras puras, sem importar de `@/queries` nem de `@/pages`. O `make:domain` nunca mexe nessas pastas.
+O `prumo check` e o ESLint não olham `src/rules` (a pasta é livre), nem a regra de camadas se aplica a ela: o único cuidado é manter as regras puras, sem importar de `@/queries` nem de `@/pages`. Nenhum comando do Prumo mexe nessas pastas.
 
 ## Validar a entrada
 
@@ -455,4 +486,5 @@ Para que as mensagens de validação saiam traduzidas, escreva-as como chaves de
 1. Apague `src/repositories/<domínio>/`, `src/queries/<domínio>.ts` e `src/schemas/entities/<entidade>.ts`.
 2. Tire o import, o `export *` e a entrada do mapa `factories` em `src/repositories/index.ts`.
 3. Tire as linhas do domínio em `src/schemas/index.ts` e `src/queries/index.ts`.
-4. Rode `pnpm verify`: o `tsc` aponta o que ainda usa o domínio.
+4. Tire as telas que o usam (`src/pages/<tela>` e a rota em `src/App.tsx`) e o texto `<ENTIDADE>_NOT_FOUND` dos `errors.json`.
+5. Rode `pnpm verify`: o `tsc` aponta o que ainda usa o domínio.

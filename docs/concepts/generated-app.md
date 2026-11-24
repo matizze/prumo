@@ -7,6 +7,7 @@ Este documento descreve, arquivo por arquivo, o app que o `prumo new` cria e o q
 ```text
 meu-app/
   .gitignore
+  .mcp.json                       registra o servidor MCP do Prumo para agentes de IA
   AGENTS.md                       guia do projeto para agentes de IA
   README.md
   eslint.config.js                ESLint com o plugin do Prumo
@@ -80,6 +81,10 @@ O plugin do React, o alias `@` e a configuração do Vitest: ambiente `jsdom`, `
 ### `eslint.config.js`
 
 As configurações recomendadas do ESLint, do typescript-eslint e do `react-hooks`, mais `prumo.configs.recommended`, que liga as regras `prumo/no-cross-page-import` e `prumo/page-structure`.
+
+### `.mcp.json`
+
+O `.mcp.json` registra o servidor MCP `prumo` (`pnpm exec prumo mcp`, por stdio) para os agentes de IA que leem esse arquivo na raiz do projeto. O servidor oferece como ferramentas os geradores (`make_schema`, `make_repository`, `make_query` e `make_page`), o `check` e o `list`. Veja [`prumo mcp`](../reference/cli.md#prumo-mcp).
 
 ### `AGENTS.md`
 

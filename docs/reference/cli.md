@@ -2,7 +2,7 @@
 
 O comando `prumo`, do pacote [`@matizze/prumo-cli`](https://www.npmjs.com/package/@matizze/prumo-cli).
 
-> **Os comandos estão sendo reescritos.** A CLI foi refeita com o commander, e os comandos voltam um a um nas próximas versões. Por enquanto ela tem o `new`, o `make:schema`, o `make:repository`, o `check`, a ajuda, a versão e os códigos de saída descritos aqui.
+> **Os comandos estão sendo reescritos.** A CLI foi refeita com o commander, e os comandos voltam um a um nas próximas versões. Por enquanto ela tem o `new`, o `make:schema`, o `make:repository`, o `make:query`, o `check`, a ajuda, a versão e os códigos de saída descritos aqui.
 
 ```text
 prumo [opções] [comando]
@@ -13,6 +13,7 @@ prumo [opções] [comando]
 | [`new <nome>`](#prumo-new)         | Cria um app React organizado em camadas               |
 | [`make:schema <domínio>`](#prumo-makeschema) | Cria o schema (zod) de uma entidade, com os campos |
 | [`make:repository <domínio>`](#prumo-makerepository) | Cria o repositório de um domínio (contrato, mock e teste de contrato) e acrescenta fontes (`http`, `storage`) |
+| [`make:query <domínio>`](#prumo-makequery) | Cria as queries e mutations de um domínio (chaves e hooks de lista, detalhe e escrita) |
 | [`check`](#prumo-check)            | Confere a arquitetura do projeto                      |
 
 ## Como rodar
@@ -155,6 +156,30 @@ Cada fonte acrescentada:
 | `http`    | `repository.http.ts`    | A classe `Http<Domínio>Repository`: `fetch` na API pelo cliente `src/repositories/http.ts`. O backend responde no formato do app (`{ items, total }`, com os campos do schema) e o repositório só valida cada resposta com o schema, sem traduzir formato. A lista envia `search`, `sort=<campo>:<asc\|desc>`, `page` e `page_size`; o id vai codificado na URL; o `update` é `PATCH` (o contrato aceita `Partial<Input>`); o 404 vira `UIError('<ENTIDADE>_NOT_FOUND')`. |
 
 Na primeira fonte `http` do app, o comando cria também `src/repositories/http.ts` (o cliente, com `createHttp`, `HttpError` e o tipo `Http`), `src/repositories/api.ts` (a instância, com `import.meta.env.VITE_API_URL || '/api'` e o lugar comentado do token da sessão) e `src/vite-env.d.ts`, se faltar. Das vezes seguintes, reaproveita os que já existem. Em qualquer fonte que não é o mock, o comando também cria o `src/vite-env.d.ts` se faltar e troca, no container, o `resolveDataSource(undefined, DATA_SOURCES, 'mock')` de um app antigo pela versão que lê a `VITE_DATA_SOURCE` (container com outra forma fica como está, e o comando avisa como ligar). O cliente HTTP só lê o corpo quando ele é JSON (`content-type` com `json`, ou texto que começa com `{` ou `[`; corpo vazio ou outro texto vira `undefined`), tira a barra do fim do endereço e trata a `VITE_API_URL` vazia como ausente. O storage confere cada registro com o schema na leitura (descarta só o inválido, com aviso) e antes de gravar (rejeita com `UIError('<ENTIDADE>_INVALID')`, cujo texto o comando acrescenta ao `errors.json`). O contrato do `http` só roda com uma API de teste (`API_TEST_URL`); sem ela fica pulado, com o motivo no título. O guia [Ligar uma API real](../guides/real-api.md) mostra o `.env`, o token e o teste contra uma API de teste.
+
+## `prumo make:query`
+
+```text
+prumo make:query <domínio> [--entity <singular>] [--root <pasta>] [--dry-run]
+```
+
+Cria as queries e as mutations de um domínio, em cima do repositório dele. Precisa do repositório (`prumo make:repository`); sem ele, sai com 2 e diz o comando a rodar (`rode prumo make:repository <domínio>`, com `--entity` quando a entidade não é a automática).
+
+Cria `src/queries/<domínio>.ts` com:
+
+| Nome                          | O que é                                                                                                  |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `<entidade>Keys`              | As chaves do cache (`all`, `lists`, `list(consulta)` e `detail(id)`), por `createQueryKeys` do core      |
+| `<entidade>Queries`           | As opções (`queryOptions`) de `list` e `detail`, que recebem o repositório                               |
+| `use<Domínio>List`            | A lista, com a consulta (busca, ordem, página) e as opções do `useQuery`; mantém a consulta anterior na tela até a nova chegar |
+| `use<Entidade>Detail`         | O detalhe de um registro pelo id                                                                         |
+| `useCreate<Entidade>`         | Cria; invalida tudo do domínio                                                                           |
+| `useUpdate<Entidade>`         | Atualiza (`{ id, input }`, com `Partial` da entrada); invalida tudo do domínio                           |
+| `useRemove<Entidade>`         | Remove; tira o detalhe do cache e invalida só as listas                                                  |
+
+E registra o domínio em `src/queries/index.ts`, com um `export { ... } from './<domínio>'` em ordem alfabética (aceita os mesmos nomes, de modo que `@/queries` e `@/queries/<domínio>` servem). Os hooks usam só o contrato do repositório, pelo `useRepositories()`: valem para qualquer fonte (mock, storage ou http) e o comando não lê os campos do schema. O `--entity` é o mesmo do `make:schema` e do `make:repository`.
+
+O comando valida tudo antes de escrever e nunca sobrescreve: repositório que falta, query que já existe (o arquivo ou o export no índice) e índice que falta saem com 2, sem deixar nada pela metade. `--dry-run` lista o que seria criado e alterado, sem escrever. No fim, mostra o que fez e o próximo passo: `prumo make:page <domínio> --query <domínio>`.
 
 ## `prumo check`
 

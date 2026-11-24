@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { APP_FILES } from '../generators/app.ts'
 import { MESSAGE_LANGUAGES, PAGE_FILES } from '../generators/page.ts'
 import { HTTP_CLIENT_FILES, REPOSITORY_FILES, SOURCE_FILES } from '../generators/repository.ts'
+import { QUERY_FILE } from '../generators/query.ts'
 import { SCHEMA_FILE } from '../generators/schema.ts'
 import { deriveNames } from './names.ts'
 import {
@@ -64,6 +65,7 @@ const GENERATED: { template: string; to: string }[] = [
   ...APP_FILES,
   ...PAGE_FILES,
   SCHEMA_FILE,
+  QUERY_FILE,
   ...REPOSITORY_FILES,
   ...Object.values(SOURCE_FILES),
   ...HTTP_CLIENT_FILES,
@@ -76,7 +78,7 @@ const GENERATED: { template: string; to: string }[] = [
 /**
  * Os modelos que ainda esperam o gerador dos passos seguintes da reescrita (a query e as outras variações da tela). Cada passo tira o seu daqui ao ligar o modelo.
  */
-const WAITING = [/^domain\/queries/, /^page\/(index|model|view)-(domain|param|detail)/, /^page\/messages-domain/]
+const WAITING = [/^page\/(index|model|view)-(domain|param|detail)/, /^page\/messages-domain/]
 
 describe('os modelos', () => {
   const files = (dir: string): string[] =>
@@ -132,9 +134,10 @@ describe('os modelos', () => {
       'app.title': 'Clientes',
       'route.path': '/clientes',
     }
-    // O schema e o repositório dependem dos campos: os testes dos geradores os renderizam
+    // O schema, o repositório e as queries dependem dos nomes de domínio e entidade: os testes dos geradores os renderizam
     const needsFields = (template: string) =>
       template === SCHEMA_FILE.template ||
+      template === QUERY_FILE.template ||
       [...REPOSITORY_FILES, ...Object.values(SOURCE_FILES)].some((file) => file.template === template)
     for (const { template } of GENERATED.filter(({ template }) => !needsFields(template))) {
       const text = renderTemplateFile(template, vars)

@@ -1,73 +1,13 @@
-import { spawnSync } from 'node:child_process'
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs'
-import { createRequire } from 'node:module'
-import { tmpdir } from 'node:os'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { exec } from '../test-support.ts'
+import { project, SETUP_STORAGE, tsc, vitest } from './compile-test-support.ts'
 
 /**
- * O repositório gerado de verdade: um projeto mínimo numa pasta temporária recebe o schema (do
- * `make:schema`, às vezes editado à mão) e o repositório (do `make:repository`), e o `tsc` roda
- * nele. As dependências vêm por atalhos para o que o monorepo já instala (nada é baixado).
+ * O repositório gerado de verdade: o projeto temporário (`compile-test-support.ts`) recebe o schema (do
+ * `make:schema`, às vezes editado à mão) e o repositório (do `make:repository`), e o `tsc` roda nele.
  */
-const PACKAGES = path.resolve(import.meta.dirname, '../../..')
-const REQUIRE = createRequire(import.meta.url)
-
-const DEPENDENCIES: Record<string, string> = { zod: 'core', vitest: 'cli', '@types/node': 'cli' }
-
-const OPTIONS = `import type { RepositoryOptions as CoreRepositoryOptions } from '@matizze/prumo-core/repositories'
-
-export const DATA_SOURCES = ['mock'] as const
-
-export type DataSource = (typeof DATA_SOURCES)[number]
-
-export type RepositoryOptions = CoreRepositoryOptions<DataSource>
-`
-
-const REPOSITORIES_INDEX = `import {
-  createRepositoryContainer,
-  resolveDataSource,
-  type RepositoryContainerOf,
-} from '@matizze/prumo-core/repositories'
-import { DATA_SOURCES, type RepositoryOptions } from './options'
-
-export { DATA_SOURCES, type DataSource, type RepositoryOptions } from './options'
-
-const factories = {}
-
-export type RepositoryContainer = RepositoryContainerOf<typeof factories>
-
-export function createRepositories(options: Partial<RepositoryOptions> = {}): RepositoryContainer {
-  const dataSource = options.dataSource ?? resolveDataSource(undefined, DATA_SOURCES, 'mock')
-  return createRepositoryContainer(factories, { ...options, dataSource })
-}
-`
-
-/** O `localStorage` em memória: o projeto de teste roda no Node, que não tem um (o app tem, pelo jsdom). */
-const SETUP_STORAGE = `import { vi } from 'vitest'
-
-const data = new Map<string, string>()
-
-vi.stubGlobal('localStorage', {
-  get length() {
-    return data.size
-  },
-  clear: () => data.clear(),
-  getItem: (key: string) => data.get(key) ?? null,
-  key: (index: number) => [...data.keys()][index] ?? null,
-  removeItem: (key: string) => void data.delete(key),
-  setItem: (key: string, value: string) => void data.set(key, value),
-} satisfies Storage)
-`
 
 /**
  * Uma API de clientes falsa, na memória, no lugar do \`fetch\` global: segue o formato do app
@@ -149,83 +89,6 @@ vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit)
 })
 `
 
-const TSCONFIG = {
-  compilerOptions: {
-    target: 'es2023',
-    lib: ['ES2023', 'DOM'],
-    module: 'esnext',
-    types: ['node'],
-    skipLibCheck: true,
-    moduleResolution: 'bundler',
-    allowImportingTsExtensions: true,
-    resolveJsonModule: true,
-    verbatimModuleSyntax: true,
-    moduleDetection: 'force',
-    jsx: 'react-jsx',
-    noEmit: true,
-    strict: true,
-    noUnusedLocals: true,
-    noUnusedParameters: true,
-    erasableSyntaxOnly: true,
-    noFallthroughCasesInSwitch: true,
-    noUncheckedIndexedAccess: true,
-    paths: { '@/*': ['./src/*'] },
-  },
-  include: ['src'],
-}
-
-const roots: string[] = []
-afterAll(() => {
-  for (const root of roots) rmSync(root, { recursive: true, force: true })
-})
-
-/** Um projeto mínimo, com o schema `clientes` gerado e o repositório ainda por gerar. */
-async function project(fields = 'nome:string,idade:int,ativo:boolean'): Promise<string> {
-  const root = mkdtempSync(path.join(tmpdir(), 'prumo-repository-'))
-  roots.push(root)
-  const write = (file: string, content: string) => {
-    mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
-    writeFileSync(path.join(root, file), content)
-  }
-  write('package.json', '{ "name": "app", "type": "module" }\n')
-  write('tsconfig.json', `${JSON.stringify(TSCONFIG, null, 2)}\n`)
-  write(
-    'vitest.config.ts',
-    `import path from 'node:path'
-import { defineConfig } from 'vitest/config'
-
-export default defineConfig({
-  resolve: { alias: { '@': path.resolve(import.meta.dirname, 'src') }, dedupe: ['vitest'] },
-  test: { include: ['src/**/*.test.{ts,tsx}'], setupFiles: ['./src/test/setup.ts'] },
-})
-`,
-  )
-  write('src/test/setup.ts', SETUP_STORAGE)
-  write('src/schemas/index.ts', "export * from '@matizze/prumo-core/data'\n")
-  write('src/repositories/options.ts', OPTIONS)
-  write('src/repositories/index.ts', REPOSITORIES_INDEX)
-  for (const [dependency, owner] of Object.entries(DEPENDENCIES)) {
-    const link = path.join(root, 'node_modules', dependency)
-    mkdirSync(path.dirname(link), { recursive: true })
-    symlinkSync(realpathSync(path.join(PACKAGES, owner, 'node_modules', dependency)), link)
-  }
-  // O vite, para o `/// <reference types="vite/client" />` do src/vite-env.d.ts que o comando cria
-  const vite = path.dirname(
-    createRequire(path.join(realpathSync(path.join(root, 'node_modules', 'vitest')), 'package.json')).resolve(
-      'vite/package.json',
-    ),
-  )
-  symlinkSync(vite, path.join(root, 'node_modules', 'vite'))
-  for (const name of ['core', 'testing']) {
-    const link = path.join(root, 'node_modules', '@matizze', `prumo-${name}`)
-    mkdirSync(path.dirname(link), { recursive: true })
-    symlinkSync(path.join(PACKAGES, name), link)
-  }
-  const made = await exec(['make:schema', 'clientes', '--fields', fields], root)
-  expect(made.code, made.stderr).toBe(0)
-  return root
-}
-
 const SCHEMA = 'src/schemas/entities/cliente.ts'
 
 function edit(root: string, change: (text: string) => string): void {
@@ -236,24 +99,6 @@ function edit(root: string, change: (text: string) => string): void {
 async function generate(root: string, ...extra: string[]): Promise<void> {
   const result = await exec(['make:repository', 'clientes', ...extra], root)
   expect(result.code, `${result.stdout}${result.stderr}`).toBe(0)
-}
-
-function tsc(root: string): { status: number | null; output: string } {
-  const result = spawnSync(process.execPath, [REQUIRE.resolve('typescript/bin/tsc'), '-p', 'tsconfig.json'], {
-    cwd: root,
-    encoding: 'utf8',
-  })
-  return { status: result.status, output: `${result.stdout}${result.stderr}` }
-}
-
-function vitest(root: string, env: Record<string, string> = {}): { status: number | null; output: string } {
-  const bin = path.join(realpathSync(path.join(root, 'node_modules', 'vitest')), 'vitest.mjs')
-  const result = spawnSync(process.execPath, [bin, 'run', '--reporter=verbose'], {
-    cwd: root,
-    encoding: 'utf8',
-    env: { ...process.env, API_TEST_URL: '', ...env },
-  })
-  return { status: result.status, output: `${result.stdout}${result.stderr}` }
 }
 
 describe('o repositório gerado compila (tsc estrito) e passa no contrato', () => {

@@ -8,16 +8,154 @@ pnpm add @matizze/prumo-core
 
 | Subcaminho                                          | Conteúdo                                                                          |
 | --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [`@matizze/prumo-core/http`](#http)                 | `createHttp`, `createMockHttp`, `HttpError` e os tipos do cliente                 |
+| [`@matizze/prumo-core/use-cases`](#use-cases)       | `IUseCase`, `createUseCasesContext`, `resolveDataSource`                          |
 | [`@matizze/prumo-core/repositories`](#repositories) | `createRepositoryContainer`, `resolveDataSource`, `createRepositoryContext`       |
 | [`@matizze/prumo-core/query`](#query)               | `createQueryKeys`, `createQueryClient`, `QueryProvider`, `ErrorMeta`               |
 | [`@matizze/prumo-core/i18n`](#i18n)                 | `defineI18n`, `createFormat`, `resolveLocale` e os tipos de mensagens              |
 | [`@matizze/prumo-core/errors`](#errors)             | `UIError`, `createErrorMessage`                                                    |
 | [`@matizze/prumo-core/date`](#date)                 | `addDays`, `daysBetween`, `parseLocalDate`                                        |
 | [`@matizze/prumo-core/data`](#data)                 | `pageSchema`, `Page`, `PageQuery`, `Sort`, `SortDirection`, `DateRange`           |
-| [`@matizze/prumo-core/mock`](#mock)                 | `wait`, `normalize`, `matchesSearch`, `sortBy`, `paginate`, `sum`, `addDays`      |
+| [`@matizze/prumo-core/mock`](#mock)                 | `createMockCollection`, `wait`, `normalize`, `matchesSearch`, `sortBy`, `paginate`, `sum`, `addDays` |
 | [`@matizze/prumo-core/auth`](#auth)                 | `AuthGuard`, `useAuthOrigin`, `safeRedirectPath`, `buildLoginRedirect`, `readOrigin` |
 
 **Peer dependencies:** `react` ^19.3, `@tanstack/react-query` ^5.105, `zod` ^4.6, `i18next` ^26.4, `react-i18next` ^17.0, `i18next-icu` ^2.5, `i18next-browser-languagedetector` ^8.2 e `wouter` ^3.13. O projeto instala as que os módulos que usa pedem.
+
+---
+
+## http
+
+O cliente HTTP do app e o `http` de mentira, para trabalhar sem backend. Nenhum dos dois depende de React.
+
+### `createHttp(options)`
+
+```ts
+function createHttp(options: HttpOptions): Http
+type Http = (path: string, request?: HttpRequest) => Promise<unknown>
+```
+
+Junta o endereço da API, o token da sessão e o tratamento do 401. Devolve o corpo da resposta em JSON, ou `undefined` quando o corpo é vazio ou não é JSON (um 204, um `OK`), e lança `HttpError` nos status de erro. Quem chama valida o corpo (com o schema do zod). O `Content-Type: application/json` só vai quando a chamada tem corpo, para um GET não forçar o preflight do CORS.
+
+| Opção     | Descrição                                                                                                                                                         |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `baseUrl` | O endereço da API. A barra no fim é aparada: `http://api/` e `http://api` dão no mesmo.                                                                           |
+| `headers` | `() => Record<string, string>`: cabeçalhos de toda chamada.                                                                                                       |
+| `auth`    | `{ getToken, refresh }`: manda o `Authorization: Bearer` da sessão e, num 401, chama `refresh(token)`; com `true`, repete a chamada **uma vez** com o token novo. |
+| `fetch`   | Troca o `fetch` (testes, sem rede).                                                                                                                               |
+
+`HttpRequest`: `method` (`'GET'` por padrão), `body` (vai como JSON) e `query` (`Record<string, string | number | boolean | undefined>`, que vira a query string; os `undefined` ficam de fora).
+
+```ts
+const http = createHttp({ baseUrl: import.meta.env.VITE_API_URL })
+const livros = await http('/livros', { query: { search: 'dom', page: 2, sort: undefined } })
+// GET /livros?search=dom&page=2
+```
+
+### `HttpError`
+
+`Error` com `status` (o código HTTP), `body` e a mensagem `<MÉTODO> <caminho>: HTTP <status>`. O `body` é o JSON da resposta de erro, quando houver (o código de erro do backend, os erros de validação de um 422), para o use case ler; é `undefined` para um corpo vazio ou que não é JSON. O use case traduz o que o erro significa no domínio.
+
+```ts
+try {
+  await http('/livros', { method: 'POST', body })
+} catch (error) {
+  if (error instanceof HttpError && error.status === 422) showErrors(error.body)
+}
+```
+
+### `createMockHttp(routes, options?)`
+
+```ts
+function createMockHttp<Key extends MockRouteKey>(
+  routes: MockRoutes<Key>,
+  options?: { latencyMs?: number },
+): Http
+```
+
+Um `Http` de mentira que responde pelas rotas, sem rede e sem dependência (a ideia do MSW). Os use cases rodam como em produção, e só o transporte é trocado.
+
+- A chave de cada rota é `'<MÉTODO> <caminho>'`, com `:parâmetros`: `'GET /livros'`, `'GET /livros/:id'`, `'POST /auth/sign-in'`. O método é um de `GET`, `POST`, `PUT`, `PATCH` e `DELETE`, e o tipo da chave (`MockRouteKey`) recusa o resto na compilação. Uma chave mal escrita, ou com `?` ou `#`, lança um erro na criação (a query vai no `request`, não na chave). Os segmentos fixos podem ter acento: `'GET /ação'` casa com `/ação` e com `/a%C3%A7%C3%A3o`.
+- O handler recebe `{ params, query, body }` e devolve o corpo da resposta (ou uma Promise dele). O tipo de `params` sai da chave: `'GET /livros/:id'` dá `params: { id: string }`. Os valores vêm decodificados (`/livros/a%20b` dá `{ id: 'a b' }`), e `query` é a query string em texto (na chave repetida, fica o último valor).
+- Lançar `HttpError` simula um status de erro.
+- Uma chamada sem rota lança `MissingMockRouteError` (com `method` e `path`, e o método e o caminho na mensagem). **Não** é um `HttpError`: é um erro de configuração do mock, e um 404 viraria "registro não encontrado" na tela. Para simular um 404 da API, lance `HttpError(404)` no handler.
+- O corpo enviado e o devolvido passam por um ida e volta de JSON, como na rede: uma `Date` vira texto, e mexer no que voltou não muda a fixture.
+- Com mais de uma rota casando, vale a mais específica: na primeira diferença, segmento a segmento, o fixo ganha do parâmetro (`/livros/novo` ganha de `/livros/:id`, e `/me/:a/:b` de `/:org/repos/:repo` em `/me/repos/x`).
+- `latencyMs` é a latência simulada de cada chamada, usando o `wait` de [`/mock`](#mock). O padrão é `0`, para os testes ficarem rápidos; o app passa um valor (300, por exemplo) no desenvolvimento.
+
+```ts
+const livros = createMockCollection(MOCK_LIVROS, {
+  idPrefix: 'livro',
+  searchFields: (l) => [l.title],
+})
+
+const http = createMockHttp(
+  {
+    'GET /livros': ({ query }) => livros.list(query),
+    'GET /livros/:id': ({ params }) => livros.get(params.id),
+    'POST /auth/sign-in': () => {
+      throw new HttpError(401, 'Credenciais inválidas')
+    },
+  },
+  { latencyMs: 300 },
+)
+```
+
+---
+
+## use-cases
+
+O contrato dos use cases e o contexto que entrega o container deles às telas.
+
+### `IUseCase<TInput, TOutput>`
+
+```ts
+interface IUseCase<TInput, TOutput> {
+  execute(input: TInput): Promise<TOutput>
+}
+type UseCaseInput<U> // o TInput de um use case
+type UseCaseOutput<U> // o TOutput de um use case
+```
+
+Uma ação do app com nome de verbo. `UseCaseInput<SignInUseCase>` e `UseCaseOutput<SignInUseCase>` extraem os tipos.
+
+```ts
+export class SignInUseCase implements IUseCase<SignInInput, SignInOutput> {
+  readonly #http: Http
+
+  constructor(http: Http) {
+    this.#http = http
+  }
+
+  async execute(input: SignInInput): Promise<SignInOutput> {
+    const body = await this.#http('/auth/sign-in', {
+      method: 'POST',
+      body: SignInInput.parse(input),
+    })
+    return SignInOutput.parse(body)
+  }
+}
+```
+
+### `createUseCasesContext(createDefault?)`
+
+```ts
+function createUseCasesContext<C>(createDefault?: () => C): {
+  UseCasesProvider: ComponentType<{ children: ReactNode; value?: C }>
+  useUseCases: () => C
+}
+```
+
+Cria o provedor e o hook do container de use cases do app, tipado com o container dele. É o mesmo desenho do [`createRepositoryContext`](#createrepositorycontextcreatedefault): `value` injeta o container (nos testes), e sem ele o provedor chama `createDefault` uma vez por montagem. Sem `value` nem `createDefault`, o provedor lança um erro. O hook lança fora do provedor.
+
+```tsx
+export const { UseCasesProvider, useUseCases } = createUseCasesContext(() =>
+  createUseCases({ http }),
+)
+
+const { signIn } = useUseCases()
+```
+
+`@matizze/prumo-core/use-cases` também exporta o `resolveDataSource`, o mesmo de [`repositories`](#repositories), reexportado: escolhe a fonte de dados (`mock` ou `http`) a partir de uma variável de ambiente e falha em vez de cair em silêncio em outra.
 
 ---
 
@@ -350,7 +488,47 @@ const lateDays = daysBetween(dueDate, '2026-12-10') // 4
 
 ## mock
 
-Utilitários para os repositórios em memória.
+Utilitários para os dados em memória dos mocks: a coleção que as rotas de um CRUD dividem e as funções de busca, ordenação e paginação.
+
+### `createMockCollection(fixtures, options)`
+
+```ts
+function createMockCollection<T extends { id: string; createdAt: string }>(
+  fixtures: readonly T[],
+  options: {
+    idPrefix: string
+    searchFields: (item: T) => string[]
+    sortFields?: Record<string, (item: T) => string | number>
+  },
+): MockCollection<T>
+```
+
+A coleção em memória, para os mocks do `createMockHttp`. Parte de uma **cópia** das `fixtures`, que nunca mudam. Os erros são `HttpError`, porque o mock mora no transporte. Tudo o que a coleção devolve é uma cópia: mexer nela não muda a coleção.
+
+| Método                | Descrição                                                                                                                                                                                                                                                                                       |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list(query?)`        | `{ items, total }`. `query`: `search` (nos `searchFields`, sem acento nem caixa), `sort` (`<campo>:<asc\|desc>`, como `createdAt:desc`), `page` (a partir de 1) e `page_size`. Números ou textos, então a `query` de uma rota entra direto. Um `sort` ou número malformado dá `HttpError(400)`. Devolve cópias. |
+| `get(id)`             | Uma cópia do registro, ou `HttpError(404)`.                                                                                                                                                                                                                                                                |
+| `create(input)`       | Gera `id` (`<idPrefix>-<sequência>`, pulando os que já existem) e `createdAt`.                                                                                                                                                                                                                  |
+| `update(id, changes)` | Muda só os campos enviados (`undefined` não muda; `id` e `createdAt` nunca mudam) e devolve o registro inteiro; 404 sem o id.                                                                                                                                                                                                   |
+| `remove(id)`          | Remove o registro; 404 sem o id.                                                                                                                                                                                                                                                                |
+| `reset()`             | Volta às fixtures de partida, para um teste não ver o estado do outro.                                                                                                                                                                                                                          |
+
+O `sort` lê a propriedade de mesmo nome do item, ou o acessor de `sortFields`, quando ele existe.
+
+```ts
+const livros = createMockCollection(MOCK_LIVROS, {
+  idPrefix: 'livro',
+  searchFields: (livro) => [livro.title, livro.author],
+})
+
+livros.create({ title: 'Quincas Borba', author: 'Machado' }) // { id: 'livro-4', createdAt: '...', ... }
+livros.list({ search: 'machado', sort: 'title:asc', page: 1, page_size: 10 })
+```
+
+### Funções de apoio
+
+Busca, ordenação, paginação e soma para os dados em memória.
 
 | Função                                          | Descrição                                                                                                  |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |

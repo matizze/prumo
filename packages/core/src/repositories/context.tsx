@@ -1,10 +1,9 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import {
+  createContainerContext,
+  type ContainerProviderProps,
+} from '../internal/container-context.tsx'
 
-export interface RepositoryProviderProps<C> {
-  children: ReactNode
-  /** Container injetado (nos testes). Sem ele, o provedor cria o padrão do produto. */
-  value?: C
-}
+export type RepositoryProviderProps<C> = ContainerProviderProps<C>
 
 /**
  * Cria o contexto de repositórios de um produto, já tipado com o container dele.
@@ -13,32 +12,13 @@ export interface RepositoryProviderProps<C> {
  * `value` passa a ser obrigatório.
  */
 export function createRepositoryContext<C>(createDefault?: () => C) {
-  const RepositoryContext = createContext<C | null>(null)
-
-  function RepositoryProvider({ children, value }: RepositoryProviderProps<C>) {
-    // useState (e não useMemo) garante uma única criação por montagem
-    const [initial] = useState(() => {
-      if (value !== undefined) return value
-      if (!createDefault) {
-        throw new Error(
-          'RepositoryProvider precisa de `value`: passe o container ou informe `createDefault` em createRepositoryContext',
-        )
-      }
-      return createDefault()
-    })
-
-    return (
-      <RepositoryContext.Provider value={value ?? initial}>{children}</RepositoryContext.Provider>
-    )
-  }
-
-  function useRepositories(): C {
-    const ctx = useContext(RepositoryContext)
-    if (ctx === null) {
-      throw new Error('useRepositories must be used within a RepositoryProvider')
-    }
-    return ctx
-  }
-
-  return { RepositoryProvider, useRepositories }
+  const { Provider, useContainer } = createContainerContext(
+    {
+      provider: 'RepositoryProvider',
+      hook: 'useRepositories',
+      factory: 'createRepositoryContext',
+    },
+    createDefault,
+  )
+  return { RepositoryProvider: Provider, useRepositories: useContainer }
 }

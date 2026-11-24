@@ -9,6 +9,7 @@ import {
   createRenderWithProviders,
   createTestQueryClient,
   createTestRepositories,
+  createTestUseCases,
 } from './render.tsx'
 
 afterEach(() => {
@@ -362,5 +363,127 @@ describe('renderHookWithProviders', () => {
     act(() => navigate('/b'))
     expect(result.current.location).toBe('/b')
     expect(currentPath()).toBe('/b')
+  })
+})
+
+// Use cases: o container de use cases ao lado (ou no lugar) do de repositórios
+interface FakeUseCases {
+  getStores: { execute: (input: { q: string }) => Promise<string[]> }
+}
+
+const UseCasesContext = createContext<FakeUseCases | null>(null)
+
+function useFakeUseCases() {
+  const container = useContext(UseCasesContext)
+  if (!container) throw new Error('sem UseCasesContext')
+  return container
+}
+
+function UseCasesOnlyProviders({
+  children,
+  useCases,
+}: {
+  children: ReactNode
+  useCases: FakeUseCases
+}) {
+  return <UseCasesContext.Provider value={useCases}>{children}</UseCasesContext.Provider>
+}
+
+const createFakeUseCases = (): FakeUseCases => ({
+  getStores: { execute: async ({ q }) => [`loja ${q}`] },
+})
+
+describe('use cases', () => {
+  const useCasesBinding = {
+    Providers: UseCasesOnlyProviders,
+    createUseCases: (overrides?: Partial<FakeUseCases>) =>
+      createTestUseCases(createFakeUseCases, overrides),
+    createQueryClient,
+  }
+
+  it('createTestUseCases aplica os overrides por cima do container', async () => {
+    const execute = vi.fn(async () => ['trocada'])
+    const useCases = createTestUseCases(createFakeUseCases, { getStores: { execute } })
+    expect(await useCases.getStores.execute({ q: 'a' })).toEqual(['trocada'])
+    expect(await createTestUseCases(createFakeUseCases).getStores.execute({ q: 'a' })).toEqual([
+      'loja a',
+    ])
+  })
+
+  it('renderWithProviders entrega o container de use cases, sem repositórios', async () => {
+    const render = createRenderWithProviders(useCasesBinding)
+
+    function Stores() {
+      const { getStores } = useFakeUseCases()
+      const { data } = useQuery({
+        queryKey: ['stores'],
+        queryFn: () => getStores.execute({ q: 'x' }),
+      })
+      return <p>{data?.join(',') ?? 'carregando'}</p>
+    }
+
+    const { useCases } = render(<Stores />)
+    expect(await screen.findByText('loja x')).toBeTruthy()
+    expect(Object.keys(useCases)).toEqual(['getStores'])
+  })
+
+  it('o teste troca só o use case que precisa', async () => {
+    const render = createRenderWithProviders(useCasesBinding)
+    const execute = vi.fn(async () => ['da troca'])
+
+    function Stores() {
+      const { getStores } = useFakeUseCases()
+      const { data } = useQuery({ queryKey: ['s'], queryFn: () => getStores.execute({ q: '' }) })
+      return <p>{data?.join(',') ?? 'carregando'}</p>
+    }
+
+    const { useCases } = render(<Stores />, { useCases: { getStores: { execute } } })
+    expect(await screen.findByText('da troca')).toBeTruthy()
+    expect(useCases.getStores.execute).toBe(execute)
+  })
+
+  it('convive com os repositórios no mesmo render', () => {
+    function BothProviders({
+      children,
+      repositories,
+      useCases,
+    }: {
+      children: ReactNode
+      repositories: FakeContainer
+      useCases: FakeUseCases
+    }) {
+      return (
+        <FakeProviders repositories={repositories}>
+          <UseCasesOnlyProviders useCases={useCases}>{children}</UseCasesOnlyProviders>
+        </FakeProviders>
+      )
+    }
+    const render = createRenderWithProviders({
+      Providers: BothProviders,
+      createRepositories,
+      createUseCases: useCasesBinding.createUseCases,
+      createQueryClient,
+    })
+
+    function Both() {
+      return (
+        <p>{`${useFakeRepositories().users.name()} ${typeof useFakeUseCases().getStores.execute}`}</p>
+      )
+    }
+
+    render(<Both />)
+    expect(screen.getByText('Ana function')).toBeTruthy()
+  })
+
+  it('renderHookWithProviders também recebe e devolve os use cases', async () => {
+    const renderHook = createRenderHookWithProviders(useCasesBinding)
+    const execute = vi.fn(async () => ['hook'])
+
+    const { result, useCases } = renderHook(() => useFakeUseCases().getStores, {
+      useCases: { getStores: { execute } },
+    })
+
+    expect(await result.current.execute({ q: '' })).toEqual(['hook'])
+    expect(useCases.getStores.execute).toBe(execute)
   })
 })

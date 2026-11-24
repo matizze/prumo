@@ -61,7 +61,7 @@ packages/cli/
 
 Cada comando é um arquivo que exporta um `RegisterCommand` (recebe o programa e o `io`); o `commands/index.ts` lista todos, na ordem da ajuda, e o `program.ts` os registra. O comando fica fino: lê os argumentos, chama o gerador, escreve o resultado pelo `io` (o `shared.ts` traz o que os comandos repetem: as opções `--root` e `--dry-run` e o "Criados" e "Alterados") e, sem `--dry-run`, grava o plano. Um erro lançado como `UsageError` sai com 2 e escreve só `prumo: <mensagem>` (o erro de opção ou argumento, que o commander acha, traz também a linha de uso e o "Veja"); `ExitError` sai com o código dele; qualquer outro erro sai com 1, a mensagem e, só com `PRUMO_DEBUG=1`, a pilha. Cada comando termina a ajuda com `documentCommand` (`commands/help-text.ts`): os exemplos e o link da seção dele em `docs/reference/cli.md`; mude a ajuda e a referência juntas. Os comandos acham o projeto com `locateProject` (`lib/project.ts`), que sobe da pasta atual quando não há `--root`.
 
-A função `run(argv, io)` devolve o código de saída e nunca encerra o processo; por baixo, `execute` devolve também o tipo de saída (`ok`, `usage`, `exit` ou `unexpected`), que o servidor MCP usa para separar a violação do `check` de um erro inesperado, sem ler o stderr. Os comandos nunca escrevem direto no terminal: é o `io` que deixa os testes rodarem sem subprocesso. O `bin.ts` é o único que usa `process.stdout`, `process.stderr` e `process.exitCode`. Os testes de cada comando (`commands/*.test.ts`) usam o `test-support.ts` (`makeProject` e `exec`) e rodam o comando numa pasta temporária.
+A função `run(argv, io)` devolve o código de saída e nunca encerra o processo; por baixo, `execute` devolve também o tipo de saída (`ok`, `usage`, `exit` ou `unexpected`), que o servidor MCP usa para separar a violação do `check` de um erro inesperado, sem ler o stderr. Os comandos nunca escrevem direto no terminal: é o `io` que deixa os testes rodarem sem subprocesso. O `bin.ts` é o único que usa `process.stdout`, `process.stderr` e `process.exitCode`. Os testes de cada comando (`commands/*.test.ts`) usam o apoio em `src/test/` (`makeProject` e `makeDir`, de `fs.ts`; `exec` e `captureIo`, de `run.ts`) e rodam o comando numa pasta temporária.
 
 ### `generators/` e o plano
 
@@ -90,7 +90,15 @@ O servidor do `prumo mcp` (o comando fica em `commands/mcp.ts`, que só confere 
 
 ### Os testes
 
-Cada gerador tem um teste unitário (`generators/*.test.ts`) e cada codemod também. Os testes de compilação (`generators/*.compile.test.ts`) vão além: o `generators/compile-test-support.ts` monta um projeto mínimo numa pasta temporária, com atalhos para as dependências que o monorepo já instala (nada é baixado), aplica o que o gerador planejou e roda o `tsc` e o `vitest` nesse projeto. É o que prova que o código gerado compila e que o teste de contrato passa, para as três fontes. O `packaging.test.ts` confere o tarball (veja acima), e o `verify-new.test.ts` confere a estrutura do script do portão.
+Cada gerador tem um teste unitário (`generators/*.test.ts`) e cada codemod também. O apoio dos testes mora em `packages/cli/src/test/`, fora do pacote publicado (o `tsconfig.build.json` exclui a pasta e o `packaging.test.ts` confere o tarball):
+
+- `fs.ts`: pastas temporárias (`makeDir`, `makeProject`, `writeFiles`), todas apagadas quando os testes do arquivo terminam.
+- `run.ts`: `exec`, que roda o prumo em processo, e `captureIo`, o `Io` que captura `stdout` e `stderr`.
+- `app.ts`: `generatedApp()`, os arquivos do app que o `prumo new` gera, montados pelo próprio `generateApp` a partir dos modelos (sem `pnpm install`, `git init` nem rede). Nenhum texto de modelo é copiado à mão nos testes: um modelo que muda muda o fixture junto, e o `patchText` falha se o trecho que o teste ajusta sumiu.
+- `fixture-project.ts`: `fixtureProject()` e `fixturePlan()`, o projeto em miniatura dos codemods (o app gerado, com o `App.tsx`, as mensagens e os índices em estados que as costuras precisam encontrar).
+- `compile.ts`: o projeto dos testes de compilação.
+
+Os testes de compilação (`generators/*.compile.test.ts`) vão além: o `test/compile.ts` grava o app gerado numa pasta temporária, com atalhos para as dependências que o monorepo já instala (nada é baixado), aplica o que o gerador planejou e roda o `tsc` e o `vitest` nesse projeto. É o que prova que o código gerado compila e que o teste de contrato passa, para as três fontes, contra os modelos reais. O `packaging.test.ts` confere o tarball (veja acima), e o `verify-new.test.ts` confere só a ligação do script do portão (o `package.json` da raiz, o arquivo executável e as etapas); os comandos dentro do script quem executa é o próprio `pnpm verify:new`.
 
 ### `verify:new`
 

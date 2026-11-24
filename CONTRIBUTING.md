@@ -77,6 +77,7 @@ Os únicos workflows do GitHub são os de publicação: o `release.yml` (pacotes
 - **Formatação.** O `.prettierrc.json` e o `.editorconfig` registram o estilo: sem ponto e vírgula, aspas simples, vírgula no fim, 100 colunas, 2 espaços.
 - **TypeScript estrito**, com `verbatimModuleSyntax` e `erasableSyntaxOnly`: `import type` para tipos, sem `enum`, `namespace` nem propriedades no construtor.
 - **Sem saída direta no terminal** no código da CLI: os comandos escrevem pelo `io` (veja [Por dentro](docs/contributing/internals.md#a-cli)).
+- **Apoio aos testes da CLI** em `packages/cli/src/test/` (pastas temporárias, `exec`, o app gerado pelos modelos e o projeto dos testes de compilação), fora do pacote publicado. Pasta temporária de teste nasce de `makeDir`/`makeProject`, que a apagam no fim; e não copie texto de modelo à mão: use o `generatedApp()` (veja [Por dentro](docs/contributing/internals.md)).
 - **Mensagens para pessoas.** Erros dizem o que está errado e o que fazer, em português, com o nome do arquivo ou da opção.
 
 ### Documentação

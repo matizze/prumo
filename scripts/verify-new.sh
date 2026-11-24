@@ -3,12 +3,13 @@
 #
 # Prova de ponta a ponta o que o Prumo entrega: empacota os pacotes, cria um app com `prumo new`
 # numa pasta temporária fora do monorepo (com os tarballs) e roda o `pnpm verify` do app (typecheck,
-# lint, `prumo check` e testes). A cada comando novo da CLI (`make:schema`, `make:repository`,
-# `make:query` e `make:page`), a etapa `cli` ganha as chamadas dele, e o `verify` do app passa a
-# cobrir o que foi gerado.
+# lint, `prumo check` e testes). A cada comando novo da CLI (`make:schema`, `make:usecase`,
+# `make:repository`, `make:query` e `make:page`), a etapa `cli` ganha as chamadas dele, e o `verify`
+# do app passa a cobrir o que foi gerado.
 #
 # Depois da CLI, a etapa mcp liga ao servidor do app pelo `.mcp.json` que o `new` criou (o cliente do
-# SDK, por stdio) e gera só por ferramentas um domínio e duas telas; o verify do app cobre o que ela gerou.
+# SDK, por stdio) e gera só por ferramentas um domínio, um use case e duas telas; o verify do app cobre
+# o que ela gerou.
 #
 # O script não edita arquivo do app: quem muda o app é a CLI. Se o verify do app falha, o achado é
 # dos modelos, da CLI ou dos pacotes, não do script. A pasta temporária some no fim, também em caso
@@ -66,14 +67,20 @@ stage_new() {
   node "$ROOT/packages/cli/dist/bin.js" new portao --dir "$WORK" --packages "$WORK/packs"
 }
 
-# Os comandos de geração do app, na ordem das camadas: make:schema, make:repository (mock e as
-# outras fontes), make:query e make:page. O `new` já gera a tela inicial (home), que o `check` e os
+# Os comandos de geração do app, na ordem das camadas: make:schema, make:usecase, make:repository
+# (mock e as outras fontes), make:query e make:page. O `new` já gera a tela inicial (home), que o `check` e os
 # testes do verify do app cobrem.
 stage_cli() {
   # make:schema com o campo padrão, com campos de todos os tipos e com --entity
   prumo make:schema clientes
   prumo make:schema livros --fields "titulo:string,autor:string,ano:number,paginas:int,situacao:enum(lido|lendo|desejado),disponivel:boolean,publicadoEm:date,lidoEm?:datetime,apelido?:string"
   prumo make:schema paes --entity pao
+  # make:usecase: uma leitura (com a entidade de um schema como Output), uma escrita (com Input e Output
+  # em campos) e um local (sem API, no localStorage). Os testes deles rodam contra o mock no verify do app
+  prumo make:schema stores --fields "name:string,city:string"
+  prumo make:usecase stores.get-stores --output "store[]"
+  prumo make:usecase auth.sign-in --input "email:string,password:string" --output "token:string"
+  prumo make:usecase cart.add-item --local --input "productId:string,quantity:int"
   # make:repository com o mock, lendo os campos de cada schema (o livros tem todos os tipos)
   prumo make:repository clientes
   prumo make:repository livros
@@ -126,6 +133,11 @@ stage_cli() {
     const pages = Object.fromEntries(l.pages.map((p) => [p.name, p.variation + ":" + p.route + ":" + p.query]))
     const want = { home: "title:/:null", sobre: "title:/sobre:null", clientes: "list:/clientes:clientes", cliente: "detail:/clientes/:id:clientes", livros: "list:/livros:livros", livro: "detail:/livros/:id:livros", perfil: "param:/perfil/:usuario:null", pedidos: "list:/pedidos:pedidos", fase: "detail:/fases/:id:fases-2", "auth/login": "title:/auth/login:null", "auth/register": "list:/auth/register:clientes" }
     for (const [n, v] of Object.entries(want)) if (pages[n] !== v) fail("tela " + n + ": " + pages[n] + " (esperado " + v + ")")
+    const useCase = (d) => l.useCases.find((u) => u.domain + "." + u.name === d) ?? fail("falta o use case " + d)
+    const summary = (d) => [useCase(d).key, useCase(d).kind, String(useCase(d).endpoint)].join(" ")
+    if (summary("stores.get-stores") !== "getStores read GET /stores/get-stores") fail("use case get-stores: " + summary("stores.get-stores"))
+    if (summary("auth.sign-in") !== "signIn write POST /auth/sign-in") fail("use case sign-in: " + summary("auth.sign-in"))
+    if (summary("cart.add-item") !== "addItem local null") fail("use case add-item: " + summary("cart.add-item"))
     if (l.languages.join(",") !== "en,pt-BR") fail("idiomas: " + l.languages)
   '
 }

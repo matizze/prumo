@@ -36,4 +36,16 @@ describe('parseFields', () => {
   it('a mensagem de erro traz o formato esperado', () => {
     expect(() => parseFields('a:text')).toThrow('Formato: nome:tipo separados por vírgula')
   })
+
+  it('o id e o createdAt são reservados, menos para quem os aceita (um Input ou um Output)', () => {
+    expect(() => parseFields('id:string')).toThrow("'id' é reservado")
+    expect(parseFields('id:string,createdAt:datetime', { reserved: true })).toEqual([
+      { name: 'id', type: 'string', optional: false },
+      { name: 'createdAt', type: 'datetime', optional: false },
+    ])
+  })
+
+  it('a mensagem diz de que opção veio o texto', () => {
+    expect(() => parseFields('a', { option: '--input' })).toThrow("--input 'a' é inválido")
+  })
 })

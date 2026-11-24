@@ -178,23 +178,60 @@ export interface PageNames extends Names {
 }
 
 /**
- * Os nomes de uma tela a partir do que a pessoa digita: `auth.login` ou `auth/login`, que dão o
- * mesmo resultado. Cada segmento é kebab-case, e o nome junto não pode ser palavra reservada. A
- * pasta é o caminho com barra (`auth/login`), e o componente, as mensagens e o namespace saem dos
- * segmentos juntos (`AuthLoginPage`, `auth-login.json`, `authLogin`).
+ * Os segmentos de um nome composto (`auth.login` ou `auth/login`, que dão o mesmo resultado): cada
+ * um é kebab-case, e nenhum pode ser vazio. `what` entra nas mensagens.
  */
-export function pageNames(input: string): PageNames {
+function segmentsOf(input: string, what: string): string[] {
   const segments = input.split(/[./]/)
   if (segments.includes('')) {
     throw new UsageError(
-      `o nome da tela '${input}' tem um segmento vazio: separe os segmentos com . ou / e dê nome a cada um (ex.: auth.login).`,
+      `o nome ${what} '${input}' tem um segmento vazio: separe os segmentos com . ou / e dê nome a cada um (ex.: auth.login).`,
     )
   }
-  const what = segments.length > 1 ? 'um segmento do nome da tela' : 'o nome da tela'
-  for (const segment of segments) assertValidName(segment, what)
+  for (const segment of segments) {
+    assertValidName(segment, segments.length > 1 ? `um segmento do nome ${what}` : `o nome ${what}`)
+  }
+  return segments
+}
+
+/**
+ * Os nomes de uma tela a partir do que a pessoa digita: `auth.login` ou `auth/login`. A pasta é o
+ * caminho com barra (`auth/login`), e o componente, as mensagens e o namespace saem dos segmentos
+ * juntos (`AuthLoginPage`, `auth-login.json`, `authLogin`), que não podem ser palavra reservada.
+ */
+export function pageNames(input: string): PageNames {
+  const segments = segmentsOf(input, 'da tela')
   // Só o nome junto vira identificador (`AuthNew`, `authNew`), então só ele confere palavra reservada
   const names = usableNames(segments.join('-'), 'o nome da tela')
   return { ...names, path: segments.join('/') }
+}
+
+/** Os nomes de um use case: o domínio (a pasta) e a ação (os arquivos, a classe e a chave no registro). */
+export interface UseCaseNames {
+  domain: Names
+  action: Names
+}
+
+/**
+ * Os nomes de um use case a partir de `<domínio>.<ação>` (ou `<domínio>/<ação>`): o domínio dá a
+ * pasta em `src/use-cases`, e a ação dá a classe (`SignInUseCase`) e a chave do registro (`signIn`),
+ * que não pode ser palavra reservada.
+ */
+export function useCaseNames(input: string): UseCaseNames {
+  const segments = segmentsOf(input, 'do use case')
+  const [domain, action, ...extra] = segments
+  if (domain === undefined || action === undefined || extra.length > 0) {
+    throw new UsageError(
+      `o nome do use case '${input}' precisa ter o domínio e a ação, como em auth.sign-in (ou auth/sign-in).`,
+    )
+  }
+  const names = { domain: deriveNames(domain), action: usableNames(action, 'a ação') }
+  if (names.domain.camel === names.action.camel) {
+    throw new UsageError(
+      `o domínio e a ação de '${input}' dão o mesmo nome em camelCase ('${names.action.camel}') e repetiriam o identificador no índice do domínio: dê outro nome à ação (por exemplo, get-${action}).`,
+    )
+  }
+  return names
 }
 
 /** Valida o nome (kebab-case, sem palavra reservada) e devolve os nomes derivados dele. */

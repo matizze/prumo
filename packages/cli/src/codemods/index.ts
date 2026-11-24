@@ -11,3 +11,4 @@ export {
   registerFactorySource,
   type RepositorySource,
 } from './register-source.ts'
+export { registerUseCase, registerUseCaseDomain } from './register-use-case.ts'

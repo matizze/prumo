@@ -1,6 +1,6 @@
-export { domainFieldVars } from './generate.ts'
+export { domainFieldVars, zodOf } from './generate.ts'
 export { parseFields, describeField } from './parse.ts'
 export { readEntityFields, readEntityShape, schemaFile } from './read.ts'
-export { literal } from './samples.ts'
+export { literal, sampleCode, sampleRecord, sampleValue, type Sample } from './samples.ts'
 export { domainIdSample, domainShapeOf, type DomainShape } from './page-shape.ts'
 export { DEFAULT_FIELDS, type Field, type FieldType } from './types.ts'

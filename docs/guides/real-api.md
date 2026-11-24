@@ -13,7 +13,7 @@ flowchart LR
   factory -- mock --> mock["MockClientesRepository"]
   factory -- storage --> storage["StorageClientesRepository"]
   factory -- http --> http["HttpClientesRepository"]
-  http --> client["cliente HTTP<br/>(src/repositories/http.ts)"]
+  http --> client["cliente HTTP<br/>(src/http/api.ts)"]
   client --> api[("API")]
 ```
 
@@ -28,7 +28,7 @@ pnpm exec prumo make:repository clientes --data-source http
 Se o repositório `clientes` ainda não existe, o comando cria o repositório inteiro (contrato, mock, dados de exemplo, teste de contrato e fábrica) e acrescenta a fonte; se já existe, acrescenta só a fonte. Repetir a mesma fonte sai com 2. O que o comando faz:
 
 - cria `src/repositories/clientes/repository.http.ts`, a classe `HttpClientesRepository`;
-- na primeira fonte http do app, cria também `src/repositories/http.ts` (o cliente: `createHttp`, `HttpError` e o tipo `Http`), `src/repositories/api.ts` (a instância, com o endereço e o lugar do token) e `src/vite-env.d.ts` (se faltar); das vezes seguintes, reaproveita os três;
+- importa o `api` de `@/http/api` na fábrica e o `HttpError` e o tipo `Http` de `@matizze/prumo-core/http`; o app novo já traz `src/http/api.ts` (a instância, com o endereço e o lugar do token), e o comando o cria, com o `src/vite-env.d.ts`, só num app de antes dele;
 - acrescenta `'http'` ao `DATA_SOURCES` de `src/repositories/options.ts`, se ainda não está lá;
 - muda a fábrica `src/repositories/clientes/index.ts`: o import, o export da classe e uma linha por fonte, antes do `return` que devolve o mock:
 
@@ -69,12 +69,12 @@ O `update` usa `PATCH`, e não `PUT`, porque o contrato aceita `Partial<Input>`:
 
 ## 3. O cliente HTTP e o token
 
-O `src/repositories/http.ts` é pequeno e comum a todos os domínios: concentra o endereço da API, o token da sessão, o tratamento do 401 e a resposta. Ele recebe tudo de fora (o `fetch` e a sessão), então os testes o exercitam sem rede. Um status de erro vira `HttpError`, e o repositório decide o que ele significa no domínio.
+O cliente HTTP é o `createHttp` do `@matizze/prumo-core/http`, comum a todos os domínios e aos use cases: concentra o endereço da API, o token da sessão, o tratamento do 401 e a resposta. Ele recebe tudo de fora (o `fetch` e a sessão), então os testes o exercitam sem rede (o core já os tem). Um status de erro vira `HttpError` (com o `status` e o `body` da resposta), e o repositório decide o que ele significa no domínio.
 
-A instância do app é o `src/repositories/api.ts`:
+A instância do app é o `src/http/api.ts`:
 
 ```ts
-import { createHttp } from './http'
+import { createHttp } from '@matizze/prumo-core/http'
 
 export const api = createHttp({
   baseUrl: import.meta.env.VITE_API_URL || '/api',
@@ -99,9 +99,9 @@ Três pontos do tratamento do 401:
 O `fetch` injetável é o que torna o cliente testável: o teste passa um `fetch` falso e confere o que foi chamado, sem servidor. Uma `Response` do Node basta como resposta:
 
 ```ts
-// src/repositories/http.test.ts
+// src/http/api.test.ts
+import { createHttp, HttpError } from '@matizze/prumo-core/http'
 import { expect, it, vi } from 'vitest'
-import { createHttp, HttpError } from './http'
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -140,6 +140,10 @@ it('refresh recusado: a chamada falha com o 401', async () => {
 ```
 
 Para o caso das chamadas simultâneas, teste a sessão (o `refresh` dela é quem junta os pedidos) com uma `AuthApi` falsa que conta as chamadas a `refresh`.
+
+> **Use cases e a mesma variável.** A `VITE_DATA_SOURCE` também vale para os use cases (`src/use-cases`): `http` liga a API, e qualquer outro valor, inclusive `storage`, usa o mock deles. Enquanto os repositórios e os use cases convivem, cada camada lê a variável do seu jeito.
+
+> **App de antes dos use cases.** Se o app tem `src/repositories/api.ts` e `src/repositories/http.ts`, o `make:repository --data-source http` cria o `src/http/api.ts` ao lado e avisa. Para migrar: troque nos repositórios o import `../api` por `@/http/api`, o `HttpError` e o tipo `Http` por `@matizze/prumo-core/http`, e apague os dois arquivos antigos (e o `http.test.ts`, se houver: o core já testa o cliente).
 
 ## 4. Escolha a fonte por ambiente
 

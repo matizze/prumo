@@ -141,11 +141,10 @@ describe('prumo make:repository', () => {
 
       expect(result.code, result.stderr).toBe(0)
       expect(result.stdout).toContain('fonte http)')
-      expect(result.stdout).toContain('Criados (9):')
+      expect(result.stdout).toContain('Criados (8):')
       for (const file of [
         'src/repositories/clientes/repository.http.ts',
-        'src/repositories/http.ts',
-        'src/repositories/api.ts',
+        'src/http/api.ts',
         'src/vite-env.d.ts',
       ]) {
         expect(result.stdout, file).toContain(`  ${file}`)
@@ -155,7 +154,7 @@ describe('prumo make:repository', () => {
       expect(result.stdout).toContain('VITE_DATA_SOURCE=http e VITE_API_URL=')
       expect(read(root, 'src/repositories/options.ts')).toContain("DATA_SOURCES = ['mock', 'http'] as const")
       const factory = read(root, 'src/repositories/clientes/index.ts')
-      expect(factory).toContain("import { api } from '../api'")
+      expect(factory).toContain("import { api } from '@/http/api'")
       expect(factory).toContain("if (dataSource === 'http') return new HttpClientesRepository(api)")
       expect(factory).toContain("export { HttpClientesRepository } from './repository.http'")
       expect(read(root, 'src/repositories/clientes/repository.contract.test.ts')).toContain(
@@ -184,7 +183,7 @@ describe('prumo make:repository', () => {
         ),
       )
       expect(read(root, 'src/repositories/clientes/repository.mock.ts')).toBe(mock)
-      expect(existsSync(path.join(root, 'src/repositories/http.ts'))).toBe(false)
+      expect(existsSync(path.join(root, 'src/http/api.ts'))).toBe(false)
       expect(read(root, 'src/repositories/options.ts')).toContain("['mock', 'storage']")
       expect(read(root, 'src/repositories/clientes/repository.storage.ts')).toContain(
         "STORAGE_KEY = 'app:clientes'",
@@ -224,8 +223,7 @@ describe('prumo make:repository', () => {
 
       expect(second.code, second.stderr).toBe(0)
       expect(second.stdout).toContain('Criados (6):')
-      expect(second.stdout).not.toContain('src/repositories/http.ts')
-      expect(second.stdout).not.toContain('src/repositories/api.ts')
+      expect(second.stdout).not.toContain('src/http/api.ts')
       expect((await exec(['make:repository', 'clientes', '--data-source', 'storage'], root)).code).toBe(0)
       expect(read(root, 'src/repositories/options.ts')).toContain("['mock', 'http', 'storage']")
       const factory = read(root, 'src/repositories/clientes/index.ts')
@@ -233,19 +231,18 @@ describe('prumo make:repository', () => {
       expect(factory).toContain('return new MockClientesRepository({ latencyMs })')
     })
 
-    it('--dry-run com http num app sem o cliente lista o http.ts, o api.ts e o options.ts', async () => {
+    it('--dry-run com http num app sem o cliente lista o api.ts e o vite-env.d.ts', async () => {
       const root = await withSchema()
       expect((await exec(['make:repository', 'clientes'], root)).code).toBe(0)
       const optionsBefore = read(root, 'src/repositories/options.ts')
       const result = await exec(['make:repository', 'clientes', '--data-source', 'http', '--dry-run'], root)
 
       expect(result.code, result.stderr).toBe(0)
-      expect(result.stdout).toContain('Seriam criados (4):')
-      expect(result.stdout).toContain('  src/repositories/http.ts\n')
-      expect(result.stdout).toContain('  src/repositories/api.ts\n')
+      expect(result.stdout).toContain('Seriam criados (3):')
+      expect(result.stdout).toContain('  src/http/api.ts\n')
       expect(result.stdout).toContain('  src/repositories/options.ts\n')
       expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')
-      expect(existsSync(path.join(root, 'src/repositories/http.ts'))).toBe(false)
+      expect(existsSync(path.join(root, 'src/http/api.ts'))).toBe(false)
       expect(read(root, 'src/repositories/options.ts')).toBe(optionsBefore)
     })
 
@@ -259,7 +256,7 @@ describe('prumo make:repository', () => {
       expect(result.code).toBe(2)
       expect(result.stderr).toContain("não tem a função 'createClientesRepository'")
       expect(existsSync(path.join(root, 'src/repositories/clientes/repository.http.ts'))).toBe(false)
-      expect(existsSync(path.join(root, 'src/repositories/http.ts'))).toBe(false)
+      expect(existsSync(path.join(root, 'src/http/api.ts'))).toBe(false)
       expect(read(root, 'src/repositories/options.ts')).toBe(optionsBefore)
     })
 

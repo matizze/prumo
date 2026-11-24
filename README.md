@@ -42,7 +42,7 @@ Todo time de frontend combina uma arquitetura e, poucos meses depois, encontra u
 
 O Prumo transforma o combinado em ferramenta:
 
-- **Gera do jeito certo.** `make:schema`, `make:repository`, `make:query` e `make:page` criam, uma camada por comando, os arquivos a partir de modelos e fazem os registros (rota, textos, índices, container de repositórios). Ninguém copia uma tela antiga para começar outra.
+- **Gera do jeito certo.** `make:schema`, `make:usecase`, `make:repository`, `make:query` e `make:page` criam, uma camada por comando, os arquivos a partir de modelos e fazem os registros (rota, textos, índices, container de repositórios). Ninguém copia uma tela antiga para começar outra.
 - **Confere sempre.** Um plugin de ESLint avisa no editor, e o `prumo check` analisa o projeto inteiro: estrutura das telas, imports entre telas, uso real dos componentes compartilhados e textos completos em todos os idiomas.
 - **Não amarra a interface.** As camadas de dados, textos e testes são as mesmas com qualquer design system. Trocar de biblioteca visual não muda a arquitetura.
 
@@ -98,11 +98,12 @@ A view não busca dado nem guarda estado de dados; o model não tem JSX; uma tel
 | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
 | `prumo new <nome>`                                                             | Cria um app mínimo com a estrutura, os provedores, uma tela inicial, ESLint e Vitest               |
 | `prumo make:schema <domínio> [--entity <singular>] [--fields <campos>]`        | Gera o schema zod da entidade, com os campos                                                       |
+| `prumo make:usecase <domínio.ação> [--input <campos>] [--output <campos>] [--endpoint <rota>] [--local]` | Gera um use case (tipos, classe, rota de mock e teste), leitura ou escrita pelo verbo da ação, e o registra |
 | `prumo make:repository <domínio> [--entity <singular>] [--data-source <fonte>]` | Gera o contrato, o repositório `mock`, as fixtures e o teste de contrato; `--data-source http` ou `storage` acrescenta uma fonte |
 | `prumo make:query <domínio> [--entity <singular>]`                             | Gera as queries e mutations (TanStack Query)                                                       |
 | `prumo make:page <nome> [--query <domínio>] [--path <caminho>]`                | Gera a tela (index, model, view, teste), os textos nos idiomas do projeto e a rota                 |
 | `prumo check`                                                                  | Analisa o projeto e lista as violações da arquitetura                                              |
-| `prumo list [--json]`                                                          | Mostra o que o projeto tem: schemas, repositórios, queries, telas e idiomas (só lê)                |
+| `prumo list [--json]`                                                          | Mostra o que o projeto tem: schemas, use cases, repositórios, queries, telas e idiomas (só lê)     |
 | `prumo mcp`                                                                    | Abre o servidor MCP do projeto, por stdio, com uma ferramenta por comando, para agentes de IA      |
 
 Cada camada usa a de baixo, então a ordem é schema, repositório, query e tela; o comando recusa, sem criar nada, quando a camada de baixo falta. Os comandos que escrevem validam tudo antes, nunca sobrescrevem um arquivo e aceitam `--dry-run` (os `make:*`, o `check` e o `list` aceitam `--root`). Opções, saídas e códigos de saída estão na [referência da CLI](docs/reference/cli.md).

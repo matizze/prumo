@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseFields } from './parse.ts'
-import { editValue, literal, sampleValue } from './samples.ts'
+import { editValue, literal, sampleCode, sampleRecord, sampleValue } from './samples.ts'
 import { DEFAULT_FIELDS } from './types.ts'
 
 describe('valores de exemplo', () => {
@@ -37,5 +37,38 @@ describe('valores de exemplo', () => {
     expect(literal("it's \\")).toBe("'it\\'s \\\\'")
     expect(literal(10)).toBe('10')
     expect(literal(false)).toBe('false')
+  })
+
+  it('sampleRecord: os campos do exemplo n e, com a entidade, o id e a data de um registro', () => {
+    const fields = parseFields('nome:string,idade:int')
+    expect(sampleRecord(fields, 2)).toEqual({ nome: 'Nome 2', idade: 20 })
+    expect(sampleRecord(fields, 2, 'cliente')).toEqual({
+      id: 'cliente-2',
+      nome: 'Nome 2',
+      idade: 20,
+      createdAt: '2026-01-14T12:00:00.000Z',
+    })
+  })
+})
+
+describe('sampleCode', () => {
+  it('valores, listas e objetos que cabem ficam numa linha', () => {
+    expect(sampleCode(undefined)).toBe('undefined')
+    expect(sampleCode("a'b")).toBe("'a\\'b'")
+    expect(sampleCode(true)).toBe('true')
+    expect(sampleCode([])).toBe('[]')
+    expect(sampleCode({})).toBe('{}')
+    expect(sampleCode({ token: 'Token 1', ok: true })).toBe("{ token: 'Token 1', ok: true }")
+    expect(sampleCode([1, 2])).toBe('[1, 2]')
+  })
+
+  it('o que passa da largura vai uma entrada por linha, com o recuo dado', () => {
+    const item = { id: 'cliente-1', nome: 'Nome 1', createdAt: '2026-01-05T12:00:00.000Z' }
+    expect(sampleCode([item, item], '  ')).toBe(
+      `[\n    { id: 'cliente-1', nome: 'Nome 1', createdAt: '2026-01-05T12:00:00.000Z' },\n    { id: 'cliente-1', nome: 'Nome 1', createdAt: '2026-01-05T12:00:00.000Z' },\n  ]`,
+    )
+    expect(sampleCode({ ...item, extra: 'um texto a mais para passar da largura' })).toBe(
+      `{\n  id: 'cliente-1',\n  nome: 'Nome 1',\n  createdAt: '2026-01-05T12:00:00.000Z',\n  extra: 'um texto a mais para passar da largura',\n}`,
+    )
   })
 })

@@ -4,7 +4,7 @@ import { UsageError } from '../errors.ts'
 import type { DomainNames } from '../lib/names.ts'
 import type { ChangePlan } from '../lib/plan.ts'
 import { displayPath } from '../lib/paths.ts'
-import { afterComma, applyEdits, indentOf, insertSorted, specifierOf, styleOf, type TextEdit } from './edit.ts'
+import { applyEdits, insertMember, insertSorted, memberName, specifierOf, styleOf, type TextEdit } from './edit.ts'
 
 /** O container `src/repositories/index.ts`, que precisa existir. */
 function indexSource(plan: ChangePlan, file: string): SourceFile {
@@ -19,14 +19,6 @@ function factoriesObject(index: SourceFile, where: string) {
     throw new UsageError(`${where} não tem o mapa 'const factories = { ... }'.`)
   }
   return initializer
-}
-
-/** O nome de uma propriedade do mapa: `customers` em `customers: createCustomersRepository`. */
-function propertyName(property: Node): string | undefined {
-  if (Node.isPropertyAssignment(property) || Node.isShorthandPropertyAssignment(property)) {
-    return property.getName()
-  }
-  return undefined
 }
 
 /** Onde um repositório entra em `src/repositories/index.ts`. */
@@ -67,8 +59,7 @@ export function registerRepositoryEntry(plan: ChangePlan, entry: RepositoryEntry
   }
 
   const factories = factoriesObject(index, where)
-  const properties = factories.getProperties()
-  if (properties.some((property) => propertyName(property) === key)) {
+  if (factories.getProperties().some((property) => memberName(property) === key)) {
     throw new UsageError(`${where} já tem o domínio '${key}' no mapa factories.`)
   }
 
@@ -77,24 +68,7 @@ export function registerRepositoryEntry(plan: ChangePlan, entry: RepositoryEntry
   const importLine = `import { ${factory} } from ${importStyle.quote}${specifier}${importStyle.quote}${importStyle.semicolon}`
   const exportLine = `export * from ${exportStyle.quote}${specifier}${exportStyle.quote}${exportStyle.semicolon}`
 
-  const last = properties[properties.length - 1]
-  const indent = last ? indentOf(index.getFullText(), last.getStart()) : '  '
-  const next = properties.find((property) => (propertyName(property) ?? '') > key)
-  const mapEntry = `${key}: ${factory}`
-  let factoryEdit: TextEdit
-  if (next) {
-    factoryEdit = { pos: next.getStart(), end: next.getStart(), text: `${mapEntry},\n${indent}` }
-  } else if (last) {
-    const { end, hasComma } = afterComma(index.getFullText(), last.getEnd())
-    factoryEdit = {
-      pos: end,
-      end,
-      text: `${hasComma ? '' : ','}\n${indent}${mapEntry}${hasComma ? ',' : ''}`,
-    }
-  } else {
-    const open = factories.getStart() + 1
-    factoryEdit = { pos: open, end: open, text: `\n${indent}${mapEntry},\n` }
-  }
+  const factoryEdit = insertMember(index, factories, key, `${key}: ${factory}`)
 
   // Sem nenhum `export *` (o índice de um projeto novo, sem domínios), o primeiro vai antes do
   // primeiro `export ... from` que o arquivo já tem, ou, se não houver, depois do último import

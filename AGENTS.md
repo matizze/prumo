@@ -20,7 +20,7 @@ Quatro pacotes em `packages/`, versionados separadamente:
 - `core`: infraestrutura do app gerado (container de repositórios, query keys, i18n tipado, erros com código, utilitários de mock, guarda de rota).
 - `rules`: o plugin de ESLint e a análise do projeto que o `prumo check` roda.
 - `testing`: `renderWithProviders`, setup do DOM e o teste de contrato de repositórios.
-- `cli`: o comando `prumo` (`new`, `make:schema`, `make:repository`, `make:query`, `make:page`, `check`, `list` e `mcp`). Cada comando tem o seu gerador em `packages/cli/src/generators/`, que devolve um plano antes de escrever, e o servidor MCP, que descreve as ferramentas a partir dos comandos, fica em `packages/cli/src/mcp/`. Os modelos são arquivos `.tpl` com marcadores de nome em `packages/cli/templates/`.
+- `cli`: o comando `prumo` (`new`, `make:schema`, `make:usecase`, `make:repository`, `make:query`, `make:page`, `check`, `list` e `mcp`). Cada comando tem o seu gerador em `packages/cli/src/generators/`, que devolve um plano antes de escrever, e o servidor MCP, que descreve as ferramentas a partir dos comandos, fica em `packages/cli/src/mcp/`. Os modelos são arquivos `.tpl` com marcadores de nome em `packages/cli/templates/`.
 
 Os pacotes são publicados no npm (`@matizze`, acesso público) pelo workflow de release, quando a `develop` vai para a `main`. Publicar é decisão de uma pessoa: não publique por conta própria.
 

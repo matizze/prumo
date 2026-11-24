@@ -175,8 +175,7 @@ describe('generateRepository', () => {
       expect(created).toBe(true)
       expect(plan.summary()).toEqual({
         created: [
-          'src/repositories/api.ts',
-          'src/repositories/http.ts',
+          'src/http/api.ts',
           'src/repositories/livros/fixtures.ts',
           'src/repositories/livros/index.ts',
           'src/repositories/livros/repository.contract.test.ts',
@@ -194,20 +193,27 @@ describe('generateRepository', () => {
       expect(http).toContain("'LIVRO_NOT_FOUND'")
       expect(http).toContain('encodeURIComponent(id)')
       expect(http).toContain("`${query.sort.key}:${query.sort.direction}`")
-      expect(text(plan, 'src/repositories/api.ts')).toContain("import.meta.env.VITE_API_URL || '/api'")
-      expect(text(plan, 'src/repositories/api.ts')).toContain('// auth: {')
+      expect(text(plan, 'src/http/api.ts')).toContain("import.meta.env.VITE_API_URL || '/api'")
+      expect(text(plan, 'src/http/api.ts')).toContain('// auth: {')
     })
 
-    it('http reaproveita o cliente e a instância que o app já tem', () => {
+    it('http reaproveita a instância do cliente que o app já tem', () => {
       const project = projectWithSchema()
-      writeFileSync(path.join(project.src, 'repositories/http.ts'), 'export {}\n')
-      writeFileSync(path.join(project.src, 'repositories/api.ts'), 'export {}\n')
+      mkdirSync(path.join(project.src, 'http'))
+      writeFileSync(path.join(project.src, 'http/api.ts'), 'export {}\n')
       writeFileSync(path.join(project.src, 'vite-env.d.ts'), '/// <reference types="vite/client" />\n')
       const { plan } = generateRepository(project, { name: 'livros', dataSource: 'http' })
-      expect(plan.summary().created).not.toContain('src/repositories/http.ts')
-      expect(plan.summary().created).not.toContain('src/repositories/api.ts')
+      expect(plan.summary().created).not.toContain('src/http/api.ts')
       expect(plan.summary().created).not.toContain('src/vite-env.d.ts')
       expect(plan.summary().created).toContain('src/repositories/livros/repository.http.ts')
+    })
+
+    it('http avisa quando o app tem o src/repositories/api.ts de antes dos use cases', () => {
+      const project = projectWithSchema()
+      writeFileSync(path.join(project.src, 'repositories/api.ts'), 'export {}\n')
+      const { warnings } = generateRepository(project, { name: 'livros', dataSource: 'http' })
+      expect(warnings.join('\n')).toContain('src/repositories/api.ts de antes dos use cases')
+      expect(generateRepository(projectWithSchema(), { name: 'livros', dataSource: 'http' }).warnings.join('')).not.toContain('de antes dos use cases')
     })
 
     it('storage: a chave é <nome do app>:<domínio>, e o nome sai do package.json', () => {

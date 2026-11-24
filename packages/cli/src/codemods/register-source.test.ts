@@ -84,7 +84,7 @@ describe('registerFactorySource', () => {
   it('http: o import do api e da classe, o export e a linha antes do return, com o dataSource nas opções', () => {
     const p = plan()
     registerFactorySource(p, clientes, 'http')
-    expect(read(p, 'repositories/clientes/index.ts')).toBe(`import { api } from '../api'
+    expect(read(p, 'repositories/clientes/index.ts')).toBe(`import { api } from '@/http/api'
 import type { RepositoryOptions } from '../options'
 import type { IClientesRepository } from './repository.contract'
 import { HttpClientesRepository } from './repository.http'
@@ -171,13 +171,13 @@ describe('registerContractSource', () => {
     expect(registerContractSource(p, clientes, 'http')).toBeUndefined()
     const text = read(p, file)
     expect(text).toContain("import { describe, expect, it } from 'vitest'")
-    expect(text).toContain("import { createHttp } from '../http'")
+    expect(text).toContain("import { createHttp } from '@matizze/prumo-core/http'")
     expect(text).toContain("import { HttpClientesRepository } from './repository.http'")
     expect(text).toContain('const apiTestUrl = process.env.API_TEST_URL')
     expect(text).toContain("describe.skipIf(!apiTestUrl)('HttpClientesRepository contra a API de teste (pulado: defina API_TEST_URL)'")
     expect(text).toContain('create: () => new HttpClientesRepository(createHttp({ baseUrl: apiTestUrl ?? \'\' })),')
-    // os imports relativos ficam em ordem
-    expect(text.indexOf("'../http'")).toBeLessThan(text.indexOf("'./repository.http'"))
+    // os imports ficam em ordem: os pacotes antes dos relativos
+    expect(text.indexOf("'@matizze/prumo-core/http'")).toBeLessThan(text.indexOf("'./repository.http'"))
     expect(text.indexOf("'./repository.http'")).toBeLessThan(text.indexOf("'./repository.mock'"))
   })
 

@@ -10,7 +10,7 @@ O Prumo separa os três em camadas com fronteiras que uma ferramenta consegue ve
 
 | Assunto                  | Onde mora                                                          | Quem conhece                     |
 | ------------------------ | ------------------------------------------------------------------ | -------------------------------- |
-| De onde vêm os dados     | `schemas/`, `repositories/`, `queries/`                            | O model da tela                  |
+| De onde vêm os dados     | `schemas/`, `use-cases/`, `http/` (e, enquanto a transição não termina, `repositories/` e `queries/`) | O model da tela |
 | O que a tela diz         | `messages/<idioma>/<tela>.json`                                    | O model da tela                  |
 | Como a tela aparece      | `view.tsx` e os componentes                                        | Só a view                        |
 
@@ -65,7 +65,27 @@ A pasta de componentes tem só três subpastas, cada uma com um papel:
 
 Um componente que só uma tela usa não é compartilhado: mora na pasta da tela. Assim o `shared` não vira uma gaveta de tudo, e apagar uma tela leva junto o que era só dela. Quando uma segunda tela passa a usar o componente, você move o arquivo para o `shared` e acerta os imports (componentes do produto se criam à mão, e o `prumo check` confere o lugar).
 
-### Domínios de dados
+### Use cases
+
+O **use case** é o caminho novo para tudo o que o app faz com dados: uma ação com nome de verbo (`getStores`, `signIn`, `addItem`), com um Input, um Output e um `execute`. É o padrão do frontend do pratigo, com três acréscimos do Prumo: validação com zod, mock para trabalhar sem backend e um teste em cada use case. O `prumo make:usecase` cria um por vez, e o repositório e as queries (abaixo) continuam funcionando enquanto a transição não termina.
+
+| Camada     | Responde a                       | Pasta            |
+| ---------- | -------------------------------- | ---------------- |
+| Interface  | o que a pessoa vê e faz          | `src/pages`      |
+| Domínio    | o que o app **faz**              | `src/use-cases`  |
+| Dados      | as **coisas** (as entidades)     | `src/schemas`    |
+| Infra      | como o app fala com o mundo      | `src/http`       |
+
+A tela chama o use case; o use case usa o `http`, o `storage` do navegador ou outros use cases; nada aponta para cima. Cada use case é uma classe (`SignInUseCase implements IUseCase<SignInInput, SignInOutput>`) que recebe as dependências no construtor, e o model da tela a pega do registro:
+
+```ts
+const { signIn } = useUseCases()
+const login = useMutation({ mutationFn: (input: SignInInput) => signIn.execute(input) })
+```
+
+O **mock fica no transporte, não no use case**: com `VITE_DATA_SOURCE=mock` (o padrão), o registro recebe um `http` de mentira (`createMockHttp`, do core), que responde a cada `ENDPOINT` com a rota do `*.mock.ts`. O código do use case que roda no desenvolvimento e nos testes é o mesmo que vai para produção, e só a rede é trocada. Os arquivos e a anatomia estão em [`prumo make:usecase`](../reference/cli.md#prumo-makeusecase) e na [anatomia do app](generated-app.md#os-use-cases).
+
+### Domínios de dados (repositório e queries)
 
 Um domínio (clientes, pedidos, produtos) tem três partes, cada uma numa pasta:
 
@@ -85,7 +105,7 @@ Cada tela tem um JSON por idioma, com o mesmo nome da tela. O `index.ts` de cada
 
 ### Provedores e infraestrutura
 
-`src/providers/` reúne o que envolve o app: o `QueryClient` (com o tratamento global de erro), o i18n, o provedor de repositórios e, se o app tem login, a sessão (`src/providers/session/`, veja [Sessão e login](../guides/auth.md)). A infraestrutura vem do `@matizze/prumo-core`, e o app guarda só a configuração: quais idiomas, quais fontes de dados, como notificar um erro.
+`src/providers/` reúne o que envolve o app: o `QueryClient` (com o tratamento global de erro), o i18n, os provedores dos use cases e dos repositórios e, se o app tem login, a sessão (`src/providers/session/`, veja [Sessão e login](../guides/auth.md)). A infraestrutura vem do `@matizze/prumo-core`, e o app guarda só a configuração: quais idiomas, quais fontes de dados, como notificar um erro.
 
 ## As regras
 

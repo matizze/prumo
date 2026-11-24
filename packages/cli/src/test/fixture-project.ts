@@ -119,7 +119,7 @@ function appWithRoutes(): string {
 
 /**
  * Um projeto em miniatura numa pasta temporária, com partes do app gerado (as opções e o container de
- * repositórios, o `App.tsx`) e partes postas em estados específicos para os codemods (as mensagens fora
+ * repositórios, o registro de use cases, o `App.tsx`) e partes postas em estados específicos para os codemods (as mensagens fora
  * de ordem, os índices de schemas e queries): o `App.tsx`, as mensagens em dois idiomas e os
  * índices de schemas, repositórios e queries, que são os arquivos onde as costuras mexem. Cada
  * chamada devolve um projeto novo, que o teste pode alterar à vontade.
@@ -134,6 +134,8 @@ export function fixtureProject(): Project {
       'src/repositories/index.ts': repositoriesIndex(),
       'src/repositories/options.ts': generatedApp()['src/repositories/options.ts']!,
       'src/queries/index.ts': QUERIES_INDEX,
+      'src/use-cases/deps.ts': generatedApp()['src/use-cases/deps.ts']!,
+      'src/use-cases/index.ts': generatedApp()['src/use-cases/index.ts']!,
     }),
   )
 }

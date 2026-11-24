@@ -7,6 +7,7 @@ import { registerMakePage } from './make-page.ts'
 import { registerMakeQuery } from './make-query.ts'
 import { registerMakeRepository } from './make-repository.ts'
 import { registerMakeSchema } from './make-schema.ts'
+import { registerMakeUseCase } from './make-usecase.ts'
 import { registerNew } from './new.ts'
 
 /**
@@ -21,6 +22,7 @@ export type RegisterCommand = (program: Command, io: Io) => void
 export const commands: readonly RegisterCommand[] = [
   registerNew,
   registerMakeSchema,
+  registerMakeUseCase,
   registerMakeRepository,
   registerMakeQuery,
   registerMakePage,

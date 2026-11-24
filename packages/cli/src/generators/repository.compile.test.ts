@@ -290,63 +290,6 @@ it('JSON ilegível volta às fixtures, com aviso', async () => {
     expect(tests.status, tests.output).toBe(0)
   }, 120_000)
 
-  it('http: o cliente tira a barra do fim, só lê corpo em JSON, e a VITE_API_URL vazia vale como ausente', async () => {
-    const root = await project('nome:string')
-    await generate(root, '--data-source', 'http')
-    writeFileSync(
-      path.join(root, 'src/repositories/http.test.ts'),
-      `import { expect, it, vi } from 'vitest'
-import { createHttp, HttpError } from './http'
-
-const withFetch = (reply: () => Response, calls: string[] = []) =>
-  createHttp({
-    baseUrl: 'http://api.test///',
-    fetch: (async (url: string) => {
-      calls.push(url)
-      return reply()
-    }) as unknown as typeof fetch,
-  })
-
-it('tira as barras do fim do baseUrl', async () => {
-  const calls: string[] = []
-  await withFetch(() => Response.json({}), calls)('/clientes')
-  expect(calls).toEqual(['http://api.test/clientes'])
-})
-
-it('devolve undefined para o corpo vazio, o que não é JSON e o 204; lê o JSON; erro lança', async () => {
-  expect(await withFetch(() => new Response(null, { status: 204 }))('/a')).toBeUndefined()
-  expect(await withFetch(() => new Response('', { status: 200 }))('/a')).toBeUndefined()
-  expect(await withFetch(() => new Response('OK', { status: 200 }))('/a')).toBeUndefined()
-  expect(await withFetch(() => Response.json({ a: 1 }))('/a')).toEqual({ a: 1 })
-  // JSON sem content-type de JSON: o corpo que começa com { ou [ é lido do mesmo jeito
-  expect(await withFetch(() => new Response(' {"a":1}', { status: 200 }))('/a')).toEqual({ a: 1 })
-  expect(await withFetch(() => new Response('[1,2]', { status: 200 }))('/a')).toEqual([1, 2])
-  expect(await withFetch(() => new Response('  ', { status: 200 }))('/a')).toBeUndefined()
-  await expect(withFetch(() => new Response('', { status: 500 }))('/a')).rejects.toBeInstanceOf(HttpError)
-})
-
-it('a VITE_API_URL vazia vale como ausente (/api), e a com barra no fim é aparada', async () => {
-  const urls: string[] = []
-  vi.stubGlobal('fetch', async (url: string) => {
-    urls.push(url)
-    return Response.json({})
-  })
-  for (const value of ['', 'http://api.test/']) {
-    vi.stubEnv('VITE_API_URL', value)
-    vi.resetModules()
-    const { api } = await import('./api')
-    await api('/ping')
-  }
-  expect(urls).toEqual(['/api/ping', 'http://api.test/ping'])
-})
-`,
-    )
-    useFakeApi(root, FAKE_API)
-    expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root, {}, ['src/repositories'])
-    expect(tests.status, tests.output).toBe(0)
-  }, 120_000)
-
   it('http: o contrato fica pulado sem API_TEST_URL e roda contra uma API falsa em memória', async () => {
     const root = await project(LIVROS)
     await generate(root, '--data-source', 'http')

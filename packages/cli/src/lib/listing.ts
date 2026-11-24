@@ -11,7 +11,7 @@ import {
 } from './route-elements.ts'
 import { contractEntity } from './contract.ts'
 import { readEntityFields, type FieldType } from './fields/index.ts'
-import { deriveNames, pascalCase, type DomainNames } from './names.ts'
+import { deriveNames, isValidName, pascalCase, type DomainNames } from './names.ts'
 import { ChangePlan } from './plan.ts'
 import { displayPath } from './paths.ts'
 import type { Project } from './project.ts'
@@ -47,6 +47,25 @@ export interface ListedRepository {
   entity: string | null
   /** As fontes que existem (o arquivo e a linha na fábrica), na ordem `mock`, `http`, `storage`. */
   sources: ListedSource[]
+}
+
+export type UseCaseKind = 'read' | 'write' | 'local'
+
+/** Um use case de `src/use-cases/<domínio>/<ação>.usecase.ts`. */
+export interface ListedUseCase {
+  /** O domínio: o nome da pasta, `stores`. */
+  domain: string
+  /** A ação, em kebab-case: `get-stores`. */
+  name: string
+  /** A chave no registro (`useUseCases()`): a ação em camelCase, `getStores`. */
+  key: string
+  /**
+   * `read` (a chave de cache `<chave>Key` no `.types.ts`), `write` (chama a API, sem a chave) ou
+   * `local` (sem `ENDPOINT`: usa o `storage`).
+   */
+  kind: UseCaseKind
+  /** O `ENDPOINT` do `.types.ts`, como `GET /stores/get-stores`; `null` no `local`. */
+  endpoint: string | null
 }
 
 /** As queries de um domínio, de `src/queries/`. */
@@ -87,6 +106,7 @@ export interface ListedPage {
 /** O que o projeto tem, lido dos arquivos. É o que o `prumo list --json` escreve. */
 export interface ProjectListing {
   schemas: ListedSchema[]
+  useCases: ListedUseCase[]
   repositories: ListedRepository[]
   queries: ListedQuery[]
   pages: ListedPage[]
@@ -165,6 +185,38 @@ function listRepositories(project: Project): ListedRepository[] {
       entity: (contract ? contractEntity(contract) : undefined) ?? null,
       sources,
     })
+  }
+  return result
+}
+
+const ENDPOINT =
+  /\bENDPOINT\s*=\s*\{\s*method:\s*['"](\w+)['"]\s*,\s*path:\s*['"]([^'"]*)['"]/
+
+/** Os use cases do projeto, por domínio e ação, lidos do `.types.ts` ao lado de cada `.usecase.ts`. */
+export function listUseCases(project: Project): ListedUseCase[] {
+  const base = path.join(project.src, 'use-cases')
+  const result: ListedUseCase[] = []
+  for (const folder of entries(base)) {
+    if (!folder.isDirectory()) continue
+    for (const file of entries(path.join(base, folder.name))) {
+      const name = /^(.+)\.usecase\.ts$/.exec(file.name)?.[1]
+      if (!file.isFile() || name === undefined || !isValidName(name)) continue
+      const key = deriveNames(name).camel
+      const types = readIfExists(path.join(base, folder.name, `${name}.types.ts`)) ?? ''
+      const endpoint = ENDPOINT.exec(types)
+      const kind: UseCaseKind = !endpoint
+        ? 'local'
+        : new RegExp(`\\bexport\\s+(?:function|const)\\s+${key}Key\\b`).test(types)
+          ? 'read'
+          : 'write'
+      result.push({
+        domain: folder.name,
+        name,
+        key,
+        kind,
+        endpoint: endpoint ? `${endpoint[1]} ${endpoint[2]}` : null,
+      })
+    }
   }
   return result
 }
@@ -360,7 +412,7 @@ function listLanguages(project: Project): string[] {
 }
 
 /**
- * O que o projeto tem hoje: os schemas (com os campos que o leitor reconhece), os repositórios (com
+ * O que o projeto tem hoje: os schemas (com os campos que o leitor reconhece), os use cases, os repositórios (com
  * as fontes), as queries, as telas (com rota, variação e query) e os idiomas. Só lê os arquivos,
  * nunca escreve, e não falha com um arquivo editado à mão: o que o leitor não entende vira um
  * `problem` no schema, ou um `null`. Quem chama confere antes que a pasta é um projeto.
@@ -369,6 +421,7 @@ export function listProject(project: Project): ProjectListing {
   const queries = listQueries(project)
   return {
     schemas: listSchemas(project),
+    useCases: listUseCases(project),
     repositories: listRepositories(project),
     queries,
     pages: listPages(project, queries),

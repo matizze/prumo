@@ -5,6 +5,7 @@ import {
   readFileSync,
   readlinkSync,
   realpathSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
@@ -25,8 +26,12 @@ export interface PlanSummary {
  * do ts-morph sem tsconfig e sem sistema de arquivos: ele só enxerga o que o plano carregou
  * (os arquivos novos e os de costura), nada é lido nem escrito por ele, e a checagem de tipos
  * nunca roda. Os arquivos que não são código (JSON de mensagens) ficam numa lista à parte. Nada
- * vai para o disco até `commit()`, então um erro no meio do caminho não deixa o projeto pela
- * metade, e `summary()` mostra o que seria feito (o `--dry-run`).
+ * vai para o disco até `commit()`, e `summary()` mostra o que seria feito (o `--dry-run`).
+ *
+ * O que o `commit()` garante: se uma escrita falha, ele apaga os arquivos e as pastas que criou,
+ * devolve o conteúdo original dos arquivos que alterou e relança o erro. Não cobre o processo
+ * morrer no meio da escrita, nem uma falha do próprio desfazer (que é feito sem parar no primeiro
+ * erro, para não esconder o erro original).
  */
 export class ChangePlan {
   readonly project: Project
@@ -117,17 +122,29 @@ export class ChangePlan {
     this.#editedTexts.set(file, { original, content })
   }
 
+  /** Os arquivos existentes que o plano altera, com o conteúdo original e o novo. Os que ficaram iguais não contam. */
+  #changes(): { file: string; original: string; content: string }[] {
+    const sources = [...this.#loadedSources].map(([file, { file: source, original }]) => ({
+      file,
+      original,
+      content: source.getFullText(),
+    }))
+    const texts = [...this.#editedTexts].map(([file, { original, content }]) => ({
+      file,
+      original,
+      content,
+    }))
+    return [...sources, ...texts].filter(({ original, content }) => content !== original)
+  }
+
   /** O que o plano criaria e alteraria. Arquivos editados que ficaram iguais não contam. */
   summary(): PlanSummary {
-    const relative = (file: string) => this.#display(file)
-    const created = [...this.#createdSources.keys(), ...this.#createdFiles.keys()].map(relative)
-    const modified = [
-      ...[...this.#loadedSources]
-        .filter(([, s]) => s.file.getFullText() !== s.original)
-        .map(([f]) => f),
-      ...[...this.#editedTexts].filter(([, t]) => t.content !== t.original).map(([f]) => f),
-    ].map(relative)
-    return { created: created.sort(), modified: modified.sort() }
+    const created = [...this.#createdSources.keys(), ...this.#createdFiles.keys()]
+    const modified = this.#changes().map(({ file }) => file)
+    return {
+      created: created.map((file) => this.#display(file)).sort(),
+      modified: modified.map((file) => this.#display(file)).sort(),
+    }
   }
 
   /**
@@ -141,29 +158,28 @@ export class ChangePlan {
       if (existsSync(file))
         throw new UsageError(`'${this.#display(file)}' já existe: nada foi escrito.`)
     }
-    const modified = [
-      ...[...this.#loadedSources]
-        .filter(([, s]) => s.file.getFullText() !== s.original)
-        .map(([f]) => f),
-      ...[...this.#editedTexts].filter(([, t]) => t.content !== t.original).map(([f]) => f),
-    ]
-    this.#assertInside([...created, ...modified])
+    this.#assertInside([...created, ...this.#changes().map(({ file }) => file)])
     return this.summary()
   }
 
   /**
    * Grava o plano no disco, depois de `verify()`. Os arquivos novos saem primeiro e os alterados
-   * depois.
+   * depois. Se uma escrita falha, desfaz tudo o que já escreveu (veja a garantia na classe) e
+   * relança o erro.
    */
   commit(): PlanSummary {
     const summary = this.verify()
-    for (const [file, source] of this.#createdSources) write(file, source.getFullText())
-    for (const [file, content] of this.#createdFiles) write(file, content)
-    for (const [file, { file: source, original }] of this.#loadedSources) {
-      if (source.getFullText() !== original) write(file, source.getFullText())
-    }
-    for (const [file, { original, content }] of this.#editedTexts) {
-      if (content !== original) write(file, content)
+    const written: Written = { files: [], folders: [], originals: [] }
+    try {
+      for (const [file, source] of this.#createdSources) writeNew(file, source.getFullText(), written)
+      for (const [file, content] of this.#createdFiles) writeNew(file, content, written)
+      for (const { file, original, content } of this.#changes()) {
+        written.originals.push({ file, original })
+        writeFileSync(file, content)
+      }
+    } catch (error) {
+      undo(written)
+      throw error
     }
     return summary
   }
@@ -289,7 +305,42 @@ function culpritLink(
   return undefined
 }
 
-function write(file: string, content: string): void {
-  mkdirSync(path.dirname(file), { recursive: true })
-  writeFileSync(file, content)
+/** O que o `commit()` já escreveu, para desfazer se uma escrita falhar. */
+interface Written {
+  /** Os arquivos novos. */
+  files: string[]
+  /** A primeira pasta que cada `mkdirSync` criou (as de dentro dela vão junto). */
+  folders: string[]
+  /** Os arquivos alterados, com o conteúdo de antes. */
+  originals: { file: string; original: string }[]
+}
+
+/** Cria o arquivo novo (e as pastas que faltam) e anota o que criou. */
+function writeNew(file: string, content: string, written: Written): void {
+  const folder = mkdirSync(path.dirname(file), { recursive: true })
+  if (folder !== undefined) written.folders.push(folder)
+  try {
+    // `wx`: se o arquivo apareceu agora, falha em vez de sobrescrever (e de apagar o alheio ao desfazer)
+    writeFileSync(file, content, { flag: 'wx' })
+  } catch (error) {
+    // Uma escrita pela metade deixa o arquivo; já existir não é nosso
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') written.files.push(file)
+    throw error
+  }
+  written.files.push(file)
+}
+
+/** Desfaz a escrita sem parar no primeiro erro: o que não der para desfazer não esconde o erro original. */
+function undo({ files, folders, originals }: Written): void {
+  for (const file of files) attempt(() => rmSync(file, { force: true }))
+  for (const { file, original } of originals) attempt(() => writeFileSync(file, original))
+  for (const folder of folders.reverse()) attempt(() => rmSync(folder, { recursive: true, force: true }))
+}
+
+function attempt(action: () => void): void {
+  try {
+    action()
+  } catch {
+    // Melhor esforço: o erro que importa é o da escrita que falhou
+  }
 }

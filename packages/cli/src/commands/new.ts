@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { accessSync, constants, existsSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { accessSync, constants, existsSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { Option } from 'commander'
 import { ExitError, UsageError } from '../errors.ts'
@@ -60,18 +60,6 @@ function resolveDestination(io: Io, dir: string | undefined, name: string): stri
     }
   }
   return destination
-}
-
-/** Desfaz a escrita que falhou: apaga a pasta se o comando a criou, ou o que pôs numa pasta vazia. */
-function rollback(destination: string, createdFolder: boolean): void {
-  if (!existsSync(destination)) return
-  if (createdFolder) {
-    rmSync(destination, { recursive: true, force: true })
-    return
-  }
-  for (const entry of readdirSync(destination)) {
-    rmSync(path.join(destination, entry), { recursive: true, force: true })
-  }
 }
 
 /** `git init`, sem commit: quem criou o app decide o primeiro commit. Falhar só avisa. */
@@ -150,15 +138,8 @@ export function createNewCommand(deps: NewDeps = {}): RegisterCommand {
         // O --dry-run confere o plano com as mesmas regras do commit (links para fora do destino)
         const files = (dryRun ? plan.verify() : plan.summary()).created
 
-        if (!dryRun) {
-          const createdFolder = !existsSync(destination)
-          try {
-            plan.commit()
-          } catch (error) {
-            rollback(destination, createdFolder)
-            throw error
-          }
-        }
+        // O commit desfaz o que escreveu se uma escrita falha: nada fica pela metade
+        if (!dryRun) plan.commit()
 
         const packagesLine = packagesDir
           ? `Pacotes do Prumo: tarballs de ${packagesDir} (pnpm.overrides com file:).`

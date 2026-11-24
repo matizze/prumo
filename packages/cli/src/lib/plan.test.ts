@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -210,4 +211,56 @@ describe('ChangePlan: link simbólico para fora do projeto', () => {
     plan.commit()
     expect(existsSync(at(root, 'src/messages/en/novo.json'))).toBe(true)
   })
+})
+
+describe('ChangePlan: escrita atômica', () => {
+  /** Cada arquivo e pasta da árvore, com o conteúdo dos arquivos: o retrato do projeto. */
+  function snapshot(dir: string): Record<string, string | null> {
+    const result: Record<string, string | null> = {}
+    for (const entry of readdirSync(dir, { withFileTypes: true, recursive: true })) {
+      const full = path.join(entry.parentPath, entry.name)
+      result[path.relative(dir, full)] = entry.isDirectory() ? null : readFileSync(full, 'utf8')
+    }
+    return result
+  }
+
+  it('se a escrita de um arquivo novo falha no meio, apaga o que criou, inclusive as pastas, e relança o erro', () => {
+    const plan = fixturePlan()
+    const { root } = plan.project
+    // Um arquivo comum no lugar de uma pasta: o mkdir do último arquivo dá ENOTDIR
+    writeFileSync(at(root, 'src/bloqueio'), 'arquivo\n')
+    const before = snapshot(root)
+
+    plan.createText(at(root, 'src/messages/en/a.json'), '{}\n')
+    plan.createSource(at(root, 'src/pages/novo/fundo/index.tsx'), 'export {}\n')
+    plan.createText(at(root, 'src/pages/novo/fundo/b.json'), '{}\n')
+    plan.createText(at(root, 'src/bloqueio/fundo/c.json'), '{}\n')
+    plan.editText(at(root, 'src/messages/en/common.json'), '{ "close": "Close" }\n')
+
+    expect(() => plan.commit()).toThrow(/ENOTDIR/)
+    expect(snapshot(root)).toEqual(before)
+  })
+
+  it.skipIf(process.getuid?.() === 0)(
+    'se a escrita de um arquivo alterado falha, devolve o conteúdo dos alterados e apaga os novos',
+    () => {
+      const plan = fixturePlan()
+      const { root } = plan.project
+      const blocked = at(root, 'src/messages/en/common.json')
+      const before = snapshot(root)
+
+      plan.createText(at(root, 'src/pages/novo/a.json'), '{}\n')
+      applyEdits(plan.source(plan.project.app), [{ pos: 0, end: 0, text: '// alterado\n' }])
+      plan.editText(blocked, '{ "close": "Close" }\n')
+      // O arquivo que o plano escreve por último não aceita escrita (EACCES)
+      chmodSync(blocked, 0o444)
+
+      try {
+        expect(() => plan.commit()).toThrow(/EACCES/)
+      } finally {
+        chmodSync(blocked, 0o644)
+      }
+      expect(snapshot(root)).toEqual(before)
+    },
+  )
 })

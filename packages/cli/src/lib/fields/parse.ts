@@ -7,14 +7,22 @@ const SYNTAX = `nome:tipo separados por vírgula, por exemplo "titulo:string,ano
 /** O `enum(a|b|c)`: o que vem entre os parênteses. */
 const ENUM_TYPE = /^enum\((.*)\)$/s
 
+/** Como o texto dos campos é lido. */
+interface ParseOptions {
+  /** A opção de onde o texto vem, para as mensagens de erro (padrão: `--fields`). */
+  option?: string
+  /** Aceita `id` e `createdAt`, que um schema de entidade reserva mas um Input ou Output pode ter. */
+  reserved?: boolean
+}
+
 /**
  * Lê o texto do `--fields` (`titulo:string,ano:number,apelido?:string`) e confere cada campo: nome em
- * camelCase (começa com letra minúscula, só letras e números), tipo conhecido, sem repetir e sem os
- * nomes que o repositório reserva (`id`, `createdAt`). Todo erro é um `UsageError` (saída 2).
+ * camelCase (começa com letra minúscula, só letras e números), tipo conhecido, sem repetir e, por
+ * padrão, sem os nomes que o repositório reserva (`id`, `createdAt`). Todo erro é um `UsageError` (saída 2).
  */
-export function parseFields(text: string): Field[] {
+export function parseFields(text: string, { option = '--fields', reserved = false }: ParseOptions = {}): Field[] {
   const bad = (reason: string): never => {
-    throw new UsageError(`--fields '${text}' é inválido: ${reason}. Formato: ${SYNTAX}.`)
+    throw new UsageError(`${option} '${text}' é inválido: ${reason}. Formato: ${SYNTAX}.`)
   }
   if (text.trim() === '') bad('a lista de campos está vazia')
   const fields: Field[] = []
@@ -29,7 +37,7 @@ export function parseFields(text: string): Field[] {
     if (!FIELD_NAME.test(name)) {
       bad(`'${name}' não é um nome em camelCase (letra minúscula primeiro; só letras e números)`)
     }
-    if (RESERVED_FIELDS.has(name)) {
+    if (!reserved && RESERVED_FIELDS.has(name)) {
       bad(`'${name}' é reservado: o repositório já dá ${[...RESERVED_FIELDS].join(' e ')} a todo registro`)
     }
     if (fields.some((field) => field.name === name)) bad(`o campo '${name}' aparece mais de uma vez`)

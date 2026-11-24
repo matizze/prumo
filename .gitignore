@@ -30,3 +30,6 @@ Thumbs.db
 website/build
 website/.docusaurus
 .pnpm-store
+
+# Capturas e logs do MCP do Playwright (podem ter páginas logadas)
+.playwright-mcp/

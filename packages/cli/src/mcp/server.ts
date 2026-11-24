@@ -1,4 +1,5 @@
 import { fromJsonSchema, McpServer, type CallToolResult } from '@modelcontextprotocol/server'
+import type { RegisterCommand } from '../commands/index.ts'
 import type { Io } from '../io.ts'
 import { createProgram, execute, type Outcome } from '../program.ts'
 import { describeTools, toArgv, type ToolSpec } from './tools.ts'
@@ -24,10 +25,11 @@ export function resultOf(tool: ToolSpec, outcome: Outcome, stdout: string, stder
 }
 
 /** Roda o comando da ferramenta em processo, na raiz do projeto, com a saída capturada. */
-async function callTool(
+export async function callTool(
   tool: ToolSpec,
   input: Readonly<Record<string, unknown>>,
   root: string,
+  commands?: readonly RegisterCommand[],
 ): Promise<CallToolResult> {
   let argv: string[]
   try {
@@ -40,10 +42,12 @@ async function callTool(
   // Sem `inheritStdio`: nenhum subprocesso escreve no terminal, que aqui é o protocolo
   const io: Io = {
     cwd: root,
+    // O agente não roda de novo com a variável: o erro inesperado já traz a pilha
+    env: { PRUMO_DEBUG: '1' },
     out: (text) => void (stdout += text),
     err: (text) => void (stderr += text),
   }
-  const outcome = await execute(argv, io)
+  const outcome = await execute(argv, io, commands)
   return resultOf(tool, outcome, stdout, stderr)
 }
 

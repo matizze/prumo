@@ -33,14 +33,14 @@ pnpm dlx @matizze/prumo-cli --help
 
 ## A busca do projeto
 
-Os comandos que trabalham num projeto (`make:*`, `check`, `list` e `mcp`) o procuram a partir da pasta atual, subindo: o projeto é a primeira pasta que tem `package.json` e `src`, como o git acha o `.git`. Por isso `prumo make:page sobre` funciona de dentro de `src/pages`, e o projeto mais perto ganha do que está acima (um monorepo com vários apps).
+Os comandos que trabalham num projeto (`make:*`, `check`, `list` e `mcp`) o procuram a partir da pasta atual, subindo: o projeto é a primeira pasta que tem `src` e um `package.json` com alguma dependência `@matizze/prumo-*` (em `dependencies` ou `devDependencies`), como o git acha o `.git`. Por isso `prumo make:page sobre` funciona de dentro de `src/pages`, e o projeto mais perto ganha do que está acima (um monorepo com vários apps). Uma pasta com `package.json` e `src` que não é do Prumo (o `website` do repositório, por exemplo) não conta: a busca segue para cima.
 
 Com `--root <pasta>`, não há busca: o projeto é aquela pasta exata, e uma pasta sem `package.json` ou sem `src` sai com 2 e o motivo (`a pasta '...' não tem package.json: aponte --root para a raiz do projeto.`). Sem `--root` e sem achar nenhum projeto até a raiz do disco, sai com 2 dizendo de que pasta partiu a busca e sugerindo o `--root`. O `new` não procura: cria `<dir>/<nome>`.
 
 ## `prumo new`
 
 ```text
-prumo new <nome> [--dir <pasta>] [--no-install] [--packages <pasta>] [--dry-run]
+prumo new <nome> [--dir <pasta>] [--no-install] [--dry-run]
 ```
 
 Cria `<dir>/<nome>`: um app com Vite, React 19, TypeScript, wouter, TanStack Query, zod e i18next, os pacotes do Prumo (`core`, `rules`, `testing` e `cli`), a estrutura de pastas das camadas, os provedores (query, i18n e repositórios), a tela inicial `home` (a mesma que o `make:page` gera, na rota `/`), o `src/vite-env.d.ts` (com `VITE_DATA_SOURCE` e `VITE_API_URL`, opcionais), o ESLint com o plugin do Prumo, o Vitest com jsdom, o `AGENTS.md` e o `.mcp.json` (que registra o servidor [`prumo mcp`](#prumo-mcp) para agentes de IA). A fonte de dados padrão é `mock`. Veja o app criado em [Anatomia do app gerado](../concepts/generated-app.md).
@@ -77,12 +77,12 @@ Cria o schema zod de uma entidade e o registra:
 
 O `<domínio>` é o nome do domínio, no plural e em kebab-case (`clientes`, `pedidos-recentes`). A entidade é o singular, que sai do nome (tira o `s` final). Só o `s` final sai: `fornecedores` dá `fornecedore`, e `paes` dá `pae`. A saída mostra a entidade derivada, e o `--entity` a troca (`--entity fornecedor`, `--entity pao`). Onde a regra erra (o plural termina em `ies`, `us`, `ss`, `xes`, `ches`, `shes` ou `sses`), o comando recusa e pede o `--entity`: `categories` daria `categorie`, e o certo é `--entity category`.
 
-| Opção                 | O que faz                                                                                  |
-| --------------------- | ------------------------------------------------------------------------------------------ |
-| `--entity <singular>` | A entidade, no singular (`paes` com `--entity pao`). Padrão: o nome sem o `s` final        |
-| `--fields <campos>`   | Os campos da entidade (formato abaixo). Padrão: só `name:string`                           |
-| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta atual ou a primeira acima com `package.json` e `src` ([a busca](#a-busca-do-projeto)) |
-| `--dry-run`           | Lista o que seria criado e alterado, sem escrever nada                                     |
+| Opção                 | O que faz                                                                                             |
+| --------------------- | ----------------------------------------------------------------------------------------------------- |
+| `--entity <singular>` | A entidade, no singular (`paes` com `--entity pao`). Padrão: o nome sem o `s` final                   |
+| `--fields <campos>`   | Os campos da entidade (formato abaixo). Padrão: só `name:string`                                      |
+| `--root <pasta>`      | A pasta do projeto, a que tem o `src`. Padrão: [a busca](#a-busca-do-projeto) a partir da pasta atual |
+| `--dry-run`           | Lista o que seria criado e alterado, sem escrever nada                                                |
 
 ### O formato do `--fields`
 
@@ -134,12 +134,12 @@ Também altera:
 
 O `<domínio>` e o `--entity` são os do `make:schema`: se o schema saiu com `--entity pao`, o repositório também leva `--entity pao`.
 
-| Opção                 | O que faz                                                                           |
-| --------------------- | ----------------------------------------------------------------------------------- |
-| `--entity <singular>` | A entidade, no singular, a mesma do `make:schema`. Padrão: o nome sem o `s` final   |
-| `--data-source <fonte>` | `mock` (padrão), `http` ou `storage`. Outro valor sai com 2                       |
-| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta atual ou a primeira acima com `package.json` e `src` ([a busca](#a-busca-do-projeto)) |
-| `--dry-run`           | Lista o que seria criado e alterado, sem escrever nada                              |
+| Opção                   | O que faz                                                                                             |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- |
+| `--entity <singular>`   | A entidade, no singular, a mesma do `make:schema`. Padrão: o nome sem o `s` final                     |
+| `--data-source <fonte>` | `mock` (padrão), `http` ou `storage`. Outro valor sai com 2                                           |
+| `--root <pasta>`        | A pasta do projeto, a que tem o `src`. Padrão: [a busca](#a-busca-do-projeto) a partir da pasta atual |
+| `--dry-run`             | Lista o que seria criado e alterado, sem escrever nada                                                |
 
 O comando valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada pela metade: a fonte que não existe (`--data-source graphql`), a fonte que o repositório já tem, o schema que falta (a mensagem traz o `prumo make:schema` com o `--entity` certo e, se há schemas sem repositório, lembra de repetir o `--entity` e lista os nomes deles), o repositório que já existe (sem `--data-source`, ou com `mock`), um campo do schema que não se lê e um container (`src/repositories/index.ts`) sem o mapa `factories`. No fim, mostra o que criou e alterou e o próximo passo: `prumo make:query <domínio>`.
 
@@ -198,12 +198,12 @@ prumo make:page <nome> [--query <domínio>] [--path <caminho>] [--root <pasta>] 
 
 Cria uma tela: `src/pages/<nome>/` com `index.tsx` (liga o model à view), `model.ts` (dados e textos, sem JSX), `view.tsx` (só tags nativas, recebe tudo por props) e `index.test.tsx` (renderiza com o `renderWithProviders` de `@/test/render` e confere o título), e as mensagens em `src/messages/<idioma>/<nome>.json`, nos idiomas do projeto. Registra o namespace nos índices de mensagens de cada idioma e a rota no `src/App.tsx`. O `<nome>` vai em kebab-case (`clientes`, `pedidos-recentes`).
 
-| Opção               | O que faz                                                                                                         |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `--query <domínio>` | O domínio cuja query a tela usa (`clientes`). Precisa de `src/queries/<domínio>.ts`. Padrão: nenhum              |
-| `--path <caminho>`  | O caminho da rota, com um parâmetro opcional (`/clientes/:id`). Padrão: `/<nome>`                                 |
-| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta atual ou a primeira acima com `package.json` e `src` ([a busca](#a-busca-do-projeto)) |
-| `--dry-run`         | Só lista o que seria criado e alterado, sem escrever nada                                                         |
+| Opção               | O que faz                                                                                             |
+| ------------------- | ----------------------------------------------------------------------------------------------------- |
+| `--query <domínio>` | O domínio cuja query a tela usa (`clientes`). Precisa de `src/queries/<domínio>.ts`. Padrão: nenhum   |
+| `--path <caminho>`  | O caminho da rota, com um parâmetro opcional (`/clientes/:id`). Padrão: `/<nome>`                     |
+| `--root <pasta>`    | A pasta do projeto, a que tem o `src`. Padrão: [a busca](#a-busca-do-projeto) a partir da pasta atual |
+| `--dry-run`         | Só lista o que seria criado e alterado, sem escrever nada                                             |
 
 As quatro variações:
 
@@ -234,9 +234,9 @@ src/components/widgets  [components-folders]  A pasta 'widgets' não é permitid
 
 Confere as pastas de `src/components`, o uso de `components/shared` pelas telas, a estrutura de cada tela e os textos completos nos idiomas. Sem violação, escreve `prumo check: nenhuma violação.`.
 
-| Opção             | O que faz                                                     |
-| ----------------- | ------------------------------------------------------------- |
-| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta atual ou a primeira acima com `package.json` e `src` ([a busca](#a-busca-do-projeto)) |
+| Opção            | O que faz                                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: [a busca](#a-busca-do-projeto) a partir da pasta atual |
 
 | Código | Quando                                                                          |
 | ------ | ------------------------------------------------------------------------------- |
@@ -264,19 +264,19 @@ Queries (1):
 
 Telas (2):
   livro  rota: /livros/:id  detalhe  query: livros
-  sobre  rota: nenhuma  titulo
+  sobre  rota: nenhuma  título
 
 Idiomas (2):
   en
   pt-BR
 ```
 
-Na linha da tela, a variação tem rótulo em português (`titulo`, `lista`, `parametro` ou `detalhe`; o `--json` traz os valores em inglês, abaixo). `rota: curinga` é a `<Route>` sem `path` (ou com `path="*"`), `rota: {expressão} (expressão)` é um `path` que não é literal e `rota: nenhuma` é a tela que nenhuma `<Route>` usa. Um schema que o leitor do Prumo recusa (editado à mão com algo fora dos tipos do `--fields`) aparece como `editado à mão (<motivo>)`, com a primeira linha da mensagem do leitor (no máximo 160 caracteres).
+Na linha da tela, a variação tem rótulo em português (`título`, `lista`, `parâmetro` ou `detalhe`; o `--json` traz os valores em inglês, abaixo). `rota: curinga` é a `<Route>` sem `path` (ou com `path="*"`), `rota: {expressão} (expressão)` é um `path` que não é literal e `rota: nenhuma` é a tela que nenhuma `<Route>` usa. Um schema que o leitor do Prumo recusa (editado à mão com algo fora dos tipos do `--fields`) aparece como `editado à mão (<motivo>)`, com a primeira linha da mensagem do leitor (no máximo 160 caracteres).
 
-| Opção             | O que faz                                                     |
-| ----------------- | ------------------------------------------------------------- |
-| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta atual ou a primeira acima com `package.json` e `src` ([a busca](#a-busca-do-projeto)) |
-| `--json`          | Escreve o levantamento em JSON, no formato abaixo             |
+| Opção            | O que faz                                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: [a busca](#a-busca-do-projeto) a partir da pasta atual |
+| `--json`         | Escreve o levantamento em JSON, no formato abaixo                                                     |
 
 ### A saída `--json`
 
@@ -354,16 +354,16 @@ O stdout é do protocolo: nada além dele sai ali com o servidor no ar (o `conso
 }
 ```
 
-| Opção           | O que faz                                                          |
-| --------------- | ------------------------------------------------------------------ |
-| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta atual ou a primeira acima com `package.json` e `src` ([a busca](#a-busca-do-projeto)) |
+| Opção            | O que faz                                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: [a busca](#a-busca-do-projeto) a partir da pasta atual |
 
 ### As ferramentas
 
 Uma ferramenta por comando, menos `new` e `mcp`. Elas saem da árvore de comandos da CLI: um comando novo vira ferramenta sem outra lista para manter.
 
 - **Nome:** o do comando, com `:` trocado por `_` (`make:schema` vira `make_schema`).
-- **Descrição:** o resumo e a descrição do comando, os mesmos da ajuda (sem a seção de exemplos).
+- **Descrição:** o resumo do comando, o detalhe que a ajuda do terminal deixa para esta página (formatos, regras e pré-requisitos, para o agente não precisar da documentação) e o link da referência.
 - **Entrada:** os argumentos posicionais (obrigatórios) e as opções, com nomes em snake_case sem acento: `<domínio>` vira `dominio`, `--data-source` vira `data_source`, `--dry-run` vira `dry_run`. Opção com valor é `string` (com `enum` quando o comando lista os valores); opção sem valor é `boolean`; `--no-<x>` vira `<x>: boolean`, com `true` de padrão. O posicional não pode começar com `-`. Campo fora do esquema é recusado.
 - **Fora da entrada:** `--root`, `--help` e `--version`. Nenhuma ferramenta recebe a pasta: o agente só escreve no projeto onde o servidor abriu. No `list`, o `--json` também não é campo: a ferramenta sempre o passa.
 
@@ -382,7 +382,7 @@ Os parâmetros têm o significado das opções do comando de mesmo nome (veja as
 
 A entrada vira a linha de comando (`['make:schema', '--fields=...', '--', 'livros']`: a opção de valor vai como `--opção=valor` e os posicionais depois de `--`, para nenhum valor ser lido como opção) e roda em processo, na pasta do projeto, com a saída capturada. O resultado é o texto da saída: o stdout e, se houver, o stderr. A ferramenta `list` devolve o JSON do `prumo list --json`.
 
-- `isError` é verdadeiro quando o código de saída não é 0, com a mensagem em português (o erro de uso traz o `prumo: ...`, com a linha de uso quando o erro é de opção ou argumento).
+- `isError` é verdadeiro quando o código de saída não é 0, com a mensagem em português (o erro de uso traz o `prumo: ...`, com a linha de uso quando o erro é de opção ou argumento). O erro inesperado volta sempre com a pilha, como se `PRUMO_DEBUG` estivesse ligado: o agente não tem como rodar de novo com a variável.
 - O `check` com violação (código 1) não é erro: volta com `isError` falso e as violações no texto, para o agente corrigir.
 - As chamadas rodam uma de cada vez, numa fila, para duas escritas no mesmo projeto não se cruzarem.
 
@@ -470,7 +470,7 @@ $ prumo make:query livros
 prumo: falta o repositório livros (src/repositories/livros); rode prumo make:repository livros.
 ```
 
-**Erro inesperado** (um defeito, não um uso errado): sai com 1, a mensagem e como ver a pilha. A pilha só aparece com `PRUMO_DEBUG=1`:
+**Erro inesperado** (um defeito, não um uso errado): sai com 1, a mensagem e como ver a pilha. A pilha só aparece com `PRUMO_DEBUG` ligado: qualquer valor que não seja vazio, `0` ou `false` (`PRUMO_DEBUG=1`, por exemplo):
 
 ```text
 $ prumo list

@@ -9,7 +9,7 @@ import { appNameProblem } from '../lib/names.ts'
 import { detectPnpmVersion, shellQuote } from '../lib/pnpm.ts'
 import { runChild } from '../lib/process.ts'
 import { readTarballs } from '../lib/tarballs.ts'
-import { addExamples } from './help-text.ts'
+import { documentCommand } from './help-text.ts'
 import type { RegisterCommand } from './index.ts'
 
 /** O que o comando pede de fora do processo; os testes trocam por versões de mentira. */
@@ -186,11 +186,10 @@ export function createNewCommand(deps: NewDeps = {}): RegisterCommand {
         }
         io.out(nextSteps(io, destination, install))
       })
-    addExamples(
-      command,
-      ['prumo new meu-app', 'prumo new meu-app --dir ~/projetos --no-install', 'prumo new meu-app --dry-run'],
-      'prumo-new',
-    )
+    documentCommand(command, {
+      examples: ['prumo new meu-app', 'prumo new meu-app --dir ~/projetos --no-install', 'prumo new meu-app --dry-run'],
+      anchor: 'prumo-new',
+    })
   }
 }
 

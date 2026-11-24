@@ -6,14 +6,14 @@ import {
   type ProjectListing,
 } from '../generators/listing.ts'
 import { locateProject, ROOT_OPTION_DESCRIPTION } from '../lib/project.ts'
-import { addExamples } from './help-text.ts'
+import { documentCommand } from './help-text.ts'
 import type { RegisterCommand } from './index.ts'
 
 /** Os rótulos da variação da tela no texto; o JSON traz o valor em inglês. */
 const VARIATION_LABELS: Record<PageVariation, string> = {
-  title: 'titulo',
+  title: 'título',
   list: 'lista',
-  param: 'parametro',
+  param: 'parâmetro',
   detail: 'detalhe',
 }
 
@@ -77,8 +77,8 @@ export const registerList: RegisterCommand = (program, io) => {
     .command('list')
     .summary('Mostra o que o projeto tem: schemas, repositórios, queries, telas e idiomas.')
     .description(
-        'Mostra o que o projeto tem: schemas, repositórios, queries, telas e idiomas.\n\nSó lê os arquivos; com --json, escreve o levantamento em JSON para outras ferramentas.',
-      )
+      'Mostra o que o projeto tem: schemas, repositórios, queries, telas e idiomas.\n\nSó lê os arquivos; com --json, escreve o levantamento em JSON para outras ferramentas.',
+    )
     .option('--root <pasta>', ROOT_OPTION_DESCRIPTION)
     .option('--json', 'Escreve o levantamento em JSON.')
     .action((options: { root?: string; json?: boolean }) => {
@@ -86,12 +86,13 @@ export const registerList: RegisterCommand = (program, io) => {
       const listing = listProject(project)
       io.out(options.json ? `${JSON.stringify(listing, null, 2)}\n` : formatListing(listing))
     })
-  addExamples(
-    command,
-    [
+  documentCommand(command, {
+    examples: [
       'prumo list',
       'prumo list --json',
     ],
-    'prumo-list',
-  )
+    anchor: 'prumo-list',
+    agentDetail:
+      "Só lê os arquivos e nunca escreve. Devolve um JSON com as chaves schemas (entity, file, fields com name, type, optional e values; ou fields null e problem quando o schema foi editado à mão), repositories (domain, entity, sources: mock, http, storage), queries (domain, file, entity, hooks), pages (name, route, routeKind, routePartial, variation: title, list, param ou detail, e query) e languages (as pastas de src/messages). Chame antes de gerar: evita repetir um domínio e mostra qual camada falta.",
+  })
 }

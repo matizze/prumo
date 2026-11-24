@@ -54,12 +54,30 @@ describe('paridade das ferramentas com os comandos', () => {
     expect(Object.keys(made?.inputSchema.properties ?? {})).toEqual(['nome', 'tamanho', 'teste'])
   })
 
-  it('a descrição é a do comando, a mesma da ajuda', () => {
+  it('a descrição traz o resumo, o detalhe do agente e a referência, sem repetir o resumo', () => {
     for (const candidate of tools) {
       const command = program.commands.find((item) => item.name() === candidate.command)
-      expect(candidate.description).toContain(command?.description())
-      expect(candidate.description).toContain(command?.summary())
+      const summary = command?.summary() ?? ''
+      expect(candidate.description.startsWith(`${summary}\n\n`), candidate.name).toBe(true)
+      expect(candidate.description.split(summary)).toHaveLength(2)
+      expect(candidate.description).toMatch(
+        new RegExp(`\\nReferência: https://docs.prumo.matizze.com.br/reference/cli#prumo-${candidate.command.replace(':', '')}$`),
+      )
     }
+  })
+
+  it('o detalhe que saiu da ajuda do terminal está na descrição da ferramenta', () => {
+    expect(tool('make_repository').description).toContain('VITE_DATA_SOURCE')
+    expect(tool('make_repository').description).toContain('{ items, total }')
+    expect(tool('make_page').description).toContain(':param')
+    expect(tool('make_schema').description).toContain('createdAt')
+    expect(tool('make_schema').description).toContain('AAAA-MM-DD')
+    expect(tool('check').description).toContain('components/shared')
+  })
+
+  it('o detalhe do agente não aparece na ajuda do terminal', () => {
+    const help = program.commands.find((item) => item.name() === 'make:repository')?.helpInformation()
+    expect(help).not.toContain('VITE_DATA_SOURCE')
   })
 })
 

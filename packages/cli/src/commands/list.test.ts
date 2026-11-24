@@ -169,9 +169,9 @@ export default function App() {
       { name: 'd', route: null, routeKind: null },
     ])
     const text = (await exec(['list'], root)).stdout
-    expect(text).toContain('  a  rota: {ROUTES.lenta} (expressão)  titulo\n')
-    expect(text).toContain('  b  rota: curinga  titulo\n')
-    expect(text).toContain('  d  rota: nenhuma  titulo\n')
+    expect(text).toContain('  a  rota: {ROUTES.lenta} (expressão)  título\n')
+    expect(text).toContain('  b  rota: curinga  título\n')
+    expect(text).toContain('  d  rota: nenhuma  título\n')
   })
 
   it('tela carregada com lazy tem rota', () => {
@@ -259,7 +259,7 @@ describe('prumo list', () => {
     )
     expect(result.stdout).toContain('Repositórios (1):\n  livros  Livro  fontes: mock, http, storage\n')
     expect(result.stdout).toContain('  livro  rota: /livros/:id  detalhe  query: livros\n')
-    expect(result.stdout).toContain('  sobre  rota: /sobre  titulo\n')
+    expect(result.stdout).toContain('  sobre  rota: /sobre  título\n')
     expect(result.stdout).toContain('Idiomas (2):\n  en\n  pt-BR\n')
   })
 
@@ -272,7 +272,7 @@ describe('prumo list', () => {
     expect(result.stdout).toContain(
       "Livro  src/schemas/entities/livro.ts  editado à mão (linha 1: campo 'a': não reconheço o tipo (z.foo())",
     )
-    expect(result.stdout).toContain('  solta  rota: nenhuma  titulo\n')
+    expect(result.stdout).toContain('  solta  rota: nenhuma  título\n')
   })
 
   it('projeto vazio: cada seção diz nenhum', async () => {

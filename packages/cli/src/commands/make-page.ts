@@ -2,8 +2,8 @@ import { UsageError } from '../errors.ts'
 import { generatePage } from '../generators/page.ts'
 import { testCommandFor } from '../lib/pnpm.ts'
 import { locateProject, ROOT_OPTION_DESCRIPTION } from '../lib/project.ts'
+import { documentCommand } from './help-text.ts'
 import { formatSummary } from './summary.ts'
-import { addExamples } from './help-text.ts'
 import type { RegisterCommand } from './index.ts'
 
 type MakePageOptions = {
@@ -32,8 +32,8 @@ export const registerMakePage: RegisterCommand = (program, io) => {
     .command('make:page')
     .summary('Cria uma tela: index, model, view, teste, mensagens e rota.')
     .description(
-        'Cria uma tela nova: index, model, view, teste, mensagens e rota.\n\nSem --query, a tela só tem o título; com --query, lista ou detalhe do domínio.',
-      )
+      'Cria uma tela nova: index, model, view, teste, mensagens e rota.\n\nSem --query, a tela só tem o título; com --query, lista ou detalhe do domínio.',
+    )
     .argument('<nome>', 'O nome da tela, em kebab-case (por exemplo, clientes).')
     .option(
       '--query <domínio>',
@@ -64,14 +64,15 @@ export const registerMakePage: RegisterCommand = (program, io) => {
         : `Edite o model (src/pages/${names.kebab}/model.ts), a view (view.tsx) e os textos (src/messages/<idioma>/${names.kebab}.json); o teste acompanha.\n\nPara rodar os testes da tela nova:\n  ${testCommandFor(project, io.cwd, `src/pages/${names.kebab}`)}\n`
       io.out(`${heading}\n\n${formatSummary(summary, dryRun)}\n${warningText}${ending}`)
     })
-  addExamples(
-    command,
-    [
+  documentCommand(command, {
+    examples: [
       'prumo make:page sobre',
       'prumo make:page livros --query livros',
       'prumo make:page livro --query livros --path /livros/:id',
       'prumo make:page livros --query livros --dry-run',
     ],
-    'prumo-makepage',
-  )
+    anchor: 'prumo-makepage',
+    agentDetail:
+      "Cria src/pages/<nome>/ com index.tsx (liga o model à view), model.ts (dados e textos, sem JSX), view.tsx (só tags nativas, recebe tudo por props) e index.test.tsx, as mensagens em src/messages/<idioma>/<nome>.json, o namespace nos índices de mensagens e a rota (padrão /<nome>) no src/App.tsx. O <nome> é o da tela, em kebab-case.\n\nSem query, a tela só tem o título. Com query=<domínio>, o model lê a lista do domínio (use<Domínio>List, de @/queries, criado por make_query, que precisa existir antes) e a view mostra o carregando, o erro e a lista, com o primeiro campo de texto de cada registro; sem campo de texto, mostra o id e avisa.\n\nCom path, a rota é a do caminho (por exemplo, /clientes/:id). O caminho começa com /, tem segmentos fixos e, no máximo, um parâmetro (:param, como :id; sem ?, * nem +), e não pode repetir nem conflitar com uma rota do App.tsx. Com parâmetro, o model lê o valor com o useParams do wouter e a view o mostra. Com query e parâmetro, é a tela de detalhe: o model busca o registro com o use<Entidade>Detail do domínio. Só com parâmetro (sem query), a tela mostra o valor lido da rota.\n\nValida tudo antes de escrever e nunca sobrescreve. São erro de uso: nome inválido ou reservado; tela que já existe; caminho inválido, repetido ou que conflita com uma rota; query que falta (a dica é make_query); App.tsx ou índice de mensagens que falta. dry_run só lista. No fim, o resultado traz os avisos e o comando dos testes da tela.",
+  })
 }

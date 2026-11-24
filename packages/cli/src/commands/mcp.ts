@@ -1,6 +1,6 @@
 import { locateProject, ROOT_OPTION_DESCRIPTION } from '../lib/project.ts'
 import { readVersion } from '../lib/version.ts'
-import { addExamples } from './help-text.ts'
+import { documentCommand } from './help-text.ts'
 import type { RegisterCommand } from './index.ts'
 
 /** O trecho do `.mcp.json` que registra o servidor; sai da ajuda inteiro, para copiar. */
@@ -28,10 +28,9 @@ export const registerMcp: RegisterCommand = (program, io) => {
       const { serve } = await import('../mcp/stdio.ts')
       await serve({ root: project.root, version: readVersion() })
     })
-  addExamples(
-    command,
-    ['pnpm exec prumo mcp', 'pnpm exec prumo mcp --root ../meu-app'],
-    'prumo-mcp',
-    `Para colar no .mcp.json de um projeto que não saiu do prumo new:\n\n${MCP_JSON}`,
-  )
+  documentCommand(command, {
+    examples: ['claude mcp add prumo -- pnpm exec prumo mcp'],
+    anchor: 'prumo-mcp',
+    notes: `Para colar no .mcp.json de um projeto que não saiu do prumo new:\n\n${MCP_JSON}`,
+  })
 }

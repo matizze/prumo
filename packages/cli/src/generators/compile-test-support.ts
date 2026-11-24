@@ -105,7 +105,10 @@ export async function project(
     mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
     writeFileSync(path.join(root, file), content)
   }
-  write('package.json', '{ "name": "app", "type": "module" }\n')
+  write(
+    'package.json',
+    '{ "name": "app", "type": "module", "devDependencies": { "@matizze/prumo-cli": "^0.8.0" } }\n',
+  )
   write('tsconfig.json', `${JSON.stringify(TSCONFIG, null, 2)}\n`)
   write(
     'vitest.config.ts',

@@ -69,7 +69,7 @@ class PortugueseHelp extends Help {
   }
 }
 
-/** Erro de uso achado pelo commander: leva o comando, para mostrar a ajuda dele. */
+/** Erro de uso achado pelo commander: leva o comando, para mostrar a linha de uso dele. */
 class ParseUsageError extends UsageError {
   readonly command: Command
 
@@ -187,7 +187,7 @@ export function createProgram(io: Io, commands: readonly RegisterCommand[] = bui
     .version(readVersion(), '-v, --version', 'Mostra a versão.')
     .helpOption('-h, --help', 'Mostra esta ajuda.')
     .helpCommand('help [comando]', 'Mostra a ajuda de um comando.')
-    .addHelpText('after', `\nDocumentação: ${DOCS_URL}/reference/cli\n`)
+    .addHelpText('after', `\nDocumentação: ${DOCS_URL}/reference/cli`)
     .showSuggestionAfterError(true)
     .exitOverride()
     .configureOutput({
@@ -209,37 +209,66 @@ export type Outcome = {
   kind: 'ok' | 'usage' | 'exit' | 'unexpected'
 }
 
-/** O erro de uso do commander: a mensagem, a linha de uso e como pedir a ajuda; sem a ajuda inteira. */
-function parseUsageText(error: ParseUsageError): string {
-  const { command } = error
+/** O erro de uso de opção ou argumento: a mensagem, a linha de uso e como pedir a ajuda, sem a ajuda inteira. */
+function parseUsageText(message: string, command: Command): string {
   const usage = `Uso: ${command.createHelp().commandUsage(command)}`
-  return `${NAME}: ${error.message}\n\n${usage}\nVeja '${commandPath(command)} --help'.\n`
+  return `${NAME}: ${message}\n\n${usage}\nVeja '${commandPath(command)} --help'.\n`
+}
+
+/** `PRUMO_DEBUG` ligado: qualquer valor que não seja vazio, `0` ou `false`. */
+function debugOn(env: Io['env']): boolean {
+  const value = env?.PRUMO_DEBUG
+  return value !== undefined && value !== '' && value !== '0' && value !== 'false'
+}
+
+/**
+ * `prumo help <x>` vira `prumo <x> --help`. Um `x` que não é comando cai no erro de comando
+ * desconhecido, com a sugestão (o `help` não é comando, para o `help help` também errar).
+ */
+function helpAsFlag(program: Command, argv: readonly string[]): string[] {
+  const [first, second] = argv
+  if (first !== 'help' || second === undefined) return [...argv]
+  if (program.commands.some((command) => command.name() === second)) return [second, '--help']
+  if (second === 'help') program.error("unknown command 'help'", { code: 'commander.unknownCommand' })
+  return [second]
 }
 
 /**
  * Roda o prumo com os argumentos (sem o `node` e o script) e diz como terminou. Nunca encerra o
- * processo. Com `PRUMO_DEBUG=1` no `io.env`, o erro inesperado traz a pilha.
+ * processo. Com `PRUMO_DEBUG` ligado no `io.env`, o erro inesperado traz a pilha.
  */
 export async function execute(
   argv: readonly string[],
   io: Io,
   commands: readonly RegisterCommand[] = builtinCommands,
 ): Promise<Outcome> {
+  // O comando cujos argumentos o parser está lendo; some quando a ação começa. Um `UsageError` lançado
+  // nesse tempo (o parser de uma opção) é erro de parse, como os do commander
+  let parsing: Command | undefined
   try {
     const program = createProgram(io, commands)
     if (argv.length === 0) {
       program.outputHelp()
       return { code: 0, kind: 'ok' }
     }
-    await program.parseAsync([...argv], { from: 'user' })
+    parsing = program
+    // O preSubcommand roda antes do parse das opções do subcomando; vale para cada nível da árvore
+    const track = (command: Command): void => {
+      command.hook('preSubcommand', (_command, subcommand) => {
+        parsing = subcommand
+      })
+      command.commands.forEach(track)
+    }
+    track(program)
+    program.hook('preAction', () => {
+      parsing = undefined
+    })
+    await program.parseAsync(helpAsFlag(program, argv), { from: 'user' })
     return { code: 0, kind: 'ok' }
   } catch (error) {
-    if (error instanceof ParseUsageError) {
-      io.err(parseUsageText(error))
-      return { code: 2, kind: 'usage' }
-    }
     if (error instanceof UsageError) {
-      io.err(`${NAME}: ${error.message}\n`)
+      const command = error instanceof ParseUsageError ? error.command : parsing
+      io.err(command ? parseUsageText(error.message, command) : `${NAME}: ${error.message}\n`)
       return { code: 2, kind: 'usage' }
     }
     if (error instanceof ExitError) {
@@ -253,9 +282,10 @@ export async function execute(
       if (error.code === 'commander.help') return { code: 2, kind: 'usage' }
     }
     const message = error instanceof Error ? error.message : String(error)
-    const debug = io.env?.PRUMO_DEBUG === '1'
-    const detail = debug
-      ? (error instanceof Error ? (error.stack ?? message) : message)
+    const detail = debugOn(io.env)
+      ? error instanceof Error
+        ? (error.stack ?? message)
+        : message
       : 'Rode de novo com PRUMO_DEBUG=1 para ver a pilha.'
     io.err(`${NAME}: erro inesperado: ${message}\n${detail}\n`)
     return { code: 1, kind: 'unexpected' }

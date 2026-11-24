@@ -1,8 +1,8 @@
 import { UsageError } from '../errors.ts'
 import { generateQuery } from '../generators/query.ts'
 import { locateProject, ROOT_OPTION_DESCRIPTION } from '../lib/project.ts'
+import { documentCommand } from './help-text.ts'
 import { formatSummary } from './summary.ts'
-import { addExamples } from './help-text.ts'
 import type { RegisterCommand } from './index.ts'
 
 type MakeQueryOptions = {
@@ -30,8 +30,8 @@ export const registerMakeQuery: RegisterCommand = (program, io) => {
     .command('make:query')
     .summary('Cria as queries e mutations de um domínio (chaves, hooks de lista, detalhe e escrita).')
     .description(
-        'Cria as queries e as mutations de um domínio, em cima do repositório dele.\n\nPrecisa do repositório (prumo make:repository).',
-      )
+      'Cria as queries e as mutations de um domínio, em cima do repositório dele.\n\nPrecisa do repositório (prumo make:repository).',
+    )
     .argument('<domínio>', 'O nome do domínio, no plural e em kebab-case (por exemplo, clientes).')
     .option(
       '--entity <singular>',
@@ -51,12 +51,13 @@ export const registerMakeQuery: RegisterCommand = (program, io) => {
         : `Próximo passo: prumo make:page ${names.plural.kebab} --query ${names.plural.kebab}\n`
       io.out(`${heading}\nExporta: ${exports.join(', ')}.\n\n${formatSummary(summary, dryRun)}\n${ending}`)
     })
-  addExamples(
-    command,
-    [
+  documentCommand(command, {
+    examples: [
       'prumo make:query livros',
       'prumo make:query categories --entity category',
     ],
-    'prumo-makequery',
-  )
+    anchor: 'prumo-makequery',
+    agentDetail:
+      "Precisa do repositório (make_repository). Cria src/queries/<domínio>.ts com <entidade>Keys (as chaves do cache), <entidade>Queries (as opções de lista e detalhe), use<Domínio>List, use<Entidade>Detail, useCreate<Entidade>, useUpdate<Entidade>, useRemove<Entidade> e o tipo <Domínio>ListOptions, e registra o domínio em src/queries/index.ts. As queries só usam o contrato do repositório pelo useRepositories(), então funcionam com qualquer fonte (mock, http ou storage).\n\nO <domínio> é no plural e em kebab-case; a entidade é o singular (tira o s final), e onde a regra erra se informa entity, a mesma do make_schema e do make_repository.\n\nValida tudo antes de escrever e nunca sobrescreve. São erro de uso: repositório que falta; repositório de outra entidade (a mensagem diz o entity certo); arquivo do schema que falta; query que já existe; export que sobrou no índice sem o arquivo; índice src/queries/index.ts que falta. dry_run só lista.",
+  })
 }

@@ -6,6 +6,9 @@ import type { RegisterCommand } from './commands/index.ts'
 import type { Io } from './io.ts'
 import { run } from './program.ts'
 
+/** O `package.json` de um projeto do Prumo: depende de um pacote `@matizze/prumo-*`. */
+export const PROJECT_MANIFEST = '{ "name": "app", "devDependencies": { "@matizze/prumo-cli": "^0.8.0" } }\n'
+
 const created: string[] = []
 afterAll(() => {
   for (const dir of created) rmSync(dir, { recursive: true, force: true })
@@ -19,7 +22,7 @@ afterAll(() => {
 export function makeProject(files: Record<string, string>, emptyDirs: string[] = []): string {
   const root = mkdtempSync(path.join(tmpdir(), 'prumo-cli-'))
   created.push(root)
-  const all = { 'package.json': '{ "name": "app" }\n', ...files }
+  const all = { 'package.json': PROJECT_MANIFEST, ...files }
   for (const [file, content] of Object.entries(all)) {
     const full = path.join(root, file)
     mkdirSync(path.dirname(full), { recursive: true })

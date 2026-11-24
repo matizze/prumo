@@ -3,7 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { UsageError } from '../errors.ts'
 import { findProject, locateProject } from './project.ts'
-import { makeDir, makeProject } from '../test-support.ts'
+import { makeDir, makeProject, PROJECT_MANIFEST } from '../test-support.ts'
 
 describe('findProject', () => {
   it('devolve os caminhos do projeto, todos absolutos', () => {
@@ -83,21 +83,29 @@ describe('findProject', () => {
 })
 
 describe('locateProject', () => {
-  it('sem --root, sobe da pasta atual até a primeira com package.json e src', () => {
+  it('sem --root, sobe da pasta atual até a primeira com src e dependência do Prumo', () => {
     const root = makeProject({ 'src/pages/livros/index.tsx': '' })
 
     expect(locateProject(root, undefined).root).toBe(root)
     expect(locateProject(path.join(root, 'src', 'pages', 'livros'), undefined).root).toBe(root)
   })
 
-  it('pasta com package.json e sem src não serve: segue subindo', () => {
-    const root = makeProject({ 'packages/app/package.json': '{}' }, ['src'])
+  it('aceita a dependência em dependencies e em devDependencies', () => {
+    const dependencies = makeProject({ 'package.json': '{ "dependencies": { "@matizze/prumo-core": "^0.2.0" } }' }, ['src'])
+    const dev = makeProject({ 'package.json': '{ "devDependencies": { "@matizze/prumo-rules": "^0.2.0" } }' }, ['src'])
 
-    expect(locateProject(path.join(root, 'packages', 'app'), undefined).root).toBe(root)
+    expect(locateProject(dependencies, undefined).root).toBe(dependencies)
+    expect(locateProject(dev, undefined).root).toBe(dev)
+  })
+
+  it('pasta com package.json e src que não é do Prumo não serve: segue subindo', () => {
+    const root = makeProject({ 'site/package.json': '{ "name": "site" }', 'site/src/main.tsx': '' }, ['src'])
+
+    expect(locateProject(path.join(root, 'site', 'src'), undefined).root).toBe(root)
   })
 
   it('o projeto mais perto ganha do que está acima', () => {
-    const outer = makeProject({ 'inner/package.json': '{}', 'inner/src/main.tsx': '' }, ['src'])
+    const outer = makeProject({ 'inner/package.json': PROJECT_MANIFEST, 'inner/src/main.tsx': '' }, ['src'])
 
     expect(locateProject(path.join(outer, 'inner', 'src'), undefined).root).toBe(path.join(outer, 'inner'))
   })
@@ -108,6 +116,12 @@ describe('locateProject', () => {
 
     expect(locateProject(inside, '..').root).toBe(root)
     expect(() => locateProject(root, 'src')).toThrow(`a pasta '${inside}' não tem package.json`)
+  })
+
+  it('com --root, a pasta não precisa depender do Prumo', () => {
+    const root = makeProject({ 'package.json': '{ "name": "site" }' }, ['src'])
+
+    expect(locateProject(makeDir(), root).root).toBe(root)
   })
 
   it('--root vazio é erro de uso', () => {

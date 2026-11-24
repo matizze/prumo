@@ -71,10 +71,12 @@ export function createHttp({ baseUrl, headers, auth, fetch: fetchOverride }: Htt
         `${request.method ?? 'GET'} ${path}: HTTP ${response.status}`,
       )
     }
-    // Só o corpo em JSON é lido: um 204, um 200 vazio ou um `OK` não têm o que devolver, e quem
-    // precisa do corpo (a lista, o get) valida com o schema e falha ali
+    // Lê o corpo quando é JSON: o content-type diz `json`, ou o texto começa com `{` ou `[`. Um 204,
+    // um 200 vazio ou um `OK` não têm o que devolver, e quem precisa do corpo (a lista, o get)
+    // valida com o schema e falha ali
     const text = await response.text()
-    const isJson = /json/i.test(response.headers.get('content-type') ?? '')
-    return text === '' || !isJson ? undefined : JSON.parse(text)
+    const isJson =
+      /json/i.test(response.headers.get('content-type') ?? '') || /^\s*[{[]/.test(text)
+    return text.trim() === '' || !isJson ? undefined : JSON.parse(text)
   }
 }

@@ -457,6 +457,10 @@ it('devolve undefined para o corpo vazio, o que não é JSON e o 204; lê o JSON
   expect(await withFetch(() => new Response('', { status: 200 }))('/a')).toBeUndefined()
   expect(await withFetch(() => new Response('OK', { status: 200 }))('/a')).toBeUndefined()
   expect(await withFetch(() => Response.json({ a: 1 }))('/a')).toEqual({ a: 1 })
+  // JSON sem content-type de JSON: o corpo que começa com { ou [ é lido do mesmo jeito
+  expect(await withFetch(() => new Response(' {"a":1}', { status: 200 }))('/a')).toEqual({ a: 1 })
+  expect(await withFetch(() => new Response('[1,2]', { status: 200 }))('/a')).toEqual([1, 2])
+  expect(await withFetch(() => new Response('  ', { status: 200 }))('/a')).toBeUndefined()
   await expect(withFetch(() => new Response('', { status: 500 }))('/a')).rejects.toBeInstanceOf(HttpError)
 })
 

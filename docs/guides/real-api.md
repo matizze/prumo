@@ -77,7 +77,7 @@ A instância do app é o `src/repositories/api.ts`:
 import { createHttp } from './http'
 
 export const api = createHttp({
-  baseUrl: import.meta.env.VITE_API_URL ?? '/api',
+  baseUrl: import.meta.env.VITE_API_URL || '/api',
   // O token da sessão: quando o app tiver login, descomente e ligue à sessão do app.
   // auth: {
   //   getToken: () => appSession.getAccessToken(),

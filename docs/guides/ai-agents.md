@@ -33,7 +33,7 @@ Num projeto que não saiu do `prumo new` (um app existente que adotou o Prumo, v
 
 ### Como o agente o carrega
 
-Os clientes MCP leem o `.mcp.json` da raiz do projeto e abrem o servidor por conta própria. No Claude Code, abra a sessão na pasta do app: na primeira vez, ele pergunta se confia no servidor `prumo` do projeto (aprove), e o comando `/mcp` lista os servidores e mostra se o `prumo` está conectado. Outros clientes têm o seu jeito de registrar um servidor por stdio: o comando é `pnpm exec prumo mcp`, com a pasta do app como pasta de trabalho. Não rode o `prumo mcp` à mão: o stdout é do protocolo, e o servidor só termina quando o cliente fecha.
+O Claude Code lê o `.mcp.json` da raiz do projeto e abre o servidor por conta própria. Nele, abra a sessão na pasta do app: na primeira vez, ele pergunta se confia no servidor `prumo` do projeto (aprove), e o comando `/mcp` lista os servidores e mostra se o `prumo` está conectado. Outros clientes (Cursor, VS Code) usam o arquivo de configuração deles, e o comando é o mesmo:  `pnpm exec prumo mcp`, com a pasta do app como pasta de trabalho. Não rode o `prumo mcp` à mão: o stdout é do protocolo, e o servidor só termina quando o cliente fecha.
 
 ## As ferramentas
 
@@ -100,7 +100,14 @@ Quando o comando falha, o resultado volta com `isError` e a mensagem em portugu�
 
 ```text
 prumo: a query 'nada' não existe: falta src/queries/nada.ts; rode prumo make:query nada.
+
+Uso: prumo make:page [opções] <nome>
+
+Cria uma tela nova: index, model, view, teste, mensagens e rota.
+...
 ```
+
+Depois da mensagem vem a ajuda do comando (aqui, só o começo dela).
 
 O `check` com violação não é erro: volta como resultado, com as violações no texto.
 
@@ -144,7 +151,7 @@ O agente lê o `AGENTS.md`, chama o `list`, gera as camadas por `make_schema`, `
 ## O que o servidor não faz
 
 - **Não cria o app.** O `new` não é ferramenta: o app nasce no terminal (`pnpm dlx @matizze/prumo-cli new`), e o servidor abre dentro dele.
-- **Não escreve fora do projeto.** Ele trabalha na pasta onde abriu (ou na `--root`), e nenhuma ferramenta recebe outra pasta. Os comandos que escrevem seguem as regras da CLI: validam tudo antes, nunca sobrescrevem um arquivo e recusam o que está fora do projeto.
+- **Não escreve fora do projeto, pelos caminhos que aceita.** Ele trabalha na pasta onde abriu (ou na `--root`), e nenhuma ferramenta recebe outra pasta. Os comandos que escrevem seguem as regras da CLI: validam tudo antes e nunca sobrescrevem um arquivo, e os nomes e caminhos que aceitam são validados e ficam sob a raiz do projeto. Mas um link simbólico que já existe dentro do projeto é seguido na escrita: quem expõe o servidor a um agente não confiável não deve ter links para fora em `src/`.
 - **Roda uma chamada por vez.** As chamadas entram numa fila, para duas escritas não se cruzarem, mesmo que o agente peça várias de uma vez.
 - **Não edita o código que você escreve.** Ele gera as camadas e os registros; o model, a view e as regras de negócio continuam sendo do agente (ou da pessoa), com o `check` e o `pnpm verify` para conferir.
 

@@ -116,7 +116,7 @@ describe('ChangePlan: link simbólico para fora do projeto', () => {
   })
 
   it('a mensagem culpa o link que sai do projeto, não um link legítimo antes dele', () => {
-    const { plan, root, outside } = setup()
+    const { root, outside } = setup()
     renameSync(at(root, 'src'), at(root, 'codigo'))
     symlinkSync('codigo', at(root, 'src'))
     rmSync(at(root, 'codigo/pages'), { recursive: true, force: true })

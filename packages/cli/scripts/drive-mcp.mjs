@@ -68,13 +68,15 @@ try {
     `as ferramentas do servidor são ${names.join(', ')} (esperado: ${expected.join(', ')})`,
   )
 
-  // Um domínio novo, camada por camada, e duas telas
+  // Um domínio novo, camada por camada, e duas telas. O singular automático daria 'autore': o
+  // entity exercita o parâmetro pelo MCP
   await call('make_schema', {
     dominio: 'autores',
+    entity: 'autor',
     fields: 'nome:string,pais:string,nascimento:date,ativo:boolean,obras?:int',
   })
-  await call('make_repository', { dominio: 'autores', data_source: 'storage' })
-  await call('make_query', { dominio: 'autores' })
+  await call('make_repository', { dominio: 'autores', entity: 'autor', data_source: 'storage' })
+  await call('make_query', { dominio: 'autores', entity: 'autor' })
   await call('make_page', { nome: 'autores', query: 'autores' })
   await call('make_page', { nome: 'autor', query: 'autores', path: '/autores/:id' })
   // Uma simulação: não escreve, e a tela não existe depois
@@ -96,7 +98,7 @@ try {
   const listing = JSON.parse(listed.text)
 
   // O schema tem os campos pedidos, com tipo e opcionalidade
-  const schema = listing.schemas?.find((item) => item.file.endsWith('/autore.ts'))
+  const schema = listing.schemas?.find((item) => item.file.endsWith('/autor.ts'))
   assert(schema, 'o list não mostra o schema autores')
   const got = (schema.fields ?? []).map((f) => `${f.name}:${f.type}${f.optional ? '?' : ''}`).join(',')
   const wanted = 'nome:string,pais:string,nascimento:date,ativo:boolean,obras:int?'

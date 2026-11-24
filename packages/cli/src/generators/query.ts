@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { isQueriesRegistered, registerQueriesEntry } from '../codemods/index.ts'
 import { UsageError } from '../errors.ts'
+import { contractEntity } from '../lib/contract.ts'
 import { schemaFile } from '../lib/fields.ts'
 import { domainNames, entityFlag, type DomainNames } from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
@@ -66,10 +67,7 @@ export function generateQuery(project: Project, { name, entity }: QueryRequest):
   if (plan.hasFile(contract)) {
     const text = plan.readText(contract)
     const uses = new RegExp(`\\b${names.singular.pascal}Schema\\b`).test(text)
-    const found = uses
-      ? undefined
-      : (/\bPage<\s*([A-Z][A-Za-z0-9]*)Schema\s*>/.exec(text)?.[1] ??
-        /\b([A-Z][A-Za-z0-9]*)Schema\b/.exec(text)?.[1])
+    const found = uses ? undefined : contractEntity(text)
     if (found !== undefined && found !== names.singular.pascal) {
       const actual = found.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
       let flag: string

@@ -14,6 +14,8 @@ prumo [opções] [comando]
 | [`make:query <domínio>`](#prumo-makequery) | Cria as queries e mutations de um domínio (chaves e hooks de lista, detalhe e escrita) |
 | [`make:page <nome>`](#prumo-makepage) | Cria uma tela (index, model, view, teste), os textos e a rota |
 | [`check`](#prumo-check)            | Confere a arquitetura do projeto                      |
+| [`list`](#prumo-list)              | Mostra o que o projeto tem (schemas, repositórios, queries, telas, idiomas) |
+| [`mcp`](#prumo-mcp)                | Abre o servidor MCP do projeto, por stdio, para agentes de IA |
 
 ## Como rodar
 
@@ -35,7 +37,7 @@ pnpm dlx @matizze/prumo-cli --help
 prumo new <nome> [--dir <pasta>] [--no-install] [--packages <pasta>] [--dry-run]
 ```
 
-Cria `<dir>/<nome>`: um app com Vite, React 19, TypeScript, wouter, TanStack Query, zod e i18next, os pacotes do Prumo (`core`, `rules`, `testing` e `cli`), a estrutura de pastas das camadas, os provedores (query, i18n e repositórios), a tela inicial `home` (a mesma que o `make:page` gera, na rota `/`), o `src/vite-env.d.ts` (com `VITE_DATA_SOURCE` e `VITE_API_URL`, opcionais), o ESLint com o plugin do Prumo, o Vitest com jsdom e o `AGENTS.md`. A fonte de dados padrão é `mock`. Veja o app criado em [Anatomia do app gerado](../concepts/generated-app.md).
+Cria `<dir>/<nome>`: um app com Vite, React 19, TypeScript, wouter, TanStack Query, zod e i18next, os pacotes do Prumo (`core`, `rules`, `testing` e `cli`), a estrutura de pastas das camadas, os provedores (query, i18n e repositórios), a tela inicial `home` (a mesma que o `make:page` gera, na rota `/`), o `src/vite-env.d.ts` (com `VITE_DATA_SOURCE` e `VITE_API_URL`, opcionais), o ESLint com o plugin do Prumo, o Vitest com jsdom, o `AGENTS.md` e o `.mcp.json` (que registra o servidor [`prumo mcp`](#prumo-mcp) para agentes de IA). A fonte de dados padrão é `mock`. Veja o app criado em [Anatomia do app gerado](../concepts/generated-app.md).
 
 | Argumento ou opção  | O que faz                                                                                                                    |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -235,6 +237,148 @@ Confere as pastas de `src/components`, o uso de `components/shared` pelas telas,
 | `1`    | Há violação                                                                     |
 | `2`    | A pasta não existe ou não é um projeto (sem `package.json` e `src`)             |
 
+## `prumo list`
+
+```text
+prumo list [--root <pasta>] [--json]
+```
+
+Mostra o que o projeto tem, lendo os arquivos. Nunca escreve. Sai com 2 se a pasta não é um projeto (sem `package.json` e `src`), como o `check`. Sem `--json`, escreve uma seção por tipo, em português, com uma linha por item; a seção vazia diz `nenhum`:
+
+```text
+Schemas (1):
+  Livro  src/schemas/entities/livro.ts  title: string, year?: int
+
+Repositórios (1):
+  livros  Livro  fontes: mock, http, storage
+
+Queries (1):
+  livros  Livro  useLivrosList, useLivroDetail, useCreateLivro, useUpdateLivro, useRemoveLivro
+
+Telas (2):
+  livro  rota: /livros/:id  detalhe  query: livros
+  sobre  rota: nenhuma  titulo
+
+Idiomas (2):
+  en
+  pt-BR
+```
+
+Na tela, `rota: curinga` é a `<Route>` sem `path` (ou com `path="*"`), `rota: {expressão} (expressão)` é um `path` que não é literal e `rota: nenhuma` é a tela que nenhuma `<Route>` usa. Um schema que o leitor do Prumo recusa (editado à mão com algo fora dos tipos do `--fields`) aparece como `editado à mão (<motivo>)`, com a primeira linha da mensagem do leitor (no máximo 160 caracteres).
+
+| Opção             | O que faz                                                     |
+| ----------------- | ------------------------------------------------------------- |
+| `--root <pasta>`  | A pasta do projeto, a que tem o `src` (padrão: a pasta atual) |
+| `--json`          | Escreve o levantamento em JSON, no formato abaixo             |
+
+### A saída `--json`
+
+Um objeto com cinco listas, sempre presentes (vazias quando não há nada), ordenadas pelo nome do arquivo ou da pasta (comparação fixa, a mesma em qualquer máquina). Os tipos estão no `ProjectListing` (exportado por `@matizze/prumo-cli`).
+
+```json
+{
+  "schemas": [
+    {
+      "entity": "Livro",
+      "file": "src/schemas/entities/livro.ts",
+      "fields": [{ "name": "title", "type": "string", "optional": false }],
+      "problem": null
+    }
+  ],
+  "repositories": [{ "domain": "livros", "entity": "Livro", "sources": ["mock", "http", "storage"] }],
+  "queries": [
+    {
+      "domain": "livros",
+      "file": "src/queries/livros.ts",
+      "entity": "Livro",
+      "hooks": ["useLivrosList", "useLivroDetail"]
+    }
+  ],
+  "pages": [
+    {
+      "name": "livro",
+      "route": "/livros/:id",
+      "routeKind": "literal",
+      "routePartial": false,
+      "variation": "detalhe",
+      "query": "livros"
+    }
+  ],
+  "languages": ["en", "pt-BR"]
+}
+```
+
+| Lista          | Campo       | Valor                                                                                                                                  |
+| -------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `schemas`      | `entity`    | A entidade, em PascalCase                                                                                                              |
+|                | `file`      | O arquivo, relativo à raiz                                                                                                             |
+|                | `fields`    | Os campos que o leitor reconhece (`name`, `type`, `optional` e, no `enum`, `values`), sem `id` e `createdAt`; `null` se o schema foi editado à mão e o leitor o recusa |
+|                | `problem`   | O motivo curto da recusa; `null` quando `fields` foi lido                                                                              |
+| `repositories` | `domain`    | O nome da pasta em `src/repositories`                                                                                                  |
+|                | `entity`    | A entidade lida do contrato (`repository.contract.ts`); `null` se o contrato não existe ou não diz                                     |
+|                | `sources`   | As fontes que existem, em ordem: `mock`, `http`, `storage`. Uma fonte conta quando o arquivo `repository.<fonte>.ts` existe e a fábrica (`index.ts`) a escolhe |
+| `queries`      | `domain`    | O nome do arquivo (ou pasta) em `src/queries`                                                                                          |
+|                | `file`      | O arquivo, relativo à raiz                                                                                                             |
+|                | `entity`    | A entidade (do contrato do repositório, ou do hook `use<Entidade>Detail`); `null` se nenhum diz                                        |
+|                | `hooks`     | Os hooks (`use...`) que o arquivo exporta, na ordem do arquivo                                                                         |
+| `pages`        | `name`      | O nome da pasta em `src/pages`                                                                                                         |
+|                | `route`     | A rota da tela no `src/App.tsx`: o `path` da `<Route>` mais interna que a usa, composto com os `<Route nest>` de fora (`/admin` + `/usuarios` vira `/admin/usuarios`); `*` para a curinga (sem `path`, ou `path="*"`); o texto da expressão de um `path={...}` que não é literal (por exemplo, `{ROUTES.lenta}`); `null` só quando nenhuma `<Route>` usa a tela. A tela pode vir de um `import` padrão ou de um `lazy(() => import('@/pages/<nome>'))` |
+|                | `routeKind` | `literal`, `catchAll` ou `expression`; `null` quando `route` é `null`                                                                  |
+|                | `routePartial` | `true` quando um `<Route nest>` de fora não tem `path` literal e não deu para compor: `route` é só o caminho da `<Route>` de dentro |
+|                | `variation` | `titulo` (só o título), `lista` (com query), `parametro` (rota com parâmetro) ou `detalhe` (query e parâmetro)                          |
+|                | `query`     | O domínio da query que o model da tela importa de `@/queries`; `null` se não usa                                                        |
+| `languages`    |             | As pastas de `src/messages`, em ordem                                                                                                  |
+
+## `prumo mcp`
+
+```text
+prumo mcp [--root <pasta>]
+```
+
+Abre o servidor MCP do projeto, por stdio, para um agente de IA usar o Prumo sem passar pelo terminal. Confere que a pasta é um projeto (como o `check`: sai com 2 se não tem `package.json` e `src`) e só então carrega o SDK do MCP, que fica fora dos outros comandos. O servidor se anuncia como `prumo`, com a versão da CLI, e só termina quando o cliente fecha.
+
+O stdout é do protocolo: nada além dele sai ali com o servidor no ar (o `console.log` vai para o stderr). Por isso, não rode o comando à mão: ligue-o ao agente. Num projeto que não saiu do `prumo new`, cole no `.mcp.json` da raiz:
+
+```json
+{
+  "mcpServers": {
+    "prumo": { "command": "pnpm", "args": ["exec", "prumo", "mcp"] }
+  }
+}
+```
+
+| Opção           | O que faz                                                          |
+| --------------- | ------------------------------------------------------------------ |
+| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta onde abriu |
+
+### As ferramentas
+
+Uma ferramenta por comando, menos `new` e `mcp`. Elas saem da árvore de comandos da CLI: um comando novo vira ferramenta sem outra lista para manter.
+
+- **Nome:** o do comando, com `:` trocado por `_` (`make:schema` vira `make_schema`).
+- **Descrição:** o resumo e a descrição do comando, os mesmos da ajuda.
+- **Entrada:** os argumentos posicionais (obrigatórios) e as opções, com nomes em snake_case sem acento: `<domínio>` vira `dominio`, `--data-source` vira `data_source`, `--dry-run` vira `dry_run`. Opção com valor é `string` (com `enum` quando o comando lista os valores); opção sem valor é `boolean`; `--no-<x>` vira `<x>: boolean`, com `true` de padrão. O posicional não pode começar com `-`. Campo fora do esquema é recusado.
+- **Fora da entrada:** `--root`, `--help` e `--version`. Nenhuma ferramenta recebe a pasta: o agente só escreve no projeto onde o servidor abriu. No `list`, o `--json` também não é campo: a ferramenta sempre o passa.
+
+| Ferramenta        | Parâmetros                                                                               |
+| ----------------- | ---------------------------------------------------------------------------------------- |
+| `make_schema`     | `dominio` (obrigatório), `entity`, `fields`, `dry_run`                                   |
+| `make_repository` | `dominio` (obrigatório), `entity`, `data_source` (`mock`, `http` ou `storage`), `dry_run` |
+| `make_query`      | `dominio` (obrigatório), `entity`, `dry_run`                                             |
+| `make_page`       | `nome` (obrigatório), `query`, `path`, `dry_run`                                         |
+| `check`           | nenhum                                                                                   |
+| `list`            | nenhum                                                                                   |
+
+Os parâmetros têm o significado das opções do comando de mesmo nome (veja as seções acima).
+
+### O resultado
+
+A entrada vira a linha de comando (`['make:schema', '--fields=...', '--', 'livros']`: a opção de valor vai como `--opção=valor` e os posicionais depois de `--`, para nenhum valor ser lido como opção) e roda em processo, na pasta do projeto, com a saída capturada. O resultado é o texto da saída: o stdout e, se houver, o stderr. A ferramenta `list` devolve o JSON do `prumo list --json`.
+
+- `isError` é verdadeiro quando o código de saída não é 0, com a mensagem em português (o erro de uso traz o `prumo: ...` e a ajuda do comando).
+- O `check` com violação (código 1) não é erro: volta com `isError` falso e as violações no texto, para o agente corrigir.
+- As chamadas rodam uma de cada vez, numa fila, para duas escritas no mesmo projeto não se cruzarem.
+
 ## Opções globais
 
 | Opção             | O que faz           |
@@ -272,6 +416,9 @@ Comandos:
                                       mensagens e rota.
   check [opções]                      Analisa o projeto e lista as violações da
                                       arquitetura.
+  list [opções]                       Mostra o que o projeto tem: schemas,
+                                      repositórios, queries, telas e idiomas.
+  mcp [opções]                        Abre o servidor MCP do projeto, por stdio.
 ```
 
 ## Códigos de saída

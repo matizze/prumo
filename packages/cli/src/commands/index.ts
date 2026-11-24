@@ -1,6 +1,8 @@
 import type { Command } from 'commander'
 import type { Io } from '../io.ts'
 import { registerCheck } from './check.ts'
+import { registerList } from './list.ts'
+import { registerMcp } from './mcp.ts'
 import { registerMakePage } from './make-page.ts'
 import { registerMakeQuery } from './make-query.ts'
 import { registerMakeRepository } from './make-repository.ts'
@@ -23,4 +25,6 @@ export const commands: readonly RegisterCommand[] = [
   registerMakeQuery,
   registerMakePage,
   registerCheck,
+  registerList,
+  registerMcp,
 ]

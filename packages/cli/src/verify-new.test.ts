@@ -29,8 +29,8 @@ describe('scripts/verify-new.sh', () => {
     expect(code).toContain('set -euo pipefail')
   })
 
-  it('roda as etapas na ordem: pack, new, cli e verify', () => {
-    const order = ['pack', 'new', 'cli', 'verify'].map((name) =>
+  it('roda as etapas na ordem: pack, new, cli, mcp e verify', () => {
+    const order = ['pack', 'new', 'cli', 'mcp', 'verify'].map((name) =>
       code.indexOf(`step ${name} stage_${name}`),
     )
     expect(order.every((index) => index >= 0)).toBe(true)
@@ -51,8 +51,17 @@ describe('scripts/verify-new.sh', () => {
     }
   })
 
-  it('não usa o MCP', () => {
-    expect(script).not.toMatch(/mcp/i)
+  it('a etapa mcp roda o cliente roteirizado contra o app, que usa o .mcp.json do new', () => {
+    expect(code).toContain('stage_mcp() {')
+    expect(code).toContain('node "$ROOT/packages/cli/scripts/drive-mcp.mjs" "$APP"')
+    const driver = readFileSync(path.join(REPO, 'packages/cli/scripts/drive-mcp.mjs'), 'utf8')
+    expect(driver).toContain(".mcp.json")
+    expect(driver).toContain('StdioClientTransport')
+    for (const tool of ['make_schema', 'make_repository', 'make_query', 'make_page', 'check', 'list']) {
+      expect(driver).toContain(tool)
+    }
+    expect(driver).toContain('dry_run')
+    expect(driver).toContain('isError')
   })
 
   it('apaga a pasta temporária num trap de EXIT, também em caso de falha', () => {

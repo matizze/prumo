@@ -32,14 +32,14 @@ A documentação segue quatro tipos de texto, cada um para um momento:
 | [Erros e notificações](guides/errors-and-notifications.md)    | Erros com código, tradução do erro, notificação global e o `meta` das queries             |
 | [Testes](guides/test.md)                                | Testar telas, hooks de query e mutation, provedores do app (a sessão) e repositórios |
 | [Design system](guides/design-system.md)                  | Ligar a interface do produto: a pasta `ui`, a casca do layout e as notificações           |
-| [Agentes de IA](guides/ai-agents.md)                  | Usar o `AGENTS.md` do app com agentes de IA                |
+| [Agentes de IA](guides/ai-agents.md)                  | Usar o `AGENTS.md` e o servidor MCP (`prumo mcp`) com agentes de IA |
 | [Projeto existente](guides/existing-project.md)          | Adotar as regras e os geradores num app React que já existe                               |
 
 ## Referência
 
 | Referência                               | Conteúdo                                                                          |
 | ---------------------------------------- | --------------------------------------------------------------------------------- |
-| [CLI](reference/cli.md)                 | Os comandos `new`, `make:schema`, `make:repository`, `make:query`, `make:page` e `check`, com opções, a ajuda e os códigos de saída |
+| [CLI](reference/cli.md)                 | Os comandos `new`, `make:schema`, `make:repository`, `make:query`, `make:page`, `check`, `list` e `mcp`, com opções, a ajuda e os códigos de saída |
 | [core](reference/core.md)               | `@matizze/prumo-core`: repositórios, query, i18n, erros, dados, mock e auth       |
 | [rules](reference/rules.md)             | `@matizze/prumo-rules`: as regras de ESLint e a análise do `prumo check`          |
 | [testing](reference/testing.md)         | `@matizze/prumo-testing`: render com provedores, DOM e teste de contrato          |

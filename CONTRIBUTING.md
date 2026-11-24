@@ -39,7 +39,7 @@ Não há CI de verificação: **a verificação é local**, e todo pull request 
 | `pnpm verify`      | Typecheck, lint e testes dos quatro pacotes, sem navegador (cerca de 1 minuto)                                | Sempre                                                       |
 | `pnpm build`       | Compila os pacotes (`dist/`)                                                                                 | Para inspecionar o que vai para o npm                        |
 | `pnpm pack:all`    | Compila e empacota os quatro pacotes em `.packs/`                                                             | Para testar um app com os tarballs (`prumo new <nome> --packages .packs`) |
-| `pnpm verify:new`  | Empacota, cria um app com `prumo new --packages` fora do monorepo, roda nele todos os comandos (`make:schema`, `make:repository`, `make:query` e `make:page`) e o `pnpm verify` dele (cerca de 1 minuto) | Ao mudar os modelos (`packages/cli/templates`), o `new` ou os `make:*` |
+| `pnpm verify:new`  | Empacota, cria um app com `prumo new --packages` fora do monorepo, roda nele todos os comandos (`make:schema`, `make:repository`, `make:query` e `make:page`), o `list`, a etapa MCP (um cliente gera um domínio e duas telas só pelas ferramentas do `prumo mcp`) e o `pnpm verify` dele (cerca de 1 minuto) | Ao mudar os modelos (`packages/cli/templates`), o `new`, os `make:*` ou o servidor MCP |
 
 Rode um comando pesado por vez: `tsc`, `eslint` e `vitest` juntos pesam, e em máquinas com pouca memória dois ao mesmo tempo atrapalham um ao outro.
 

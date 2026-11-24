@@ -46,7 +46,8 @@ Saíram na v1 (`@matizze/prumo-cli` 0.7.0):
 - `--domain` do `make:page` virou `--query`.
 - A fonte de dados `memory` virou `mock`.
 - `make:component` e `move:component` saíram sem substituto: os componentes de interface vêm do design system do produto, e os do produto se criam à mão (veja [Telas](guides/pages.md#componentes)).
-- `doctor` e o servidor MCP (`@matizze/prumo-mcp`) saíram sem substituto: o agente de IA usa os mesmos comandos no terminal (veja [Agentes de IA](guides/ai-agents.md)).
+- `doctor` saiu sem substituto.
+- O servidor MCP voltou como um comando da própria cli, o [`prumo mcp`](reference/cli.md#prumo-mcp), com uma ferramenta por comando (veja [Agentes de IA](guides/ai-agents.md#o-servidor-mcp)). O pacote `@matizze/prumo-mcp` não volta: use `prumo mcp`, a partir do `@matizze/prumo-cli` 0.8.0.
 
 ## Solução de problemas
 
@@ -96,7 +97,7 @@ O app fica criado na pasta. Corrija o que o pnpm disse (rede, versão do Node) e
 
 ### O agente de IA não segue as regras do Prumo
 
-Confira se o agente lê o `AGENTS.md` da raiz do projeto (o Claude Code lê o `CLAUDE.md`, que pode importá-lo). Veja [Agentes de IA](guides/ai-agents.md#o-agentsmd).
+Confira se o agente lê o `AGENTS.md` da raiz do projeto (o Claude Code lê o `CLAUDE.md`, que pode importá-lo) e se ele usa as ferramentas do servidor `prumo` (no Claude Code, o `/mcp` mostra se está conectado). Veja [Agentes de IA](guides/ai-agents.md#o-agentsmd).
 
 ### Um gerador diz que não acha o `<Switch>`, o `factories` ou um índice
 

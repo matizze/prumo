@@ -7,11 +7,14 @@
 # `make:query` e `make:page`), a etapa `cli` ganha as chamadas dele, e o `verify` do app passa a
 # cobrir o que foi gerado.
 #
+# Depois da CLI, a etapa mcp liga ao servidor do app pelo `.mcp.json` que o `new` criou (o cliente do
+# SDK, por stdio) e gera só por ferramentas um domínio e duas telas; o verify do app cobre o que ela gerou.
+#
 # O script não edita arquivo do app: quem muda o app é a CLI. Se o verify do app falha, o achado é
 # dos modelos, da CLI ou dos pacotes, não do script. A pasta temporária some no fim, também em caso
 # de falha.
 #
-# Etapas: pack, new, cli, verify e clean (a duração de cada uma sai no fim).
+# Etapas: pack, new, cli, mcp, verify e clean (a duração de cada uma sai no fim).
 # Pesado (instala dependências e roda tsc, eslint e vitest): rode pela trava de memória da máquina,
 # um por vez. Uso: pnpm verify:new
 set -euo pipefail
@@ -107,6 +110,33 @@ stage_cli() {
   prumo make:repository fases-2 --entity fase-2
   prumo make:query fases-2 --entity fase-2
   prumo make:page fase --query fases-2 --path /fases/:id
+  # M1: o prumo list só lê; o JSON tem os domínios, as fontes e as telas que os passos acima criaram
+  prumo list
+  prumo list --json | node -e '
+    const l = JSON.parse(require("node:fs").readFileSync(0, "utf8"))
+    const fail = (m) => { console.error("prumo list --json: " + m); process.exit(1) }
+    const repo = (d) => l.repositories.find((r) => r.domain === d) ?? fail("falta o repositório " + d)
+    const sources = (d) => repo(d).sources.join(",")
+    if (sources("livros") !== "mock,storage") fail("fontes de livros: " + sources("livros"))
+    if (sources("clientes") !== "mock,http") fail("fontes de clientes: " + sources("clientes"))
+    if (sources("pedidos") !== "mock,http") fail("fontes de pedidos: " + sources("pedidos"))
+    if (sources("paes") !== "mock") fail("fontes de paes: " + sources("paes"))
+    if (repo("paes").entity !== "Pao") fail("entidade de paes: " + repo("paes").entity)
+    for (const d of ["clientes", "livros", "paes", "pedidos", "fases-2"]) {
+      if (!l.schemas.some((s) => s.file.endsWith("/" + (d === "paes" ? "pao" : d === "fases-2" ? "fase-2" : d.slice(0, -1)) + ".ts") && s.fields)) fail("falta o schema " + d)
+      if (!l.queries.some((q) => q.domain === d)) fail("falta a query " + d)
+    }
+    const pages = Object.fromEntries(l.pages.map((p) => [p.name, p.variation + ":" + p.route + ":" + p.query]))
+    const want = { home: "titulo:/:null", sobre: "titulo:/sobre:null", clientes: "lista:/clientes:clientes", cliente: "detalhe:/clientes/:id:clientes", livros: "lista:/livros:livros", livro: "detalhe:/livros/:id:livros", perfil: "parametro:/perfil/:usuario:null", pedidos: "lista:/pedidos:pedidos", fase: "detalhe:/fases/:id:fases-2" }
+    for (const [n, v] of Object.entries(want)) if (pages[n] !== v) fail("tela " + n + ": " + pages[n] + " (esperado " + v + ")")
+    if (l.languages.join(",") !== "en,pt-BR") fail("idiomas: " + l.languages)
+  '
+}
+
+# O cliente roteirizado lê o .mcp.json do app, abre o servidor por ele e gera um domínio e duas telas
+# só por ferramentas MCP. O SDK vem do monorepo (devDependency da cli), por isso o script mora lá
+stage_mcp() {
+  node "$ROOT/packages/cli/scripts/drive-mcp.mjs" "$APP"
 }
 
 stage_verify() {
@@ -122,4 +152,5 @@ export VITEST_MAX_WORKERS="${VITEST_MAX_WORKERS:-2}"
 step pack stage_pack
 step new stage_new
 step cli stage_cli
+step mcp stage_mcp
 step verify stage_verify

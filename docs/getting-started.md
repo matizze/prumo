@@ -29,8 +29,9 @@ O comando cria a pasta `loja`, roda `git init` (sem commit: o primeiro commit é
 prumo new: loja.
 Destino: /home/voce/loja
 
-Criados (31):
+Criados (32):
   .gitignore
+  .mcp.json
   AGENTS.md
   README.md
   eslint.config.js
@@ -388,5 +389,6 @@ Typecheck, lint, `prumo check` e testes verdes: o app tem um domínio com contra
 - Ligue uma API no lugar do repositório em memória: [Ligar uma API real](guides/real-api.md).
 - Ponha a interface do produto: [Design system](guides/design-system.md).
 - Teste os estados da tela: [Testes](guides/test.md).
-- Deixe um agente de IA gerar as camadas com os mesmos comandos: [Agentes de IA](guides/ai-agents.md).
+- Veja o que o projeto já tem, a qualquer hora, com `pnpm exec prumo list` (ou `--json`, para outras ferramentas lerem).
+- Deixe um agente de IA gerar as camadas: o app já traz o `.mcp.json`, que liga o agente ao servidor `prumo mcp`. Veja [Agentes de IA](guides/ai-agents.md).
 - Veja todos os comandos e opções: [Referência da CLI](reference/cli.md).

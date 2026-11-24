@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { Client, InMemoryTransport } from '@modelcontextprotocol/client'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -10,8 +11,7 @@ import { createProgram } from '../program.ts'
 type Result = { text: string; isError: boolean }
 
 /** Um projeto de fixture e um cliente ligado, no mesmo processo, ao servidor que roda nele. */
-async function connect() {
-  const { root } = fixtureProject()
+async function connect(root = fixtureProject().root) {
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair()
   const server = createMcpServer({ root, version: '9.9.9' })
   const client = new Client({ name: 'teste', version: '0.0.0' })
@@ -116,12 +116,21 @@ describe('prumo mcp, cliente e servidor no mesmo processo', () => {
   })
 
   it('não escreve fora do projeto', async () => {
-    const { root, call } = await open()
-    const parent = path.dirname(root)
-    const before = readdirSync(parent).sort()
-    await call('make_schema', { dominio: 'livros', fields: 'title:string' })
-    await call('make_page', { nome: 'sobre' })
-    expect(readdirSync(parent).sort()).toEqual(before)
+    // Uma pasta-mãe só deste teste: a pasta temporária do sistema muda com os outros testes, que
+    // rodam ao mesmo tempo, então compará-la antes e depois não prova nada
+    const parent = mkdtempSync(path.join(tmpdir(), 'prumo-mcp-fora-'))
+    try {
+      const root = path.join(parent, 'app')
+      cpSync(fixtureProject().root, root, { recursive: true })
+      const connection = await connect(root)
+      connections.push(connection)
+      await connection.call('make_schema', { dominio: 'livros', fields: 'title:string' })
+      await connection.call('make_page', { nome: 'sobre' })
+      expect(readdirSync(parent)).toEqual(['app'])
+      expect(existsSync(path.join(root, 'src/pages/sobre/index.tsx'))).toBe(true)
+    } finally {
+      rmSync(parent, { recursive: true, force: true })
+    }
   })
 
   it('chamadas juntas rodam uma de cada vez, sem se atropelar', async () => {

@@ -43,8 +43,15 @@ describe('os use cases gerados compilam (tsc estrito) e passam nos testes', () =
     writeIn(
       root,
       'src/use-cases/registry.test.tsx',
-      `import { expect, it } from 'vitest'
+      `import { expect, it, vi } from 'vitest'
 import { createAppUseCases } from './index'
+
+it('com VITE_DATA_SOURCE=storage (dos repositórios) os use cases usam o mock', async () => {
+  vi.stubEnv('VITE_DATA_SOURCE', 'storage')
+  const useCases = createAppUseCases({ latencyMs: 0 })
+  expect(await useCases.getClientes.execute({})).toHaveLength(2)
+  vi.unstubAllEnvs()
+})
 
 it('o registro junta os use cases dos domínios, sobre o http de mentira', async () => {
   const useCases = createAppUseCases({ dataSource: 'mock', latencyMs: 0 })
@@ -58,6 +65,7 @@ it('o registro junta os use cases dos domínios, sobre o http de mentira', async
     'updateCliente',
   ])
   expect(await useCases.getClientes.execute({})).toHaveLength(2)
+  expect(Object.keys(createAppUseCases({ latencyMs: 0 }))).toHaveLength(7)
   expect(await useCases.signIn.execute({ email: 'a@b.c', password: 'x' })).toEqual({ token: 'Token 1' })
   expect(await useCases.updateCliente.execute({ id: 'a b', nome: 'Novo' })).toMatchObject({ id: 'cliente-1' })
 })
@@ -82,7 +90,7 @@ it('o registro junta os use cases dos domínios, sobre o http de mentira', async
   it('o registro tem os domínios em ordem alfabética', () => {
     const index = read(root, 'src/use-cases/index.ts')
     expect(index).toContain(
-      "import { authRoutes, createAuthUseCases } from './auth'\nimport { cartRoutes, createCartUseCases } from './cart'\nimport { clientesRoutes, createClientesUseCases } from './clientes'",
+      "import { createAuthUseCases, authRoutes } from './auth'\nimport { createCartUseCases, cartRoutes } from './cart'\nimport { createClientesUseCases, clientesRoutes } from './clientes'",
     )
     expect(index).toContain(
       'export function createUseCases(deps: UseCaseDeps) {\n  return {\n    ...createAuthUseCases(deps),\n    ...createCartUseCases(deps),\n    ...createClientesUseCases(deps),\n  }\n}',

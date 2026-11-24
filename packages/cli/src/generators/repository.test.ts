@@ -208,6 +208,14 @@ describe('generateRepository', () => {
       expect(plan.summary().created).toContain('src/repositories/livros/repository.http.ts')
     })
 
+    it('http avisa quando o app tem o src/repositories/api.ts de antes dos use cases', () => {
+      const project = projectWithSchema()
+      writeFileSync(path.join(project.src, 'repositories/api.ts'), 'export {}\n')
+      const { warnings } = generateRepository(project, { name: 'livros', dataSource: 'http' })
+      expect(warnings.join('\n')).toContain('src/repositories/api.ts de antes dos use cases')
+      expect(generateRepository(projectWithSchema(), { name: 'livros', dataSource: 'http' }).warnings.join('')).not.toContain('de antes dos use cases')
+    })
+
     it('storage: a chave é <nome do app>:<domínio>, e o nome sai do package.json', () => {
       const project = projectWithSchema()
       const { plan } = generateRepository(project, { name: 'livros', dataSource: 'storage' })

@@ -181,6 +181,12 @@ export function generateRepository(
     warnings.push(...addEntityErrors(plan, names, dataSource === 'storage' ? ['NOT_FOUND', 'INVALID'] : ['NOT_FOUND']))
   }
   if (dataSource !== 'mock') {
+    const oldApi = path.join(project.src, 'repositories', 'api.ts')
+    if (dataSource === 'http' && plan.has(oldApi) && !plan.has(path.join(project.root, HTTP_CLIENT_FILES[0]!.to))) {
+      warnings.push(
+        "o app tem o src/repositories/api.ts de antes dos use cases, e o comando criou o src/http/api.ts ao lado dele: passe a usar o de src/http e apague o antigo e o src/repositories/http.ts (veja docs/guides/real-api.md).",
+      )
+    }
     create(SOURCE_FILES[dataSource])
     if (dataSource === 'http') {
       for (const file of HTTP_CLIENT_FILES) {

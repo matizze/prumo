@@ -9,10 +9,11 @@ import {
   schemaFile,
   zodOf,
   type Field,
+  type FieldType,
   type Sample,
 } from '../lib/fields/index.ts'
 import { listUseCases, type UseCaseKind } from '../lib/listing.ts'
-import { assertValidName, deriveNames, useCaseNames, type UseCaseNames } from '../lib/names.ts'
+import { assertValidName, deriveNames, RESERVED_WORDS, useCaseNames, type UseCaseNames } from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'
 import { nameVars, renderTemplate, renderTemplateFile } from '../lib/templates.ts'
@@ -103,6 +104,9 @@ export const DOMAIN_INDEX_FILE: UseCaseFile = {
   to: `${FOLDER}/index.ts`,
 }
 
+/** Os tipos de campo que cabem num `:parâmetro` do caminho. */
+const PARAM_TYPES: readonly FieldType[] = ['string', 'number', 'int', 'boolean', 'enum']
+
 /** Os nomes que o `execute` gerado declara: um `:parâmetro` com um deles redeclararia a variável. */
 const EXECUTE_LOCALS: ReadonlySet<string> = new Set(['input', 'path', 'body', 'query', 'response', 'error'])
 
@@ -147,6 +151,12 @@ function parseEndpoint(text: string, input: readonly Field[]): Endpoint {
     if (field.optional) {
       throw new UsageError(`--endpoint '${text}': o campo '${param}' do Input tem que ser obrigatório, porque o caminho precisa dele.`)
     }
+    if (RESERVED_WORDS.has(param)) {
+      throw new UsageError(`--endpoint '${text}': o parâmetro ':${param}' é palavra reservada do JavaScript: use outro nome (por exemplo, ':id').`)
+    }
+    if (!PARAM_TYPES.includes(field.type)) {
+      throw new UsageError(`--endpoint '${text}': o campo '${param}' do Input é ${field.type}, e um parâmetro do caminho só pode ser string, number, int, boolean ou enum.`)
+    }
     if (EXECUTE_LOCALS.has(param)) {
       throw new UsageError(`--endpoint '${text}': o parâmetro ':${param}' tem o nome de uma variável do execute gerado: use outro (por exemplo, ':id').`)
     }
@@ -183,8 +193,8 @@ function zodObject(fields: readonly Field[]): string {
   return `z.object({\n${fields.map((field) => `  ${field.name}: ${zodOf(field)},`).join('\n')}\n})`
 }
 
-/** O schema zod do Output: o que o `--output` descreve ou, sem ele, `z.void()` na escrita e `z.unknown()` na leitura. */
-function outputZod(output: OutputSpec, access: Access): string {
+/** O schema zod do Output: o que o `--output` descreve ou, sem ele, `z.unknown()` (a API real pode devolver corpo). */
+function outputZod(output: OutputSpec): string {
   switch (output.kind) {
     case 'fields':
       return zodObject(output.fields)
@@ -193,12 +203,12 @@ function outputZod(output: OutputSpec, access: Access): string {
       return output.list ? `z.array(${schema})` : schema
     }
     case 'default':
-      return access === 'read' ? 'z.unknown()' : 'z.void()'
+      return 'z.unknown()'
   }
 }
 
 /** Um Output de exemplo, no formato do schema (o que o mock responde). */
-function outputSample(output: OutputSpec, access: Access): Sample {
+function outputSample(output: OutputSpec): Sample {
   switch (output.kind) {
     case 'fields':
       return sampleRecord(output.fields, 1)
@@ -207,7 +217,7 @@ function outputSample(output: OutputSpec, access: Access): Sample {
       return output.list ? [item(1), item(2)] : item(1)
     }
     case 'default':
-      return access === 'read' ? {} : undefined
+      return {}
   }
 }
 
@@ -311,13 +321,13 @@ export function generateUseCase(project: Project, request: UseCaseRequest): UseC
     )
   }
 
-  const sample = outputSample(output, access)
+  const sample = outputSample(output)
   const vars: Record<string, string> = {
     ...nameVars('domain', domain),
     ...nameVars('action', action),
     ...typesVars(names, endpoint, access, output),
     'types.input': zodObject(input),
-    'types.output': outputZod(output, access),
+    'types.output': outputZod(output),
     'test.input': sampleCode(sampleRecord(input, 1)),
     'mock.response': asExpression(sampleCode(sample, '  ')),
     ...(endpoint ? requestVars(names, endpoint, access, input) : ruleVars(names, access, sample)),
@@ -336,7 +346,7 @@ export function generateUseCase(project: Project, request: UseCaseRequest): UseC
     warnings.push(`sem --input, o Input é um objeto vazio: descreva os campos em ${types}.`)
   }
   if (request.output === undefined) {
-    warnings.push(`sem --output, o Output é ${access === 'read' ? 'z.unknown()' : 'z.void()'}: descreva o que o use case devolve em ${types}.`)
+    warnings.push(`sem --output, o Output é z.unknown(): descreva o que o use case devolve em ${types}.`)
   }
   if (!local) {
     warnings.push(

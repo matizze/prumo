@@ -180,9 +180,7 @@ export function createUseCases(deps: UseCaseDeps) {
 export type UseCases = ReturnType<typeof createUseCases>
 
 export function createAppUseCases(options: Partial<UseCaseOptions> = {}): UseCases {
-  const dataSource =
-    options.dataSource ??
-    resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')
+  const dataSource = options.dataSource ?? (import.meta.env.VITE_DATA_SOURCE === 'http' ? 'http' : 'mock')
   const http =
     dataSource === 'http' ? api : createMockHttp(mockRoutes, { latencyMs: options.latencyMs ?? 300 })
   return createUseCases({ http, storage: localStorage })
@@ -191,7 +189,7 @@ export function createAppUseCases(options: Partial<UseCaseOptions> = {}): UseCas
 
 - **`createUseCases(deps)`** espalha o `create<Domínio>UseCases(deps)` de cada domínio, e o tipo `UseCases` sai dele: registrar um domínio é acrescentar uma linha. As `deps` (`deps.ts`) são o `http` (o transporte) e o `storage` (a Web Storage API, para os use cases `--local`).
 - **`mockRoutes`** junta as rotas de mock de todos os domínios (`...authRoutes`, `...storesRoutes`).
-- **`createAppUseCases(options)`** monta o container: a fonte vem da `VITE_DATA_SOURCE` (`mock` quando falta; `mock` e `http`, em `options.ts`). No `mock`, o `http` é o `createMockHttp(mockRoutes, { latencyMs })`, e no `http`, a instância `api`. O código dos use cases é o mesmo nos dois.
+- **`createAppUseCases(options)`** monta o container: a fonte vem da `VITE_DATA_SOURCE`: `http` usa a API, e qualquer outro valor (ou nenhum) usa o mock, porque a variável também vale para os repositórios, que têm a fonte `storage`, enquanto as duas camadas convivem. No `mock`, o `http` é o `createMockHttp(mockRoutes, { latencyMs })`, e no `http`, a instância `api`. O código dos use cases é o mesmo nos dois.
 - **`UseCasesProvider` e `useUseCases()`** (`src/providers/use-cases/index.ts`), do `createUseCasesContext` do core, entregam o container às telas. Os testes passam outro ao `UseCasesProvider`, ou trocam um use case pelo `useCases` do `renderWithProviders`.
 
 Cada domínio tem a pasta `src/use-cases/<domínio>/`, criada pelo [`prumo make:usecase`](../reference/cli.md#prumo-makeusecase) com o primeiro use case dele: o `index.ts` (`create<Domínio>UseCases(deps)` e `<domínio>Routes`) e, por ação, `<ação>.types.ts`, `<ação>.usecase.ts`, `<ação>.mock.ts` e `<ação>.usecase.test.ts`. Um app criado antes dos use cases não tem `src/use-cases/`: o `make:usecase` recusa e diz que a camada falta.

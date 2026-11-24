@@ -116,7 +116,7 @@ export function registerUseCaseDomain(plan: ChangePlan, names: UseCaseNames): vo
       ? [{ pos: parameter.getStart(), end: parameter.getEnd(), text: 'deps' }]
       : []
   const edits = [
-    importer(index)([`${camel}Routes`, creator].sort().join(', '), `./${kebab}`, where),
+    importer(index)(`${creator}, ${camel}Routes`, `./${kebab}`, where),
     insertMember(index, useCases, `${creator}(deps)`, `...${creator}(deps)`),
     insertMember(index, routes, `${camel}Routes`, `...${camel}Routes`),
     ...rename,

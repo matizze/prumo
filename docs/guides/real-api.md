@@ -141,6 +141,10 @@ it('refresh recusado: a chamada falha com o 401', async () => {
 
 Para o caso das chamadas simultâneas, teste a sessão (o `refresh` dela é quem junta os pedidos) com uma `AuthApi` falsa que conta as chamadas a `refresh`.
 
+> **Use cases e a mesma variável.** A `VITE_DATA_SOURCE` também vale para os use cases (`src/use-cases`): `http` liga a API, e qualquer outro valor, inclusive `storage`, usa o mock deles. Enquanto os repositórios e os use cases convivem, cada camada lê a variável do seu jeito.
+
+> **App de antes dos use cases.** Se o app tem `src/repositories/api.ts` e `src/repositories/http.ts`, o `make:repository --data-source http` cria o `src/http/api.ts` ao lado e avisa. Para migrar: troque nos repositórios o import `../api` por `@/http/api`, o `HttpError` e o tipo `Http` por `@matizze/prumo-core/http`, e apague os dois arquivos antigos (e o `http.test.ts`, se houver: o core já testa o cliente).
+
 ## 4. Escolha a fonte por ambiente
 
 O `createRepositories` do app (`src/repositories/index.ts`) já nasce lendo (num app criado antes, o primeiro `--data-source` troca o `resolveDataSource(undefined, ...)` pela versão que lê a variável, ou avisa como fazer, se o container foi mudado) a fonte da variável de ambiente `VITE_DATA_SOURCE`. O `resolveDataSource` do core usa `mock` quando a variável falta e **lança um erro** quando ela tem um valor desconhecido, para a inicialização falhar em vez de cair em silêncio em outra fonte:

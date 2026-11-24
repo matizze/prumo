@@ -103,11 +103,11 @@ export function getStoresKey(input: GetStoresInput) {
     expect(text(read, 'count-stores.types.ts')).toContain('CountStoresOutput = z.unknown()')
     expect(text(read, 'count-stores.mock.ts')).toContain('(): CountStoresOutput => ({})')
     const write = generateUseCase(project, { name: 'stores.close-store' })
-    expect(text(write, 'close-store.types.ts')).toContain('CloseStoreOutput = z.void()')
-    expect(text(write, 'close-store.mock.ts')).toContain('(): CloseStoreOutput => undefined')
+    expect(text(write, 'close-store.types.ts')).toContain('CloseStoreOutput = z.unknown()')
+    expect(text(write, 'close-store.mock.ts')).toContain('(): CloseStoreOutput => ({})')
     expect(write.warnings).toEqual([
       'sem --input, o Input é um objeto vazio: descreva os campos em src/use-cases/stores/close-store.types.ts.',
-      'sem --output, o Output é z.void(): descreva o que o use case devolve em src/use-cases/stores/close-store.types.ts.',
+      'sem --output, o Output é z.unknown(): descreva o que o use case devolve em src/use-cases/stores/close-store.types.ts.',
     ])
   })
 
@@ -176,6 +176,15 @@ export function getStoresKey(input: GetStoresInput) {
     expect(() => gen('PATCH /stores/:path', 'path:string')).toThrow("tem o nome de uma variável do execute gerado")
   })
 
+  it('--endpoint recusa :parâmetro reservado ou de tipo que não cabe no caminho', () => {
+    const project = projectWithStores()
+    const gen = (endpoint: string, input: string) =>
+      generateUseCase(project, { name: 'stores.update-store', endpoint, input })
+    expect(() => gen('PATCH /stores/:delete', 'delete:string')).toThrow("':delete' é palavra reservada")
+    expect(() => gen('PATCH /stores/:day', 'day:date')).toThrow("o campo 'day' do Input é date")
+    expect(gen('PATCH /stores/:kind', 'kind:enum(a|b)').endpoint?.params).toEqual(['kind'])
+  })
+
   it('escrita com GET é recusada', () => {
     expect(() => generateUseCase(projectWithStores(), { name: 'stores.close-store', endpoint: 'GET /stores/close' })).toThrow(
       'uma escrita não pode usar GET',
@@ -239,7 +248,7 @@ export function getStoresKey(input: GetStoresInput) {
     expect(usecase).toContain('readonly #storage: Storage')
     expect(usecase).toContain("const STORAGE_KEY = 'cart:add-item'")
     expect(usecase).toContain('// A regra do use case entra aqui.')
-    expect(usecase).toContain('return AddItemOutput.parse(undefined)')
+    expect(usecase).toContain('return AddItemOutput.parse({})')
     expect(text(result, 'index.ts')).toContain('addItem: new AddItemUseCase(deps.storage)')
     expect(text(result, 'index.ts')).not.toContain('Routes,')
   })
@@ -299,6 +308,10 @@ export function getStoresKey(input: GetStoresInput) {
       "a chave 'getStores' do registro já é do use case 'stores.get-stores': as chaves são únicas no app",
     )
     expect(() => generateUseCase(project, { name: 'orders.get-stores' })).toThrow(UsageError)
+  })
+
+  it('recusa domínio e ação com o mesmo camelCase', () => {
+    expect(() => generateUseCase(projectWithStores(), { name: 'cart.cart' })).toThrow('dão o mesmo nome em camelCase')
   })
 
   it('recusa o nome sem a ação, com ação inválida ou reservada', () => {

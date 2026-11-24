@@ -225,7 +225,13 @@ export function useCaseNames(input: string): UseCaseNames {
       `o nome do use case '${input}' precisa ter o domínio e a ação, como em auth.sign-in (ou auth/sign-in).`,
     )
   }
-  return { domain: deriveNames(domain), action: usableNames(action, 'a ação') }
+  const names = { domain: deriveNames(domain), action: usableNames(action, 'a ação') }
+  if (names.domain.camel === names.action.camel) {
+    throw new UsageError(
+      `o domínio e a ação de '${input}' dão o mesmo nome em camelCase ('${names.action.camel}') e repetiriam o identificador no índice do domínio: dê outro nome à ação (por exemplo, get-${action}).`,
+    )
+  }
+  return names
 }
 
 /** Valida o nome (kebab-case, sem palavra reservada) e devolve os nomes derivados dele. */

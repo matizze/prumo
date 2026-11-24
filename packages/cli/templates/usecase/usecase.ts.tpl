@@ -3,7 +3,7 @@ import { HttpError, type Http } from '@matizze/prumo-core/http'
 import type { IUseCase } from '@matizze/prumo-core/use-cases'
 import { ENDPOINT, {{action.pascal}}Input, {{action.pascal}}Output } from './{{action.kebab}}.types'
 
-/** {{action.title}} (domínio {{domain.kebab}}): valida o Input, chama a API e valida a resposta com o Output. */
+/** {{action.title}} (domínio {{domain.kebab}}). */
 export class {{action.pascal}}UseCase implements IUseCase<{{action.pascal}}Input, {{action.pascal}}Output> {
   readonly #http: Http
 
@@ -11,7 +11,7 @@ export class {{action.pascal}}UseCase implements IUseCase<{{action.pascal}}Input
     this.#http = http
   }
 
-  /** Um erro da API vira `UIError` com o código {{action.constant}}_FAILED, que a tela mostra pelo `errors.json`. */
+  /** Um erro da API vira `UIError` {{action.constant}}_FAILED. */
   async execute(input: {{action.pascal}}Input): Promise<{{action.pascal}}Output> {
 {{usecase.request}}
     try {

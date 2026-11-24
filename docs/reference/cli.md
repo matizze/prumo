@@ -127,7 +127,7 @@ Precisa do app com `src/use-cases/index.ts`, que o `prumo new` cria. Um app de a
 | Opção                          | O que faz                                                                                                            |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
 | `--input <campos>`             | Os campos do Input, na sintaxe do [`--fields`](#o-formato-do---fields). Padrão: `z.object({})`                        |
-| `--output <campos\|entidade>`  | Os campos do Output, ou o nome de uma entidade que já tem schema (`store`, ou `store[]` para a lista). Padrão: `z.void()` na escrita e `z.unknown()` na leitura |
+| `--output <campos\|entidade>`  | Os campos do Output, ou o nome de uma entidade que já tem schema (`store`, ou `store[]` para a lista). Padrão: `z.unknown()` |
 | `--endpoint "<MÉTODO> <caminho>"` | O endereço da API (`PATCH /livros/:id`). Padrão: `GET /<domínio>/<ação>` na leitura e `POST /<domínio>/<ação>` na escrita |
 | `--read`, `--write`            | Forçam o tipo, no lugar do verbo da ação                                                                            |
 | `--local`                      | Use case sem API: recebe o `storage` (o `localStorage`), sem `ENDPOINT` nem mock                                     |
@@ -163,11 +163,15 @@ src/use-cases/auth/
 prumo make:usecase livros.update-livro --endpoint "PATCH /livros/:id" --input "id:string,title?:string" --output livro
 ```
 
-O comando recusa um endpoint cujo `:parâmetro` não é um campo do Input, ou é opcional, e dois parâmetros em que um é o começo do nome do outro. Não combina com `--local`.
+O comando recusa um endpoint cujo `:parâmetro` não é um campo do Input, é opcional, é palavra reservada do JavaScript ou não é `string`, `number`, `int`, `boolean` ou `enum`, e dois parâmetros em que um é o começo do nome do outro. Não combina com `--local`.
 
 ### `--input` e `--output`
 
-Os dois usam a sintaxe do [`--fields`](#o-formato-do---fields), e aceitam também `id` e `createdAt`. O `--output` aceita ainda o nome de uma entidade que já tem schema (`prumo make:schema`): `--output store` usa o `storeSchema`, e `--output store[]` uma lista dele (`z.array(storeSchema)`). Sem eles, o Input é um objeto vazio e o Output é `z.void()` na escrita ou `z.unknown()` na leitura, e o comando **avisa**, sem falhar, para a pessoa preencher o `.types.ts`.
+Os dois usam a sintaxe do [`--fields`](#o-formato-do---fields), e aceitam também `id` e `createdAt`. O `--output` aceita ainda o nome de uma entidade que já tem schema (`prumo make:schema`): `--output store` usa o `storeSchema`, e `--output store[]` uma lista dele (`z.array(storeSchema)`). Sem eles, o Input é um objeto vazio e o Output é `z.unknown()` (a API real pode devolver corpo, e um `z.void()` falharia no `parse`), e o comando **avisa**, sem falhar, para a pessoa preencher o `.types.ts`.
+
+### A fonte de dados
+
+O registro lê a `VITE_DATA_SOURCE`, a mesma variável dos repositórios: `http` usa a API (`src/http/api.ts`), e **qualquer outro valor, ou nenhum, usa o mock**. Um valor que só os repositórios conhecem (`storage`) não é erro para os use cases. Enquanto as duas camadas convivem, essa é a regra.
 
 ### `--local`
 

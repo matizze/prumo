@@ -73,6 +73,7 @@ describe('prumo new', () => {
     expect(listFiles(root).filter((file) => !file.startsWith('.git/'))).toEqual(
       [
         '.gitignore',
+        '.mcp.json',
         'AGENTS.md',
         'README.md',
         'eslint.config.js',
@@ -106,7 +107,7 @@ describe('prumo new', () => {
       ].sort(),
     )
     expect(result.stdout).toContain(`Destino: ${root}`)
-    expect(result.stdout).toContain('Criados (31):')
+    expect(result.stdout).toContain('Criados (32):')
     expect(result.stdout).toContain('pnpm exec prumo make:page <tela>')
     expect(result.stdout).not.toContain('clientes')
     expect(result.stdout).toContain('docs.prumo.matizze.com.br')
@@ -208,12 +209,14 @@ export default function App() {
     }
   })
 
-  it('não tem .mcp.json nem fala de MCP, e o AGENTS.md diz as camadas e os comandos da v1', async () => {
+  it('cria o .mcp.json com o servidor prumo, e o AGENTS.md e o README.md o citam', async () => {
     const cwd = makeDir()
     await run(['new', 'app-tres', '--no-install'], cwd)
     const root = path.join(cwd, 'app-tres')
 
-    expect(existsSync(path.join(root, '.mcp.json'))).toBe(false)
+    expect(JSON.parse(read(root, '.mcp.json'))).toEqual({
+      mcpServers: { prumo: { command: 'pnpm', args: ['exec', 'prumo', 'mcp'] } },
+    })
     const agents = read(root, 'AGENTS.md')
     for (const text of [
       'pages/<tela>/',
@@ -223,15 +226,18 @@ export default function App() {
       'make:page',
       'prumo check',
       'pnpm verify',
+      '.mcp.json',
+      'pnpm exec prumo mcp',
+      'make_schema',
+      'data_source',
     ]) {
       expect(agents).toContain(text)
     }
+    expect(read(root, 'README.md')).toContain('.mcp.json')
     for (const file of ['AGENTS.md', 'README.md']) {
-      expect(read(root, file), file).not.toMatch(
-        /mcp|make:domain|make:component|move:component|doctor/i,
-      )
+      expect(read(root, file), file).not.toMatch(/make:domain|make:component|move:component|doctor/i)
     }
-    expect(agents.split('\n').length).toBeLessThan(70)
+    expect(agents.split('\n').length).toBeLessThan(80)
   })
 
   it('a fonte de dados padrão é o mock', async () => {
@@ -265,7 +271,7 @@ export default function App() {
 
     expect(result.code, result.stderr).toBe(0)
     expect(result.stdout).toContain('prumo new: app-seco (simulação).')
-    expect(result.stdout).toContain('Seriam criados (31):')
+    expect(result.stdout).toContain('Seriam criados (32):')
     expect(result.stdout).toContain('  src/pages/home/view.tsx\n')
     expect(result.stdout).toContain('Depois: git init e pnpm install.')
     expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')

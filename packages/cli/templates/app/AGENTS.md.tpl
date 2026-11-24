@@ -40,6 +40,10 @@ Todos os geradores aceitam `--dry-run` (só lista o que faria).
 
 Scripts do projeto: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm check`, `pnpm test` e `pnpm verify` (typecheck, lint, test e check, nessa ordem, para os testes rodarem mesmo que o check falhe; sem navegador). Rode o `pnpm verify` antes de dar uma tarefa por pronta.
 
+## Servidor MCP
+
+O projeto traz o `.mcp.json`, que registra o servidor `prumo` (`pnpm exec prumo mcp`, por stdio). Ele dá ao agente os mesmos geradores como ferramentas: `make_schema`, `make_repository`, `make_query`, `make_page`, `check` e `list`. Os parâmetros têm o nome da opção em snake_case sem acento (`dominio`, `nome`, `entity`, `fields`, `data_source`, `query`, `path` e `dry_run`). O servidor trabalha só neste projeto. Prefira as ferramentas a editar à mão, e chame `list` antes de gerar.
+
 ## Regras
 
 - Comentários e documentação em português; nomes de função, variável e arquivo em inglês.

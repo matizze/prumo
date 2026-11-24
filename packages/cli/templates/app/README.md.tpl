@@ -23,3 +23,7 @@ pnpm exec prumo make:query <domínio>       # as queries e mutations
 pnpm exec prumo make:page <tela>           # uma tela, com a rota e as mensagens
 pnpm exec prumo check                      # confere a arquitetura
 ```
+
+## Agentes de IA
+
+O `.mcp.json` já registra o servidor MCP `prumo` (`pnpm exec prumo mcp`), que oferece os geradores, o `check` e o `list` como ferramentas para agentes de IA.

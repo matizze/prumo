@@ -301,7 +301,7 @@ Sem `--json`, é um texto curto por seção. Com `--json`, é um objeto estável
 | M4 | Documentação (guia de agentes de IA, referência do `mcp` e do `list`) e changeset `minor` da cli                                                                               | O site compila e a documentação bate com os comandos                                                                                        |
 | M5 | Com o ok de uma pessoa: versões (cli 0.8.0), `develop` → `main` e o `npm deprecate` do pacote antigo                                                                           | A 0.8.0 no npm e o pacote antigo marcado                                                                                                    |
 
-**Situação:** M1 e M2 concluídos.
+**Situação:** M1, M2 e M3 concluídos.
 
 ### 13.5 Execução e o que fica de fora
 

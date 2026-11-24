@@ -1,14 +1,20 @@
 import type { ESLint, Linter } from 'eslint'
 import pkg from '../../package.json' with { type: 'json' }
 import { noCrossPageImport } from './rules/no-cross-page-import.ts'
+import { noHttpInPage } from './rules/no-http-in-page.ts'
 import { pageStructure } from './rules/page-structure.ts'
+import { useCaseImports } from './rules/use-case-imports.ts'
 
 export type { NoCrossPageImportOptions } from './rules/no-cross-page-import.ts'
+export type { NoHttpInPageOptions } from './rules/no-http-in-page.ts'
 export type { PageStructureOptions } from './rules/page-structure.ts'
+export type { UseCaseImportsOptions } from './rules/use-case-imports.ts'
 
 const rules = {
   'no-cross-page-import': noCrossPageImport,
+  'no-http-in-page': noHttpInPage,
   'page-structure': pageStructure,
+  'use-case-imports': useCaseImports,
 }
 
 const recommended: Linter.Config = {
@@ -16,7 +22,9 @@ const recommended: Linter.Config = {
   files: ['**/*.{ts,tsx}'],
   rules: {
     'prumo/no-cross-page-import': 'error',
+    'prumo/no-http-in-page': 'error',
     'prumo/page-structure': 'error',
+    'prumo/use-case-imports': 'error',
   },
 }
 

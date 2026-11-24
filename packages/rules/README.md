@@ -29,6 +29,8 @@ export default [
 | Regra                        | O que cobra                                                                              | Opções                               |
 | ---------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------ |
 | `prumo/no-cross-page-import` | Um arquivo de uma tela não importa de outra (a tela é a primeira pasta com `index.tsx`, como `auth/login`), pelo alias nem por caminho relativo | `alias`, `aliasRoot`, `pagesDir`     |
+| `prumo/no-http-in-page`      | Um arquivo de uma tela (`src/pages`) não importa de `src/http`: a tela chama um use case | `alias`, `aliasRoot`, `pagesDir`, `httpDir` |
+| `prumo/use-case-imports`     | Um arquivo de `src/use-cases` não importa de `src/pages`, de `react` nem de `@tanstack/*` | `alias`, `aliasRoot`, `pagesDir`, `useCasesDir` |
 | `prumo/page-structure`       | O `index.tsx` de uma tela, em qualquer profundidade, tem `model.ts` e `view.tsx` ao lado; a pasta de grupo não é cobrada | `pagesDir`, `requiredFiles`          |
 
 ## Análise do projeto
@@ -45,6 +47,7 @@ const violations = check({ root: process.cwd() })
 | `components-folders` | `src/components` só tem as subpastas `ui`, `shared` e `layout`                                    |
 | `shared-usage`       | O que está em `src/components/shared` é usado por duas telas ou mais (pelo grafo de imports)         |
 | `page-structure`     | Toda tela de `src/pages`, em qualquer profundidade, tem `index.tsx`, `model.ts` e `view.tsx`; a pasta que só agrupa telas não é cobrada |
+| `use-case-files`     | Todo `*.usecase.ts` de `src/use-cases` tem o `.types.ts` e o `.usecase.test.ts` na mesma pasta (o mock não é cobrado) |
 | `messages`           | Os idiomas têm as mesmas chaves e os mesmos argumentos ICU, nenhum texto vazio e os mesmos namespaces registrados |
 
 As opções (pastas, alias, idiomas) e as mensagens de cada verificação estão na [referência do rules](https://docs.prumo.matizze.com.br/reference/rules).

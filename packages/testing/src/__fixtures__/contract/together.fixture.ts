@@ -1,13 +1,13 @@
 import { runContractSuite } from '../../contract.ts'
-import { BrokenNotesRepository, MapNotesRepository, notesContract } from './notes.ts'
+import { BrokenNotes, MapNotes, notesContract } from './notes.ts'
 
 // O mesmo contrato contra duas implementações: a certa passa e a com defeito falha
 runContractSuite(notesContract, {
-  name: 'MapNotesRepository',
-  create: () => new MapNotesRepository(),
+  name: 'MapNotes',
+  create: () => new MapNotes(),
 })
 
 runContractSuite(notesContract, {
-  name: 'BrokenNotesRepository',
-  create: () => new BrokenNotesRepository(),
+  name: 'BrokenNotes',
+  create: () => new BrokenNotes(),
 })

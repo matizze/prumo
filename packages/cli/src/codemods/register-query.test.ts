@@ -48,4 +48,32 @@ export { taskKeys, useTasksList } from './tasks'
     const bare = new ChangePlan(findProject(makeProject({ 'src/App.tsx': '' })))
     expect(() => registerQueriesEntry(bare, { module: 'x', exports: ['x'] })).toThrow(/não tem src\/queries\/index\.ts/)
   })
+
+  it('comentário no fim da linha fica com o export dele, e a linha nova vem depois', () => {
+    const root = makeProject({
+      'src/queries/index.ts': "export { a } from './a' // do a\nexport { c } from './c'\n",
+    })
+    const plan = new ChangePlan(findProject(root))
+    registerQueriesEntry(plan, { module: 'b', exports: ['b'] })
+    expect(text(plan)).toBe("export { a } from './a' // do a\nexport { b } from './b'\nexport { c } from './c'\n")
+  })
+
+  it('a linha nova não cai entre o comentário de cima e o export dele', () => {
+    const root = makeProject({
+      'src/queries/index.ts': "// Queries.\n\nexport { a } from './a'\n// as do c\nexport { c } from './c'\n",
+    })
+    const plan = new ChangePlan(findProject(root))
+    registerQueriesEntry(plan, { module: 'b', exports: ['b'] })
+    registerQueriesEntry(plan, { module: '0', exports: ['z'] })
+    expect(text(plan)).toBe(
+      "// Queries.\n\nexport { z } from './0'\nexport { a } from './a'\nexport { b } from './b'\n// as do c\nexport { c } from './c'\n",
+    )
+  })
+
+  it('depois do último export, o comentário dele no fim da linha não é partido', () => {
+    const root = makeProject({ 'src/queries/index.ts': "export { a } from './a' // do a\n" })
+    const plan = new ChangePlan(findProject(root))
+    registerQueriesEntry(plan, { module: 'b', exports: ['b'] })
+    expect(text(plan)).toBe("export { a } from './a' // do a\nexport { b } from './b'\n")
+  })
 })

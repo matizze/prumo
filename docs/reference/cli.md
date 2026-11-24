@@ -175,11 +175,12 @@ Cria `src/queries/<domínio>.ts` com:
 | `use<Entidade>Detail`         | O detalhe de um registro pelo id                                                                         |
 | `useCreate<Entidade>`         | Cria; invalida tudo do domínio                                                                           |
 | `useUpdate<Entidade>`         | Atualiza (`{ id, input }`, com `Partial` da entrada); invalida tudo do domínio                           |
-| `useRemove<Entidade>`         | Remove; tira o detalhe do cache e invalida só as listas                                                  |
+| `useRemove<Entidade>`         | Remove; tira o detalhe do cache e invalida só as listas. Uma tela de detalhe que continua montada busca de novo e recebe `<ENTIDADE>_NOT_FOUND`: depois de remover, saia da tela |
+| `<Domínio>ListOptions`        | O tipo das opções do `useQuery` que a lista aceita                                                        |
 
-E registra o domínio em `src/queries/index.ts`, com um `export { ... } from './<domínio>'` em ordem alfabética (aceita os mesmos nomes, de modo que `@/queries` e `@/queries/<domínio>` servem). Os hooks usam só o contrato do repositório, pelo `useRepositories()`: valem para qualquer fonte (mock, storage ou http) e o comando não lê os campos do schema. O `--entity` é o mesmo do `make:schema` e do `make:repository`.
+E registra o domínio em `src/queries/index.ts`, com um `export { ... } from './<domínio>'` em ordem alfabética (com os mesmos nomes, o tipo `<Domínio>ListOptions` entre eles como `type`, de modo que `@/queries` e `@/queries/<domínio>` servem). Os hooks usam só o contrato do repositório, pelo `useRepositories()`: valem para qualquer fonte (mock, storage ou http) e o comando não lê os campos do schema. O `--entity` é o mesmo do `make:schema` e do `make:repository`.
 
-O comando valida tudo antes de escrever e nunca sobrescreve: repositório que falta, query que já existe (o arquivo ou o export no índice) e índice que falta saem com 2, sem deixar nada pela metade. `--dry-run` lista o que seria criado e alterado, sem escrever. No fim, mostra o que fez e o próximo passo: `prumo make:page <domínio> --query <domínio>`.
+O comando valida tudo antes de escrever e nunca sobrescreve: repositório que falta, schema da entidade que falta, repositório de outra entidade (o `repository.contract.ts` não usa `<Entidade>Schema`: o `--entity` esquecido ou a mais), query que já existe (o arquivo) ou só o export que sobrou no índice, e índice que falta saem com 2, sem deixar nada pela metade. `--dry-run` lista o que seria criado e alterado, sem escrever. No fim, mostra o que fez e o próximo passo: `prumo make:page <domínio> --query <domínio>`.
 
 ## `prumo check`
 

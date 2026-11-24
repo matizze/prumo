@@ -1,3 +1,4 @@
+import { rmSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemods/test-support.ts'
 import { UsageError } from '../errors.ts'
@@ -49,5 +50,37 @@ describe('generateQuery', () => {
     const project = projectWithRepository()
     generateQuery(project, { name: 'livros' }).plan.commit()
     expect(() => generateQuery(project, { name: 'livros' })).toThrow(UsageError)
+  })
+})
+
+describe('generateQuery com a entidade errada', () => {
+  it('schema e repositório da entidade pao, e o --entity esquecido: não gera', () => {
+    const project = projectWithRepository('paes', 'pao')
+    expect(() => generateQuery(project, { name: 'paes' })).toThrow(UsageError)
+  })
+
+  it('o repositório é de uma entidade e o schema da outra existe: diz o --entity certo', () => {
+    // schema pae e pao, repositório da pao; o make:query paes (pae) acha o schema e vê que o repositório é de outra
+    const project = projectWithRepository('paes', 'pao')
+    generateSchema(project, { name: 'paes' }).plan.commit()
+    expect(() => generateQuery(project, { name: 'paes' })).toThrow(/não é da entidade pae.*--entity/s)
+  })
+
+  it('--entity a mais, só com o schema da entidade automática: o schema da outra falta', () => {
+    const project = projectWithRepository('paes')
+    expect(() => generateQuery(project, { name: 'paes', entity: 'pao' })).toThrow(/falta o schema paes/)
+  })
+
+  it('a palavra do schema tem limite: PaoSchema não vale por PaSchema', () => {
+    const project = projectWithRepository('paes', 'pao')
+    generateSchema(project, { name: 'pas', entity: 'pa' }).plan.commit()
+    expect(() => generateQuery(project, { name: 'paes', entity: 'pa' })).toThrow(/não é da entidade pa:/)
+  })
+
+  it('só o export do índice sobrou: a mensagem diz isso, não que o arquivo existe', () => {
+    const project = projectWithRepository()
+    generateQuery(project, { name: 'livros' }).plan.commit()
+    rmSync(`${project.root}/src/queries/livros.ts`)
+    expect(() => generateQuery(project, { name: 'livros' })).toThrow(/já exporta '\.\/livros', mas src\/queries\/livros\.ts não existe/)
   })
 })

@@ -35,9 +35,11 @@ const JSDOM = '// @vitest-' + 'environment jsdom'
 
 const HOOKS_TEST = `${JSDOM}
 import { act, waitFor } from '@testing-library/react'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { renderHookWithProviders } from '@/test/render'
 import {
+  clienteKeys,
+  clienteQueries,
   useClienteDetail,
   useClientesList,
   useCreateCliente,
@@ -62,24 +64,49 @@ it('a mutation de criar invalida a lista, que passa a ter o novo registro', asyn
   expect(result.current.list.data?.items.some((item) => item.nome === 'Novo')).toBe(true)
 })
 
-it('atualiza e remove: o detalhe muda, e o removido sai da lista sem buscar o detalhe', async () => {
+it('atualiza: o detalhe muda', async () => {
   const id = MOCK_CLIENTES[0]!.id
   const { result } = renderHookWithProviders(() => ({
-    list: useClientesList(),
     detail: useClienteDetail(id),
     update: useUpdateCliente(),
-    remove: useRemoveCliente(),
   }))
   await waitFor(() => expect(result.current.detail.isSuccess).toBe(true))
   await act(async () => {
     await result.current.update.mutateAsync({ id, input: { nome: 'Editado' } })
   })
   await waitFor(() => expect(result.current.detail.data?.nome).toBe('Editado'))
+})
+
+it('remove com o detalhe fora da tela: a lista atualiza e o get do removido não é chamado', async () => {
+  const id = MOCK_CLIENTES[0]!.id
+  const { result, repositories, queryClient } = renderHookWithProviders(() => ({
+    list: useClientesList(),
+    remove: useRemoveCliente(),
+  }))
+  const get = vi.spyOn(repositories.clientes, 'get')
+  await waitFor(() => expect(result.current.list.isSuccess).toBe(true))
+  await queryClient.prefetchQuery(clienteQueries.detail(repositories.clientes, id))
+  get.mockClear()
   await act(async () => {
     await result.current.remove.mutateAsync(id)
   })
   await waitFor(() => expect(result.current.list.data?.total).toBe(MOCK_CLIENTES.length - 1))
-  expect(result.current.detail.isError).toBe(false)
+  expect(get).not.toHaveBeenCalled()
+  expect(queryClient.getQueryData(clienteKeys.detail(id))).toBeUndefined()
+})
+
+it('remove com o detalhe ainda na tela: o detalhe busca de novo e termina em NOT_FOUND', async () => {
+  const id = MOCK_CLIENTES[0]!.id
+  const { result } = renderHookWithProviders(() => ({
+    detail: useClienteDetail(id),
+    remove: useRemoveCliente(),
+  }))
+  await waitFor(() => expect(result.current.detail.isSuccess).toBe(true))
+  await act(async () => {
+    await result.current.remove.mutateAsync(id)
+  })
+  await waitFor(() => expect(result.current.detail.isError).toBe(true))
+  expect(result.current.detail.error).toMatchObject({ code: 'CLIENTE_NOT_FOUND' })
 })
 `
 

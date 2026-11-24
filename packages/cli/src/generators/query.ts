@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { isQueriesRegistered, registerQueriesEntry } from '../codemods/index.ts'
 import { UsageError } from '../errors.ts'
+import { readEntityFields } from '../lib/fields.ts'
 import { domainNames, entityFlag, type DomainNames } from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'
@@ -37,6 +38,7 @@ export function queriesExports(names: DomainNames): string[] {
     `useCreate${singular.pascal}`,
     `useUpdate${singular.pascal}`,
     `useRemove${singular.pascal}`,
+    `type ${plural.pascal}ListOptions`,
   ]
 }
 
@@ -56,10 +58,27 @@ export function generateQuery(project: Project, { name, entity }: QueryRequest):
       `falta o repositório ${names.plural.kebab} (src/repositories/${names.plural.kebab}); rode prumo make:repository ${names.plural.kebab}${entityFlag(names)}.`,
     )
   }
+  // O schema da entidade tem que existir (a dica de make:schema vem do leitor) e o repositório tem
+  // que ser dessa entidade: com outra, o código gerado não compila
+  readEntityFields(plan, names)
+  const contract = path.join(repository, 'repository.contract.ts')
+  if (plan.hasFile(contract)) {
+    const used = new RegExp(`\\b${names.singular.pascal}Schema\\b`)
+    if (!used.test(plan.readText(contract))) {
+      throw new UsageError(
+        `o repositório ${names.plural.kebab} não é da entidade ${names.singular.kebab}: o src/repositories/${names.plural.kebab}/repository.contract.ts não usa ${names.singular.pascal}Schema. Use --entity com a entidade do repositório (a mesma do make:schema e do make:repository).`,
+      )
+    }
+  }
   const vars = { ...nameVars('plural', names.plural), ...nameVars('singular', names.singular) }
   const target = renderTemplate(QUERY_FILE.to, vars)
-  if (plan.has(path.join(project.root, target)) || isQueriesRegistered(plan, names.plural.kebab)) {
+  if (plan.has(path.join(project.root, target))) {
     throw new UsageError(`a query '${names.plural.kebab}' já existe: ${target} está no projeto.`)
+  }
+  if (isQueriesRegistered(plan, names.plural.kebab)) {
+    throw new UsageError(
+      `src/queries/index.ts já exporta './${names.plural.kebab}', mas ${target} não existe: tire a linha \`export { ... } from './${names.plural.kebab}'\` do índice (ou recrie o arquivo) e rode o comando de novo.`,
+    )
   }
   plan.createSource(path.join(project.root, target), renderTemplateFile(QUERY_FILE.template, vars))
   const exports = queriesExports(names)

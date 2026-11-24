@@ -29,7 +29,7 @@ describe('prumo make:query', () => {
     expect(result.stdout).toContain('Próximo passo: prumo make:page clientes --query clientes\n')
     expect(read(root, 'src/queries/clientes.ts')).toContain('export function useClientesList(')
     expect(read(root, 'src/queries/index.ts')).toContain(
-      "export { clienteKeys, clienteQueries, useClientesList, useClienteDetail, useCreateCliente, useUpdateCliente, useRemoveCliente } from './clientes'",
+      "export { clienteKeys, clienteQueries, useClientesList, useClienteDetail, useCreateCliente, useUpdateCliente, useRemoveCliente, type ClientesListOptions } from './clientes'",
     )
   })
 
@@ -62,6 +62,24 @@ describe('prumo make:query', () => {
     expect(again.code).toBe(2)
     expect(again.stderr).toContain("a query 'clientes' já existe")
     expect(read(root, 'src/queries/index.ts')).toBe(index)
+  })
+
+  it('--entity esquecido: o repositório é de outra entidade, saída 2 com a dica e nada criado', async () => {
+    const root = await withRepository(['paes', '--entity', 'pao'])
+    const result = await exec(['make:query', 'paes'], root)
+
+    expect(result.code).toBe(2)
+    expect(result.stderr).toContain('falta o schema paes')
+    expect(existsSync(path.join(root, 'src/queries/paes.ts'))).toBe(false)
+  })
+
+  it('--entity a mais: o repositório é da entidade automática, saída 2 com a dica e nada criado', async () => {
+    const root = await withRepository(['paes'])
+    const result = await exec(['make:query', 'paes', '--entity', 'pao'], root)
+
+    expect(result.code).toBe(2)
+    expect(result.stderr).toMatch(/schema paes|não é da entidade/)
+    expect(existsSync(path.join(root, 'src/queries/paes.ts'))).toBe(false)
   })
 
   it('--dry-run lista o plano e não escreve nada', async () => {

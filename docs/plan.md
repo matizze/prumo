@@ -233,7 +233,7 @@ O orquestrador deixa no chat um relatório curto (PRs, números de testes, desvi
 
 ## 12. Desvios registrados na execução
 
-O que os PRs #106 a #112 registraram na seção "Desvios", em resumo:
+O que os PRs #106 a #113 registraram na seção "Desvios", em resumo:
 
 - **#106 (base):** o export `.` da cli ficou (`run`, `createProgram`, `ExitError`, `UsageError`) e só o `./api` saiu; os erros do commander são traduzidos no `error()` do `PrumoCommand`, mantendo a sugestão "Você quis dizer ...?"; comando desconhecido na raiz diz "comando desconhecido" e grupo sem subcomando sai com 2.
 - **#107 (`new` e `check`):** o `Io` ganhou `inheritStdio` no lugar do `Runtime`; o plano do app inteiro é montado em memória e gravado de uma vez, com rollback se a escrita falhar; `registerMessageNamespace` aceita a lista de idiomas; `templates/component` foi apagado e os demais modelos esperaram os passos seguintes; `addRoute` (de origem), `moveSource`, `messageKeys` e `isNestRoute` não foram portados (eram do `move:component`).

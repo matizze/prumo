@@ -35,7 +35,7 @@ pnpm exec prumo check                                              # confere a a
 | `prumo make:page <nome> [--query <domínio>] [--path <caminho>]`            | Cria a tela (index, model, view, teste), os textos e a rota               |
 | `prumo check`                                                              | Confere a arquitetura do projeto                                          |
 
-Todos aceitam `--dry-run` e validam tudo antes de escrever, e os `make:*` e o `check` aceitam `--root <pasta>` (o `new` tem `--dir`). Nenhum sobrescreve arquivo. `pnpm exec prumo --help` e `prumo <comando> --help` mostram a ajuda, em português.
+O `new` e os `make:*` aceitam `--dry-run` (o `check` só lê), todos validam tudo antes de escrever, e os `make:*` e o `check` aceitam `--root <pasta>` (o `new` tem `--dir`). Nenhum sobrescreve arquivo. `pnpm exec prumo --help` e `prumo <comando> --help` mostram a ajuda, em português.
 
 Códigos de saída: `0` sucesso, `1` erro inesperado (ou violação, no `check`) e `2` uso errado (comando, opção ou argumento que não existe). A ajuda e as mensagens são em português.
 

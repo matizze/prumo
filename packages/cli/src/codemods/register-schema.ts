@@ -1,45 +1,16 @@
 import path from 'node:path'
-import { type ExportDeclaration, type ImportDeclaration, type SourceFile } from 'ts-morph'
+import type { SourceFile } from 'ts-morph'
 import { UsageError } from '../errors.ts'
 import type { DomainNames } from '../lib/names.ts'
 import type { ChangePlan } from '../lib/plan.ts'
 import { displayPath } from '../lib/paths.ts'
-import { applyEdits, type TextEdit } from './edit.ts'
-
-/** O nome do módulo de um import ou export, ou `''` se não tiver (`export { x }` sem `from`). */
-function specifierOf(declaration: ImportDeclaration | ExportDeclaration): string {
-  return declaration.getModuleSpecifierValue() ?? ''
-}
+import { afterLine, applyEdits, specifierOf, styleOf, type TextEdit } from './edit.ts'
 
 /** A edição que acrescenta `line` no fim do arquivo, em linha própria (o índice sem nenhum export: vazio ou só com comentários). */
 function appendLine(file: SourceFile, line: string): TextEdit {
   const text = file.getFullText()
   const end = text.length
   return { pos: end, end, text: `${text === '' || text.endsWith('\n') ? '' : '\n'}${line}\n` }
-}
-
-/**
- * A edição que acrescenta `line` na linha de baixo do último export: depois do fim da linha e dos
- * comentários que começam nela (`// nota`, `/* nota *\/`, até um de bloco que passa para as
- * linhas seguintes), para o export novo nunca cair dentro de um comentário e o comentário ficar
- * com o export dele.
- */
-export function afterLine(file: SourceFile, last: ExportDeclaration, line: string): TextEdit {
-  const text = file.getFullText()
-  const comments = last.getTrailingCommentRanges()
-  const from = comments.length > 0 ? Math.max(last.getEnd(), comments[comments.length - 1]!.getEnd()) : last.getEnd()
-  const newline = text.indexOf('\n', from)
-  if (newline === -1) return { pos: text.length, end: text.length, text: `\n${line}\n` }
-  return { pos: newline, end: newline, text: `\n${line}` }
-}
-
-/** As aspas e o ponto e vírgula do estilo do arquivo, copiados de uma declaração com módulo. */
-function styleOf(declaration: ExportDeclaration | undefined): { quote: string; semicolon: string } {
-  const specifier = declaration?.getModuleSpecifier()
-  return {
-    quote: specifier ? specifier.getText().charAt(0) : "'",
-    semicolon: declaration?.getText().endsWith(';') ? ';' : '',
-  }
 }
 
 /**

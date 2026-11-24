@@ -3,9 +3,7 @@ import { UsageError } from '../errors.ts'
 import type { ExportDeclaration, SourceFile } from 'ts-morph'
 import type { ChangePlan } from '../lib/plan.ts'
 import { displayPath } from '../lib/paths.ts'
-import { applyEdits, type TextEdit } from './edit.ts'
-import { specifierOf, styleOf } from './register-repository.ts'
-import { afterLine } from './register-schema.ts'
+import { afterLine, applyEdits, specifierOf, styleOf, type TextEdit } from './edit.ts'
 
 /** O que um domínio exporta de `src/queries/index.ts`. */
 export interface QueriesEntry {

@@ -159,7 +159,8 @@ export function toArgv(tool: ToolSpec, input: Readonly<Record<string, unknown>>)
         positionals.push(...(Array.isArray(value) ? value.map(String) : [String(value)]))
         break
       case 'value':
-        options.push(field.flag, String(value))
+        // `--flag=valor`: o valor nunca é lido como opção (`--version`, `-v`, `--help`), que o programa raiz acharia antes do `--`
+        options.push(`${field.flag}=${String(value)}`)
         break
       case 'switch':
         if (value === true) options.push(field.flag)
@@ -169,6 +170,6 @@ export function toArgv(tool: ToolSpec, input: Readonly<Record<string, unknown>>)
         break
     }
   }
-  // O `--` antes dos posicionais impede que um valor lido como opção passe; as opções vêm antes
+  // As opções de valor vão como `--flag=valor`, e o `--` antes dos posicionais impede que um posicional seja lido como opção
   return [tool.command, ...tool.fixedArgs, ...options, ...(positionals.length > 0 ? ['--', ...positionals] : [])]
 }

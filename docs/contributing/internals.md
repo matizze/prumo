@@ -71,6 +71,10 @@ O gerador não toca o disco: valida tudo (nome, entidade, campos, camada de baix
 
 As edições de arquivos que já existem, feitas pela árvore de sintaxe e não por texto solto: `add-route` (a rota no `<Switch>` do `App.tsx`), `register-schema`, `register-repository` e `register-query` (os índices e o container), `register-messages` (o namespace de cada idioma), `register-source` (a fonte em `DATA_SOURCES`, na fábrica e no teste de contrato) e `messages` (os idiomas do projeto). Cada um recusa, com mensagem clara, o arquivo que não tem a forma esperada (os pontos de registro estão em [Anatomia do app gerado](../concepts/generated-app.md#pontos-de-registro)).
 
+### `mcp/`
+
+O servidor do `prumo mcp` (o comando fica em `commands/mcp.ts`, que só confere o projeto e carrega o resto por `import()`, para o SDK do MCP não pesar nos outros comandos). O `tools.ts` descreve uma ferramenta por comando a partir da árvore do commander (nome, descrição, esquema de entrada e a conversão da entrada em `argv`), sem depender do SDK; o `server.ts` registra as ferramentas, roda `run(argv, io)` em processo, na pasta do projeto, com a saída capturada e uma fila de chamadas; o `stdio.ts` liga o transporte e só volta quando o cliente fecha. Um comando novo vira ferramenta sem mudar nada aqui.
+
 ### `lib/`
 
 - `names.ts`: o kebab, o PascalCase e o camelCase de um nome, o plural e o singular (`clientes` → `cliente`, com a recusa dos plurais ambíguos e das palavras reservadas) e o `--entity`.

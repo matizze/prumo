@@ -12,10 +12,11 @@ export type ServerOptions = {
 }
 
 /** O resultado de uma ferramenta: o stdout e, se houver, o stderr; `isError` quando a saída não é 0 (menos o `check` com violação). */
-function resultOf(tool: ToolSpec, code: number, stdout: string, stderr: string): CallToolResult {
+export function resultOf(tool: ToolSpec, code: number, stdout: string, stderr: string): CallToolResult {
   const parts = [stdout, stderr].filter((part) => part !== '')
   const text = parts.map((part) => (part.endsWith('\n') ? part : `${part}\n`)).join('')
-  const violation = tool.command === 'check' && code === 1
+  // O código 1 do check é violação; o do erro inesperado (`prumo: erro inesperado.` no stderr) é falha
+  const violation = tool.command === 'check' && code === 1 && !stderr.startsWith('prumo: erro inesperado.')
   return {
     content: [{ type: 'text', text: text === '' ? '(sem saída)' : text }],
     isError: code !== 0 && !violation,

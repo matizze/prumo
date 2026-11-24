@@ -1,7 +1,7 @@
 import { Command } from 'commander'
 import { describe, expect, it } from 'vitest'
 import { commands } from '../commands/index.ts'
-import { createProgram } from '../program.ts'
+import { createProgram, run } from '../program.ts'
 import { describeTools, fieldName, toArgv } from './tools.ts'
 
 const noop = (): void => undefined
@@ -122,7 +122,7 @@ describe('toArgv', () => {
   it('vira a linha de comando, com as opções antes do -- e dos posicionais', () => {
     expect(
       toArgv(tool('make_schema'), { dominio: 'livros', fields: 'title:string', dry_run: true }),
-    ).toEqual(['make:schema', '--fields', 'title:string', '--dry-run', '--', 'livros'])
+    ).toEqual(['make:schema', '--fields=title:string', '--dry-run', '--', 'livros'])
   })
 
   it('dry_run falso não passa a flag; o list sempre passa --json', () => {
@@ -146,4 +146,28 @@ describe('toArgv', () => {
   it('recusa campo desconhecido, inclusive root', () => {
     expect(() => toArgv(tool('check'), { root: '/' })).toThrow("campo desconhecido: 'root'")
   })
+})
+
+describe('toArgv com valor que parece opção', () => {
+  const values = ['--version', '-v', '-vqualquer', '--help', '-h']
+  const cases: [string, string, Record<string, unknown>][] = [
+    ['make_schema', 'entity', { dominio: 'livros', fields: 'a:string' }],
+    ['make_schema', 'fields', { dominio: 'livros' }],
+    ['make_page', 'query', { nome: 'livros' }],
+    ['make_page', 'path', { nome: 'livros' }],
+  ]
+
+  it.each(cases.flatMap(([name, field, rest]) => values.map((value) => [name, field, rest, value] as const)))(
+    '%s: %s = %s chega ao comando como valor',
+    async (name, field, rest, value) => {
+      const argv = toArgv(tool(name), { ...rest, [field]: value })
+      expect(argv).toContain(`--${field}=${value}`)
+      // O programa raiz não pode agir sobre o valor: nem versão, nem ajuda
+      let out = ''
+      const result = await run(argv, { cwd: '/nao-existe', out: (t) => void (out += t), err: (t) => void (out += t) })
+      // O resultado é o do comando: a pasta não existe, uso errado (2)
+      expect(result).toBe(2)
+      expect(out.startsWith("prumo: a pasta '/nao-existe' não existe.")).toBe(true)
+    },
+  )
 })

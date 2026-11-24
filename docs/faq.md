@@ -46,7 +46,8 @@ Saíram na v1 (`@matizze/prumo-cli` 0.7.0):
 - `--domain` do `make:page` virou `--query`.
 - A fonte de dados `memory` virou `mock`.
 - `make:component` e `move:component` saíram sem substituto: os componentes de interface vêm do design system do produto, e os do produto se criam à mão (veja [Telas](guides/pages.md#componentes)).
-- `doctor` e o servidor MCP (`@matizze/prumo-mcp`) saíram sem substituto: o agente de IA usa os mesmos comandos no terminal (veja [Agentes de IA](guides/ai-agents.md)).
+- `doctor` saiu sem substituto: o agente de IA usa os mesmos comandos no terminal (veja [Agentes de IA](guides/ai-agents.md)).
+- O servidor MCP voltou como um comando da própria cli, o [`prumo mcp`](reference/cli.md#prumo-mcp), com uma ferramenta por comando. O pacote `@matizze/prumo-mcp` não volta.
 
 ## Solução de problemas
 

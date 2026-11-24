@@ -3,7 +3,9 @@ import path from 'node:path'
 import { Client, InMemoryTransport } from '@modelcontextprotocol/client'
 import { afterAll, describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemods/test-support.ts'
-import { createMcpServer } from './server.ts'
+import { createMcpServer, resultOf } from './server.ts'
+import { describeTools } from './tools.ts'
+import { createProgram } from '../program.ts'
 
 type Result = { text: string; isError: boolean }
 
@@ -132,5 +134,24 @@ describe('prumo mcp, cliente e servidor no mesmo processo', () => {
     for (const result of results) expect(result, result.text).toMatchObject({ isError: false })
     const app = readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
     for (const name of ['um', 'dois', 'tres']) expect(app).toContain(`<Route path="/${name}">`)
+  })
+})
+
+describe('resultOf', () => {
+  const noop = (): void => undefined
+  const check = describeTools(createProgram({ cwd: '.', out: noop, err: noop })).find(
+    (tool) => tool.command === 'check',
+  )!
+
+  it('o check com violação (código 1) é resultado', () => {
+    expect(resultOf(check, 1, '', 'a.ts  [regra]  x\n\nprumo check: 1 violação.\n').isError).toBe(false)
+  })
+
+  it('o erro inesperado (código 1, no stderr) é erro, mesmo no check', () => {
+    expect(resultOf(check, 1, '', 'prumo: erro inesperado.\nError: x\n').isError).toBe(true)
+  })
+
+  it('outro código no check é erro', () => {
+    expect(resultOf(check, 2, '', 'prumo: x\n').isError).toBe(true)
   })
 })

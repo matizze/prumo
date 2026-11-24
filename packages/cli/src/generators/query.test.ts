@@ -1,4 +1,4 @@
-import { rmSync } from 'node:fs'
+import { appendFileSync, rmSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemods/test-support.ts'
 import { UsageError } from '../errors.ts'
@@ -54,27 +54,36 @@ describe('generateQuery', () => {
 })
 
 describe('generateQuery com a entidade errada', () => {
-  it('schema e repositório da entidade pao, e o --entity esquecido: não gera', () => {
+  it('--entity esquecido: diz o --entity do repositório', () => {
     const project = projectWithRepository('paes', 'pao')
-    expect(() => generateQuery(project, { name: 'paes' })).toThrow(UsageError)
+    expect(() => generateQuery(project, { name: 'paes' })).toThrow(
+      /o repositório paes é da entidade pao; rode prumo make:query paes --entity pao\./,
+    )
   })
 
-  it('o repositório é de uma entidade e o schema da outra existe: diz o --entity certo', () => {
-    // schema pae e pao, repositório da pao; o make:query paes (pae) acha o schema e vê que o repositório é de outra
-    const project = projectWithRepository('paes', 'pao')
-    generateSchema(project, { name: 'paes' }).plan.commit()
-    expect(() => generateQuery(project, { name: 'paes' })).toThrow(/não é da entidade pae.*--entity/s)
-  })
-
-  it('--entity a mais, só com o schema da entidade automática: o schema da outra falta', () => {
+  it('--entity a mais: manda tirar o --entity', () => {
     const project = projectWithRepository('paes')
-    expect(() => generateQuery(project, { name: 'paes', entity: 'pao' })).toThrow(/falta o schema paes/)
+    expect(() => generateQuery(project, { name: 'paes', entity: 'pao' })).toThrow(
+      /é da entidade pae; rode prumo make:query paes\.$/,
+    )
   })
 
   it('a palavra do schema tem limite: PaoSchema não vale por PaSchema', () => {
     const project = projectWithRepository('paes', 'pao')
-    generateSchema(project, { name: 'pas', entity: 'pa' }).plan.commit()
-    expect(() => generateQuery(project, { name: 'paes', entity: 'pa' })).toThrow(/não é da entidade pa:/)
+    expect(() => generateQuery(project, { name: 'paes', entity: 'pa' })).toThrow(/é da entidade pao;/)
+  })
+
+  it('contrato que não dá para ler: segue, e o schema que falta dá a dica do make:schema', () => {
+    const project = projectWithRepository()
+    writeFileSync(`${project.root}/src/repositories/livros/repository.contract.ts`, 'export {}\n')
+    rmSync(`${project.root}/src/schemas/entities/livro.ts`)
+    expect(() => generateQuery(project, { name: 'livros' })).toThrow(/falta o schema livros \(src\/schemas\/entities\/livro\.ts\); rode prumo make:schema livros\./)
+  })
+
+  it('schema com tipos fora do --fields não impede: as queries não leem os campos', () => {
+    const project = projectWithRepository()
+    appendFileSync(`${project.root}/src/schemas/entities/livro.ts`, '\nexport const extra = z.array(z.string()).nullable()\n')
+    expect(() => generateQuery(project, { name: 'livros' })).not.toThrow()
   })
 
   it('só o export do índice sobrou: a mensagem diz isso, não que o arquivo existe', () => {

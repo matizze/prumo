@@ -180,7 +180,7 @@ Cria `src/queries/<domínio>.ts` com:
 
 E registra o domínio em `src/queries/index.ts`, com um `export { ... } from './<domínio>'` em ordem alfabética (com os mesmos nomes, o tipo `<Domínio>ListOptions` entre eles como `type`, de modo que `@/queries` e `@/queries/<domínio>` servem). Os hooks usam só o contrato do repositório, pelo `useRepositories()`: valem para qualquer fonte (mock, storage ou http) e o comando não lê os campos do schema. O `--entity` é o mesmo do `make:schema` e do `make:repository`.
 
-O comando valida tudo antes de escrever e nunca sobrescreve: repositório que falta, schema da entidade que falta, repositório de outra entidade (o `repository.contract.ts` não usa `<Entidade>Schema`: o `--entity` esquecido ou a mais), query que já existe (o arquivo) ou só o export que sobrou no índice, e índice que falta saem com 2, sem deixar nada pela metade. `--dry-run` lista o que seria criado e alterado, sem escrever. No fim, mostra o que fez e o próximo passo: `prumo make:page <domínio> --query <domínio>`.
+O comando valida tudo antes de escrever e nunca sobrescreve: repositório que falta, arquivo do schema que falta (só a existência, os campos não são lidos), repositório de outra entidade (o `repository.contract.ts` usa outro `<Entidade>Schema`: o `--entity` esquecido ou a mais; a mensagem diz o `--entity` certo), query que já existe (o arquivo) ou só o export que sobrou no índice, e índice que falta saem com 2, sem deixar nada pela metade. `--dry-run` lista o que seria criado e alterado, sem escrever. No fim, mostra o que fez e o próximo passo: `prumo make:page <domínio> --query <domínio>`.
 
 ## `prumo check`
 

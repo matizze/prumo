@@ -69,8 +69,9 @@ describe('prumo make:query', () => {
     const result = await exec(['make:query', 'paes'], root)
 
     expect(result.code).toBe(2)
-    expect(result.stderr).toContain('falta o schema paes')
+    expect(result.stderr).toContain('o repositório paes é da entidade pao; rode prumo make:query paes --entity pao.')
     expect(existsSync(path.join(root, 'src/queries/paes.ts'))).toBe(false)
+    expect(existsSync(path.join(root, 'src/schemas/entities/pae.ts'))).toBe(false)
   })
 
   it('--entity a mais: o repositório é da entidade automática, saída 2 com a dica e nada criado', async () => {
@@ -78,7 +79,7 @@ describe('prumo make:query', () => {
     const result = await exec(['make:query', 'paes', '--entity', 'pao'], root)
 
     expect(result.code).toBe(2)
-    expect(result.stderr).toMatch(/schema paes|não é da entidade/)
+    expect(result.stderr).toContain('o repositório paes é da entidade pae; rode prumo make:query paes.')
     expect(existsSync(path.join(root, 'src/queries/paes.ts'))).toBe(false)
   })
 

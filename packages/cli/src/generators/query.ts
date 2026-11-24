@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { isQueriesRegistered, registerQueriesEntry } from '../codemods/index.ts'
 import { UsageError } from '../errors.ts'
-import { readEntityFields } from '../lib/fields.ts'
+import { schemaFile } from '../lib/fields.ts'
 import { domainNames, entityFlag, type DomainNames } from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'
@@ -58,17 +58,30 @@ export function generateQuery(project: Project, { name, entity }: QueryRequest):
       `falta o repositório ${names.plural.kebab} (src/repositories/${names.plural.kebab}); rode prumo make:repository ${names.plural.kebab}${entityFlag(names)}.`,
     )
   }
-  // O schema da entidade tem que existir (a dica de make:schema vem do leitor) e o repositório tem
-  // que ser dessa entidade: com outra, o código gerado não compila
-  readEntityFields(plan, names)
+  // O repositório tem que ser da entidade pedida: com outra, o código gerado não compila. A
+  // entidade vem do `<Entidade>Schema` do contrato; contrato que não dá para ler passa adiante
   const contract = path.join(repository, 'repository.contract.ts')
   if (plan.hasFile(contract)) {
-    const used = new RegExp(`\\b${names.singular.pascal}Schema\\b`)
-    if (!used.test(plan.readText(contract))) {
+    const found = /\b([A-Z][A-Za-z0-9]*)Schema\b/.exec(plan.readText(contract))?.[1]
+    if (found !== undefined && found !== names.singular.pascal) {
+      const actual = found.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+      let flag: string
+      try {
+        flag = entityFlag(domainNames(name, actual))
+      } catch {
+        flag = ` --entity ${actual}`
+      }
       throw new UsageError(
-        `o repositório ${names.plural.kebab} não é da entidade ${names.singular.kebab}: o src/repositories/${names.plural.kebab}/repository.contract.ts não usa ${names.singular.pascal}Schema. Use --entity com a entidade do repositório (a mesma do make:schema e do make:repository).`,
+        `o repositório ${names.plural.kebab} é da entidade ${actual}; rode prumo make:query ${names.plural.kebab}${flag}.`,
       )
     }
+  }
+  // O schema só precisa existir: as queries não leem os campos
+  const schema = schemaFile(names)
+  if (!plan.hasFile(path.join(project.root, schema))) {
+    throw new UsageError(
+      `falta o schema ${names.plural.kebab} (${schema}); rode prumo make:schema ${names.plural.kebab}${entityFlag(names)}.`,
+    )
   }
   const vars = { ...nameVars('plural', names.plural), ...nameVars('singular', names.singular) }
   const target = renderTemplate(QUERY_FILE.to, vars)

@@ -134,6 +134,33 @@ describe('as queries geradas compilam (tsc estrito) e funcionam com o mock', () 
     expect(tests.output).toMatch(/a mutation de criar invalida a lista/)
   }, 180_000)
 
+  it('com o schema editado depois do repositório (array, email, nullable): sai com 0 e compila', async () => {
+    const root = await project('nome:string', { react: true })
+    const write = (file: string, content: string) => {
+      mkdirSync(path.dirname(path.join(root, file)), { recursive: true })
+      writeFileSync(path.join(root, file), content)
+    }
+    write(
+      'src/providers/repository/index.ts',
+      readFileSync(path.join(TEMPLATES, 'app/src/providers/repository/index.ts.tpl'), 'utf8'),
+    )
+    write('src/queries/index.ts', readFileSync(path.join(TEMPLATES, 'app/src/queries-index.ts.tpl'), 'utf8'))
+    const made = await exec(['make:repository', 'clientes'], root)
+    expect(made.code, made.stderr).toBe(0)
+    const schema = path.join(root, 'src/schemas/entities/cliente.ts')
+    writeFileSync(
+      schema,
+      readFileSync(schema, 'utf8').replace(
+        '  createdAt: z.string(),',
+        '  tags: z.array(z.string()).optional(),\n  email: z.string().email().nullable().optional(),\n  createdAt: z.string(),',
+      ),
+    )
+    const query = await exec(['make:query', 'clientes'], root)
+    expect(query.code, `${query.stdout}${query.stderr}`).toBe(0)
+    expect(readFileSync(path.join(root, 'src/queries/clientes.ts'), 'utf8')).toContain('useClientesList')
+    expect(tsc(root)).toEqual({ status: 0, output: '' })
+  }, 180_000)
+
   it('com campos de todos os tipos e a fonte storage no repositório', async () => {
     const fields =
       'titulo:string,ano:number,paginas:int,situacao:enum(lido|lendo),disponivel:boolean,publicadoEm:date,lidoEm?:datetime'

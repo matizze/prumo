@@ -131,7 +131,7 @@ O tratamento de erro já vem ligado, como o guia [Erros e notificações](../gui
 export const getErrorMessage = createErrorMessage(i18n)
 ```
 
-O `make:domain` acrescenta ao `errors.json` de cada idioma o texto de `<ENTIDADE>_NOT_FOUND`, o código que o mock gerado lança.
+O `make:repository` acrescenta ao `errors.json` de cada idioma o texto de `<ENTIDADE>_NOT_FOUND`, o código que o mock gerado lança.
 
 ### `src/providers/app.tsx`
 
@@ -179,13 +179,13 @@ export function createRepositories(options: Partial<RepositoryOptions> = {}): Re
 }
 ```
 
-O tipo do container sai do mapa, então registrar um domínio é acrescentar uma linha. A fonte vem da `VITE_DATA_SOURCE` (`mock` quando falta; um valor fora de `DATA_SOURCES` lança erro), e o `src/vite-env.d.ts` declara essa variável e a `VITE_API_URL`. O `options.ts` declara as fontes de dados (`DATA_SOURCES = ['mock']`): o `prumo make:repository <domínio> --data-source http|storage` acrescenta a fonte aí (veja [Ligar uma API real](../guides/real-api.md)).
+O tipo do container sai do mapa, então registrar um domínio é acrescentar uma linha. A fonte vem da `VITE_DATA_SOURCE` (`mock` quando falta; um valor fora de `DATA_SOURCES` lança erro), e o `src/vite-env.d.ts` declara essa variável e a `VITE_API_URL`. O `options.ts` declara as fontes de dados (`DATA_SOURCES = ['mock']`, que cresce a cada fonte): o `prumo make:repository <domínio> --data-source http|storage` acrescenta a fonte aí (veja [Ligar uma API real](../guides/real-api.md)).
 
 ### `src/test/render.tsx` e `setup.ts`
 
 O `renderWithProviders` e o `renderHookWithProviders` (para testar hooks) do app, criados com o `createRenderWithProviders` e o `createRenderHookWithProviders` do `@matizze/prumo-testing`: renderiza com o i18n, um container de repositórios `mock` (em memória) **sem latência**, um `QueryClient` **sem retry** e uma rota em memória. O `setup.ts` fixa o idioma padrão do app (`pt-BR`, já que o jsdom diz `en-US`) e desmonta os componentes depois de cada teste. Veja [Testes](../guides/test.md).
 
-## O que cada gerador acrescenta
+## O que cada comando acrescenta
 
 ### `prumo make:page <tela>`
 
@@ -199,30 +199,33 @@ src/messages/<idioma>/<tela>.json  os textos, em cada idioma do projeto
 
 Altera `src/App.tsx` (a rota `/<tela>`, ou a de `--path`) e o `index.ts` de cada idioma (o namespace).
 
-### `prumo make:domain <domínio> [--fields <campos>]`
+### `prumo make:schema <domínio> [--entity <singular>] [--fields <campos>]`
 
 ```text
-src/schemas/entities/<entidade>.ts                   schema zod e tipos
-src/repositories/<domínio>/repository.contract.ts    a interface I<Domínio>Repository
-src/repositories/<domínio>/repository.mock.ts        a implementação em memória
-src/repositories/<domínio>/fixtures.ts               os dados de exemplo
-src/repositories/<domínio>/index.ts                  a fábrica create<Domínio>Repository
+src/schemas/entities/<entidade>.ts   o schema zod, o de entrada, os tipos, a SortKey e a ListQuery
+```
+
+Altera `src/schemas/index.ts` (um `export *`). Com `--fields "titulo:string,ano:int"`, o schema sai com esses campos em vez de `name` (veja [Domínios](../guides/domains.md#os-campos-do-domínio---fields)).
+
+### `prumo make:repository <domínio> [--entity <singular>] [--data-source mock|http|storage]`
+
+```text
+src/repositories/<domínio>/repository.contract.ts       a interface I<Domínio>Repository
+src/repositories/<domínio>/repository.mock.ts           a implementação em memória
+src/repositories/<domínio>/fixtures.ts                  os dados de exemplo
+src/repositories/<domínio>/index.ts                     a fábrica create<Domínio>Repository
 src/repositories/<domínio>/repository.contract.test.ts  o teste de contrato
-src/queries/<domínio>.ts                             query keys, queries e hooks
 ```
 
-Com `--fields "titulo:string,ano:number"`, o schema, as fixtures, o mock e o teste de contrato saem com esses campos em vez de `name` (veja [Domínios](../guides/domains.md#os-campos-do-domínio---fields)). Altera `src/schemas/index.ts`, `src/repositories/index.ts` (import, `export *` e a entrada no mapa `factories`) e `src/queries/index.ts`, e acrescenta `<ENTIDADE>_NOT_FOUND` ao `src/messages/<idioma>/errors.json` de cada idioma (a chave que já existe fica como está). Num app criado por uma versão anterior do `new`, sem o `errors.json`, o comando avisa e segue, sem falhar: veja [Erros e notificações](../guides/errors-and-notifications.md#app-criado-antes-do-tratamento-de-erro).
+Precisa do schema e lê os campos dele. Altera `src/repositories/index.ts` (import, `export *` e a entrada no mapa `factories`) e acrescenta `<ENTIDADE>_NOT_FOUND` ao `src/messages/<idioma>/errors.json` de cada idioma (a chave que já existe fica como está; num app sem o `errors.json`, o comando avisa e segue, sem falhar: veja [Erros e notificações](../guides/errors-and-notifications.md#app-criado-antes-do-tratamento-de-erro)). Com `--data-source http` ou `storage`, acrescenta `repository.<fonte>.ts`, a fonte em `options.ts` e na fábrica, e, na primeira `http`, o cliente (`src/repositories/http.ts`, `api.ts`).
 
-### `prumo make:component <nome>`
+### `prumo make:query <domínio> [--entity <singular>]`
 
 ```text
-src/pages/<tela>/components/<nome>.tsx        com --page <tela>
-src/pages/<tela>/components/<nome>.test.tsx
-src/components/shared/<nome>.tsx              com --shared
-src/components/shared/<nome>.test.tsx
+src/queries/<domínio>.ts   query keys, queries e hooks (lista, detalhe, criar, editar e remover)
 ```
 
-Não altera nenhum arquivo existente.
+Precisa do repositório. Altera `src/queries/index.ts`.
 
 ## Pontos de registro
 
@@ -232,9 +235,9 @@ Os geradores editam alguns arquivos pela árvore de sintaxe do TypeScript (com o
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------- |
 | `src/App.tsx`                   | Um `<Switch>` (o mais externo do arquivo) com as rotas. A rota nova entra depois da última `<Route>` com `path`; uma rota curinga, sem `path`, continua por último. | `make:page`    |
 | `src/messages/<idioma>/index.ts` | `import <namespace> from './<tela>.json'` e um `export default { ... }` com os namespaces. Um idioma é uma pasta com `index.ts`. | `make:page`    |
-| `src/repositories/index.ts`     | O mapa `const factories = { ... }`, os imports relativos dos domínios e os `export *`.                          | `make:domain`  |
-| `src/schemas/index.ts`          | Um arquivo de `export * from './entities/<entidade>'` (pode começar vazio).                                    | `make:domain`  |
-| `src/queries/index.ts`          | Um arquivo de `export { ... } from './<domínio>'` (pode começar vazio).                                        | `make:domain`  |
+| `src/repositories/index.ts`     | O mapa `const factories = { ... }`, os imports relativos dos domínios e os `export *`.                          | `make:repository` |
+| `src/schemas/index.ts`          | Um arquivo de `export * from './entities/<entidade>'` (pode começar vazio).                                    | `make:schema`  |
+| `src/queries/index.ts`          | Um arquivo de `export { ... } from './<domínio>'` (pode começar vazio).                                        | `make:query`   |
 
 Além desses, o código gerado importa alguns módulos do app, que precisam existir com esses nomes:
 

@@ -28,7 +28,7 @@ pnpm add -D @matizze/prumo-testing
 // src/test/render.tsx: a ligação do app, feita uma vez
 export const renderWithProviders = createRenderWithProviders<RepositoryContainer>({
   Providers, // i18n e repositórios do app
-  createRepositories: (overrides) => ({ ...createRepositories({ dataSource: 'memory', latencyMs: 0 }), ...overrides }),
+  createRepositories: (overrides) => ({ ...createRepositories({ dataSource: 'mock', latencyMs: 0 }), ...overrides }),
   createQueryClient: () => createTestQueryClient((options) => new QueryClient({ defaultOptions: options })),
 })
 

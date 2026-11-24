@@ -6,7 +6,7 @@ O Prumo é uma **ferramenta** para criar e manter aplicações React organizadas
 
 Este plano substitui o de 22/11/2026 (Fases A, B e C, já concluídas, exceto o repositório público). A `cli` é reescrita do zero com o commander; a arquitetura do app gerado não muda.
 
-**Situação:** plano fechado em 23/11/2026; execução pela seção 11. Passos concluídos: 1, 2, 3, 4, 5, 6, 7 (o 8 entrou no 2).
+**Situação:** v1 completa na `develop` em 23/11/2026: passos 1 a 7 e 9 concluídos (o 8 entrou no 2). Falta uma pessoa decidir a versão e a ida para a `main`.
 
 ## 1. Por que recomeçar a CLI
 
@@ -230,3 +230,16 @@ O que o plano não cobre e não está nessa lista, o orquestrador decide pelo cr
 ### No fim
 
 O orquestrador deixa no chat um relatório curto (PRs, números de testes, desvios e o que ficou para depois) e manda uma notificação. A `develop` fica com a v1 completa; levar para a `main` (e publicar) é decisão de uma pessoa.
+
+## 12. Desvios registrados na execução
+
+O que os PRs #106 a #113 registraram na seção "Desvios", em resumo:
+
+- **#106 (base):** o export `.` da cli ficou (`run`, `createProgram`, `ExitError`, `UsageError`) e só o `./api` saiu; os erros do commander são traduzidos no `error()` do `PrumoCommand`, mantendo a sugestão "Você quis dizer ...?"; comando desconhecido na raiz diz "comando desconhecido" e grupo sem subcomando sai com 2.
+- **#107 (`new` e `check`):** o `Io` ganhou `inheritStdio` no lugar do `Runtime`; o plano do app inteiro é montado em memória e gravado de uma vez, com rollback se a escrita falhar; `registerMessageNamespace` aceita a lista de idiomas; `templates/component` foi apagado e os demais modelos esperaram os passos seguintes; `addRoute` (de origem), `moveSource`, `messageKeys` e `isNestRoute` não foram portados (eram do `move:component`).
+- **#108 (`make:schema`):** o aviso do `errors.json` passou para o `make:repository`, que é quem lança `<ENTIDADE>_NOT_FOUND`.
+- **#109 (`make:repository`):** o codemod do container tem só `registerRepository` e `registerRepositoryEntry`; a saída mostra a linha `Campos (lidos do schema)`.
+- **#110 (`--data-source`):** a fábrica do mock puro continua com `{ latencyMs }` e passa a `{ dataSource, latencyMs }` quando entra a primeira fonte; o `src/vite-env.d.ts` também é criado junto do `api.ts` num app antigo; teste de contrato que o codemod não edita vira aviso, não erro; o `update` do `http` usa `PATCH`.
+- **#111 (`make:query`):** o suporte dos testes de compilação foi extraído para `generators/compile-test-support.ts`; a terceira revisão achou um caso `important` criado pela segunda correção (contrato que usa também o schema de outra entidade), e o orquestrador o corrigiu com teste, em vez de parar a execução como a seção 11 previa.
+- **#112 (`make:page`):** as telas de lista e detalhe importam de `@/queries/<domínio>`, e não de `@/queries` (os dois valem para o `check`); a entidade cai no `use<Entidade>Detail` da query quando o contrato do repositório não a diz.
+- **#113 (documentação):** o `docs/reference/cli.md` também foi atualizado (tirado o aviso de reescrita, completadas a tabela e a ajuda); os README de `core` e `testing` trocaram `memory` por `mock` nos exemplos, com um changeset `patch` só para isso; a seção "Conferir o ambiente" (`doctor`) do guia de projeto existente virou "Conferir a versão"; o `SECURITY.md` perdeu a menção ao `doctor`; o componente do tutorial passou a ser criado à mão.

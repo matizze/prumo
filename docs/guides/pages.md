@@ -104,15 +104,17 @@ Os textos novos (`search` e `remove`) entram em `src/messages/pt-BR/clientes.jso
 
 A mutation `useRemoveCliente` tira do cache o detalhe do registro removido e invalida as listas do domínio ao terminar, então a lista se atualiza sozinha e uma tela de detalhe aberta não busca de novo o registro que acabou de sumir (o que viraria uma notificação de "não encontrado").
 
-## Componentes da tela
+## Componentes
 
-```bash
-pnpm exec prumo make:component filtro --page clientes
-```
+O Prumo não traz componente de interface: os componentes de UI (botão, campo, tabela, diálogo) vêm do design system do produto, por exemplo o shadcn, que se instala em `src/components/ui`. Veja [Design system](design-system.md). A view gerada usa só tags nativas, e você as troca por esses componentes.
 
-Cria `src/pages/clientes/components/filtro.tsx` e o teste. Componentes da tela recebem dados e textos por props, como a view: quem traduz e busca é o model.
+Os componentes do **produto** (um resumo de pedido, um cartão de cliente) se criam à mão, e o lugar depende de quem os usa, o que o `prumo check` confere:
 
-Quando uma segunda tela precisar do mesmo componente, promova-o a compartilhado com `prumo move:component <nome> --from <tela> --shared`: ele move o componente e o teste para `src/components/shared` e reescreve os imports. Logo depois, o `prumo check` mostra a violação `shared-usage` como esperada (o componente ainda é de uma tela só) até a segunda tela importá-lo. Gerar um segundo componente com `make:component --shared` não é o caminho: o comando avisa quando já existe um de mesmo nome em outra tela.
+- **Usado só por uma tela:** `src/pages/<tela>/components/` (por exemplo, `src/pages/clientes/components/filtro.tsx`). Recebe dados e textos por props, como a view: quem busca e traduz é o model.
+- **Usado por duas ou mais telas:** `src/components/shared/`. O `check` acusa (`shared-usage`) o componente de `shared` que menos de duas telas usam: ele volta para a pasta da tela que o usa.
+- **A casca do app** (cabeçalho, menu): `src/components/layout/`.
+
+Quando uma segunda tela precisar de um componente da primeira, mova o arquivo para `src/components/shared` e acerte os imports; o `check` mostra a violação até a segunda tela importá-lo. Uma pasta nova em `src/components` fora de `layout`, `shared` e `ui` também é violação (`components-folders`).
 
 ## Rotas
 

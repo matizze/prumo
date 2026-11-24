@@ -23,6 +23,6 @@ Para avaliar o risco, vale saber o que cada peça executa:
 
 - **`prumo new`** cria arquivos numa pasta nova e roda `git init` e `pnpm install` nela.
 - **`prumo make:*`** cria e edita arquivos dentro da pasta do projeto (`--root`), e só depois de validar tudo.
-- **`prumo check` e `prumo doctor`** só leem arquivos; o `doctor` também roda `pnpm --version`, sem rede. Ele nunca lê nem mostra tokens do `.npmrc`.
+- **`prumo check`** só lê arquivos, sem rede.
 
 Os pacotes são publicados pelo workflow do repositório com o Trusted Publishing do npm, sem token guardado.

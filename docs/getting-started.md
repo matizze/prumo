@@ -1,6 +1,6 @@
 # Primeiros passos
 
-Neste tutorial você cria um app com o Prumo, gera um domínio de dados e uma tela que o lista, muda os textos, cria um componente e vê a verificação da arquitetura em ação. No fim, você terá passado por todas as camadas que o Prumo organiza.
+Neste tutorial você cria um app com o Prumo, gera as camadas de um domínio de dados (schema, repositório e queries) e uma tela que o lista, muda os textos, cria um componente à mão e vê a verificação da arquitetura em ação. No fim, você terá passado por todas as camadas que o Prumo organiza.
 
 Tempo estimado: 15 minutos.
 
@@ -23,13 +23,13 @@ Os pacotes do Prumo estão no npm público. Não há token, `.npmrc` nem configu
 pnpm dlx @matizze/prumo-cli new loja
 ```
 
-O comando cria a pasta `loja`, roda `git init` (sem commit: o primeiro commit é seu) e `pnpm install`. A saída lista os arquivos criados e termina com os próximos passos:
+O comando cria a pasta `loja`, roda `git init` (sem commit: o primeiro commit é seu) e `pnpm install`. A saída lista os arquivos criados, mostra o andamento do `pnpm install` e termina com os próximos passos:
 
 ```text
 prumo new: loja.
 Destino: /home/voce/loja
 
-Criados (30):
+Criados (31):
   .gitignore
   AGENTS.md
   README.md
@@ -40,11 +40,18 @@ Criados (30):
   src/pages/home/view.tsx
   ...
 
+Pacotes do Prumo: do registry, pela versão (^<versão>) no package.json.
+
+Instalando as dependências (pnpm install)...
+...
+
 Próximos passos:
   cd loja
   pnpm verify                                   # typecheck, lint, test e check
   pnpm dev                                      # o app em http://localhost:5173
-  ...
+  pnpm exec prumo make:page <tela>              # uma tela, com a rota e as mensagens
+
+A documentação (tutorial, conceitos e guias): https://docs.prumo.matizze.com.br
 ```
 
 > Para ver o que seria criado sem escrever nada, use `--dry-run`. Para escolher outra pasta, `--dir <pasta>`. Todas as opções estão na [referência da CLI](reference/cli.md).
@@ -70,7 +77,7 @@ loja/
     messages/pt-BR/      os textos em português (um JSON por tela)
     messages/en/         os textos em inglês
     providers/           TanStack Query, i18n e repositórios
-    repositories/        o container de repositórios (vazio por enquanto)
+    repositories/        o container de repositórios e as fontes de dados (vazio por enquanto)
     schemas/  queries/   os índices dos domínios (vazios por enquanto)
     test/                o renderWithProviders e o setup do Vitest
   AGENTS.md              o guia do projeto para agentes de IA
@@ -120,47 +127,87 @@ O `verify` roda, em sequência, o `tsc`, o ESLint (com as regras do Prumo), os t
 
 ## 4. Gere um domínio de dados
 
-Um domínio é um conjunto de dados do produto: clientes, pedidos, produtos. Gere o de clientes:
+Um domínio é um conjunto de dados do produto: clientes, pedidos, produtos. Cada camada dele tem o seu comando, e a ordem vai de baixo para cima: o schema, o repositório e as queries. Comece pelo schema de clientes, com os campos do produto:
 
 ```bash
-pnpm exec prumo make:domain clientes
+pnpm exec prumo make:schema clientes --fields "nome:string,email:string,ativo:boolean,plano:enum(basico|pro),telefone?:string"
 ```
 
 ```text
-prumo make:domain: clientes (entidade cliente).
+prumo make:schema: clientes (entidade cliente).
+Entidade: cliente (derivada de clientes; use --entity para trocar).
+Campos: nome (string), email (string), ativo (boolean), plano (enum(basico|pro)), telefone (string, opcional).
 
-Criados (7):
-  src/queries/clientes.ts
+Criados (1):
+  src/schemas/entities/cliente.ts
+
+Alterados (1):
+  src/schemas/index.ts
+
+Próximo passo: prumo make:repository clientes
+```
+
+O nome do domínio vai no plural; a entidade (`cliente`) sai dele, tirando o `s` (quando a regra erra, o `--entity` informa o singular). Os campos são `nome:tipo` separados por vírgula, e o `?` torna o campo opcional (todos os tipos estão em [Domínios](guides/domains.md#os-campos-do-domínio---fields)). Sem `--fields`, a entidade tem só o campo `name`. O schema zod tem o `id`, os campos e o `createdAt`, mais os tipos de entrada e de consulta.
+
+Agora o repositório. Ele lê os campos do schema que acabou de nascer, então não precisa de `--fields`:
+
+```bash
+pnpm exec prumo make:repository clientes
+```
+
+```text
+prumo make:repository: clientes (entidade cliente, fonte mock).
+Campos (lidos do schema): nome (string), email (string), ativo (boolean), plano (enum(basico|pro)), telefone (string, opcional).
+
+Criados (5):
   src/repositories/clientes/fixtures.ts
   src/repositories/clientes/index.ts
   src/repositories/clientes/repository.contract.test.ts
   src/repositories/clientes/repository.contract.ts
   src/repositories/clientes/repository.mock.ts
-  src/schemas/entities/cliente.ts
 
 Alterados (3):
-  src/queries/index.ts
+  src/messages/en/errors.json
+  src/messages/pt-BR/errors.json
   src/repositories/index.ts
-  src/schemas/index.ts
 
-prumo check: nenhuma violação.
+Próximo passo: prumo make:query clientes
 ```
 
-O nome do domínio vai no plural; a entidade (`cliente`) sai dele, tirando o `s`. Sem `--fields`, a entidade tem só o campo `name`; para os campos do seu produto, peça-os na criação, por exemplo `--fields "nome:string,email:string,ativo:boolean"` (veja [Domínios](guides/domains.md#os-campos-do-domínio---fields)). O comando criou:
+O comando criou:
 
-- o **schema** zod da entidade (`id`, `name` e `createdAt`), com os tipos de entrada e de consulta;
 - o **contrato** do repositório, a interface `IClientesRepository` (`list`, `get`, `create`, `update` e `remove`);
-- um **repositório em memória**, com latência simulada e três registros de exemplo (as fixtures);
+- um **repositório em memória** (`mock`), com latência simulada e três registros de exemplo (as fixtures);
 - o **teste de contrato**, que confere que o repositório cumpre a interface;
-- as **queries**: os hooks `useClientesList`, `useClienteDetail`, `useCreateCliente`, `useUpdateCliente` e `useRemoveCliente`.
 
-E registrou o domínio nos três índices e no container de repositórios. Rode os testes dele:
+e registrou o domínio no container de repositórios e o texto de `CLIENTE_NOT_FOUND` nos `errors.json`. Rode os testes dele:
 
 ```bash
 pnpm test src/repositories/clientes
 ```
 
-O repositório em memória permite construir e testar as telas antes de a API existir. Quando ela existir, `prumo make:repository clientes --data-source http` gera outra implementação do mesmo contrato e o resto do app não muda. O guia [Ligar uma API real](guides/real-api.md) mostra como.
+Por fim, as queries:
+
+```bash
+pnpm exec prumo make:query clientes
+```
+
+```text
+prumo make:query: clientes (entidade cliente).
+Exporta: clienteKeys, clienteQueries, useClientesList, useClienteDetail, useCreateCliente, useUpdateCliente, useRemoveCliente, type ClientesListOptions.
+
+Criados (1):
+  src/queries/clientes.ts
+
+Alterados (1):
+  src/queries/index.ts
+
+Próximo passo: prumo make:page clientes --query clientes
+```
+
+São os hooks que as telas usam: `useClientesList`, `useClienteDetail`, `useCreateCliente`, `useUpdateCliente` e `useRemoveCliente`.
+
+O repositório em memória permite construir e testar as telas antes de a API existir. Quando ela existir, `prumo make:repository clientes --data-source http` acrescenta outra implementação do mesmo contrato e o resto do app não muda (e `--data-source storage` grava no `localStorage`). O guia [Ligar uma API real](guides/real-api.md) mostra como.
 
 ## 5. Gere uma tela que lista o domínio
 
@@ -169,7 +216,7 @@ pnpm exec prumo make:page clientes --query clientes
 ```
 
 ```text
-prumo make:page: clientes (rota /clientes, domínio clientes).
+prumo make:page: clientes (rota /clientes, query clientes).
 
 Criados (6):
   src/messages/en/clientes.json
@@ -184,10 +231,13 @@ Alterados (3):
   src/messages/en/index.ts
   src/messages/pt-BR/index.ts
 
-prumo check: nenhuma violação.
+Edite o model (src/pages/clientes/model.ts), a view (view.tsx) e os textos (src/messages/<idioma>/clientes.json); o teste acompanha.
+
+Para rodar os testes da tela nova:
+  pnpm test src/pages/clientes
 ```
 
-Com o `pnpm dev` rodando, abra `http://localhost:5173/clientes`: aparece "Carregando…" por um instante (a latência simulada do repositório em memória) e depois a lista com os três exemplos.
+Com o `pnpm dev` rodando, abra `http://localhost:5173/clientes`: aparece "Carregando…" por um instante (a latência simulada do repositório em memória) e depois a lista com os três exemplos. A view mostra o primeiro campo de texto do schema (aqui, o `nome`); com `--path /clientes/:id` e `--query`, o `make:page` gera a tela de detalhe do registro.
 
 Veja o model que o comando gerou. Ele lê a lista pelo hook do domínio e entrega à view só o que ela precisa:
 
@@ -270,7 +320,7 @@ Na view, mostre a mensagem quando a lista estiver vazia:
       ) : (
         <ul>
           {m.items.map((i) => (
-            <li key={i.id}>{i.name}</li>
+            <li key={i.id}>{i.nome}</li>
           ))}
         </ul>
       )}
@@ -280,13 +330,7 @@ Repare que a view não sabe de onde os dados vêm nem como os textos são traduz
 
 ## 7. Crie um componente da tela
 
-Componentes usados só por uma tela moram na pasta dela. Gere um resumo para a tela de clientes:
-
-```bash
-pnpm exec prumo make:component resumo --page clientes
-```
-
-O comando cria `src/pages/clientes/components/resumo.tsx` e o teste ao lado. O componente é só HTML e recebe as props tipadas:
+O Prumo não tem comando de componente: os de interface (botão, tabela, diálogo) vêm do design system do produto, por exemplo o shadcn em `src/components/ui`, e os componentes do produto se criam à mão. Componentes usados só por uma tela moram na pasta dela. Crie um resumo para a tela de clientes, em `src/pages/clientes/components/resumo.tsx`:
 
 ```tsx
 export interface ResumoProps {
@@ -304,7 +348,13 @@ export function Resumo({ title }: ResumoProps) {
 
 Use-o na view: `import { Resumo } from './components/resumo'`.
 
-Um componente que duas ou mais telas usam vai para `src/components/shared`, com `--shared`. O `prumo check` confere que ele é mesmo compartilhado: o que está em `shared` e só uma tela usa deve voltar para a pasta dessa tela.
+Um componente que duas ou mais telas usam vai para `src/components/shared`. O `prumo check` confere que ele é mesmo compartilhado: se você mover o resumo para `shared` e só a tela de clientes o usar, ele acusa:
+
+```text
+src/components/shared/resumo.tsx  [shared-usage]  O módulo é usado só pela tela 'clientes', e o que está em src/components/shared precisa de 2 ou mais telas: mova-o para a tela que o usa.
+```
+
+Também acusa uma pasta nova em `src/components` fora de `ui`, `shared` e `layout`. Deixe o resumo na pasta da tela.
 
 ## 8. Veja a arquitetura protegendo o projeto
 
@@ -338,5 +388,5 @@ Typecheck, lint, `prumo check` e testes verdes: o app tem um domínio com contra
 - Ligue uma API no lugar do repositório em memória: [Ligar uma API real](guides/real-api.md).
 - Ponha a interface do produto: [Design system](guides/design-system.md).
 - Teste os estados da tela: [Testes](guides/test.md).
-- Deixe um agente de IA gerar telas com os mesmos comandos: [Agentes de IA](guides/ai-agents.md).
-- Confira o ambiente a qualquer momento com `pnpm exec prumo doctor`.
+- Deixe um agente de IA gerar as camadas com os mesmos comandos: [Agentes de IA](guides/ai-agents.md).
+- Veja todos os comandos e opções: [Referência da CLI](reference/cli.md).

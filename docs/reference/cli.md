@@ -2,8 +2,6 @@
 
 O comando `prumo`, do pacote [`@matizze/prumo-cli`](https://www.npmjs.com/package/@matizze/prumo-cli).
 
-> **Os comandos estão sendo reescritos.** A CLI foi refeita com o commander, e os comandos voltam um a um nas próximas versões. Por enquanto ela tem o `new`, o `make:schema`, o `make:repository`, o `make:query`, o `check`, a ajuda, a versão e os códigos de saída descritos aqui.
-
 ```text
 prumo [opções] [comando]
 ```
@@ -14,6 +12,7 @@ prumo [opções] [comando]
 | [`make:schema <domínio>`](#prumo-makeschema) | Cria o schema (zod) de uma entidade, com os campos |
 | [`make:repository <domínio>`](#prumo-makerepository) | Cria o repositório de um domínio (contrato, mock e teste de contrato) e acrescenta fontes (`http`, `storage`) |
 | [`make:query <domínio>`](#prumo-makequery) | Cria as queries e mutations de um domínio (chaves e hooks de lista, detalhe e escrita) |
+| [`make:page <nome>`](#prumo-makepage) | Cria uma tela (index, model, view, teste), os textos e a rota |
 | [`check`](#prumo-check)            | Confere a arquitetura do projeto                      |
 
 ## Como rodar
@@ -255,16 +254,24 @@ Uso: prumo [opções] [comando]
 Prumo, a ferramenta da Matizze que cria e confere a arquitetura de apps React.
 
 Opções:
-  -v, --version        Mostra a versão.
-  -h, --help           Mostra esta ajuda.
+  -v, --version                       Mostra a versão.
+  -h, --help                          Mostra esta ajuda.
 
 Comandos:
-  new [opções] <nome>             Cria um app React mínimo do Prumo, sem CSS e
-                                  sem design system.
-  make:schema [opções] <domínio>  Cria o schema (zod) de uma entidade, com os
-                                  campos.
-  check [opções]                  Analisa o projeto e lista as violações da
-                                  arquitetura.
+  new [opções] <nome>                 Cria um app React mínimo do Prumo, sem CSS
+                                      e sem design system.
+  make:schema [opções] <domínio>      Cria o schema (zod) de uma entidade, com
+                                      os campos.
+  make:repository [opções] <domínio>  Cria o repositório de um domínio
+                                      (contrato, mock e teste de contrato) ou
+                                      acrescenta uma fonte.
+  make:query [opções] <domínio>       Cria as queries e mutations de um domínio
+                                      (chaves, hooks de lista, detalhe e
+                                      escrita).
+  make:page [opções] <nome>           Cria uma tela: index, model, view, teste,
+                                      mensagens e rota.
+  check [opções]                      Analisa o projeto e lista as violações da
+                                      arquitetura.
 ```
 
 ## Códigos de saída
@@ -281,8 +288,8 @@ No uso errado, o stderr traz a mensagem em português, no formato `prumo: opçã
 $ prumo --x
 prumo: opção desconhecida: '--x'.
 
-Uso: prumo [opções]
+Uso: prumo [opções] [comando]
 ...
 ```
 
-Quando há um nome parecido, a mensagem sugere: `prumo: comando desconhecido: 'mak'. Você quis dizer make:page?`.
+Quando há um nome parecido, a mensagem sugere: `prumo: comando desconhecido: 'make:pag'. Você quis dizer make:page?`.

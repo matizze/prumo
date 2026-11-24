@@ -14,14 +14,28 @@ pnpm add -D @matizze/prumo-cli
 
 ## Uso
 
-A CLI está sendo reescrita com o commander, um comando por vez. Por enquanto ela tem a ajuda, a versão e os comandos `new` (cria um app) e `check` (confere a arquitetura); os `make:schema`, `make:repository`, `make:query` e `make:page` voltam nas próximas versões.
+Do app novo a uma tela com dados, cada camada tem o seu comando:
 
 ```bash
-pnpm exec prumo --help       # a ajuda, em português
-pnpm exec prumo --version    # a versão
-pnpm exec prumo new <nome>   # cria um app
-pnpm exec prumo check        # confere a arquitetura
+pnpm dlx @matizze/prumo-cli new meu-app                            # cria o app
+cd meu-app
+pnpm exec prumo make:schema clientes --fields "nome:string,email:string"
+pnpm exec prumo make:repository clientes                           # contrato, mock e teste de contrato
+pnpm exec prumo make:query clientes                                # chaves, hooks de lista, detalhe e escrita
+pnpm exec prumo make:page clientes --query clientes                # a tela que lista
+pnpm exec prumo check                                              # confere a arquitetura
 ```
+
+| Comando                                                                    | O que faz                                                                 |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `prumo new <nome>`                                                         | Cria o app (`--dir`, `--no-install`, `--packages`)                        |
+| `prumo make:schema <domínio> [--entity] [--fields]`                        | Cria o schema zod de uma entidade, com os campos                          |
+| `prumo make:repository <domínio> [--entity] [--data-source mock\|http\|storage]` | Cria o repositório (contrato, mock, fixtures e teste) ou acrescenta uma fonte |
+| `prumo make:query <domínio> [--entity]`                                    | Cria as queries e mutations (TanStack Query)                              |
+| `prumo make:page <nome> [--query <domínio>] [--path <caminho>]`            | Cria a tela (index, model, view, teste), os textos e a rota               |
+| `prumo check`                                                              | Confere a arquitetura do projeto                                          |
+
+O `new` e os `make:*` aceitam `--dry-run` (o `check` só lê), todos validam tudo antes de escrever, e os `make:*` e o `check` aceitam `--root <pasta>` (o `new` tem `--dir`). Nenhum sobrescreve arquivo. `pnpm exec prumo --help` e `prumo <comando> --help` mostram a ajuda, em português.
 
 Códigos de saída: `0` sucesso, `1` erro inesperado (ou violação, no `check`) e `2` uso errado (comando, opção ou argumento que não existe). A ajuda e as mensagens são em português.
 

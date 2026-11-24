@@ -61,14 +61,14 @@ A pasta de componentes tem só três subpastas, cada uma com um papel:
 | `shared/` | Componentes do produto usados por **duas ou mais** telas.                                          |
 | `layout/` | A casca do app: cabeçalho, menu, rodapé. Aparece em todas as telas.                                |
 
-Um componente que só uma tela usa não é compartilhado: mora na pasta da tela. Assim o `shared` não vira uma gaveta de tudo, e apagar uma tela leva junto o que era só dela. Quando uma segunda tela passa a usar o componente, ele sobe para o `shared` com `prumo move:component <nome> --from <tela> --shared`, que move os arquivos e reescreve os imports.
+Um componente que só uma tela usa não é compartilhado: mora na pasta da tela. Assim o `shared` não vira uma gaveta de tudo, e apagar uma tela leva junto o que era só dela. Quando uma segunda tela passa a usar o componente, você move o arquivo para o `shared` e acerta os imports (componentes do produto se criam à mão, e o `prumo check` confere o lugar).
 
 ### Domínios de dados
 
 Um domínio (clientes, pedidos, produtos) tem três partes, cada uma numa pasta:
 
 - **Schema** (`src/schemas/entities/<entidade>.ts`): o schema zod da entidade e os tipos derivados dele (a entidade, a entrada de criar e editar, a consulta da lista). É a fonte da verdade sobre a forma do dado.
-- **Repositório** (`src/repositories/<domínio>/`): o **contrato** (`IClientesRepository`, uma interface com `list`, `get`, `create`, `update` e `remove`), uma implementação em memória com fixtures e o teste do contrato. A implementação real (HTTP, IndexedDB) é outra classe que cumpre o mesmo contrato.
+- **Repositório** (`src/repositories/<domínio>/`): o **contrato** (`IClientesRepository`, uma interface com `list`, `get`, `create`, `update` e `remove`), uma implementação em memória (`mock`) com fixtures e o teste do contrato. As outras fontes (`http`, `storage`) são outras classes que cumprem o mesmo contrato.
 - **Queries** (`src/queries/<domínio>.ts`): as query keys, as queries e os hooks do TanStack Query. Os hooks pegam o repositório do container (`useRepositories()`), nunca de um import direto, e as mutations atualizam o cache do domínio (invalidam as queries afetadas).
 
 O **container** (`src/repositories/index.ts`) é um mapa de fábricas: cada domínio registra uma função que cria o repositório dele. Os testes trocam um repositório pelo container, sem mock de módulo.
@@ -120,14 +120,14 @@ Algumas convenções não são cobradas por regra, mas o código gerado as segue
 - **Todo texto visível mora em `src/messages`**, nos dois idiomas, e é lido pelo `useTranslations`.
 - **O repositório não conhece idioma.** Ele lança `UIError` com um código estável (`CLIENTE_NOT_FOUND`), e a interface traduz o código. Veja [Erros e notificações](../guides/errors-and-notifications.md).
 - **Nomes em kebab-case** para telas, domínios e componentes (`pedidos-recentes`). O Prumo deriva o resto: `PedidosRecentesPage`, `usePedidosRecentesModel`, o namespace `pedidosRecentes`, a rota `/pedidos-recentes`.
-- **Todo comportamento novo tem teste.** Cada gerador cria o teste do que gerou.
+- **Todo comportamento novo tem teste.** Cada comando que gera código (`make:repository`, `make:page`) cria o teste do que gerou.
 
 ## O que fica de fora
 
 O Prumo decide **onde** cada coisa mora e **como** as camadas se falam. Ele não decide:
 
 - **A interface.** Nenhum componente visual, ícone, tema, token ou CSS. Use o design system que quiser em `src/components/ui`.
-- **A API e a autenticação.** O Prumo gera o contrato, um repositório em memória e, se você pedir, as fontes `storage` e `http` (o `fetch` num cliente simples, com o formato da API que o app espera); a sessão e a API em si são do produto (os guias [Ligar uma API real](../guides/real-api.md) e [Sessão e login](../guides/auth.md) mostram um jeito).
+- **A API e a autenticação.** O Prumo gera o contrato, um repositório `mock` (em memória) e, se você pedir com `--data-source`, as fontes `storage` e `http` (o `fetch` num cliente simples, com o formato da API que o app espera); a sessão e a API em si são do produto (os guias [Ligar uma API real](../guides/real-api.md) e [Sessão e login](../guides/auth.md) mostram um jeito).
 - **As regras de negócio.** O Prumo diz onde elas moram (`src/rules/`), não quais são.
 - **O estado global de interface.** Estado de tela fica no model; se o produto precisar de um store global, é escolha dele.
 

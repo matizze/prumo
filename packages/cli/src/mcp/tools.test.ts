@@ -31,6 +31,7 @@ describe('paridade das ferramentas com os comandos', () => {
     )
     expect(tools.map((candidate) => candidate.name)).toEqual([
       'make_schema',
+      'make_usecase',
       'make_repository',
       'make_query',
       'make_page',
@@ -71,6 +72,9 @@ describe('paridade das ferramentas com os comandos', () => {
     expect(tool('make_repository').description).toContain('{ items, total }')
     expect(tool('make_page').description).toContain(':param')
     expect(tool('make_page').description).toContain('auth.login')
+    expect(tool('make_usecase').description).toContain('<AÇÃO>_FAILED')
+    expect(tool('make_usecase').description).toContain('PATCH /livros/:id')
+    expect(tool('make_usecase').description).toContain('store[]')
     expect(tool('make_schema').description).toContain('createdAt')
     expect(tool('make_schema').description).toContain('AAAA-MM-DD')
     expect(tool('check').description).toContain('components/shared')

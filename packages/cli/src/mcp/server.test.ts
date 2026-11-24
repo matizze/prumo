@@ -39,12 +39,12 @@ async function open() {
 }
 
 describe('prumo mcp, cliente e servidor no mesmo processo', () => {
-  it('informa o nome e a versão e lista as seis ferramentas', async () => {
+  it('informa o nome e a versão e lista as sete ferramentas', async () => {
     const { client } = await open()
     expect(client.getServerVersion()).toMatchObject({ name: 'prumo', version: '9.9.9' })
     const { tools } = await client.listTools()
     expect(tools.map((tool) => tool.name).sort()).toEqual(
-      ['check', 'list', 'make_page', 'make_query', 'make_repository', 'make_schema'].sort(),
+      ['check', 'list', 'make_page', 'make_query', 'make_repository', 'make_schema', 'make_usecase'].sort(),
     )
     const schema = tools.find((tool) => tool.name === 'make_schema')
     expect(schema?.description).toContain('Cria o schema')

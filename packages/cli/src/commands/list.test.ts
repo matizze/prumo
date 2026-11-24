@@ -27,6 +27,9 @@ async function fullProject() {
     ['make:page', 'livro', '--query', 'livros', '--path', '/livros/:id'],
     ['make:page', 'sobre'],
     ['make:page', 'item', '--path', '/item/:id'],
+    ['make:usecase', 'livros.get-livros', '--output', 'livro[]'],
+    ['make:usecase', 'livros.update-livro', '--endpoint', 'PATCH /livros/:id', '--input', 'id:string'],
+    ['make:usecase', 'cart.add-item', '--local'],
   )
   return root
 }
@@ -47,6 +50,11 @@ describe('listProject', () => {
         ],
         problem: null,
       },
+    ])
+    expect(listing.useCases).toEqual([
+      { domain: 'cart', name: 'add-item', key: 'addItem', kind: 'local', endpoint: null },
+      { domain: 'livros', name: 'get-livros', key: 'getLivros', kind: 'read', endpoint: 'GET /livros/get-livros' },
+      { domain: 'livros', name: 'update-livro', key: 'updateLivro', kind: 'write', endpoint: 'PATCH /livros/:id' },
     ])
     expect(listing.repositories).toEqual([
       { domain: 'livros', entity: 'Livro', sources: ['mock', 'http', 'storage'] },
@@ -238,6 +246,7 @@ export default function App() {
     const root = makeProject({}, ['src'])
     expect(listProject(fixtureProjectAt(root))).toEqual({
       schemas: [],
+      useCases: [],
       repositories: [],
       queries: [],
       pages: [],
@@ -274,6 +283,9 @@ describe('prumo list', () => {
     expect(result.stdout).toContain(
       'Schemas (1):\n  Livro  src/schemas/entities/livro.ts  title: string, year?: int, status: enum(lido|lendo)\n',
     )
+    expect(result.stdout).toContain(
+      'Use cases (3):\n  cart.add-item  addItem  local\n  livros.get-livros  getLivros  leitura  GET /livros/get-livros\n  livros.update-livro  updateLivro  escrita  PATCH /livros/:id\n',
+    )
     expect(result.stdout).toContain('Repositórios (1):\n  livros  Livro  fontes: mock, http, storage\n')
     expect(result.stdout).toContain('  livro  rota: /livros/:id  detalhe  query: livros\n')
     expect(result.stdout).toContain('  sobre  rota: /sobre  título\n')
@@ -296,7 +308,7 @@ describe('prumo list', () => {
     const root = makeProject({}, ['src'])
     const result = await exec(['list'], root)
     expect(result.stdout).toBe(
-      'Schemas: nenhum\n\nRepositórios: nenhum\n\nQueries: nenhum\n\nTelas: nenhum\n\nIdiomas: nenhum\n',
+      'Schemas: nenhum\n\nUse cases: nenhum\n\nRepositórios: nenhum\n\nQueries: nenhum\n\nTelas: nenhum\n\nIdiomas: nenhum\n',
     )
   })
 
@@ -306,7 +318,7 @@ describe('prumo list', () => {
     const listing = JSON.parse(result.stdout) as ProjectListing
 
     expect(result.code, result.stderr).toBe(0)
-    expect(Object.keys(listing)).toEqual(['schemas', 'repositories', 'queries', 'pages', 'languages'])
+    expect(Object.keys(listing)).toEqual(['schemas', 'useCases', 'repositories', 'queries', 'pages', 'languages'])
     expect(listing.repositories[0]?.sources).toEqual(['mock', 'http', 'storage'])
     expect(listing.pages.map((page) => page.name)).toEqual(['item', 'livro', 'livros-lista', 'sobre'])
   })

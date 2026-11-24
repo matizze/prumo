@@ -194,7 +194,7 @@ export class ChangePlan {
         real = undefined
       }
       if (real !== undefined && isInside(root, real)) continue
-      const link = firstLink(this.project.root, file)
+      const link = culpritLink(this.project.root, root, file)
       const reason =
         real === undefined ? 'passa por um link simbólico quebrado' : 'levaria a escrita para fora do projeto'
       const where = link
@@ -261,14 +261,30 @@ function isInside(root: string, real: string): boolean {
   )
 }
 
-/** O primeiro link simbólico no caminho de `file`, a partir da raiz do projeto, e para onde aponta. */
-function firstLink(root: string, file: string): { path: string; target: string } | undefined {
-  const parts = path.relative(path.resolve(root), path.resolve(file)).split(path.sep)
-  let current = path.resolve(root)
+/**
+ * O link simbólico que causa o problema no caminho de `file`, a partir da raiz do projeto: o
+ * primeiro que está quebrado ou cujo destino sai da raiz real (`root`). Um link legítimo para
+ * dentro do projeto, antes dele no caminho, não é o culpado e é pulado.
+ */
+function culpritLink(
+  projectRoot: string,
+  root: string,
+  file: string,
+): { path: string; target: string } | undefined {
+  const parts = path.relative(path.resolve(projectRoot), path.resolve(file)).split(path.sep)
+  let current = path.resolve(projectRoot)
   for (const part of parts) {
     current = path.join(current, part)
     if (!exists(current)) return undefined
-    if (lstatSync(current).isSymbolicLink()) return { path: current, target: readlinkSync(current) }
+    if (!lstatSync(current).isSymbolicLink()) continue
+    const target = readlinkSync(current)
+    let real: string
+    try {
+      real = realpathSync.native(current)
+    } catch {
+      return { path: current, target }
+    }
+    if (!isInside(root, real)) return { path: current, target }
   }
   return undefined
 }

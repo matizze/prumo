@@ -115,6 +115,19 @@ describe('ChangePlan: link simbólico para fora do projeto', () => {
     expect(existsSync(at(root, 'src/messages/en/sobre.json'))).toBe(false)
   })
 
+  it('a mensagem culpa o link que sai do projeto, não um link legítimo antes dele', () => {
+    const { plan, root, outside } = setup()
+    renameSync(at(root, 'src'), at(root, 'codigo'))
+    symlinkSync('codigo', at(root, 'src'))
+    rmSync(at(root, 'codigo/pages'), { recursive: true, force: true })
+    symlinkSync(outside, at(root, 'codigo/pages'))
+    const moved = new ChangePlan(findProject(root))
+    moved.createSource(at(root, 'src/pages/sobre/index.tsx'), 'export {}\n')
+    expect(() => moved.commit()).toThrow(/'src\/pages' é um link simbólico para '.+'/)
+    expect(() => moved.commit()).not.toThrow(/'src' é um link simbólico/)
+    expect(readdirSync(outside)).toEqual([])
+  })
+
   it('o verify (o --dry-run) recusa o mesmo que o commit, sem escrever', () => {
     const { plan, root, outside } = setup()
     symlinkSync(outside, at(root, 'src/pages'))

@@ -10,11 +10,12 @@ prumo [opções] [comando]
 | ---------------------------------- | ----------------------------------------------------- |
 | [`new <nome>`](#prumo-new)         | Cria um app React organizado em camadas               |
 | [`make:schema <domínio>`](#prumo-makeschema) | Cria o schema (zod) de uma entidade, com os campos |
+| [`make:usecase <domínio.ação>`](#prumo-makeusecase) | Cria um use case (tipos, classe, mock e teste): o caminho novo para o que o app faz com dados |
 | [`make:repository <domínio>`](#prumo-makerepository) | Cria o repositório de um domínio (contrato, mock e teste de contrato) e acrescenta fontes (`http`, `storage`) |
 | [`make:query <domínio>`](#prumo-makequery) | Cria as queries e mutations de um domínio (chaves e hooks de lista, detalhe e escrita) |
 | [`make:page <nome>`](#prumo-makepage) | Cria uma tela (index, model, view, teste), os textos e a rota |
 | [`check`](#prumo-check)            | Confere a arquitetura do projeto                      |
-| [`list`](#prumo-list)              | Mostra o que o projeto tem (schemas, repositórios, queries, telas, idiomas) |
+| [`list`](#prumo-list)              | Mostra o que o projeto tem (schemas, use cases, repositórios, queries, telas, idiomas) |
 | [`mcp`](#prumo-mcp)                | Abre o servidor MCP do projeto, por stdio, para agentes de IA |
 
 ## Como rodar
@@ -111,6 +112,91 @@ O comando valida tudo antes de escrever: o nome (kebab-case, no plural, sem pala
 
 Quem lê os campos depois é o `make:repository`, direto do schema gerado. O leitor lê a árvore do arquivo (o enum pode ter várias linhas e vírgula no fim) e exige o que o `--fields` geraria: `id` e `createdAt` como `z.string()`, nomes de campo em camelCase sem aspas e enum com dois valores ou mais, simples e sem repetição. Um campo que o Prumo não reconhece (o schema foi editado à mão com outro tipo, como `z.string().min(3)`) é erro de uso, com o arquivo, a linha e o nome do campo.
 
+## `prumo make:usecase`
+
+```text
+prumo make:usecase <domínio.ação> [--input <campos>] [--output <campos|entidade>] [--endpoint "<MÉTODO> <caminho>"] [--read | --write] [--local] [--root <pasta>] [--dry-run]
+```
+
+Cria um **use case**: uma ação do app com nome de verbo (`get-stores`, `sign-in`, `add-item`), com um Input, um Output e um `execute`. É o caminho novo para tudo o que o app faz com dados; o repositório e as queries continuam funcionando enquanto a transição não termina. Veja [as camadas](../concepts/architecture.md#use-cases).
+
+O nome é `<domínio>.<ação>` (ou `<domínio>/<ação>`, como no `make:page`), cada parte em kebab-case: `auth.sign-in`, `stores/get-stores`. O domínio dá a pasta em `src/use-cases`, e a ação dá a classe (`GetStoresUseCase`) e a **chave no registro** (`getStores`, o que a tela lê de `useUseCases()`). As chaves são únicas no app: `stores.get-stores` e `orders.get-stores` dão conflito, e o comando recusa o segundo com a mensagem dizendo de quem é a chave. A ação não pode virar palavra reservada do JavaScript (`delete`).
+
+Precisa do app com `src/use-cases/index.ts`, que o `prumo new` cria. Um app de antes dos use cases não tem a camada; veja o [guia de agentes](../guides/ai-agents.md) e a [anatomia do app](../concepts/generated-app.md#use-cases) para o que ela traz.
+
+| Opção                          | O que faz                                                                                                            |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `--input <campos>`             | Os campos do Input, na sintaxe do [`--fields`](#o-formato-do---fields). Padrão: `z.object({})`                        |
+| `--output <campos\|entidade>`  | Os campos do Output, ou o nome de uma entidade que já tem schema (`store`, ou `store[]` para a lista). Padrão: `z.void()` na escrita e `z.unknown()` na leitura |
+| `--endpoint "<MÉTODO> <caminho>"` | O endereço da API (`PATCH /livros/:id`). Padrão: `GET /<domínio>/<ação>` na leitura e `POST /<domínio>/<ação>` na escrita |
+| `--read`, `--write`            | Forçam o tipo, no lugar do verbo da ação                                                                            |
+| `--local`                      | Use case sem API: recebe o `storage` (o `localStorage`), sem `ENDPOINT` nem mock                                     |
+| `--root <pasta>`               | A pasta do projeto, a que tem o `src`. Padrão: [a busca](#a-busca-do-projeto) a partir da pasta atual                |
+| `--dry-run`                    | Lista o que seria criado e alterado, sem escrever nada                                                               |
+
+### Leitura ou escrita
+
+O verbo no começo da ação decide: `get`, `list`, `search`, `find`, `check` e `count` são **leitura** (a tela usa com `useQuery`); o resto é **escrita** (`useMutation`). `--read` e `--write` forçam o tipo. Na leitura, o Input vai como `query` da chamada, e o use case ganha a chave de cache; na escrita, o Input vai como `body`. Uma escrita não pode usar `GET`, que não leva corpo.
+
+### O que o comando cria
+
+```text
+src/use-cases/auth/
+  index.ts                 createAuthUseCases(deps) e as rotas de mock do domínio (criado com o primeiro use case)
+  sign-in.types.ts         ENDPOINT, SignInInput e SignInOutput (e, na leitura, a chave de cache)
+  sign-in.usecase.ts       SignInUseCase
+  sign-in.mock.ts          a rota de mock do ENDPOINT
+  sign-in.usecase.test.ts  o teste, contra o mock e, com API_TEST_URL, contra a API real
+```
+
+- **`<ação>.types.ts`**: o `ENDPOINT` (`{ method, path }`, editável), o Input e o Output em zod (cada um com o tipo de mesmo nome: `SignInInput` é o schema e o tipo) e, na leitura, a função `<ação>Key(input)`, a chave de cache da consulta, com o domínio no prefixo (`['stores', 'get-stores', input]`): o model a usa no `queryKey`, e uma escrita invalida `['stores']`.
+- **`<ação>.usecase.ts`**: `export class SignInUseCase implements IUseCase<SignInInput, SignInOutput>`, com o `http` no construtor (campo `#http`). O `execute` valida o Input, chama a API e valida a resposta com o Output. Um `HttpError` vira `UIError` com o código `<AÇÃO>_FAILED` (`SIGN_IN_FAILED`), e o comando acrescenta o texto ao `src/messages/<idioma>/errors.json` dos dois idiomas (a chave que já existe fica; num app sem o `errors.json`, o comando avisa e segue). O corpo da resposta de erro (`HttpError.body`, o 422 com os erros de validação) fica no `HttpError`; o `UIError` ainda não tem onde carregá-lo.
+- **`<ação>.mock.ts`**: a rota de mock do `ENDPOINT`, com uma resposta de exemplo feita dos campos do Output (de uma entidade, um registro com `id` e `createdAt`; de uma lista, dois). O `createMockHttp` do core a usa: o mesmo código do use case roda no mock e em produção, e só o transporte muda.
+- **`<ação>.usecase.test.ts`**: o contrato do use case (`defineContractSuite` do `@matizze/prumo-testing`), que roda contra o mock e, com `API_TEST_URL`, contra a API real, mais um teste do `UIError`.
+- **`index.ts` do domínio** e **`src/use-cases/index.ts`**: o use case entra em `create<Domínio>UseCases(deps)` e a rota em `<domínio>Routes`; o domínio entra no registro geral (`createUseCases(deps)` e `mockRoutes`), tudo em ordem alfabética. Veja o [registro](../concepts/generated-app.md#use-cases).
+
+### O `--endpoint`
+
+`--endpoint "<MÉTODO> <caminho>"`, com `GET`, `POST`, `PUT`, `PATCH` ou `DELETE` e o caminho começando por `/`, sem `?` nem `#` (o que vai na query sai do Input). Cada `:parâmetro` do caminho sai do campo do Input de mesmo nome, que fica fora da query e do corpo e entra no caminho com `encodeURIComponent`:
+
+```bash
+prumo make:usecase livros.update-livro --endpoint "PATCH /livros/:id" --input "id:string,title?:string" --output livro
+```
+
+O comando recusa um endpoint cujo `:parâmetro` não é um campo do Input, ou é opcional, e dois parâmetros em que um é o começo do nome do outro. Não combina com `--local`.
+
+### `--input` e `--output`
+
+Os dois usam a sintaxe do [`--fields`](#o-formato-do---fields), e aceitam também `id` e `createdAt`. O `--output` aceita ainda o nome de uma entidade que já tem schema (`prumo make:schema`): `--output store` usa o `storeSchema`, e `--output store[]` uma lista dele (`z.array(storeSchema)`). Sem eles, o Input é um objeto vazio e o Output é `z.void()` na escrita ou `z.unknown()` na leitura, e o comando **avisa**, sem falhar, para a pessoa preencher o `.types.ts`.
+
+### `--local`
+
+Um use case sem API, como o carrinho do pratigo: a classe recebe o `storage` (a Web Storage API, o `localStorage`, que entra nas `deps` do registro) e não tem `ENDPOINT`, mock nem erro de API. O `execute` valida o Input, tem o lugar da regra marcado num comentário (o exemplo guarda o Input no `storage`, ou lê dele na leitura) e devolve o Output validado. O teste roda com o `localStorage` do jsdom.
+
+### O resultado
+
+Como os outros `make:*`, o comando valida tudo antes de escrever e nunca sobrescreve: um use case que já existe, uma chave repetida, um nome sem domínio ou sem ação, uma entidade sem schema ou um endpoint inválido saem com 2, sem deixar nada pela metade. Mostra o que criou e alterou, os avisos e o próximo passo, que diz como a tela usa o use case:
+
+```text
+prumo make:usecase: stores.get-stores (leitura, GET /stores/get-stores).
+
+Criados (5):
+  src/use-cases/stores/get-stores.mock.ts
+  src/use-cases/stores/get-stores.types.ts
+  src/use-cases/stores/get-stores.usecase.test.ts
+  src/use-cases/stores/get-stores.usecase.ts
+  src/use-cases/stores/index.ts
+
+Alterados (3):
+  src/messages/en/errors.json
+  src/messages/pt-BR/errors.json
+  src/use-cases/index.ts
+
+Aviso: sem --input, o Input é um objeto vazio: descreva os campos em src/use-cases/stores/get-stores.types.ts.
+
+Próximo passo: no model da tela, const { getStores } = useUseCases() e useQuery({ queryKey: getStoresKey(input), queryFn: () => getStores.execute(input) }).
+```
+
 ## `prumo make:repository`
 
 ```text
@@ -161,9 +247,9 @@ Cada fonte acrescentada:
 | --------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `mock`    | `repository.mock.ts`    | Em memória, com as fixtures e latência simulada. É a padrão e a dos testes.                                                                                                                         |
 | `storage` | `repository.storage.ts` | A classe `Storage<Domínio>Repository`: o mock gravando no `localStorage`, com a chave `<nome do app>:<domínio>` (o nome é o `name` do `package.json`). Começa com as fixtures, aceita `latencyMs` e usa a mesma busca, ordem e paginação do mock. O teste de contrato limpa a chave antes de cada repositório novo. |
-| `http`    | `repository.http.ts`    | A classe `Http<Domínio>Repository`: `fetch` na API pelo cliente `src/repositories/http.ts`. O backend responde no formato do app (`{ items, total }`, com os campos do schema) e o repositório só valida cada resposta com o schema, sem traduzir formato. A lista envia `search`, `sort=<campo>:<asc\|desc>`, `page` e `page_size`; o id vai codificado na URL; o `update` é `PATCH` (o contrato aceita `Partial<Input>`); o 404 vira `UIError('<ENTIDADE>_NOT_FOUND')`. |
+| `http`    | `repository.http.ts`    | A classe `Http<Domínio>Repository`: `fetch` na API pela instância `api` de `src/http/api.ts`. O backend responde no formato do app (`{ items, total }`, com os campos do schema) e o repositório só valida cada resposta com o schema, sem traduzir formato. A lista envia `search`, `sort=<campo>:<asc\|desc>`, `page` e `page_size`; o id vai codificado na URL; o `update` é `PATCH` (o contrato aceita `Partial<Input>`); o 404 vira `UIError('<ENTIDADE>_NOT_FOUND')`. |
 
-Na primeira fonte `http` do app, o comando cria também `src/repositories/http.ts` (o cliente, com `createHttp`, `HttpError` e o tipo `Http`), `src/repositories/api.ts` (a instância, com `import.meta.env.VITE_API_URL || '/api'` e o lugar comentado do token da sessão) e `src/vite-env.d.ts`, se faltar. Das vezes seguintes, reaproveita os que já existem. Em qualquer fonte que não é o mock, o comando também cria o `src/vite-env.d.ts` se faltar e troca, no container, o `resolveDataSource(undefined, DATA_SOURCES, 'mock')` de um app antigo pela versão que lê a `VITE_DATA_SOURCE` (container com outra forma fica como está, e o comando avisa como ligar). O cliente HTTP só lê o corpo quando ele é JSON (`content-type` com `json`, ou texto que começa com `{` ou `[`; corpo vazio ou outro texto vira `undefined`), tira a barra do fim do endereço e trata a `VITE_API_URL` vazia como ausente. O storage confere cada registro com o schema na leitura (descarta só o inválido, com aviso) e antes de gravar (rejeita com `UIError('<ENTIDADE>_INVALID')`, cujo texto o comando acrescenta ao `errors.json`). O contrato do `http` só roda com uma API de teste (`API_TEST_URL`); sem ela fica pulado, com o motivo no título. O guia [Ligar uma API real](../guides/real-api.md) mostra o `.env`, o token e o teste contra uma API de teste.
+O app novo já traz `src/http/api.ts` (a instância do `createHttp` do core, com `import.meta.env.VITE_API_URL || '/api'` e o lugar comentado do token da sessão); num app de antes dele, a primeira fonte `http` o cria, com o `src/vite-env.d.ts`, se faltam, e das vezes seguintes reaproveita os que já existem. Em qualquer fonte que não é o mock, o comando também cria o `src/vite-env.d.ts` se faltar e troca, no container, o `resolveDataSource(undefined, DATA_SOURCES, 'mock')` de um app antigo pela versão que lê a `VITE_DATA_SOURCE` (container com outra forma fica como está, e o comando avisa como ligar). O cliente HTTP (o `createHttp` do core) só lê o corpo quando ele é JSON (`content-type` com `json`, ou texto que começa com `{` ou `[`; corpo vazio ou outro texto vira `undefined`), tira a barra do fim do endereço e trata a `VITE_API_URL` vazia como ausente. O storage confere cada registro com o schema na leitura (descarta só o inválido, com aviso) e antes de gravar (rejeita com `UIError('<ENTIDADE>_INVALID')`, cujo texto o comando acrescenta ao `errors.json`). O contrato do `http` só roda com uma API de teste (`API_TEST_URL`); sem ela fica pulado, com o motivo no título. O guia [Ligar uma API real](../guides/real-api.md) mostra o `.env`, o token e o teste contra uma API de teste.
 
 ## `prumo make:query`
 
@@ -264,6 +350,11 @@ Mostra o que o projeto tem, lendo os arquivos. Nunca escreve. Sai com 2 se não 
 Schemas (1):
   Livro  src/schemas/entities/livro.ts  title: string, year?: int
 
+Use cases (3):
+  auth.sign-in  signIn  escrita  POST /auth/sign-in
+  cart.add-item  addItem  local
+  stores.get-stores  getStores  leitura  GET /stores/get-stores
+
 Repositórios (1):
   livros  Livro  fontes: mock, http, storage
 
@@ -288,7 +379,7 @@ Na linha da tela, a variação tem rótulo em português (`título`, `lista`, `p
 
 ### A saída `--json`
 
-Um objeto com cinco listas, sempre presentes (vazias quando não há nada), ordenadas pelo nome do arquivo ou da pasta (comparação fixa, a mesma em qualquer máquina). Os tipos estão no `ProjectListing` (exportado por `@matizze/prumo-cli`).
+Um objeto com seis listas, sempre presentes (vazias quando não há nada), ordenadas pelo nome do arquivo ou da pasta (comparação fixa, a mesma em qualquer máquina). Os tipos estão no `ProjectListing` (exportado por `@matizze/prumo-cli`).
 
 ```json
 {
@@ -298,6 +389,15 @@ Um objeto com cinco listas, sempre presentes (vazias quando não há nada), orde
       "file": "src/schemas/entities/livro.ts",
       "fields": [{ "name": "title", "type": "string", "optional": false }],
       "problem": null
+    }
+  ],
+  "useCases": [
+    {
+      "domain": "livros",
+      "name": "get-livros",
+      "key": "getLivros",
+      "kind": "read",
+      "endpoint": "GET /livros/get-livros"
     }
   ],
   "repositories": [{ "domain": "livros", "entity": "Livro", "sources": ["mock", "http", "storage"] }],
@@ -329,6 +429,11 @@ Um objeto com cinco listas, sempre presentes (vazias quando não há nada), orde
 |                | `file`      | O arquivo, relativo à raiz                                                                                                             |
 |                | `fields`    | Os campos que o leitor reconhece (`name`, `type`, `optional` e, no `enum`, `values`), sem `id` e `createdAt`; `null` se o schema foi editado à mão e o leitor o recusa |
 |                | `problem`   | O motivo curto da recusa; `null` quando `fields` foi lido                                                                              |
+| `useCases`     | `domain`    | O nome da pasta em `src/use-cases`                                                                                                     |
+|                | `name`      | A ação, em kebab-case (o arquivo `<ação>.usecase.ts`)                                                                                  |
+|                | `key`       | A chave no registro (`useUseCases().<chave>`): a ação em camelCase                                                                     |
+|                | `kind`      | `read` (o `.types.ts` tem a chave de cache `<chave>Key`), `write` (tem `ENDPOINT`, sem a chave) ou `local` (sem `ENDPOINT`: usa o `storage`) |
+|                | `endpoint`  | O `ENDPOINT` do `.types.ts`, como `GET /stores/get-stores`; `null` no `local`                                                          |
 | `repositories` | `domain`    | O nome da pasta em `src/repositories`                                                                                                  |
 |                | `entity`    | A entidade lida do contrato (`repository.contract.ts`); `null` se o contrato não existe ou não diz                                     |
 |                | `sources`   | As fontes que existem, em ordem: `mock`, `http`, `storage`. Uma fonte conta quando o arquivo `repository.<fonte>.ts` existe e a fábrica (`index.ts`) a escolhe |
@@ -378,6 +483,7 @@ Uma ferramenta por comando, menos `new` e `mcp`. Elas saem da árvore de comando
 | Ferramenta        | Parâmetros                                                                               |
 | ----------------- | ---------------------------------------------------------------------------------------- |
 | `make_schema`     | `dominio` (obrigatório), `entity`, `fields`, `dry_run`                                   |
+| `make_usecase`    | `nome` (obrigatório), `input`, `output`, `endpoint`, `read`, `write`, `local`, `dry_run`  |
 | `make_repository` | `dominio` (obrigatório), `entity`, `data_source` (`mock`, `http` ou `storage`), `dry_run` |
 | `make_query`      | `dominio` (obrigatório), `entity`, `dry_run`                                             |
 | `make_page`       | `nome` (obrigatório), `query`, `path`, `dry_run`                                         |
@@ -421,6 +527,9 @@ Comandos:
                                       e sem design system.
   make:schema [opções] <domínio>      Cria o schema (zod) de uma entidade, com
                                       os campos.
+  make:usecase [opções] <nome>        Cria um use case (uma ação do app:
+                                      tipos, classe, mock e teste) e o
+                                      registra.
   make:repository [opções] <domínio>  Cria o repositório de um domínio
                                       (contrato, mock e teste de contrato) ou
                                       acrescenta uma fonte.
@@ -431,8 +540,9 @@ Comandos:
                                       mensagens e rota.
   check [opções]                      Analisa o projeto e lista as violações da
                                       arquitetura.
-  list [opções]                       Mostra o que o projeto tem: schemas,
-                                      repositórios, queries, telas e idiomas.
+  list [opções]                       Mostra o que o projeto tem: schemas, use
+                                      cases, repositórios, queries, telas e
+                                      idiomas.
   mcp [opções]                        Abre o servidor MCP do projeto, por stdio.
   help [comando]                      Mostra a ajuda de um comando.
 

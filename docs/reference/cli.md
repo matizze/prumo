@@ -182,6 +182,36 @@ E registra o domínio em `src/queries/index.ts`, com um `export { ... } from './
 
 O comando valida tudo antes de escrever e nunca sobrescreve: repositório que falta, arquivo do schema que falta (só a existência, os campos não são lidos), repositório de outra entidade (o `repository.contract.ts` usa outro `<Entidade>Schema`: o `--entity` esquecido ou a mais; a mensagem diz o `--entity` certo), query que já existe (o arquivo) ou só o export que sobrou no índice, e índice que falta saem com 2, sem deixar nada pela metade. `--dry-run` lista o que seria criado e alterado, sem escrever. No fim, mostra o que fez e o próximo passo: `prumo make:page <domínio> --query <domínio>`.
 
+## `prumo make:page`
+
+```text
+prumo make:page <nome> [--query <domínio>] [--path <caminho>] [--root <pasta>] [--dry-run]
+```
+
+Cria uma tela: `src/pages/<nome>/` com `index.tsx` (liga o model à view), `model.ts` (dados e textos, sem JSX), `view.tsx` (só tags nativas, recebe tudo por props) e `index.test.tsx` (renderiza com o `renderWithProviders` de `@/test/render` e confere o título), e as mensagens em `src/messages/<idioma>/<nome>.json`, nos idiomas do projeto. Registra o namespace nos índices de mensagens de cada idioma e a rota no `src/App.tsx`. O `<nome>` vai em kebab-case (`clientes`, `pedidos-recentes`).
+
+| Opção               | O que faz                                                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `--query <domínio>` | O domínio cuja query a tela usa (`clientes`). Precisa de `src/queries/<domínio>.ts`. Padrão: nenhum              |
+| `--path <caminho>`  | O caminho da rota, com um parâmetro opcional (`/clientes/:id`). Padrão: `/<nome>`                                 |
+| `--root <pasta>`    | A pasta do projeto, a que tem o `src`. Padrão: a pasta atual                                                      |
+| `--dry-run`         | Só lista o que seria criado e alterado, sem escrever nada                                                         |
+
+As quatro variações:
+
+| `--query` | Parâmetro no `--path` | A tela                                                                                                                         |
+| --------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| não       | não                   | Só o título                                                                                                                    |
+| sim       | não                   | A lista: o model usa `use<Domínio>List` e a view mostra o carregando, o erro e a lista                                          |
+| não       | sim                   | O model lê o parâmetro com o `useParams` do wouter e a view o mostra; o teste renderiza a tela dentro da `<Route>`              |
+| sim       | sim                   | O detalhe: o model busca o registro com `use<Entidade>Detail` e a view mostra o carregando, o erro e o registro                 |
+
+Com `--query`, a query precisa existir; sem ela, sai com 2 e diz o comando (`rode prumo make:query <domínio>`). A entidade sai do contrato do repositório (`repository.contract.ts`), sem `--entity`. A lista e o detalhe mostram um campo de texto do registro, lido do schema que o projeto tem hoje: o primeiro campo `string` obrigatório (ou, sem ele, o primeiro opcional). Sem campo de texto, ou sem conseguir ler o schema, a tela mostra o `id` e o comando avisa, sem falhar; na tela de detalhe, um campo sem valor no primeiro registro das fixtures também cai no `id`. Com `--query`, as mensagens ganham os textos `loading` e `failed`.
+
+O `--path` começa com `/`, tem segmentos fixos (letras, números, `-`, `_`, `.` e `~`) e **no máximo um parâmetro** `:nome` (sem `?`, `*` nem `+`). A rota entra no `<Switch>` do `App.tsx` depois da última rota com `path` e antes da curinga, porque o wouter mostra a primeira que casa. Uma tela de detalhe que continua montada depois do `useRemove<Entidade>` recebe `<ENTIDADE>_NOT_FOUND`: saia da tela ao remover.
+
+O comando valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada pela metade: nome inválido ou reservado; tela que já existe; `--path` inválido, com rota repetida ou que conflita com uma do `App.tsx`; query que falta, ou sem o `use<Domínio>List` (ou, no detalhe, sem o `use<Entidade>Detail`); `App.tsx` ou índice de mensagens que falta. No fim, mostra o que fez, os avisos e o comando dos testes da tela nova.
+
 ## `prumo check`
 
 ```text

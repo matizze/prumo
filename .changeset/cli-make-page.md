@@ -1,0 +1,5 @@
+---
+'@matizze/prumo-cli': minor
+---
+
+Voltou o `prumo make:page <nome>`, agora com `--query <domínio>` no lugar do antigo `--domain`. Cria `src/pages/<nome>/` (`index.tsx`, `model.ts`, `view.tsx` e `index.test.tsx`), as mensagens em cada idioma do projeto, o namespace nos índices de mensagens e a rota no `src/App.tsx`, na ordem certa para o `Switch` do wouter. São quatro variações: só o título; com `--query`, a lista (`use<Domínio>List`, com carregando, erro e lista); com parâmetro no `--path` (`/clientes/:id`), a tela que lê o parâmetro; e com os dois, o detalhe (`use<Entidade>Detail`). Com `--query`, a query precisa existir (`make:query`); sem ela sai com 2 e diz o comando a rodar. A entidade sai do contrato do repositório, sem `--entity`, e o campo de texto que a lista e o detalhe mostram sai do schema (sem campo de texto, ou sem conseguir ler o schema, mostra o id e avisa). Valida tudo antes de escrever: nome inválido ou reservado, tela que já existe, caminho inválido, repetido ou conflitante e query que falta saem com 2, sem deixar nada pela metade; `--dry-run` só mostra o plano. No fim, mostra o que fez, os avisos e o comando dos testes da tela.

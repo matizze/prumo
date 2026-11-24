@@ -165,7 +165,7 @@ O repositório em memória permite construir e testar as telas antes de a API ex
 ## 5. Gere uma tela que lista o domínio
 
 ```bash
-pnpm exec prumo make:page clientes --domain clientes
+pnpm exec prumo make:page clientes --query clientes
 ```
 
 ```text

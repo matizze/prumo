@@ -62,3 +62,14 @@ export function patternMatches(pattern: string, address: string): boolean {
   }
   return new RegExp(`^${source}/?$`).test(address === '' ? '/' : address)
 }
+
+/** Se o `path` só tem curinga (`*`, `/*`, `*?`, `/*?`): a rota de "página não encontrada", como a sem `path`. */
+export function isWildcardPath(pathText: string): boolean {
+  return /^\/?\*\??$/.test(pathText)
+}
+
+/** Se o `<Route>` é a curinga: sem `path` literal ou com um `path` só de curinga. */
+export function isCatchAllRoute(route: RouteElement): boolean {
+  const literal = pathLiteral(route)
+  return literal === undefined || isWildcardPath(literal.getLiteralText())
+}

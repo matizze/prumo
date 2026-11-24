@@ -6,7 +6,7 @@ O Prumo é uma **ferramenta** para criar e manter aplicações React organizadas
 
 Este plano substitui o de 22/11/2026 (Fases A, B e C, já concluídas, exceto o repositório público). A `cli` é reescrita do zero com o commander; a arquitetura do app gerado não muda.
 
-**Situação:** plano fechado em 23/11/2026; execução pela seção 11. Passos concluídos: 1, 2, 3, 4, 5, 6.
+**Situação:** plano fechado em 23/11/2026; execução pela seção 11. Passos concluídos: 1, 2, 3, 4, 5, 6, 7 (o 8 entrou no 2).
 
 ## 1. Por que recomeçar a CLI
 

@@ -243,3 +243,65 @@ O que os PRs #106 a #113 registraram na seção "Desvios", em resumo:
 - **#111 (`make:query`):** o suporte dos testes de compilação foi extraído para `generators/compile-test-support.ts`; a terceira revisão achou um caso `important` criado pela segunda correção (contrato que usa também o schema de outra entidade), e o orquestrador o corrigiu com teste, em vez de parar a execução como a seção 11 previa.
 - **#112 (`make:page`):** as telas de lista e detalhe importam de `@/queries/<domínio>`, e não de `@/queries` (os dois valem para o `check`); a entidade cai no `use<Entidade>Detail` da query quando o contrato do repositório não a diz.
 - **#113 (documentação):** o `docs/reference/cli.md` também foi atualizado (tirado o aviso de reescrita, completadas a tabela e a ajuda); os README de `core` e `testing` trocaram `memory` por `mock` nos exemplos, com um changeset `patch` só para isso; a seção "Conferir o ambiente" (`doctor`) do guia de projeto existente virou "Conferir a versão"; o `SECURITY.md` perdeu a menção ao `doctor`; o componente do tutorial passou a ser criado à mão.
+
+## 13. MCP: `prumo mcp` (planejado em 24/11/2026)
+
+O servidor MCP volta como um comando da própria cli. As ferramentas saem da árvore de comandos do commander, então um comando novo vira ferramenta sem uma segunda lista para manter. O `@matizze/prumo-mcp` (até 0.2.0) não volta.
+
+### Decisões
+
+| Tema               | Decisão                                                                                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Onde               | `prumo mcp`, um comando da cli; sem pacote separado                                                                                                                                             |
+| Transporte         | stdio                                                                                                                                                                                            |
+| SDK                | `@modelcontextprotocol/server` 2.4.0, dependência da cli, carregado por `import()` só dentro do `prumo mcp`; `@modelcontextprotocol/client` 2.4.0, devDependency, para os testes. Aprovados em 24/11/2026 |
+| Ferramentas        | Uma por comando: `make_schema`, `make_repository`, `make_query`, `make_page`, `check` e `list`. O `new` e o próprio `mcp` ficam de fora                                                        |
+| Projeto            | O da pasta onde o servidor abre (o `cwd`, ou `prumo mcp --root <pasta>`). Nenhuma ferramenta recebe `root`: o agente não escreve fora do projeto                                               |
+| Comando novo       | `prumo list`: o que o projeto já tem (seção 13.3)                                                                                                                                               |
+| App                | O `new` cria o `.mcp.json` (servidor `prumo`, `pnpm exec prumo mcp`), e o `AGENTS.md` do app cita o servidor                                                                                     |
+| Pacote antigo      | `@matizze/prumo-mcp` marcado como descontinuado no npm, com a mensagem "use `prumo mcp` (@matizze/prumo-cli 0.8.0 ou mais)", só com o ok de uma pessoa                                         |
+| Versão             | `@matizze/prumo-cli` 0.8.0                                                                                                                                                                       |
+
+### 13.1 As ferramentas
+
+Cada ferramenta é descrita a partir do comando do commander:
+
+- **Nome:** o do comando, com `:` trocado por `_` (`make:schema` → `make_schema`).
+- **Descrição:** o `summary` e a `description` do comando, os mesmos da ajuda.
+- **Entrada (JSON Schema):** os argumentos posicionais (obrigatórios) e as opções, com nomes em snake_case sem acento (`<domínio>` → `dominio`, `--data-source` → `data_source`, `--dry-run` → `dry_run`). Opção com valor vira `string`; opção sem valor vira `boolean`; `.choices()` vira `enum`; `--no-<x>` vira `<x>: boolean`, com `true` de padrão. A `--root` não entra.
+- **Execução:** a entrada vira a linha de comando (`['make:schema', 'livros', '--fields', '...']`) e roda em processo com `run(argv, io)`, com o `cwd` do projeto e a saída capturada. Uma chamada por vez (fila), para duas escritas não se cruzarem.
+- **Resultado:** o texto da saída (stdout e, se houver, stderr). `isError` quando o código de saída não é 0, menos o `check` com violação (código 1), que é um resultado e não uma falha. A ferramenta `list` devolve o JSON do `prumo list --json`.
+- **stdout é do protocolo:** nenhum comando escreve direto no `process.stdout` com o servidor no ar, e os subprocessos não herdam o terminal (`inheritStdio` desligado).
+
+### 13.2 O servidor
+
+- `prumo mcp [--root <pasta>]` confere que a pasta é um projeto (como o `check`) e sai com 2 se não for. Depois, abre o servidor por stdio e só termina quando o cliente fecha.
+- Informa ao cliente o nome `prumo` e a versão da cli.
+- O `--help` do `prumo mcp` mostra o trecho do `.mcp.json` para colar, para quem usa o servidor num projeto que não saiu do `new`.
+
+### 13.3 `prumo list [--root <pasta>] [--json]`
+
+Mostra o que o projeto tem, lendo os arquivos e sem escrever nada:
+
+- **schemas:** a entidade, o arquivo e os campos que o leitor reconhece (ou "editado à mão" quando não reconhece);
+- **repositórios:** o domínio, a entidade e as fontes (`mock`, `http`, `storage`);
+- **queries:** o domínio e os hooks;
+- **telas:** o nome, a rota, a variação (título, lista, parâmetro, detalhe) e a query que usa;
+- **idiomas:** os de `src/messages`.
+
+Sem `--json`, é um texto curto por seção. Com `--json`, é um objeto estável, documentado na referência.
+
+### 13.4 Passos
+
+| #  | Entrega                                                                                                                                                                         | Pronto quando                                                                                                                               |
+| -- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1 | `prumo list`, texto e `--json`                                                                                                                                                  | Lista certo um app com todas as camadas e fontes; o `verify:new` o chama no fim e confere o JSON                                           |
+| M2 | `prumo mcp`: ferramentas descritas a partir do commander, servidor stdio, execução em processo e fila                                                                           | Teste cliente ↔ servidor no mesmo processo; teste de paridade (todo comando, menos `new` e `mcp`, tem ferramenta, e vice-versa); nada além do protocolo no stdout |
+| M3 | O app: `.mcp.json` e `AGENTS.md` pelo `new`; etapa MCP no `verify:new` (um domínio e uma tela gerados só por ferramentas, com o cliente do SDK por stdio contra o `prumo mcp` do app) | `pnpm verify:new` verde com a etapa MCP                                                                                                     |
+| M4 | Documentação (guia de agentes de IA, referência do `mcp` e do `list`) e changeset `minor` da cli                                                                               | O site compila e a documentação bate com os comandos                                                                                        |
+| M5 | Com o ok de uma pessoa: versões (cli 0.8.0), `develop` → `main` e o `npm deprecate` do pacote antigo                                                                           | A 0.8.0 no npm e o pacote antigo marcado                                                                                                    |
+
+### 13.5 Execução e o que fica de fora
+
+- **Como executar:** decidido em 24/11/2026 — o mesmo ciclo da seção 11 (subagentes em segundo plano, revisão independente, portão e merge na `develop` pelo orquestrador), de M1 a M4. O M5 espera o ok de uma pessoa.
+- **Recursos e prompts MCP:** ficam de fora por enquanto. O agente já lê o `AGENTS.md` do app.

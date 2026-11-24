@@ -56,23 +56,30 @@ export { taskKeys, useTasksList } from './tasks'
  * O `src/repositories/index.ts` do projeto de fixture: o container que o `prumo new` gera (o
  * modelo, pelo `generatedApp`), já com quatro domínios registrados.
  */
+const DOMAINS = ['account', 'customers', 'support', 'task'] as const
+/** A chave de cada domínio no mapa de fábricas. */
+const KEYS = { account: 'account', customers: 'customers', support: 'support', task: 'tasks' } as const
+
 function repositoriesIndex(): string {
   const generated = generatedApp()['src/repositories/index.ts']!
   const factory = (domain: string) => `create${domain[0]!.toUpperCase()}${domain.slice(1)}Repository`
   const importOf = (domain: string) => `import { ${factory(domain)} } from './${domain}'`
   const options = "import { DATA_SOURCES, type RepositoryOptions } from './options'"
-  const patches = [
-    [options, [importOf('account'), importOf('customers'), options, importOf('support'), importOf('task')].join('\n')],
-    [
-      'export { DATA_SOURCES',
-      `${['account', 'customers', 'support', 'task'].map((d) => `export * from './${d}'`).join('\n')}\nexport { DATA_SOURCES`,
-    ],
-    [
-      'const factories = {}',
-      `const factories = {\n  account: ${factory('account')},\n  customers: ${factory('customers')},\n  support: ${factory('support')},\n  tasks: ${factory('task')},\n}`,
-    ],
-  ] as const
-  return patches.reduce((text, [from, to]) => patchText(text, from, to), generated)
+  const withImports = patchText(
+    generated,
+    options,
+    [importOf('account'), importOf('customers'), options, importOf('support'), importOf('task')].join('\n'),
+  )
+  const withExports = patchText(
+    withImports,
+    'export { DATA_SOURCES',
+    `${DOMAINS.map((d) => `export * from './${d}'`).join('\n')}\nexport { DATA_SOURCES`,
+  )
+  return patchText(
+    withExports,
+    'const factories = {}',
+    `const factories = {\n${DOMAINS.map((d) => `  ${KEYS[d]}: ${factory(d)},`).join('\n')}\n}`,
+  )
 }
 
 /** Os arquivos de um idioma do projeto de fixture: o índice e um JSON por namespace. */
@@ -88,35 +95,39 @@ function messagesOf(language: string): Record<string, string> {
   }
 }
 
-/** O `App.tsx` do projeto de fixture: duas rotas dentro de um `<Switch>`. */
-const APP = `import { Route, Switch } from 'wouter'
-import BlankPage from '@/pages/blank'
-import ProfilePage from '@/pages/profile'
-
-export default function App() {
-  return (
-    <Switch>
-      <Route path="/blank">
+/** O `App.tsx` do projeto de fixture: o do app gerado, com mais duas rotas dentro do `<Switch>`. */
+function appWithRoutes(): string {
+  const generated = generatedApp()['src/App.tsx']!
+  const withImports = patchText(
+    generated,
+    "import HomePage from '@/pages/home'\n",
+    "import BlankPage from '@/pages/blank'\nimport HomePage from '@/pages/home'\nimport ProfilePage from '@/pages/profile'\n",
+  )
+  return patchText(
+    withImports,
+    '    </Switch>',
+    `      <Route path="/blank">
         <BlankPage />
       </Route>
 
       <Route path="/profile">
         <ProfilePage />
       </Route>
-    </Switch>
+    </Switch>`,
   )
 }
-`
 
 /**
- * Um projeto em miniatura numa pasta temporária: o `App.tsx`, as mensagens em dois idiomas e os
+ * Um projeto em miniatura numa pasta temporária, com partes do app gerado (as opções e o container de
+ * repositórios, o `App.tsx`) e partes postas em estados específicos para os codemods (as mensagens fora
+ * de ordem, os índices de schemas e queries): o `App.tsx`, as mensagens em dois idiomas e os
  * índices de schemas, repositórios e queries, que são os arquivos onde as costuras mexem. Cada
  * chamada devolve um projeto novo, que o teste pode alterar à vontade.
  */
 export function fixtureProject(): Project {
   return findProject(
     makeProject({
-      'src/App.tsx': APP,
+      'src/App.tsx': appWithRoutes(),
       ...messagesOf('en'),
       ...messagesOf('pt-BR'),
       'src/schemas/index.ts': SCHEMAS_INDEX,

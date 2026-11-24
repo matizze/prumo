@@ -3,7 +3,10 @@ import type { Io } from '../io.ts'
 import { run } from '../program.ts'
 
 /** Um `Io` que captura o que sai em cada fluxo, para os testes rodarem o comando sem terminal. */
-export function captureIo(cwd: string, extra: Partial<Io> = {}): { io: Io; stdout: () => string; stderr: () => string } {
+export function captureIo(
+  cwd: string,
+  extra: Partial<Io> = {},
+): { io: Io; stdout: () => string; stderr: () => string } {
   let stdout = ''
   let stderr = ''
   const io: Io = {

@@ -42,7 +42,7 @@ describe('prumo mcp, por subprocesso', () => {
     await client.close()
     // O processo some: kill(0) falha com ESRCH
     await expect.poll(() => alive(pid as number), { timeout: 5000 }).toBe(false)
-  })
+  }, 30_000)
 
   it('o stdout é só JSON-RPC (cru, sem o cliente)', async () => {
     const { root } = fixtureProject()

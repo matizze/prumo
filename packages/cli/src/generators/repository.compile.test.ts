@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { project, tsc, useFakeApi, vitest } from '../test/compile.ts'
 import { exec } from '../test/run.ts'
 
@@ -90,8 +90,8 @@ vi.stubGlobal('fetch', async (input: string | URL | Request, init?: RequestInit)
 
 const SCHEMA = 'src/schemas/entities/cliente.ts'
 
-function edit(root: string, change: (text: string) => string): void {
-  const file = path.join(root, SCHEMA)
+function edit(root: string, change: (text: string) => string, entity = 'cliente'): void {
+  const file = path.join(root, SCHEMA.replace('cliente', entity))
   writeFileSync(file, change(readFileSync(file, 'utf8')))
 }
 
@@ -100,66 +100,96 @@ async function generate(root: string, ...extra: string[]): Promise<void> {
   expect(result.code, `${result.stdout}${result.stderr}`).toBe(0)
 }
 
-describe('o repositório gerado compila (tsc estrito) e passa no contrato', () => {
-  it('com o schema sem edição', async () => {
-    const root = await project()
-    await generate(root)
-    expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root, {}, ['src/repositories'])
-    expect(tests.status, tests.output).toBe(0)
-  }, 120_000)
-
-  it('com um campo acrescentado à mão ao z.object, ao pick e à SortKey', async () => {
-    const root = await project()
-    edit(root, (text) =>
+/**
+ * Os casos de schema que só pedem "o tsc sai com 0 e o contrato passa" dividem um projeto: cada um
+ * é um domínio próprio (com o mesmo schema de partida), e o `tsc` e o `vitest` rodam uma vez.
+ */
+const FIELDS = 'nome:string,idade:int,ativo:boolean'
+const VARIATIONS = [
+  {
+    name: 'com o schema sem edição',
+    domain: 'clientes',
+    entity: 'cliente',
+    edit: (text: string) => text,
+  },
+  {
+    name: 'com um campo acrescentado à mão ao z.object, ao pick e à SortKey',
+    domain: 'produtos',
+    entity: 'produto',
+    edit: (text: string) =>
       text
         .replace('  createdAt: z.string(),', '  peso: z.number(),\n  createdAt: z.string(),')
         .replace('.pick({ ', '.pick({ peso: true, ')
-        .replace(/(export type ClienteSortKey =[^\n]*)/, "$1 | 'peso'"),
-    )
-    await generate(root)
-    expect(readFileSync(path.join(root, 'src/repositories/clientes/repository.mock.ts'), 'utf8')).toContain(
-      'peso: input.peso,',
-    )
-    expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root, {}, ['src/repositories'])
-    expect(tests.status, tests.output).toBe(0)
-  }, 120_000)
+        .replace(/(export type ProdutoSortKey =[^\n]*)/, "$1 | 'peso'"),
+    mock: (mock: string) => expect(mock).toContain('peso: input.peso,'),
+  },
+  {
+    name: 'com um campo acrescentado só ao z.object (fora do pick e da SortKey)',
+    domain: 'pedidos',
+    entity: 'pedido',
+    edit: (text: string) =>
+      text.replace('  createdAt: z.string(),', '  calculado: z.number().int(),\n  createdAt: z.string(),'),
+    mock: (mock: string) => expect(mock).not.toContain('input.calculado'),
+  },
+  {
+    name: 'com um campo fora do pick, mas na SortKey',
+    domain: 'lojas',
+    entity: 'loja',
+    edit: (text: string) =>
+      text.replace(/\.pick\(\{[^)]*\}\)/, '.pick({ nome: true, ativo: true })'),
+    mock: (mock: string) => {
+      expect(mock).not.toContain('input.idade')
+      expect(mock).toContain('idade: (item) => item.idade')
+    },
+  },
+  {
+    name: 'com um campo fora da SortKey',
+    domain: 'cidades',
+    entity: 'cidade',
+    edit: (text: string) =>
+      text.replace(/export type CidadeSortKey =[^\n]*/, "export type CidadeSortKey = 'nome' | 'createdAt'"),
+    mock: (mock: string) => expect(mock).not.toContain('idade: (item)'),
+  },
+  {
+    name: 'com uma SortKey sem createdAt e um campo obrigatório fora do pick',
+    domain: 'bairros',
+    entity: 'bairro',
+    edit: (text: string) =>
+      text
+        .replace(/export type BairroSortKey =[^\n]*/, "export type BairroSortKey = 'idade'")
+        .replace(/\.pick\(\{[^)]*\}\)/, '.pick({ nome: true })'),
+  },
+] as const
 
-  it('com um campo acrescentado só ao z.object (fora do pick e da SortKey)', async () => {
-    const root = await project()
-    edit(root, (text) => text.replace('  createdAt: z.string(),', '  calculado: z.number().int(),\n  createdAt: z.string(),'))
-    await generate(root)
-    expect(readFileSync(path.join(root, 'src/repositories/clientes/repository.mock.ts'), 'utf8')).not.toContain(
-      'input.calculado',
-    )
-    expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root, {}, ['src/repositories'])
-    expect(tests.status, tests.output).toBe(0)
-  }, 120_000)
+describe('o repositório gerado compila (tsc estrito) e passa no contrato', () => {
+  let root: string
+  let compiled: ReturnType<typeof tsc>
+  let tests: ReturnType<typeof vitest>
 
-  it('com um campo fora do pick, mas na SortKey', async () => {
-    const root = await project()
-    edit(root, (text) => text.replace(/\.pick\(\{[^)]*\}\)/, '.pick({ nome: true, ativo: true })'))
-    await generate(root)
-    const mock = readFileSync(path.join(root, 'src/repositories/clientes/repository.mock.ts'), 'utf8')
-    expect(mock).not.toContain('input.idade')
-    expect(mock).toContain('idade: (item) => item.idade')
-    expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root, {}, ['src/repositories'])
-    expect(tests.status, tests.output).toBe(0)
-  }, 120_000)
+  beforeAll(async () => {
+    root = await project(FIELDS)
+    for (const { domain, entity, edit: change } of VARIATIONS) {
+      if (domain !== 'clientes') {
+        const made = await exec(['make:schema', domain, '--entity', entity, '--fields', FIELDS], root)
+        expect(made.code, made.stderr).toBe(0)
+      }
+      edit(root, change, entity)
+      const result = await exec(['make:repository', domain], root)
+      expect(result.code, `${result.stdout}${result.stderr}`).toBe(0)
+    }
+    compiled = tsc(root)
+    tests = vitest(root, {}, ['src/repositories'])
+  }, 180_000)
 
-  it('com um campo fora da SortKey', async () => {
-    const root = await project()
-    edit(root, (text) => text.replace(/export type ClienteSortKey =[^\n]*/, "export type ClienteSortKey = 'nome' | 'createdAt'"))
-    await generate(root)
-    const mock = readFileSync(path.join(root, 'src/repositories/clientes/repository.mock.ts'), 'utf8')
-    expect(mock).not.toContain('idade: (item)')
-    expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root, {}, ['src/repositories'])
+  it.each(VARIATIONS)('$name', (variation) => {
+    if ('mock' in variation) {
+      const file = `src/repositories/${variation.domain}/repository.mock.ts`
+      variation.mock(readFileSync(path.join(root, file), 'utf8'))
+    }
+    expect(compiled).toEqual({ status: 0, output: '' })
     expect(tests.status, tests.output).toBe(0)
-  }, 120_000)
+    expect(tests.output).toContain(`src/repositories/${variation.domain}/repository.contract.test.ts`)
+  })
 
   it('recusa um booleano na SortKey, em vez de gerar um mock que não compila', async () => {
     const root = await project()
@@ -168,19 +198,6 @@ describe('o repositório gerado compila (tsc estrito) e passa no contrato', () =
     expect(result.code).toBe(2)
     expect(result.stderr).toMatch(/cliente\.ts:\d+: o ClienteSortKey tem 'ativo', que é booleano/)
   })
-
-  it('com uma SortKey sem createdAt e um campo obrigatório fora do pick', async () => {
-    const root = await project()
-    edit(root, (text) =>
-      text
-        .replace(/export type ClienteSortKey =[^\n]*/, "export type ClienteSortKey = 'idade'")
-        .replace(/\.pick\(\{[^)]*\}\)/, '.pick({ nome: true })'),
-    )
-    await generate(root)
-    expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root, {}, ['src/repositories'])
-    expect(tests.status, tests.output).toBe(0)
-  }, 120_000)
 })
 
 describe('as fontes storage e http compilam (tsc estrito) e passam no contrato', () => {

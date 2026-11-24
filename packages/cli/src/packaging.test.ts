@@ -140,7 +140,7 @@ describe.each(PACKAGES)('tarball de @matizze/prumo-%s', (name) => {
     )
     expect(outside).toEqual([])
     const unwanted = files.filter((file) =>
-      /(\.test\.|test-support|dist\/test\/|rule-tester|__fixtures__|tsconfig|\.tsbuildinfo)/.test(file),
+      /(\.test\.|dist\/test\/|rule-tester|__fixtures__|tsconfig|\.tsbuildinfo)/.test(file),
     )
     expect(unwanted).toEqual([])
     // Código de teste não vai: um .js só importa o vitest se o pacote o declara (o testing, que é

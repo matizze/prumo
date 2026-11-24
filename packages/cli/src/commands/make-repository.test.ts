@@ -236,6 +236,7 @@ describe('prumo make:repository', () => {
     it('--dry-run com http num app sem o cliente lista o http.ts, o api.ts e o options.ts', async () => {
       const root = await withSchema()
       expect((await exec(['make:repository', 'clientes'], root)).code).toBe(0)
+      const optionsBefore = read(root, 'src/repositories/options.ts')
       const result = await exec(['make:repository', 'clientes', '--data-source', 'http', '--dry-run'], root)
 
       expect(result.code, result.stderr).toBe(0)
@@ -245,12 +246,13 @@ describe('prumo make:repository', () => {
       expect(result.stdout).toContain('  src/repositories/options.ts\n')
       expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')
       expect(existsSync(path.join(root, 'src/repositories/http.ts'))).toBe(false)
-      expect(read(root, 'src/repositories/options.ts')).not.toContain("'http'")
+      expect(read(root, 'src/repositories/options.ts')).toBe(optionsBefore)
     })
 
     it('sem o options.ts ou com a fábrica mudada: sai com 2 e não escreve nada', async () => {
       const root = await withSchema()
       expect((await exec(['make:repository', 'clientes'], root)).code).toBe(0)
+      const optionsBefore = read(root, 'src/repositories/options.ts')
       const factory = path.join(root, 'src/repositories/clientes/index.ts')
       writeFileSync(factory, read(root, 'src/repositories/clientes/index.ts').replace('createClientesRepository', 'outroNome'))
       const result = await exec(['make:repository', 'clientes', '--data-source', 'http'], root)
@@ -258,7 +260,7 @@ describe('prumo make:repository', () => {
       expect(result.stderr).toContain("não tem a função 'createClientesRepository'")
       expect(existsSync(path.join(root, 'src/repositories/clientes/repository.http.ts'))).toBe(false)
       expect(existsSync(path.join(root, 'src/repositories/http.ts'))).toBe(false)
-      expect(read(root, 'src/repositories/options.ts')).not.toContain("'http'")
+      expect(read(root, 'src/repositories/options.ts')).toBe(optionsBefore)
     })
 
     it('avisa, sem falhar, quando o teste de contrato foi apagado', async () => {

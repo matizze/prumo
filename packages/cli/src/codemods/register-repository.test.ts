@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { domainNames } from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import { findProject } from '../lib/project.ts'
-import { patchText } from '../test/app.ts'
+import { generatedApp, patchText } from '../test/app.ts'
 import { makeProject } from '../test/fs.ts'
 import { registerRepository, registerRepositoryEntry } from './register-repository.ts'
 import { fixturePlan } from '../test/fixture-project.ts'
@@ -89,33 +89,20 @@ const factories = {
   })
 
   it('registra o primeiro domínio de um índice sem domínios, como o de um projeto novo', () => {
-    const source = `import { createRepositoryContainer } from '@matizze/prumo-core/repositories'
-import { DATA_SOURCES, type RepositoryOptions } from './options'
-
-export { DATA_SOURCES, type RepositoryOptions } from './options'
-
-const factories = {}
-
-export const container = createRepositoryContainer(factories, { dataSource: DATA_SOURCES[0] })
-`
+    const source = generatedApp()['src/repositories/index.ts']!
     const plan = new ChangePlan(findProject(makeProject({ 'src/repositories/index.ts': source })))
 
     registerRepository(plan, domainNames('bees'))
 
-    expect(text(plan))
-      .toBe(`import { createRepositoryContainer } from '@matizze/prumo-core/repositories'
-import { createBeesRepository } from './bees'
-import { DATA_SOURCES, type RepositoryOptions } from './options'
-
-export * from './bees'
-export { DATA_SOURCES, type RepositoryOptions } from './options'
-
-const factories = {
-  bees: createBeesRepository,
-}
-
-export const container = createRepositoryContainer(factories, { dataSource: DATA_SOURCES[0] })
-`)
+    const withImport = patchText(
+      source,
+      "import { DATA_SOURCES, type RepositoryOptions } from './options'",
+      "import { createBeesRepository } from './bees'\nimport { DATA_SOURCES, type RepositoryOptions } from './options'",
+    )
+    const withExport = patchText(withImport, 'export { DATA_SOURCES', "export * from './bees'\nexport { DATA_SOURCES")
+    expect(text(plan)).toBe(
+      patchText(withExport, 'const factories = {}', 'const factories = {\n  bees: createBeesRepository,\n}'),
+    )
   })
 
   it('sem nenhum export de módulo, o primeiro export * vem depois do último import', () => {

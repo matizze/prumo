@@ -5,9 +5,10 @@ import { project, tsc, vitest } from '../test/compile.ts'
 import { exec } from '../test/run.ts'
 
 /**
- * As telas geradas de verdade: o projeto temporário de `test/compile.ts` (o app que o `prumo new` gera,
- * com o i18n, o `App.tsx` e o `renderWithProviders`) recebe dois domínios (schema, repositório e query pelos comandos) e as quatro variações de tela.
- * O `tsc` estrito compila tudo e o teste que cada tela traz roda contra o mock.
+ * As telas geradas de verdade: o projeto temporário de `test/compile.ts` (o app que o `prumo new`
+ * gera, com o i18n, o `App.tsx` e o `renderWithProviders`) recebe dois domínios (schema,
+ * repositório e query pelos comandos) e as quatro variações de tela. O `tsc` estrito compila tudo
+ * e o teste que cada tela traz roda contra o mock.
  */
 const PAGES = [
   ['sobre'],

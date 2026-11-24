@@ -50,10 +50,8 @@ export async function project(fields = 'nome:string,idade:int,ativo:boolean'): P
   app['vite.config.ts'] = patchText(
     patchText(app['vite.config.ts']!, "import react from '@vitejs/plugin-react'\n", ''),
     '  plugins: [react()],\n',
-    "  resolve: { dedupe: ['react', 'vitest'] },\n",
+    '',
   )
-  // O tsconfig do app inclui o vite.config.ts, que importa o que o monorepo não instala
-  app['tsconfig.json'] = patchText(app['tsconfig.json']!, '"include": ["src", "vite.config.ts"]', '"include": ["src"]')
   writeFiles(root, app)
   for (const [dependency, owner] of Object.entries(DEPENDENCIES)) {
     link(root, dependency, realpathSync(path.join(PACKAGES, owner, 'node_modules', dependency)))
@@ -77,8 +75,8 @@ export function writeIn(root: string, file: string, content: string): void {
 }
 
 /**
- * Acrescenta ao `setup.ts` do app um arquivo que troca o `fetch` por uma API falsa (o `source` vai
- * para `src/test/fake-api.ts`), sem substituir o que o modelo já faz ali.
+ * Acrescenta ao `setup.ts` do app um arquivo que troca o `fetch` por uma API falsa (o `source`
+ * vai para `src/test/fake-api.ts`), sem substituir o que o modelo já faz ali.
  */
 export function useFakeApi(root: string, source: string): void {
   writeIn(root, 'src/test/fake-api.ts', source)

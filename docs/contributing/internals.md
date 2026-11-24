@@ -54,6 +54,7 @@ packages/cli/
     generators/     app, schema, repository, query e page: recebem as opções e devolvem um plano
     codemods/       as edições do app, com o ts-morph: rota, índices, container, fábrica e fontes
     lib/            nomes, campos e leitor do schema, plano, modelos, versões e apoio
+    test/           o apoio dos testes (fora do pacote publicado): pastas temporárias, exec, o app gerado e o projeto de compilação
   templates/        os modelos .tpl, com marcadores de nome
 ```
 
@@ -94,8 +95,8 @@ Cada gerador tem um teste unitário (`generators/*.test.ts`) e cada codemod tamb
 
 - `fs.ts`: pastas temporárias (`makeDir`, `makeProject`, `writeFiles`), todas apagadas quando os testes do arquivo terminam.
 - `run.ts`: `exec`, que roda o prumo em processo, e `captureIo`, o `Io` que captura `stdout` e `stderr`.
-- `app.ts`: `generatedApp()`, os arquivos do app que o `prumo new` gera, montados pelo próprio `generateApp` a partir dos modelos (sem `pnpm install`, `git init` nem rede). Nenhum texto de modelo é copiado à mão nos testes: um modelo que muda muda o fixture junto, e o `patchText` falha se o trecho que o teste ajusta sumiu.
-- `fixture-project.ts`: `fixtureProject()` e `fixturePlan()`, o projeto em miniatura dos codemods (o app gerado, com o `App.tsx`, as mensagens e os índices em estados que as costuras precisam encontrar).
+- `app.ts`: `generatedApp()`, os arquivos do app que o `prumo new` gera, montados pelo próprio `generateApp` a partir dos modelos (sem `pnpm install`, `git init` nem rede). Os ajustes que os testes fazem sobre ele passam pelo `patchText`, que falha se o trecho sumiu do modelo.
+- `fixture-project.ts`: `fixtureProject()` e `fixturePlan()`, o projeto em miniatura dos codemods: partes vêm do modelo (as opções, o container de repositórios e o `App.tsx`, com ajustes) e partes ficam em estados específicos que as costuras precisam encontrar (mensagens fora de ordem, índices de schemas e queries com estilos variados).
 - `compile.ts`: o projeto dos testes de compilação.
 
 Os testes de compilação (`generators/*.compile.test.ts`) vão além: o `test/compile.ts` grava o app gerado numa pasta temporária, com atalhos para as dependências que o monorepo já instala (nada é baixado), aplica o que o gerador planejou e roda o `tsc` e o `vitest` nesse projeto. É o que prova que o código gerado compila e que o teste de contrato passa, para as três fontes, contra os modelos reais. O `packaging.test.ts` confere o tarball (veja acima), e o `verify-new.test.ts` confere só a ligação do script do portão (o `package.json` da raiz, o arquivo executável e as etapas); os comandos dentro do script quem executa é o próprio `pnpm verify:new`.

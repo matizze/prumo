@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe } from 'vitest'
  * ```ts
  * const signInContract = defineContractSuite<IUseCase<SignInInput, SignInOutput>>(
  *   'SignInUseCase contract',
- *   ({ repo: signIn }) => {
+ *   ({ subject: signIn }) => {
  *     it('devolve o token', async () => {
  *       const { token } = await signIn.execute({ email: 'ana@x.com', password: '12345678' })
  *       expect(token).not.toBe('')
@@ -23,8 +23,7 @@ import { afterEach, beforeEach, describe } from 'vitest'
  * })
  * ```
  *
- * O parâmetro de contexto se chama `repo` por histórico: com use cases, renomeie-o na
- * desestruturação (`({ repo: signIn })`).
+ * O contexto traz a instância em `subject` (o `repo` é o mesmo objeto, com o nome antigo).
  *
  * **Os dados.** Os casos que dependem dos dados do mock (as fixtures: "lista as 18 linhas")
  * só valem para uma implementação que parte dos mesmos dados. Quem adiciona outra implementação
@@ -51,12 +50,15 @@ export interface ContractImplementation<R extends object> {
 /** O que cada caso do contrato recebe. */
 export interface ContractContext<R extends object> {
   /**
-   * A instância do teste em andamento (o repositório ou o use case): uma instância nova, criada antes dele. É uma referência
-   * estável que repassa para a instância do teste atual, então vale ler `repo` fora do `it` (em
-   * uma função auxiliar, por exemplo), mas só chamar métodos dentro de um teste ou de um hook.
+   * O objeto do contrato no teste em andamento (o repositório ou o use case): uma instância
+   * nova, criada antes dele. É uma referência estável que repassa para a instância do teste atual,
+   * então vale ler `subject` fora do `it` (em uma função auxiliar, por exemplo), mas só chamar
+   * métodos dentro de um teste ou de um hook.
    */
+  subject: R
+  /** @deprecated O mesmo objeto de `subject`, com o nome de quando o contrato era só de repositórios. Sai no PR que remove o módulo de repositórios. */
   repo: R
-  /** Cria uma instância a mais, com o estado de partida: para testes com dois repositórios. */
+  /** Cria uma instância a mais, com o estado de partida: para testes com duas instâncias. */
   create: () => R
 }
 
@@ -69,7 +71,7 @@ export interface ContractSuite<R extends object> {
 /**
  * Declara o contrato de um repositório ou de um use case. `cases` registra os `it` e `describe`
  * do Vitest e recebe o acesso à instância de cada teste. Os `beforeEach` e `afterEach` de `cases`
- * (um relógio falso, por exemplo) rodam antes da criação do repositório, e os `afterEach` depois
+ * (um relógio falso, por exemplo) rodam antes da criação da instância, e os `afterEach` depois
  * da limpeza dele.
  *
  * @param name o nome do contrato (`IBillingRepository contract`, `SignInUseCase contract`); o título do `describe` é
@@ -93,13 +95,11 @@ export function runContractSuite<R extends object>(
   describe(`${suite.name}: ${implementation.name}`, () => {
     let current: R | undefined
 
-    suite.cases({
-      repo: currentInstance(
-        () => current,
-        `${suite.name}: o repositório só existe dentro de um teste ou de um hook, depois da criação.`,
-      ),
-      create: implementation.create,
-    })
+    const subject = currentInstance(
+      () => current,
+      `${suite.name}: o objeto do contrato só existe dentro de um teste ou de um hook, depois da criação.`,
+    )
+    suite.cases({ subject, repo: subject, create: implementation.create })
 
     // Depois dos hooks dos casos: eles preparam o ambiente antes de a instância nascer
     beforeEach(() => {
@@ -112,19 +112,19 @@ export function runContractSuite<R extends object>(
   })
 }
 
-/** Um método de um repositório, de qualquer assinatura. */
+/** Um método do objeto do contrato, de qualquer assinatura. */
 type AnyMethod = (...args: unknown[]) => unknown
 
 /**
  * Uma referência fixa para a instância do teste em andamento: um proxy que repassa tudo para ela,
- * então o `repo` se usa como uma variável comum (`vi.spyOn(repo, 'list')`, atribuição,
+ * então o `subject` se usa como uma variável comum (`vi.spyOn(subject, 'list')`, atribuição,
  * `Object.keys`, `instanceof`). O estado que o teste grava fica na instância, e o teste seguinte,
  * com instância nova, não o vê.
  *
- * Os métodos saem presos à instância (`this` do repositório, não do proxy), para campos privados e
+ * Os métodos saem presos à instância (`this` da instância, não do proxy), para campos privados e
  * métodos soltos funcionarem; a função presa é sempre a mesma enquanto a instância é a mesma
- * (`repo.list === repo.list`). Um spy de `vi.spyOn(repo, ...)` é o que o `spyOn` devolve, e não o
- * que se lê de `repo.<método>` depois.
+ * (`subject.list === subject.list`). Um spy de `vi.spyOn(subject, ...)` é o que o `spyOn` devolve, e não o
+ * que se lê de `subject.<método>` depois.
  */
 function currentInstance<R extends object>(get: () => R | undefined, outsideMessage: string): R {
   const instance = (): R => {
@@ -160,7 +160,7 @@ function currentInstance<R extends object>(get: () => R | undefined, outsideMess
       // O alvo do proxy é um objeto vazio e fixo: ele só aceita propriedade que continua configurável
       if (descriptor.configurable === false) {
         throw new TypeError(
-          `${outsideMessage.split(':')[0]}: a propriedade '${String(property)}' não pode ser não configurável, porque o repo é uma referência para a instância de cada teste.`,
+          `${outsideMessage.split(':')[0]}: a propriedade '${String(property)}' não pode ser não configurável, porque o subject é uma referência para a instância de cada teste.`,
         )
       }
       return Reflect.defineProperty(instance(), property, descriptor)

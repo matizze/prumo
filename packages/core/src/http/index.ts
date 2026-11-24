@@ -9,8 +9,11 @@ export {
 } from './http.ts'
 export {
   createMockHttp,
+  MissingMockRouteError,
   type MockHandler,
   type MockHttpOptions,
   type MockRequest,
+  type MockRouteKey,
+  type MockRouteParams,
   type MockRoutes,
 } from './mock-http.ts'

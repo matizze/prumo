@@ -31,13 +31,17 @@ export interface CollectionListQuery {
 }
 
 /** Uma coleção em memória: o "banco" que os mocks das rotas de um CRUD dividem. */
+/** O que a coleção devolve são cópias: mexer nelas não muda a coleção. */
 export interface MockCollection<T extends CollectionItem> {
   list(query?: CollectionListQuery): Page<T>
   /** Lança `HttpError(404)` quando o id não existe. */
   get(id: string): T
   /** Gera o `id` e o `createdAt`. */
   create(input: CollectionInput<T>): T
-  /** Muda só os campos enviados (`undefined` não muda) e devolve o registro inteiro. 404 sem o id. */
+  /**
+   * Muda só os campos enviados (`undefined` não muda; `id` e `createdAt` nunca mudam) e devolve o
+   * registro inteiro. 404 sem o id.
+   */
   update(id: string, changes: Partial<CollectionInput<T>>): T
   /** Lança `HttpError(404)` quando o id não existe. */
   remove(id: string): void
@@ -108,10 +112,11 @@ export function createMockCollection<T extends CollectionItem>(
       const get = parsedSort ? accessors(parsedSort.key) : undefined
       const sorted =
         parsedSort && get ? sortBy(filtered, parsedSort, { [parsedSort.key]: get }) : filtered
-      return paginate(sorted, toNumber(page, 'page'), toNumber(page_size, 'page_size'))
+      const result = paginate(sorted, toNumber(page, 'page'), toNumber(page_size, 'page_size'))
+      return { ...result, items: structuredClone(result.items) }
     },
 
-    get: (id) => find(id).item,
+    get: (id) => structuredClone(find(id).item),
 
     create(input) {
       sequence += 1
@@ -122,7 +127,7 @@ export function createMockCollection<T extends CollectionItem>(
         createdAt: new Date().toISOString(),
       } as unknown as T
       items.push(item)
-      return item
+      return structuredClone(item)
     },
 
     update(id, changes) {
@@ -131,9 +136,10 @@ export function createMockCollection<T extends CollectionItem>(
       const defined = Object.fromEntries(
         Object.entries(changes).filter(([, value]) => value !== undefined),
       )
-      const updated = { ...item, ...defined }
+      // O id e a data de criação não mudam, mesmo que `changes` os traga (o tipo não os aceita, o JSON sim)
+      const updated = { ...item, ...defined, id: item.id, createdAt: item.createdAt }
       items[at] = updated
-      return updated
+      return structuredClone(updated)
     },
 
     remove(id) {

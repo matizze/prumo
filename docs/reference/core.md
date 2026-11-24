@@ -6,18 +6,18 @@ A infraestrutura sem interface de um app do Prumo. Cada módulo tem um subcaminh
 pnpm add @matizze/prumo-core
 ```
 
-| Subcaminho                                          | Conteúdo                                                                                             |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| [`@matizze/prumo-core/http`](#http)                 | `createHttp`, `createMockHttp`, `HttpError` e os tipos do cliente                                    |
-| [`@matizze/prumo-core/use-cases`](#use-cases)       | `IUseCase`, `createUseCasesContext`, `resolveDataSource`                                             |
-| [`@matizze/prumo-core/repositories`](#repositories) | `createRepositoryContainer`, `resolveDataSource`, `createRepositoryContext`                          |
-| [`@matizze/prumo-core/query`](#query)               | `createQueryKeys`, `createQueryClient`, `QueryProvider`, `ErrorMeta`                                 |
-| [`@matizze/prumo-core/i18n`](#i18n)                 | `defineI18n`, `createFormat`, `resolveLocale` e os tipos de mensagens                                |
-| [`@matizze/prumo-core/errors`](#errors)             | `UIError`, `createErrorMessage`                                                                      |
-| [`@matizze/prumo-core/date`](#date)                 | `addDays`, `daysBetween`, `parseLocalDate`                                                           |
-| [`@matizze/prumo-core/data`](#data)                 | `pageSchema`, `Page`, `PageQuery`, `Sort`, `SortDirection`, `DateRange`                              |
+| Subcaminho                                          | Conteúdo                                                                          |
+| --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [`@matizze/prumo-core/http`](#http)                 | `createHttp`, `createMockHttp`, `HttpError` e os tipos do cliente                 |
+| [`@matizze/prumo-core/use-cases`](#use-cases)       | `IUseCase`, `createUseCasesContext`, `resolveDataSource`                          |
+| [`@matizze/prumo-core/repositories`](#repositories) | `createRepositoryContainer`, `resolveDataSource`, `createRepositoryContext`       |
+| [`@matizze/prumo-core/query`](#query)               | `createQueryKeys`, `createQueryClient`, `QueryProvider`, `ErrorMeta`               |
+| [`@matizze/prumo-core/i18n`](#i18n)                 | `defineI18n`, `createFormat`, `resolveLocale` e os tipos de mensagens              |
+| [`@matizze/prumo-core/errors`](#errors)             | `UIError`, `createErrorMessage`                                                    |
+| [`@matizze/prumo-core/date`](#date)                 | `addDays`, `daysBetween`, `parseLocalDate`                                        |
+| [`@matizze/prumo-core/data`](#data)                 | `pageSchema`, `Page`, `PageQuery`, `Sort`, `SortDirection`, `DateRange`           |
 | [`@matizze/prumo-core/mock`](#mock)                 | `createMockCollection`, `wait`, `normalize`, `matchesSearch`, `sortBy`, `paginate`, `sum`, `addDays` |
-| [`@matizze/prumo-core/auth`](#auth)                 | `AuthGuard`, `useAuthOrigin`, `safeRedirectPath`, `buildLoginRedirect`, `readOrigin`                 |
+| [`@matizze/prumo-core/auth`](#auth)                 | `AuthGuard`, `useAuthOrigin`, `safeRedirectPath`, `buildLoginRedirect`, `readOrigin` |
 
 **Peer dependencies:** `react` ^19.3, `@tanstack/react-query` ^5.105, `zod` ^4.6, `i18next` ^26.4, `react-i18next` ^17.0, `i18next-icu` ^2.5, `i18next-browser-languagedetector` ^8.2 e `wouter` ^3.13. O projeto instala as que os módulos que usa pedem.
 
@@ -34,7 +34,7 @@ function createHttp(options: HttpOptions): Http
 type Http = (path: string, request?: HttpRequest) => Promise<unknown>
 ```
 
-Junta o endereço da API, o token da sessão e o tratamento do 401. Devolve o corpo da resposta em JSON, ou `undefined` quando o corpo é vazio ou não é JSON (um 204, um `OK`), e lança `HttpError` nos status de erro. Quem chama valida o corpo (com o schema do zod).
+Junta o endereço da API, o token da sessão e o tratamento do 401. Devolve o corpo da resposta em JSON, ou `undefined` quando o corpo é vazio ou não é JSON (um 204, um `OK`), e lança `HttpError` nos status de erro. Quem chama valida o corpo (com o schema do zod). O `Content-Type: application/json` só vai quando a chamada tem corpo, para um GET não forçar o preflight do CORS.
 
 | Opção     | Descrição                                                                                                                                                         |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -53,22 +53,33 @@ const livros = await http('/livros', { query: { search: 'dom', page: 2, sort: un
 
 ### `HttpError`
 
-`Error` com `status` (o código HTTP) e a mensagem `<MÉTODO> <caminho>: HTTP <status>`. O use case traduz o que ele significa no domínio.
+`Error` com `status` (o código HTTP), `body` e a mensagem `<MÉTODO> <caminho>: HTTP <status>`. O `body` é o JSON da resposta de erro, quando houver (o código de erro do backend, os erros de validação de um 422), para o use case ler; é `undefined` para um corpo vazio ou que não é JSON. O use case traduz o que o erro significa no domínio.
+
+```ts
+try {
+  await http('/livros', { method: 'POST', body })
+} catch (error) {
+  if (error instanceof HttpError && error.status === 422) showErrors(error.body)
+}
+```
 
 ### `createMockHttp(routes, options?)`
 
 ```ts
-function createMockHttp(routes: MockRoutes, options?: { latencyMs?: number }): Http
+function createMockHttp<Key extends MockRouteKey>(
+  routes: MockRoutes<Key>,
+  options?: { latencyMs?: number },
+): Http
 ```
 
 Um `Http` de mentira que responde pelas rotas, sem rede e sem dependência (a ideia do MSW). Os use cases rodam como em produção, e só o transporte é trocado.
 
-- A chave de cada rota é `'<MÉTODO> <caminho>'`, com `:parâmetros`: `'GET /livros'`, `'GET /livros/:id'`, `'POST /auth/sign-in'`. Uma chave mal escrita lança um erro na criação.
-- O handler recebe `{ params, query, body }` e devolve o corpo da resposta (ou uma Promise dele). `params` vem decodificado (`/livros/a%20b` dá `{ id: 'a b' }`) e `query` é a query string em texto.
+- A chave de cada rota é `'<MÉTODO> <caminho>'`, com `:parâmetros`: `'GET /livros'`, `'GET /livros/:id'`, `'POST /auth/sign-in'`. O método é um de `GET`, `POST`, `PUT`, `PATCH` e `DELETE`, e o tipo da chave (`MockRouteKey`) recusa o resto na compilação. Uma chave mal escrita, ou com `?` ou `#`, lança um erro na criação (a query vai no `request`, não na chave). Os segmentos fixos podem ter acento: `'GET /ação'` casa com `/ação` e com `/a%C3%A7%C3%A3o`.
+- O handler recebe `{ params, query, body }` e devolve o corpo da resposta (ou uma Promise dele). O tipo de `params` sai da chave: `'GET /livros/:id'` dá `params: { id: string }`. Os valores vêm decodificados (`/livros/a%20b` dá `{ id: 'a b' }`), e `query` é a query string em texto (na chave repetida, fica o último valor).
 - Lançar `HttpError` simula um status de erro.
-- Uma chamada sem rota dá `HttpError(404)` com o método e o caminho que ficaram sem mock.
+- Uma chamada sem rota lança `MissingMockRouteError` (com `method` e `path`, e o método e o caminho na mensagem). **Não** é um `HttpError`: é um erro de configuração do mock, e um 404 viraria "registro não encontrado" na tela. Para simular um 404 da API, lance `HttpError(404)` no handler.
 - O corpo enviado e o devolvido passam por um ida e volta de JSON, como na rede: uma `Date` vira texto, e mexer no que voltou não muda a fixture.
-- Com mais de uma rota casando, vale a de menos parâmetros (`/livros/novo` ganha de `/livros/:id`).
+- Com mais de uma rota casando, vale a mais específica: na primeira diferença, segmento a segmento, o fixo ganha do parâmetro (`/livros/novo` ganha de `/livros/:id`, e `/me/:a/:b` de `/:org/repos/:repo` em `/me/repos/x`).
 - `latencyMs` é a latência simulada de cada chamada, usando o `wait` de [`/mock`](#mock). O padrão é `0`, para os testes ficarem rápidos; o app passa um valor (300, por exemplo) no desenvolvimento.
 
 ```ts
@@ -80,7 +91,7 @@ const livros = createMockCollection(MOCK_LIVROS, {
 const http = createMockHttp(
   {
     'GET /livros': ({ query }) => livros.list(query),
-    'GET /livros/:id': ({ params }) => livros.get(params.id ?? ''),
+    'GET /livros/:id': ({ params }) => livros.get(params.id),
     'POST /auth/sign-in': () => {
       throw new HttpError(401, 'Credenciais inválidas')
     },
@@ -144,9 +155,7 @@ export const { UseCasesProvider, useUseCases } = createUseCasesContext(() =>
 const { signIn } = useUseCases()
 ```
 
-### `resolveDataSource(value, sources, fallback, name?)`
-
-Reexportada de `@matizze/prumo-core/use-cases`, com o mesmo comportamento da de [`repositories`](#resolvedatasourcevalue-sources-fallback-name): escolhe a fonte de dados (`mock` ou `http`) a partir de uma variável de ambiente e falha em vez de cair em silêncio em outra.
+`@matizze/prumo-core/use-cases` também exporta o `resolveDataSource`, o mesmo de [`repositories`](#repositories), reexportado: escolhe a fonte de dados (`mock` ou `http`) a partir de uma variável de ambiente e falha em vez de cair em silêncio em outra.
 
 ---
 
@@ -215,12 +224,12 @@ export const { RepositoryProvider, useRepositories } =
 
 ### Tipos
 
-| Tipo                         | Descrição                                                                                                                                            |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RepositoryOptions<S>`       | `{ dataSource: S; latencyMs?: number }`: o que toda fábrica recebe. `latencyMs` é a latência dos mocks (padrão de cada mock: 300; use 0 nos testes). |
-| `RepositoryFactories<S>`     | `Record<string, (options: RepositoryOptions<S>) => unknown>`: o mapa de fábricas.                                                                    |
-| `RepositoryContainerOf<F>`   | O container tipado de um mapa de fábricas.                                                                                                           |
-| `RepositoryProviderProps<C>` | `{ children: ReactNode; value?: C }`.                                                                                                                |
+| Tipo                          | Descrição                                                                                                        |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `RepositoryOptions<S>`        | `{ dataSource: S; latencyMs?: number }`: o que toda fábrica recebe. `latencyMs` é a latência dos mocks (padrão de cada mock: 300; use 0 nos testes). |
+| `RepositoryFactories<S>`      | `Record<string, (options: RepositoryOptions<S>) => unknown>`: o mapa de fábricas.                                |
+| `RepositoryContainerOf<F>`    | O container tipado de um mapa de fábricas.                                                                       |
+| `RepositoryProviderProps<C>`  | `{ children: ReactNode; value?: C }`.                                                                            |
 
 ---
 
@@ -248,10 +257,10 @@ const productKeys = createQueryKeys('products', {
   detail: (id: string) => ['detail', id] as const,
 })
 
-productKeys.all // ['products']
-productKeys.lists // ['products', 'list']
+productKeys.all            // ['products']
+productKeys.lists          // ['products', 'list']
 productKeys.list({ page: 2 }) // ['products', 'list', { page: 2 }]
-productKeys.detail('42') // ['products', 'detail', '42']
+productKeys.detail('42')   // ['products', 'detail', '42']
 ```
 
 ### `createQueryClient(options)`
@@ -283,15 +292,12 @@ interface ErrorMeta {
 }
 ```
 
-O tipo do `meta` de toda query e mutation do projeto (o core o registra no `Register` do TanStack Query). Para acrescentar campos, estenda a interface por _declaration merging_ no módulo `@matizze/prumo-core/query`; veja [Erros e notificações](../guides/errors-and-notifications.md#acrescentar-campos-ao-meta). O projeto não declara outro `Register`.
+O tipo do `meta` de toda query e mutation do projeto (o core o registra no `Register` do TanStack Query). Para acrescentar campos, estenda a interface por *declaration merging* no módulo `@matizze/prumo-core/query`; veja [Erros e notificações](../guides/errors-and-notifications.md#acrescentar-campos-ao-meta). O projeto não declara outro `Register`.
 
 ### `QueryProvider`
 
 ```tsx
-function QueryProvider(props: {
-  children: ReactNode
-  createClient: () => QueryClient
-}): ReactElement
+function QueryProvider(props: { children: ReactNode; createClient: () => QueryClient }): ReactElement
 ```
 
 O provedor do TanStack Query com um `QueryClient` novo por montagem, criado por `createClient`.
@@ -312,37 +318,37 @@ function defineI18n<M extends Record<string, MessageTree>, D extends keyof M & s
 
 **Configuração (`I18nConfig`):**
 
-| Campo             | Tipo                                | Padrão        | Descrição                                                               |
-| ----------------- | ----------------------------------- | ------------- | ----------------------------------------------------------------------- |
-| `messages`        | `{ [idioma]: MessageTree }`         | (obrigatório) | As mensagens de cada idioma, importadas estaticamente                   |
-| `defaultLocale`   | um idioma de `messages`             | (obrigatório) | O idioma padrão; as mensagens dele são a fonte dos tipos das chaves     |
-| `languages`       | `{ [idioma]: { name, shortName } }` | (obrigatório) | O nome de cada idioma para o seletor; a ordem das chaves é a do seletor |
-| `storageKey`      | `string`                            | `'locale'`    | A chave do `localStorage` com o idioma escolhido                        |
-| `rtlLocales`      | idiomas de `messages`               | `[]`          | Idiomas escritos da direita para a esquerda                             |
-| `defaultCurrency` | `string`                            | `'BRL'`       | A moeda de `format.currency()` sem código                               |
+| Campo             | Tipo                                             | Padrão     | Descrição                                                                  |
+| ----------------- | ------------------------------------------------ | ---------- | -------------------------------------------------------------------------- |
+| `messages`        | `{ [idioma]: MessageTree }`                      | (obrigatório) | As mensagens de cada idioma, importadas estaticamente                   |
+| `defaultLocale`   | um idioma de `messages`                          | (obrigatório) | O idioma padrão; as mensagens dele são a fonte dos tipos das chaves    |
+| `languages`       | `{ [idioma]: { name, shortName } }`              | (obrigatório) | O nome de cada idioma para o seletor; a ordem das chaves é a do seletor |
+| `storageKey`      | `string`                                         | `'locale'` | A chave do `localStorage` com o idioma escolhido                           |
+| `rtlLocales`      | idiomas de `messages`                            | `[]`       | Idiomas escritos da direita para a esquerda                                |
+| `defaultCurrency` | `string`                                         | `'BRL'`    | A moeda de `format.currency()` sem código                                  |
 
 A inicialização é **síncrona**: o `t` funciona logo depois da chamada. O idioma é detectado pelo `localStorage` e depois pelo navegador, aproximado por `resolveLocale`; sem equivalente, vale o `defaultLocale`. O `<html lang>` e o `<html dir>` acompanham o idioma ativo.
 
 **O kit (`I18nKit`):**
 
-| Membro                        | Descrição                                                                                                                                              |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `I18nProvider`                | O provedor. Aceita `i18n` para usar outra instância (testes de detecção).                                                                              |
-| `useTranslations(namespace?)` | O tradutor `t(key, values?)` de um namespace, com as chaves tipadas. Re-renderiza ao trocar o idioma.                                                  |
-| `getTranslations(namespace?)` | O mesmo, fora de componentes.                                                                                                                          |
-| `useLocale()` / `getLocale()` | O idioma ativo, sempre um idioma suportado.                                                                                                            |
-| `useChangeLocale()`           | Devolve `(locale) => Promise`, que troca o idioma e o grava no `localStorage`.                                                                         |
-| `useFormat()` / `getFormat()` | Os formatadores do idioma ativo (veja `createFormat`).                                                                                                 |
-| `useFieldError()`             | Devolve `(error?: { message?: string }) => { message } \| undefined`: troca uma chave de texto pela tradução; texto que não é chave passa sem mudança. |
-| `languages`                   | `{ id, name, shortName, dir }[]`, na ordem de `config.languages`.                                                                                      |
-| `getLanguage(locale)`         | Os metadados de um idioma.                                                                                                                             |
-| `routing`                     | `{ locales, defaultLocale }`.                                                                                                                          |
-| `isLocale(value)`             | Se o valor é um idioma suportado (type guard).                                                                                                         |
-| `isRtl(locale)`               | Se o idioma é escrito da direita para a esquerda.                                                                                                      |
-| `resolveLocale(code)`         | Aproxima um código para um idioma suportado.                                                                                                           |
-| `i18n`                        | A instância do i18next, criada na chamada.                                                                                                             |
-| `createI18n()`                | Cria uma instância nova, para testes que exercitam a detecção do zero.                                                                                 |
-| `LOCALE_STORAGE_KEY`          | A chave do `localStorage` em uso.                                                                                                                      |
+| Membro                         | Descrição                                                                                       |
+| ------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `I18nProvider`                 | O provedor. Aceita `i18n` para usar outra instância (testes de detecção).                        |
+| `useTranslations(namespace?)`  | O tradutor `t(key, values?)` de um namespace, com as chaves tipadas. Re-renderiza ao trocar o idioma. |
+| `getTranslations(namespace?)`  | O mesmo, fora de componentes.                                                                   |
+| `useLocale()` / `getLocale()`  | O idioma ativo, sempre um idioma suportado.                                                     |
+| `useChangeLocale()`            | Devolve `(locale) => Promise`, que troca o idioma e o grava no `localStorage`.                  |
+| `useFormat()` / `getFormat()`  | Os formatadores do idioma ativo (veja `createFormat`).                                          |
+| `useFieldError()`              | Devolve `(error?: { message?: string }) => { message } \| undefined`: troca uma chave de texto pela tradução; texto que não é chave passa sem mudança. |
+| `languages`                    | `{ id, name, shortName, dir }[]`, na ordem de `config.languages`.                               |
+| `getLanguage(locale)`          | Os metadados de um idioma.                                                                      |
+| `routing`                      | `{ locales, defaultLocale }`.                                                                   |
+| `isLocale(value)`              | Se o valor é um idioma suportado (type guard).                                                  |
+| `isRtl(locale)`                | Se o idioma é escrito da direita para a esquerda.                                               |
+| `resolveLocale(code)`          | Aproxima um código para um idioma suportado.                                                    |
+| `i18n`                         | A instância do i18next, criada na chamada.                                                      |
+| `createI18n()`                 | Cria uma instância nova, para testes que exercitam a detecção do zero.                          |
+| `LOCALE_STORAGE_KEY`           | A chave do `localStorage` em uso.                                                               |
 
 ```ts
 export const { I18nProvider, useTranslations, useFormat, i18n } = defineI18n({
@@ -362,24 +368,21 @@ t('count', { count: 3 })
 ### `createFormat(locale, options?)`
 
 ```ts
-function createFormat<L extends string>(
-  locale: L,
-  options?: { defaultCurrency?: string },
-): Format<L>
+function createFormat<L extends string>(locale: L, options?: { defaultCurrency?: string }): Format<L>
 ```
 
 Formatadores `Intl` ligados a um idioma, com as instâncias reaproveitadas por idioma e opções. Em componentes, prefira o `useFormat()` do kit.
 
-| Formatador                             | Exemplo (`pt-BR`)                                   |
-| -------------------------------------- | --------------------------------------------------- |
-| `number(value, options?)`              | `1234.5` → `1.234,5`                                |
-| `compact(value, options?)`             | `12400` → `12 mil`                                  |
-| `percent(value, options?)`             | `0.253` → `25,3%` (o valor é uma fração)            |
-| `currency(value, currency?, options?)` | `99.9` → `R$ 99,90`; com `'USD'`, `US$ 99,90`       |
-| `date(value, options?)`                | `22 de nov. de 2026` (padrão `dateStyle: 'medium'`) |
-| `dateTime(value, options?)`            | `22 de nov. de 2026, 14:30`                         |
-| `time(value, options?)`                | `14:30`                                             |
-| `relative(value, now?)`                | `há 1 hora`, `amanhã`: a maior unidade que cabe     |
+| Formatador                              | Exemplo (`pt-BR`)                                   |
+| --------------------------------------- | --------------------------------------------------- |
+| `number(value, options?)`               | `1234.5` → `1.234,5`                                |
+| `compact(value, options?)`              | `12400` → `12 mil`                                  |
+| `percent(value, options?)`              | `0.253` → `25,3%` (o valor é uma fração)            |
+| `currency(value, currency?, options?)`  | `99.9` → `R$ 99,90`; com `'USD'`, `US$ 99,90`       |
+| `date(value, options?)`                 | `22 de nov. de 2026` (padrão `dateStyle: 'medium'`) |
+| `dateTime(value, options?)`             | `22 de nov. de 2026, 14:30`                         |
+| `time(value, options?)`                 | `14:30`                                             |
+| `relative(value, now?)`                 | `há 1 hora`, `amanhã`: a maior unidade que cabe     |
 
 Os formatadores de data aceitam `Date`, número ou texto ISO. Texto só com a data (`AAAA-MM-DD`) é lido como **data local** (o dia escrito, em qualquer fuso; uma data que não existe, como `2026-02-31`, é inválida); texto com hora, `Date` e número são um instante, mostrado no fuso local.
 
@@ -393,15 +396,15 @@ Converte um código do navegador ou do `localStorage` num idioma suportado: prim
 
 ### Tipos
 
-| Tipo                 | Descrição                                                                    |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `MessageTree`        | Objetos aninhados cujas folhas são textos: o formato dos JSONs de mensagens. |
-| `NamespaceOf<M>`     | Os namespaces válidos de `M` (`'clientes'`, `'clientes.form'`).              |
-| `MessageKeyOf<M, N>` | As chaves válidas dentro de um namespace.                                    |
-| `TranslatorOf<M, N>` | `(key: MessageKeyOf<M, N>, values?: TranslationValues) => string`.           |
-| `TranslationValues`  | `Record<string, string \| number \| Date>`: os valores das variáveis ICU.    |
-| `LanguageOf<L>`      | `{ id: L; name: string; shortName: string; dir: 'ltr' \| 'rtl' }`.           |
-| `Format<L>`          | O que `createFormat` devolve.                                                |
+| Tipo                      | Descrição                                                                                       |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| `MessageTree`             | Objetos aninhados cujas folhas são textos: o formato dos JSONs de mensagens.                    |
+| `NamespaceOf<M>`          | Os namespaces válidos de `M` (`'clientes'`, `'clientes.form'`).                                  |
+| `MessageKeyOf<M, N>`      | As chaves válidas dentro de um namespace.                                                       |
+| `TranslatorOf<M, N>`      | `(key: MessageKeyOf<M, N>, values?: TranslationValues) => string`.                              |
+| `TranslationValues`       | `Record<string, string \| number \| Date>`: os valores das variáveis ICU.                       |
+| `LanguageOf<L>`           | `{ id: L; name: string; shortName: string; dir: 'ltr' \| 'rtl' }`.                               |
+| `Format<L>`               | O que `createFormat` devolve.                                                                   |
 
 ---
 
@@ -432,11 +435,11 @@ function createErrorMessage(
 
 Cria o `getErrorMessage` do app: o texto de um erro no idioma ativo da instância. Aceita um `UIError` **ou um código solto** (`getErrorMessage('LOAN_LIMIT', { limite: 3 })`, para o motivo de um botão desligado, sem montar um `UIError`). O segundo argumento são os valores do texto (variáveis ICU); eles valem mais que os `params` do `UIError`.
 
-| Erro                                                     | Texto                       |
-| -------------------------------------------------------- | --------------------------- |
-| `UIError` cuja chave `<prefix><code>` existe             | A tradução dessa chave      |
-| Texto (código solto) cuja chave `<prefix><texto>` existe | A tradução dessa chave      |
-| `UIError` ou texto sem tradução, ou outro erro           | A tradução de `fallbackKey` |
+| Erro                                  | Texto                                       |
+| ------------------------------------- | ------------------------------------------- |
+| `UIError` cuja chave `<prefix><code>` existe | A tradução dessa chave               |
+| Texto (código solto) cuja chave `<prefix><texto>` existe | A tradução dessa chave  |
+| `UIError` ou texto sem tradução, ou outro erro | A tradução de `fallbackKey`        |
 
 Padrões: `prefix: 'errors.'` e `fallbackKey: 'errors.generic'`. Na criação, confere que a `fallbackKey` existe nas mensagens da instância e **lança um erro** se não existir. A instância precisa estar inicializada (a do `defineI18n` já está).
 
@@ -454,13 +457,13 @@ O schema zod de uma página de listagem: `{ items, total }`, com `total` inteiro
 
 ### Tipos
 
-| Tipo            | Definição                                                                                              |
-| --------------- | ------------------------------------------------------------------------------------------------------ |
-| `Page<T>`       | `{ items: T[]; total: number }`. `total` conta todos os itens que casam com a consulta, sem paginar.   |
-| `PageQuery`     | `{ page?: number; page_size?: number }`. `page` começa em 1; sem `page_size`, a consulta devolve tudo. |
-| `Sort<K>`       | `{ key: K; direction: SortDirection }`.                                                                |
-| `SortDirection` | `'asc' \| 'desc'`.                                                                                     |
-| `DateRange`     | `{ from: string; to: string }`: datas ISO (AAAA-MM-DD), inclusivo.                                     |
+| Tipo               | Definição                                                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------- |
+| `Page<T>`          | `{ items: T[]; total: number }`. `total` conta todos os itens que casam com a consulta, sem paginar. |
+| `PageQuery`        | `{ page?: number; page_size?: number }`. `page` começa em 1; sem `page_size`, a consulta devolve tudo. |
+| `Sort<K>`          | `{ key: K; direction: SortDirection }`.                                                         |
+| `SortDirection`    | `'asc' \| 'desc'`.                                                                              |
+| `DateRange`        | `{ from: string; to: string }`: datas ISO (AAAA-MM-DD), inclusivo.                              |
 
 ---
 
@@ -468,11 +471,11 @@ O schema zod de uma página de listagem: `{ items, total }`, com `total` inteiro
 
 Datas `AAAA-MM-DD` sem depender do fuso, para o código de produção (as regras de negócio) e para os mocks.
 
-| Função                   | Descrição                                                                                                                                                                          |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `addDays(isoDate, days)` | Soma dias a uma data ISO e devolve `AAAA-MM-DD`, em UTC (`days` negativo volta no tempo).                                                                                          |
-| `daysBetween(from, to)`  | Quantos dias há de `from` até `to`: positivo quando `to` é depois. Só a data conta; o horário de verão não interfere.                                                              |
-| `parseLocalDate(value)`  | O `Date` à meia-noite **local** quando `value` é `AAAA-MM-DD`; `Date`, número e texto com hora seguem o `Date`. Data inexistente vira `Invalid Date`. É o que o `format.date` usa. |
+| Função                       | Descrição                                                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `addDays(isoDate, days)`     | Soma dias a uma data ISO e devolve `AAAA-MM-DD`, em UTC (`days` negativo volta no tempo).                      |
+| `daysBetween(from, to)`      | Quantos dias há de `from` até `to`: positivo quando `to` é depois. Só a data conta; o horário de verão não interfere. |
+| `parseLocalDate(value)`      | O `Date` à meia-noite **local** quando `value` é `AAAA-MM-DD`; `Date`, número e texto com hora seguem o `Date`. Data inexistente vira `Invalid Date`. É o que o `format.date` usa. |
 
 ```ts
 import { addDays, daysBetween } from '@matizze/prumo-core/date'
@@ -500,14 +503,14 @@ function createMockCollection<T extends { id: string; createdAt: string }>(
 ): MockCollection<T>
 ```
 
-A coleção em memória, para os mocks do `createMockHttp`. Parte de uma **cópia** das `fixtures`, que nunca mudam. Os erros são `HttpError`, porque o mock mora no transporte.
+A coleção em memória, para os mocks do `createMockHttp`. Parte de uma **cópia** das `fixtures`, que nunca mudam. Os erros são `HttpError`, porque o mock mora no transporte. Tudo o que a coleção devolve é uma cópia: mexer nela não muda a coleção.
 
 | Método                | Descrição                                                                                                                                                                                                                                                                                       |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `list(query?)`        | `{ items, total }`. `query`: `search` (nos `searchFields`, sem acento nem caixa), `sort` (`<campo>:<asc\|desc>`, como `createdAt:desc`), `page` (a partir de 1) e `page_size`. Números ou textos, então a `query` de uma rota entra direto. Um `sort` ou número malformado dá `HttpError(400)`. |
-| `get(id)`             | O registro, ou `HttpError(404)`.                                                                                                                                                                                                                                                                |
+| `list(query?)`        | `{ items, total }`. `query`: `search` (nos `searchFields`, sem acento nem caixa), `sort` (`<campo>:<asc\|desc>`, como `createdAt:desc`), `page` (a partir de 1) e `page_size`. Números ou textos, então a `query` de uma rota entra direto. Um `sort` ou número malformado dá `HttpError(400)`. Devolve cópias. |
+| `get(id)`             | Uma cópia do registro, ou `HttpError(404)`.                                                                                                                                                                                                                                                                |
 | `create(input)`       | Gera `id` (`<idPrefix>-<sequência>`, pulando os que já existem) e `createdAt`.                                                                                                                                                                                                                  |
-| `update(id, changes)` | Muda só os campos enviados (`undefined` não muda) e devolve o registro inteiro; 404 sem o id.                                                                                                                                                                                                   |
+| `update(id, changes)` | Muda só os campos enviados (`undefined` não muda; `id` e `createdAt` nunca mudam) e devolve o registro inteiro; 404 sem o id.                                                                                                                                                                                                   |
 | `remove(id)`          | Remove o registro; 404 sem o id.                                                                                                                                                                                                                                                                |
 | `reset()`             | Volta às fixtures de partida, para um teste não ver o estado do outro.                                                                                                                                                                                                                          |
 
@@ -525,15 +528,17 @@ livros.list({ search: 'machado', sort: 'title:asc', page: 1, page_size: 10 })
 
 ### Funções de apoio
 
-| Função                                        | Descrição                                                                                                                                                       |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `wait(ms)`                                    | Espera `ms` milissegundos (a latência simulada).                                                                                                                |
-| `normalize(text)`                             | Minúsculas, sem acentos e sem espaços nas pontas: `' Ação '` → `'acao'`.                                                                                        |
-| `matchesSearch(fields, search?)`              | Verdadeiro quando `search` está vazio ou aparece em algum dos campos, sem diferenciar maiúsculas e acentos.                                                     |
-| `sortBy(items, sort, accessors, { locale? })` | Uma cópia ordenada; sem `sort`, a ordem original. Números pelo valor; texto pelo idioma (padrão `'pt-BR'`), com números naturais ("Item 9" antes de "Item 10"). |
-| `paginate(items, page?, pageSize?)`           | Um `Page<T>`: a fatia da página (que começa em 1) e o `total` de antes da fatia. Sem `pageSize`, tudo.                                                          |
-| `sum(values)`                                 | A soma de uma lista de números.                                                                                                                                 |
-| `addDays(isoDate, days)`                      | Soma dias a uma data ISO e devolve `AAAA-MM-DD`, em UTC. Mora em [`/date`](#date); segue exportado aqui por compatibilidade.                                    |
+Busca, ordenação, paginação e soma para os dados em memória.
+
+| Função                                          | Descrição                                                                                                  |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `wait(ms)`                                      | Espera `ms` milissegundos (a latência simulada).                                                           |
+| `normalize(text)`                               | Minúsculas, sem acentos e sem espaços nas pontas: `' Ação '` → `'acao'`.                                    |
+| `matchesSearch(fields, search?)`                | Verdadeiro quando `search` está vazio ou aparece em algum dos campos, sem diferenciar maiúsculas e acentos. |
+| `sortBy(items, sort, accessors, { locale? })`   | Uma cópia ordenada; sem `sort`, a ordem original. Números pelo valor; texto pelo idioma (padrão `'pt-BR'`), com números naturais ("Item 9" antes de "Item 10"). |
+| `paginate(items, page?, pageSize?)`             | Um `Page<T>`: a fatia da página (que começa em 1) e o `total` de antes da fatia. Sem `pageSize`, tudo.     |
+| `sum(values)`                                   | A soma de uma lista de números.                                                                             |
+| `addDays(isoDate, days)`                        | Soma dias a uma data ISO e devolve `AAAA-MM-DD`, em UTC. Mora em [`/date`](#date); segue exportado aqui por compatibilidade. |
 
 ```ts
 async list(query: ClienteListQuery = {}): Promise<Page<ClienteSchema>> {
@@ -560,9 +565,9 @@ interface AuthGuardProps {
   children: ReactNode
   isAuthenticated: boolean
   isLoading: boolean
-  redirectTo?: string // padrão: '/login'
-  keepOrigin?: boolean // padrão: false
-  fallback?: ReactNode // padrão: null
+  redirectTo?: string   // padrão: '/login'
+  keepOrigin?: boolean  // padrão: false
+  fallback?: ReactNode  // padrão: null
 }
 ```
 

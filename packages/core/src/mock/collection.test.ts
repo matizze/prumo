@@ -127,6 +127,28 @@ describe('createMockCollection', () => {
     expect(before.pages).toBe(250)
   })
 
+  it('o update não muda o id nem o createdAt, mesmo que venham em changes', () => {
+    const livros = make()
+    const updated = livros.update('livro-1', {
+      id: 'outro',
+      createdAt: '1999-01-01T00:00:00.000Z',
+      title: 'Editado',
+    } as never)
+    expect(updated).toMatchObject({ id: 'livro-1', createdAt: FIXTURES[0]?.createdAt, title: 'Editado' })
+    expect(livros.get('livro-1').id).toBe('livro-1')
+  })
+
+  it('get, list, create e update devolvem cópias: mexer nelas não muda a coleção', () => {
+    const livros = make()
+    livros.get('livro-1').title = 'mudado'
+    livros.list().items[0]!.title = 'mudado'
+    livros.create({ title: 'N', pages: 1 }).title = 'mudado'
+    livros.update('livro-2', { pages: 5 }).title = 'mudado'
+    expect(livros.get('livro-1').title).toBe('Dom Casmurro')
+    expect(livros.get('livro-4').title).toBe('N')
+    expect(livros.get('livro-2').title).toBe('Ágata')
+  })
+
   it('remove um registro e lança 404 para um id que não existe', () => {
     const livros = make()
     livros.remove('livro-1')

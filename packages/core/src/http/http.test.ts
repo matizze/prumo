@@ -40,11 +40,12 @@ describe('createHttp', () => {
     expect(headersOf(calls[0])).toEqual({ 'Content-Type': 'application/json', 'X-App': 'prumo' })
   })
 
-  it('usa GET e nenhum corpo por padrão', async () => {
+  it('usa GET, sem corpo e sem Content-Type (para não forçar o preflight do CORS)', async () => {
     const { fetcher, calls } = fakeFetch([Response.json({})])
     await createHttp({ baseUrl: '', fetch: fetcher })('/a')
     expect(calls[0]?.init.method).toBe('GET')
     expect(calls[0]?.init.body).toBeUndefined()
+    expect(headersOf(calls[0])['Content-Type']).toBeUndefined()
   })
 
   it('transforma a query em query string e omite os undefined', async () => {
@@ -75,6 +76,25 @@ describe('createHttp', () => {
     const error = await http('/a', { method: 'DELETE' }).catch((caught: unknown) => caught)
     expect(error).toBeInstanceOf(HttpError)
     expect(error).toMatchObject({ status: 500, message: 'DELETE /a: HTTP 500' })
+  })
+
+  it('guarda no HttpError o JSON da resposta de erro, para o use case ler', async () => {
+    const reply = (response: Response) =>
+      createHttp({ baseUrl: '', fetch: fakeFetch([response]).fetcher })('/a').then(
+        () => {
+          throw new Error('era para falhar')
+        },
+        (caught: unknown) => caught as HttpError,
+      )
+    const validation = await reply(
+      Response.json({ code: 'VALIDATION', errors: { email: ['inválido'] } }, { status: 422 }),
+    )
+    expect(validation.status).toBe(422)
+    expect(validation.body).toEqual({ code: 'VALIDATION', errors: { email: ['inválido'] } })
+    expect((await reply(new Response('', { status: 500 }))).body).toBeUndefined()
+    expect((await reply(new Response('<html>', { status: 502 }))).body).toBeUndefined()
+    expect((await reply(new Response('{ quebrado', { status: 500 }))).body).toBeUndefined()
+    expect(new HttpError(400, 'x', { a: 1 }).body).toEqual({ a: 1 })
   })
 
   describe('sessão', () => {

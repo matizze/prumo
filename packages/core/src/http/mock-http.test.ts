@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createMockHttp, HttpError, type MockRequest } from './index.ts'
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { createMockHttp, HttpError, MissingMockRouteError, type MockRequest } from './index.ts'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -16,7 +16,7 @@ describe('createMockHttp', () => {
   })
 
   it('entrega params, query e body ao handler', async () => {
-    const seen: MockRequest[] = []
+    const seen: MockRequest<'PATCH /livros/:id/capitulos/:n'>[] = []
     const http = createMockHttp({
       'PATCH /livros/:id/capitulos/:n': (request) => {
         seen.push(request)
@@ -72,6 +72,19 @@ describe('createMockHttp', () => {
     expect(await http('/livros/9')).toBe('detalhe')
   })
 
+  it('compara segmento a segmento: na primeira diferença, o fixo ganha do parâmetro', async () => {
+    const http = createMockHttp({
+      'GET /livros/:id/capitulos': () => 'a',
+      'GET /livros/novo/:aba': () => 'b',
+      'GET /:org/repos/:repo': () => 'c',
+      'GET /me/:a/:b': () => 'd',
+    })
+    expect(await http('/livros/novo/capitulos')).toBe('b')
+    expect(await http('/livros/7/capitulos')).toBe('a')
+    expect(await http('/me/repos/x')).toBe('d')
+    expect(await http('/acme/repos/x')).toBe('c')
+  })
+
   it('lançar HttpError simula o status, inclusive vindo de uma Promise', async () => {
     const http = createMockHttp({
       'POST /auth/sign-in': () => {
@@ -88,20 +101,64 @@ describe('createMockHttp', () => {
     await expect(http('/x')).rejects.toMatchObject({ status: 500 })
   })
 
-  it('rota inexistente dá 404 dizendo o método e o caminho sem mock', async () => {
+  it('rota inexistente lança MissingMockRouteError, e não um HttpError', async () => {
     const http = createMockHttp({ 'GET /livros': () => [] })
     const error = await http('/autores/3?x=1', { method: 'DELETE' }).catch((e: unknown) => e)
-    expect(error).toBeInstanceOf(HttpError)
-    expect(error).toMatchObject({ status: 404 })
-    expect((error as HttpError).message).toContain('DELETE /autores/3')
-    // O método certo no caminho errado, e o caminho certo no método errado, também são 404
-    await expect(http('/livros', { method: 'POST' })).rejects.toMatchObject({ status: 404 })
-    await expect(http('/livros/1')).rejects.toMatchObject({ status: 404 })
+    expect(error).toBeInstanceOf(MissingMockRouteError)
+    expect(error).not.toBeInstanceOf(HttpError)
+    expect((error as Error).message).toContain('DELETE /autores/3')
+    // O método certo no caminho errado, e o caminho certo no método errado, também faltam
+    await expect(http('/livros', { method: 'POST' })).rejects.toBeInstanceOf(MissingMockRouteError)
+    await expect(http('/livros/1')).rejects.toBeInstanceOf(MissingMockRouteError)
   })
 
-  it('recusa uma chave de rota mal escrita', () => {
-    expect(() => createMockHttp({ '/livros': () => null })).toThrow('Rota de mock inválida')
-    expect(() => createMockHttp({ 'FETCH /livros': () => null })).toThrow('Rota de mock inválida')
+  it('recusa uma chave de rota mal escrita, inclusive com ? ou #', () => {
+    const bad = (key: string) => () => createMockHttp({ [key]: () => null } as never)
+    expect(bad('/livros')).toThrow('Rota de mock inválida')
+    expect(bad('FETCH /livros')).toThrow('Rota de mock inválida')
+    expect(bad('GET /livros?page=1')).toThrow('Rota de mock inválida')
+    expect(bad('GET /livros#a')).toThrow('Rota de mock inválida')
+  })
+
+  it('casa uma chave com acento ou espaço codificado', async () => {
+    const http = createMockHttp({ 'GET /ação/:id': ({ params }) => params.id })
+    expect(await http('/ação/1')).toBe('1')
+    expect(await http('/a%C3%A7%C3%A3o/2')).toBe('2')
+  })
+
+  it('na query repetida fica o último valor', async () => {
+    const http = createMockHttp({ 'GET /a': ({ query }) => query })
+    expect(await http('/a?x=1&x=2')).toEqual({ x: '2' })
+  })
+
+  it('os params saem da chave da rota, no tipo', () => {
+    createMockHttp({
+      'GET /livros': ({ params }) => {
+        expectTypeOf(params).toEqualTypeOf<Record<never, never>>()
+        return null
+      },
+      'GET /livros/:id/capitulos/:n': ({ params }) => {
+        expectTypeOf(params).toEqualTypeOf<{ id: string; n: string }>()
+        return params.id + params.n
+      },
+    })
+  })
+
+  it('o tipo da chave recusa o que não é método e caminho (checado na compilação)', () => {
+    // Nunca chamada: só o compilador a confere, e a chave inválida lançaria na criação
+    const _types = () => {
+      // @ts-expect-error a chave precisa de método e de caminho com barra
+      createMockHttp({ '/livros': () => null })
+      // @ts-expect-error o método precisa ser um dos cinco
+      createMockHttp({ 'FETCH /livros': () => null })
+      createMockHttp({
+        'GET /livros/:id': ({ params }) => {
+          // @ts-expect-error só existe o :id
+          return params.slug
+        },
+      })
+    }
+    expect(_types).toBeTypeOf('function')
   })
 
   it('passa o corpo e a resposta por um ida e volta de JSON', async () => {
@@ -140,10 +197,7 @@ describe('createMockHttp', () => {
     await call
     expect(done).toBe(true)
 
-    // Sem latencyMs, só uma volta de timer de 0 ms
-    const fast = createMockHttp({ 'GET /a': () => 'ok' })
-    const pending = fast('/a')
-    await vi.advanceTimersByTimeAsync(0)
-    expect(await pending).toBe('ok')
+    // Sem latencyMs, não há timer: não trava com os timers falsos
+    expect(await createMockHttp({ 'GET /a': () => 'ok' })('/a')).toBe('ok')
   })
 })

@@ -1,11 +1,5 @@
 // @vitest-environment jsdom
-import {
-  QueryClient,
-  useMutation,
-  useQuery,
-  useQueryClient,
-  type DefaultOptions,
-} from '@tanstack/react-query'
+import { QueryClient, useMutation, useQuery, useQueryClient, type DefaultOptions } from '@tanstack/react-query'
 import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -349,9 +343,10 @@ describe('renderHookWithProviders', () => {
   })
 
   it('repassa initialProps e permite rerender', () => {
-    const { result, rerender } = renderHookWithProviders(({ n }: { n: number }) => n * 2, {
-      initialProps: { n: 2 },
-    })
+    const { result, rerender } = renderHookWithProviders(
+      ({ n }: { n: number }) => n * 2,
+      { initialProps: { n: 2 } },
+    )
 
     expect(result.current).toBe(4)
     rerender({ n: 5 })

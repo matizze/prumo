@@ -36,11 +36,31 @@ export interface HttpOptions {
 /** Resposta da API com status de erro. Quem chama decide o que ela significa no domínio. */
 export class HttpError extends Error {
   readonly status: number
+  /**
+   * O JSON da resposta de erro, quando houver (o código de erro do backend, os erros de validação
+   * de um 422): o use case lê daqui. `undefined` para um corpo vazio ou que não é JSON.
+   */
+  readonly body?: unknown
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, body?: unknown) {
     super(message)
     this.name = 'HttpError'
     this.status = status
+    this.body = body
+  }
+}
+
+/** Lê o corpo da resposta quando é JSON: o content-type diz `json`, ou o texto começa com `{` ou `[`. */
+async function readJson(response: Response): Promise<unknown> {
+  const text = await response.text()
+  const isJson = /json/i.test(response.headers.get('content-type') ?? '') || /^\s*[{[]/.test(text)
+  if (text.trim() === '' || !isJson) return undefined
+  try {
+    return JSON.parse(text)
+  } catch (error) {
+    // No erro o status já diz o que houve; no sucesso o JSON quebrado é um problema da API
+    if (!response.ok) return undefined
+    throw error
   }
 }
 
@@ -67,7 +87,8 @@ export function createHttp({ baseUrl, headers, auth, fetch: fetchOverride }: Htt
     (fetchOverride ?? fetch)(`${base}${withQuery(path, query)}`, {
       method,
       headers: {
-        'Content-Type': 'application/json',
+        // Sem corpo não há Content-Type: um GET com ele deixaria de ser uma requisição simples do CORS
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
         ...headers?.(),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
@@ -85,13 +106,11 @@ export function createHttp({ baseUrl, headers, auth, fetch: fetchOverride }: Htt
       throw new HttpError(
         response.status,
         `${request.method ?? 'GET'} ${path}: HTTP ${response.status}`,
+        await readJson(response),
       )
     }
-    // Lê o corpo quando é JSON: o content-type diz `json`, ou o texto começa com `{` ou `[`. Um 204,
-    // um 200 vazio ou um `OK` não têm o que devolver, e quem precisa do corpo valida com o schema
-    // e falha ali
-    const text = await response.text()
-    const isJson = /json/i.test(response.headers.get('content-type') ?? '') || /^\s*[{[]/.test(text)
-    return text.trim() === '' || !isJson ? undefined : JSON.parse(text)
+    // Um 204, um 200 vazio ou um `OK` não têm o que devolver, e quem precisa do corpo valida com o
+    // schema e falha ali
+    return readJson(response)
   }
 }

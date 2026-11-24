@@ -30,7 +30,7 @@ const trace = {
 
 let outsideRepo: Counter | undefined
 
-const contract = defineContractSuite<Counter>('Counter', ({ repo, create }) => {
+const contract = defineContractSuite<Counter>('Counter', ({ repo, subject, create }) => {
   outsideRepo = repo
 
   // Hook do caso: roda antes de a instância nascer
@@ -43,6 +43,9 @@ const contract = defineContractSuite<Counter>('Counter', ({ repo, create }) => {
     expect(repo.increment()).toBe(2)
     expect(repo.value).toBe(2)
     expect('increment' in repo).toBe(true)
+    // subject é o mesmo objeto que repo (o nome antigo), a mesma instância do teste
+    expect(subject.value).toBe(2)
+    expect(subject.increment).toBe(repo.increment)
   })
 
   it('cria uma instância nova por teste, sem o estado do anterior', () => {

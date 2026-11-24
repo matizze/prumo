@@ -6,11 +6,11 @@ Utilitários de teste sem interface, para o Vitest com jsdom: o `renderWithProvi
 pnpm add -D @matizze/prumo-testing
 ```
 
-| Subcaminho                        | Conteúdo                                                                                                                                                |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@matizze/prumo-testing`          | `createRenderWithProviders`, `createRenderHookWithProviders`, `createTestQueryClient`, `createTestRepositories`, `createTestUseCases`, `createDeferred` |
-| `@matizze/prumo-testing/dom`      | `setupDom`, `installMatchMedia`, `setMediaQuery`, `resetMatchMedia`                                                                                     |
-| `@matizze/prumo-testing/contract` | `defineContractSuite`, `runContractSuite`                                                                                                               |
+| Subcaminho                         | Conteúdo                                                                                      |
+| ---------------------------------- | --------------------------------------------------------------------------------------------- |
+| `@matizze/prumo-testing`           | `createRenderWithProviders`, `createRenderHookWithProviders`, `createTestQueryClient`, `createTestRepositories`, `createTestUseCases`, `createDeferred` |
+| `@matizze/prumo-testing/dom`       | `setupDom`, `installMatchMedia`, `setMediaQuery`, `resetMatchMedia`                            |
+| `@matizze/prumo-testing/contract`  | `defineContractSuite`, `runContractSuite`                                                      |
 
 **Peer dependencies:** `react` e `react-dom` ^19.3, `@tanstack/react-query` ^5.105, `@testing-library/react` ^16.3, `vitest` ^5.1 e `wouter` ^3.13. O pacote usa as instâncias do app e não importa nada dele (nenhum `@/`): o que é do app entra por parâmetro.
 
@@ -21,29 +21,22 @@ pnpm add -D @matizze/prumo-testing
 ### `createRenderWithProviders(binding)`
 
 ```ts
-function createRenderWithProviders<
-  C extends object = {},
-  P extends object = {},
-  U extends object = {},
->(binding: {
+function createRenderWithProviders<C extends object = {}, P extends object = {}, U extends object = {}>(binding: {
   Providers: ComponentType<{ children: ReactNode; repositories: C; useCases: U } & P>
   createRepositories?: (overrides?: Partial<C>) => C
   createUseCases?: (overrides?: Partial<U>) => U
   createQueryClient: () => QueryClient
-}): (
-  ui: ReactElement,
-  options?: RenderWithProvidersOptions<C, P, U>,
-) => RenderWithProvidersResult<C, U>
+}): (ui: ReactElement, options?: RenderWithProvidersOptions<C, P, U>) => RenderWithProvidersResult<C, U>
 ```
 
 Cria o `renderWithProviders` do app. O pacote põe o que é comum a todo app (o `QueryClientProvider` e o `Router` em memória do wouter), e o app liga o resto:
 
-| Campo                | O que o app passa                                                                                                                                  |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Providers`          | Os provedores do app (i18n, tema, repositórios, use cases), que recebem os containers em `repositories` e `useCases` e as `providerProps` do teste |
-| `createRepositories` | Cria o container de repositórios em memória, aplicando os `overrides` do teste (opcional)                                                          |
-| `createUseCases`     | Cria o container de use cases, com o `http` de mentira, aplicando os `overrides` do teste (opcional)                                               |
-| `createQueryClient`  | Cria o `QueryClient` de um teste                                                                                                                   |
+| Campo                 | O que o app passa                                                                       |
+| --------------------- | --------------------------------------------------------------------------------------- |
+| `Providers`           | Os provedores do app (i18n, tema, repositórios, use cases), que recebem os containers em `repositories` e `useCases` e as `providerProps` do teste |
+| `createRepositories`  | Cria o container de repositórios em memória, aplicando os `overrides` do teste (opcional) |
+| `createUseCases`      | Cria o container de use cases, com o `http` de mentira, aplicando os `overrides` do teste (opcional) |
+| `createQueryClient`   | Cria o `QueryClient` de um teste                                                        |
 
 O app liga uma vez, num arquivo próprio (o `prumo new` cria `src/test/render.tsx`), e os testes importam dele:
 
@@ -87,26 +80,26 @@ renderWithProviders(<LoginPage />, {
 
 ### `renderWithProviders(ui, options?)`
 
-**Opções** (`RenderWithProvidersOptions<C, P>`): as do `render` do Testing Library, menos `wrapper`, e mais:
+**Opções** (`RenderWithProvidersOptions<C, P, U>`): as do `render` do Testing Library, menos `wrapper`, e mais:
 
-| Opção           | Padrão                          | Descrição                                                                                         |
-| --------------- | ------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `path`          | `'/'`                           | A rota inicial do Router em memória                                                               |
-| `repositories`  | `{}`                            | Os repositórios que trocam os do container                                                        |
-| `useCases`      | `{}`                            | Os use cases que trocam os do container                                                           |
-| `queryClient`   | um novo, de `createQueryClient` | O `QueryClient` do teste                                                                          |
-| `providerProps` | `{}`                            | As opções do app para este teste, do tipo `P`, repassadas aos `Providers` (a sessão, por exemplo) |
+| Opção          | Padrão                         | Descrição                                     |
+| -------------- | ------------------------------ | --------------------------------------------- |
+| `path`         | `'/'`                          | A rota inicial do Router em memória           |
+| `repositories` | `{}`                           | Os repositórios que trocam os do container    |
+| `useCases`     | `{}`                           | Os use cases que trocam os do container       |
+| `queryClient`  | um novo, de `createQueryClient` | O `QueryClient` do teste                     |
+| `providerProps` | `{}`                          | As opções do app para este teste, do tipo `P`, repassadas aos `Providers` (a sessão, por exemplo) |
 
-**Resultado** (`RenderWithProvidersResult<C>`): o resultado do `render` do Testing Library, e mais:
+**Resultado** (`RenderWithProvidersResult<C, U>`): o resultado do `render` do Testing Library, e mais:
 
-| Campo          | Descrição                                                       |
-| -------------- | --------------------------------------------------------------- |
-| `queryClient`  | O `QueryClient` usado                                           |
-| `repositories` | O container de repositórios usado, com os `overrides` aplicados |
-| `useCases`     | O container de use cases usado, com os `overrides` aplicados    |
-| `history`      | As rotas visitadas; navegar com `replace` troca a última        |
-| `navigate`     | Navega na rota em memória (`navigate(path, { replace? })`)      |
-| `currentPath`  | Devolve a última rota do `history`                              |
+| Campo          | Descrição                                                                           |
+| -------------- | ----------------------------------------------------------------------------------- |
+| `queryClient`  | O `QueryClient` usado                                                               |
+| `repositories` | O container de repositórios usado, com os `overrides` aplicados                     |
+| `useCases`     | O container de use cases usado, com os `overrides` aplicados                        |
+| `history`      | As rotas visitadas; navegar com `replace` troca a última                            |
+| `navigate`     | Navega na rota em memória (`navigate(path, { replace? })`)                          |
+| `currentPath`  | Devolve a última rota do `history`                                                  |
 
 A ordem dos provedores, de fora para dentro: `QueryClientProvider`, `Router`, `Providers` do app. Assim, um provedor do app pode usar o `QueryClient` e a rota (a sessão que limpa o cache ao sair, por exemplo).
 
@@ -117,10 +110,7 @@ interface TestProviderProps {
   session?: Session
 }
 
-export const renderWithProviders = createRenderWithProviders<
-  RepositoryContainer,
-  TestProviderProps
->(binding)
+export const renderWithProviders = createRenderWithProviders<RepositoryContainer, TestProviderProps>(binding)
 
 renderWithProviders(<EmprestimosPage />, { providerProps: { session } })
 ```
@@ -128,11 +118,7 @@ renderWithProviders(<EmprestimosPage />, { providerProps: { session } })
 ### `createRenderHookWithProviders(binding)`
 
 ```ts
-function createRenderHookWithProviders<
-  C extends object = {},
-  P extends object = {},
-  U extends object = {},
->(
+function createRenderHookWithProviders<C extends object = {}, P extends object = {}, U extends object = {}>(
   binding: RenderWithProvidersBinding<C, P, U>,
 ): <Result, Props = undefined>(
   hook: (props: Props) => Result,
@@ -142,16 +128,14 @@ function createRenderHookWithProviders<
 
 Cria o `renderHookWithProviders` do app, com a **mesma ligação** do `createRenderWithProviders` (guarde-a numa constante e passe às duas funções): os mesmos `Providers`, repositórios em memória, `QueryClient` sem retry e rota em memória. Serve para testar um hook de query ou de mutation sem montar um componente de mentira.
 
-**Opções** (`RenderHookWithProvidersOptions<C, Props, P>`): as do `renderHook` do Testing Library (`initialProps`, `reactStrictMode`), menos `wrapper`, mais `path`, `repositories`, `useCases`, `queryClient` e `providerProps`, que valem como no `renderWithProviders`.
+**Opções** (`RenderHookWithProvidersOptions<C, Props, P, U>`): as do `renderHook` do Testing Library (`initialProps`, `reactStrictMode`), menos `wrapper`, mais `path`, `repositories`, `useCases`, `queryClient` e `providerProps`, que valem como no `renderWithProviders`.
 
-**Resultado** (`RenderHookWithProvidersResult<C, Result, Props>`): o do `renderHook` (`result`, `rerender`, `unmount`) e os campos `queryClient`, `repositories`, `useCases`, `history`, `navigate` e `currentPath` do `renderWithProviders`.
+**Resultado** (`RenderHookWithProvidersResult<C, Result, Props, U>`): o do `renderHook` (`result`, `rerender`, `unmount`) e os campos `queryClient`, `repositories`, `useCases`, `history`, `navigate` e `currentPath` do `renderWithProviders`.
 
 ### `createTestQueryClient(createQueryClient)`
 
 ```ts
-function createTestQueryClient(
-  createQueryClient: (defaultOptions: DefaultOptions) => QueryClient,
-): QueryClient
+function createTestQueryClient(createQueryClient: (defaultOptions: DefaultOptions) => QueryClient): QueryClient
 ```
 
 Um `QueryClient` isolado, sem retry em queries e mutations, para a falha aparecer na hora. Recebe a fábrica do `QueryClient` do app, para manter o tratamento de erro dele se quiser.
@@ -159,10 +143,7 @@ Um `QueryClient` isolado, sem retry em queries e mutations, para a falha aparece
 ### `createTestRepositories(createContainer, overrides?)`
 
 ```ts
-function createTestRepositories<C extends object>(
-  createContainer: () => C,
-  overrides?: Partial<C>,
-): C
+function createTestRepositories<C extends object>(createContainer: () => C, overrides?: Partial<C>): C
 ```
 
 O container do app com os `overrides` aplicados por cima.
@@ -228,13 +209,14 @@ O contrato de um repositório ou de um use case é o que o app espera dele, não
 ```ts
 function defineContractSuite<R extends object>(
   name: string,
-  cases: (context: { repo: R; create: () => R }) => void,
+  cases: (context: { subject: R; repo: R; create: () => R }) => void,
 ): ContractSuite<R>
 ```
 
 Declara o contrato. `cases` registra os `it` e `describe` do Vitest e recebe:
 
-- **`repo`**: a instância do teste em andamento (o repositório ou o use case; renomeie-a na desestruturação, `({ repo: signIn })`), uma instância nova por teste, criada antes dele. É uma referência estável que repassa tudo para a instância do teste atual, então se usa como uma variável comum: `vi.spyOn(repo, 'list')` vê as chamadas (use o spy que o `spyOn` devolve), `repo.list = ...` troca o método só naquele teste, `repo instanceof MockRepository` vale, e os métodos saem presos à instância (`repo.list === repo.list`). Ler métodos de `repo` fora de um teste ou de um hook lança erro. Uma propriedade não configurável é recusada.
+- **`subject`**: o objeto do contrato no teste em andamento (o repositório ou o use case), uma instância nova por teste, criada antes dele. É uma referência estável que repassa tudo para a instância do teste atual, então se usa como uma variável comum: `vi.spyOn(subject, 'list')` vê as chamadas (use o spy que o `spyOn` devolve), `subject.list = ...` troca o método só naquele teste, `subject instanceof MockRepository` vale, e os métodos saem presos à instância (`subject.list === subject.list`). Ler métodos de `subject` fora de um teste ou de um hook lança erro. Uma propriedade não configurável é recusada.
+- **`repo`**: o mesmo objeto de `subject`, com o nome de quando o contrato era só de repositórios. Marcado como `@deprecated`; sai junto com o módulo de repositórios.
 - **`create`**: cria mais uma instância no estado de partida, para o teste que precisa de duas.
 
 Os `beforeEach` e `afterEach` declarados em `cases` (um relógio falso, por exemplo) rodam **antes** da criação do repositório, e os `afterEach`, **depois** do `dispose`.
@@ -254,10 +236,10 @@ function runContractSuite<R extends object>(
 
 Roda o contrato contra uma implementação, num `describe` com o título `<nome do contrato>: <nome da implementação>`. Chame uma vez por implementação.
 
-| Campo     | Descrição                                                                                                                     |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `name`    | O nome da implementação, que entra no título (`MockClientesRepository`)                                                       |
-| `create`  | Cria uma instância nova, no estado de partida. Chamado uma vez por teste e a cada `create` do contexto                        |
+| Campo     | Descrição                                                                                                  |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| `name`    | O nome da implementação, que entra no título (`MockClientesRepository`)                                     |
+| `create`  | Cria uma instância nova, no estado de partida. Chamado uma vez por teste e a cada `create` do contexto     |
 | `dispose` | Libera o que as instâncias do teste deixaram (um banco, uma API de teste). Roda depois de cada teste, também quando ele falha |
 
 **Os dados.** Os casos que dependem dos dados do mock (as fixtures) só valem para uma implementação que parte dos mesmos dados: semeie a outra implementação com as mesmas fixtures no `create`, ou deixe esses casos fora do contrato dela. Os casos que não dependem de dados (ordenação, validação, erros, concorrência) valem para qualquer implementação.
@@ -267,9 +249,9 @@ Roda o contrato contra uma implementação, num `describe` com o título `<nome 
 ```ts
 const clientesContract = defineContractSuite<IClientesRepository>(
   'IClientesRepository contract',
-  ({ repo }) => {
+  ({ subject: clientes }) => {
     it('lista as fixtures, com ids únicos', async () => {
-      const { items, total } = await repo.list()
+      const { items, total } = await clientes.list()
       expect(total).toBe(MOCK_CLIENTES.length)
       expect(new Set(items.map((item) => item.id)).size).toBe(MOCK_CLIENTES.length)
     })
@@ -287,7 +269,7 @@ runContractSuite(clientesContract, {
 ```ts
 const signInContract = defineContractSuite<IUseCase<SignInInput, SignInOutput>>(
   'SignInUseCase contract',
-  ({ repo: signIn }) => {
+  ({ subject: signIn }) => {
     it('devolve o token e o usuário', async () => {
       const output = await signIn.execute({ email: 'ana@x.com', password: '12345678' })
       expect(output.token).not.toBe('')

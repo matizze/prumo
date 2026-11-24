@@ -165,9 +165,9 @@ describe('toArgv com valor que parece opção', () => {
       // O programa raiz não pode agir sobre o valor: nem versão, nem ajuda
       let out = ''
       const result = await run(argv, { cwd: '/nao-existe', out: (t) => void (out += t), err: (t) => void (out += t) })
-      // O resultado é o do comando: a pasta não existe, uso errado (2)
+      // O resultado é o do comando: não há projeto a partir da pasta, uso errado (2)
       expect(result).toBe(2)
-      expect(out.startsWith("prumo: a pasta '/nao-existe' não existe.")).toBe(true)
+      expect(out.startsWith("prumo: nenhum projeto Prumo achado a partir de '/nao-existe'")).toBe(true)
     },
   )
 })

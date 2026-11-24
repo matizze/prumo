@@ -153,14 +153,14 @@ describe('resultOf', () => {
   )!
 
   it('o check com violação (código 1) é resultado', () => {
-    expect(resultOf(check, 1, '', 'a.ts  [regra]  x\n\nprumo check: 1 violação.\n').isError).toBe(false)
+    expect(resultOf(check, { code: 1, kind: 'exit' }, '', 'a.ts  [regra]  x\n\nprumo check: 1 violação.\n').isError).toBe(false)
   })
 
-  it('o erro inesperado (código 1, no stderr) é erro, mesmo no check', () => {
-    expect(resultOf(check, 1, '', 'prumo: erro inesperado.\nError: x\n').isError).toBe(true)
+  it('o erro inesperado (código 1) é erro, mesmo no check', () => {
+    expect(resultOf(check, { code: 1, kind: 'unexpected' }, '', 'prumo: erro inesperado: x\n').isError).toBe(true)
   })
 
   it('outro código no check é erro', () => {
-    expect(resultOf(check, 2, '', 'prumo: x\n').isError).toBe(true)
+    expect(resultOf(check, { code: 2, kind: 'usage' }, '', 'prumo: x\n').isError).toBe(true)
   })
 })

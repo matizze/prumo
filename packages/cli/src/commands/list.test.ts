@@ -60,10 +60,10 @@ describe('listProject', () => {
       'useRemoveLivro',
     ])
     expect(listing.pages).toEqual([
-      { name: 'item', route: '/item/:id', routeKind: 'literal', routePartial: false, variation: 'parametro', query: null },
-      { name: 'livro', route: '/livros/:id', routeKind: 'literal', routePartial: false, variation: 'detalhe', query: 'livros' },
-      { name: 'livros-lista', route: '/livros-lista', routeKind: 'literal', routePartial: false, variation: 'lista', query: 'livros' },
-      { name: 'sobre', route: '/sobre', routeKind: 'literal', routePartial: false, variation: 'titulo', query: null },
+      { name: 'item', route: '/item/:id', routeKind: 'literal', routePartial: false, variation: 'param', query: null },
+      { name: 'livro', route: '/livros/:id', routeKind: 'literal', routePartial: false, variation: 'detail', query: 'livros' },
+      { name: 'livros-lista', route: '/livros-lista', routeKind: 'literal', routePartial: false, variation: 'list', query: 'livros' },
+      { name: 'sobre', route: '/sobre', routeKind: 'literal', routePartial: false, variation: 'title', query: null },
     ])
     expect(listing.languages).toEqual(['en', 'pt-BR'])
   })
@@ -96,7 +96,7 @@ describe('listProject', () => {
     const app = path.join(root, 'src/App.tsx')
     writeFileSync(app, readFileSync(app, 'utf8').replace(/\s*<Route path="\/sobre">[\s\S]*?<\/Route>/, ''))
     expect(listProject(fixtureProjectAt(root)).pages).toEqual([
-      { name: 'sobre', route: null, routeKind: null, routePartial: false, variation: 'titulo', query: null },
+      { name: 'sobre', route: null, routeKind: null, routePartial: false, variation: 'title', query: null },
     ])
   })
 
@@ -119,7 +119,7 @@ export default function App() {
       ['usuarios'],
     )
     expect(listProject(fixtureProjectAt(root)).pages).toEqual([
-      { name: 'usuarios', route: '/admin/usuarios/:id', routeKind: 'literal', routePartial: false, variation: 'parametro', query: null },
+      { name: 'usuarios', route: '/admin/usuarios/:id', routeKind: 'literal', routePartial: false, variation: 'param', query: null },
     ])
   })
 
@@ -308,7 +308,7 @@ describe('prumo list', () => {
       const result = await exec(args, dir)
       expect(result.code).toBe(2)
       expect(result.stdout).toBe('')
-      expect(result.stderr).toContain('não tem package.json')
+      expect(result.stderr).toContain('nenhum projeto Prumo achado a partir de')
     }
   })
 })

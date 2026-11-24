@@ -9,7 +9,7 @@ export class ExitError extends Error {
   }
 }
 
-/** Uso errado do comando: sai com 2, escreve `prumo: <mensagem>` e a ajuda do comando no stderr. */
+/** Uso errado do comando: sai com 2 e escreve `prumo: <mensagem>` no stderr. A mensagem já diz o que fazer. */
 export class UsageError extends Error {
   constructor(message: string) {
     super(message)

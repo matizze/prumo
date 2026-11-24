@@ -31,6 +31,12 @@ Sem instalar nada:
 pnpm dlx @matizze/prumo-cli --help
 ```
 
+## A busca do projeto
+
+Os comandos que trabalham num projeto (`make:*`, `check`, `list` e `mcp`) o procuram a partir da pasta atual, subindo: o projeto é a primeira pasta que tem `package.json` e `src`, como o git acha o `.git`. Por isso `prumo make:page sobre` funciona de dentro de `src/pages`, e o projeto mais perto ganha do que está acima (um monorepo com vários apps).
+
+Com `--root <pasta>`, não há busca: o projeto é aquela pasta exata, e uma pasta sem `package.json` ou sem `src` sai com 2 e o motivo (`a pasta '...' não tem package.json: aponte --root para a raiz do projeto.`). Sem `--root` e sem achar nenhum projeto até a raiz do disco, sai com 2 dizendo de que pasta partiu a busca e sugerindo o `--root`. O `new` não procura: cria `<dir>/<nome>`.
+
 ## `prumo new`
 
 ```text
@@ -44,12 +50,13 @@ Cria `<dir>/<nome>`: um app com Vite, React 19, TypeScript, wouter, TanStack Que
 | `<nome>`            | O nome do app, em kebab-case (`meu-app`): a pasta e o `name` do `package.json`                                               |
 | `--dir <pasta>`     | A pasta onde criar `<nome>` (padrão: a pasta atual; a que falta é criada)                                                    |
 | `--no-install`      | Não roda o `pnpm install`: só cria os arquivos                                                                               |
-| `--packages <pasta>` | Uma pasta com os tarballs dos pacotes `@matizze/prumo-*` (os do `pnpm pack:all`), instalados no lugar do registry, por `pnpm.overrides` com `file:` |
 | `--dry-run`         | Lista o que seria criado e não escreve nada                                                                                  |
+
+A opção `--packages <pasta>` serve ao portão do monorepo (`pnpm verify:new`) e a quem contribui com o Prumo, e por isso não aparece na ajuda: ela instala os tarballs dos pacotes `@matizze/prumo-*` da pasta (os do `pnpm pack:all`) no lugar do registry, por `pnpm.overrides` com `file:`. A pasta precisa ter o tarball dos quatro pacotes.
 
 O que o comando faz, nesta ordem:
 
-1. Confere tudo antes de escrever: o nome (kebab-case, até 214 caracteres), a pasta de destino (`<dir>/<nome>` não pode existir com conteúdo; uma pasta vazia serve) e os tarballs de `--packages` (a pasta precisa ter o tarball dos quatro pacotes). Qualquer problema sai com código `2`, sem deixar nada pela metade.
+1. Confere tudo antes de escrever: o nome (kebab-case, até 214 caracteres), a pasta de destino (`<dir>/<nome>` não pode existir com conteúdo; uma pasta vazia serve) e os tarballs de `--packages`, se foi dada. Qualquer problema sai com código `2`, sem deixar nada pela metade.
 2. Monta o plano do app inteiro e só então o grava.
 3. Roda `git init` (sem commit: o primeiro commit é seu).
 4. Roda `pnpm install`, a não ser com `--no-install`. Se o `pnpm install` falha, o comando sai com `1` e o app fica criado.
@@ -74,7 +81,7 @@ O `<domínio>` é o nome do domínio, no plural e em kebab-case (`clientes`, `pe
 | --------------------- | ------------------------------------------------------------------------------------------ |
 | `--entity <singular>` | A entidade, no singular (`paes` com `--entity pao`). Padrão: o nome sem o `s` final        |
 | `--fields <campos>`   | Os campos da entidade (formato abaixo). Padrão: só `name:string`                           |
-| `--root <pasta>`      | A pasta do projeto, a que tem o `src` (padrão: a pasta atual)                              |
+| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta atual ou a primeira acima com `package.json` e `src` ([a busca](#a-busca-do-projeto)) |
 | `--dry-run`           | Lista o que seria criado e alterado, sem escrever nada                                     |
 
 ### O formato do `--fields`
@@ -131,7 +138,7 @@ O `<domínio>` e o `--entity` são os do `make:schema`: se o schema saiu com `--
 | --------------------- | ----------------------------------------------------------------------------------- |
 | `--entity <singular>` | A entidade, no singular, a mesma do `make:schema`. Padrão: o nome sem o `s` final   |
 | `--data-source <fonte>` | `mock` (padrão), `http` ou `storage`. Outro valor sai com 2                       |
-| `--root <pasta>`      | A pasta do projeto, a que tem o `src` (padrão: a pasta atual)                       |
+| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta atual ou a primeira acima com `package.json` e `src` ([a busca](#a-busca-do-projeto)) |
 | `--dry-run`           | Lista o que seria criado e alterado, sem escrever nada                              |
 
 O comando valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada pela metade: a fonte que não existe (`--data-source graphql`), a fonte que o repositório já tem, o schema que falta (a mensagem traz o `prumo make:schema` com o `--entity` certo e, se há schemas sem repositório, lembra de repetir o `--entity` e lista os nomes deles), o repositório que já existe (sem `--data-source`, ou com `mock`), um campo do schema que não se lê e um container (`src/repositories/index.ts`) sem o mapa `factories`. No fim, mostra o que criou e alterou e o próximo passo: `prumo make:query <domínio>`.
@@ -195,7 +202,7 @@ Cria uma tela: `src/pages/<nome>/` com `index.tsx` (liga o model à view), `mode
 | ------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `--query <domínio>` | O domínio cuja query a tela usa (`clientes`). Precisa de `src/queries/<domínio>.ts`. Padrão: nenhum              |
 | `--path <caminho>`  | O caminho da rota, com um parâmetro opcional (`/clientes/:id`). Padrão: `/<nome>`                                 |
-| `--root <pasta>`    | A pasta do projeto, a que tem o `src`. Padrão: a pasta atual                                                      |
+| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta atual ou a primeira acima com `package.json` e `src` ([a busca](#a-busca-do-projeto)) |
 | `--dry-run`         | Só lista o que seria criado e alterado, sem escrever nada                                                         |
 
 As quatro variações:
@@ -229,13 +236,13 @@ Confere as pastas de `src/components`, o uso de `components/shared` pelas telas,
 
 | Opção             | O que faz                                                     |
 | ----------------- | ------------------------------------------------------------- |
-| `--root <pasta>`  | A pasta do projeto, a que tem o `src` (padrão: a pasta atual) |
+| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta atual ou a primeira acima com `package.json` e `src` ([a busca](#a-busca-do-projeto)) |
 
 | Código | Quando                                                                          |
 | ------ | ------------------------------------------------------------------------------- |
 | `0`    | Nenhuma violação                                                                |
 | `1`    | Há violação                                                                     |
-| `2`    | A pasta não existe ou não é um projeto (sem `package.json` e `src`)             |
+| `2`    | Nenhum projeto achado, ou o `--root` não existe ou não é um projeto (sem `package.json` e `src`) |
 
 ## `prumo list`
 
@@ -243,7 +250,7 @@ Confere as pastas de `src/components`, o uso de `components/shared` pelas telas,
 prumo list [--root <pasta>] [--json]
 ```
 
-Mostra o que o projeto tem, lendo os arquivos. Nunca escreve. Sai com 2 se a pasta não é um projeto (sem `package.json` e `src`), como o `check`. Sem `--json`, escreve uma seção por tipo, em português, com uma linha por item; a seção vazia diz `nenhum`:
+Mostra o que o projeto tem, lendo os arquivos. Nunca escreve. Sai com 2 se não acha um projeto (sem `package.json` e `src`), como o `check`. Sem `--json`, escreve uma seção por tipo, em português, com uma linha por item; a seção vazia diz `nenhum`:
 
 ```text
 Schemas (1):
@@ -264,11 +271,11 @@ Idiomas (2):
   pt-BR
 ```
 
-Na tela, `rota: curinga` é a `<Route>` sem `path` (ou com `path="*"`), `rota: {expressão} (expressão)` é um `path` que não é literal e `rota: nenhuma` é a tela que nenhuma `<Route>` usa. Um schema que o leitor do Prumo recusa (editado à mão com algo fora dos tipos do `--fields`) aparece como `editado à mão (<motivo>)`, com a primeira linha da mensagem do leitor (no máximo 160 caracteres).
+Na linha da tela, a variação tem rótulo em português (`titulo`, `lista`, `parametro` ou `detalhe`; o `--json` traz os valores em inglês, abaixo). `rota: curinga` é a `<Route>` sem `path` (ou com `path="*"`), `rota: {expressão} (expressão)` é um `path` que não é literal e `rota: nenhuma` é a tela que nenhuma `<Route>` usa. Um schema que o leitor do Prumo recusa (editado à mão com algo fora dos tipos do `--fields`) aparece como `editado à mão (<motivo>)`, com a primeira linha da mensagem do leitor (no máximo 160 caracteres).
 
 | Opção             | O que faz                                                     |
 | ----------------- | ------------------------------------------------------------- |
-| `--root <pasta>`  | A pasta do projeto, a que tem o `src` (padrão: a pasta atual) |
+| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta atual ou a primeira acima com `package.json` e `src` ([a busca](#a-busca-do-projeto)) |
 | `--json`          | Escreve o levantamento em JSON, no formato abaixo             |
 
 ### A saída `--json`
@@ -300,7 +307,7 @@ Um objeto com cinco listas, sempre presentes (vazias quando não há nada), orde
       "route": "/livros/:id",
       "routeKind": "literal",
       "routePartial": false,
-      "variation": "detalhe",
+      "variation": "detail",
       "query": "livros"
     }
   ],
@@ -325,7 +332,7 @@ Um objeto com cinco listas, sempre presentes (vazias quando não há nada), orde
 |                | `route`     | A rota da tela no `src/App.tsx`: o `path` da `<Route>` mais interna que a usa, composto com os `<Route nest>` de fora (`/admin` + `/usuarios` vira `/admin/usuarios`); `*` para a curinga (sem `path`, ou `path="*"`); o texto da expressão de um `path={...}` que não é literal (por exemplo, `{ROUTES.lenta}`); `null` só quando nenhuma `<Route>` usa a tela. A tela pode vir de um `import` padrão ou de um `lazy(() => import('@/pages/<nome>'))` |
 |                | `routeKind` | `literal`, `catchAll` ou `expression`; `null` quando `route` é `null`                                                                  |
 |                | `routePartial` | `true` quando um `<Route nest>` de fora não tem `path` literal e não deu para compor: `route` é só o caminho da `<Route>` de dentro |
-|                | `variation` | `titulo` (só o título), `lista` (com query), `parametro` (rota com parâmetro) ou `detalhe` (query e parâmetro)                          |
+|                | `variation` | `title` (só o título), `list` (com query), `param` (rota com parâmetro) ou `detail` (query e parâmetro)                                  |
 |                | `query`     | O domínio da query que o model da tela importa de `@/queries`; `null` se não usa                                                        |
 | `languages`    |             | As pastas de `src/messages`, em ordem                                                                                                  |
 
@@ -335,7 +342,7 @@ Um objeto com cinco listas, sempre presentes (vazias quando não há nada), orde
 prumo mcp [--root <pasta>]
 ```
 
-Abre o servidor MCP do projeto, por stdio, para um agente de IA usar o Prumo sem passar pelo terminal. Confere que a pasta é um projeto (como o `check`: sai com 2 se não tem `package.json` e `src`) e só então carrega o SDK do MCP, que fica fora dos outros comandos. O servidor se anuncia como `prumo`, com a versão da CLI, e só termina quando o cliente fecha.
+Abre o servidor MCP do projeto, por stdio, para um agente de IA usar o Prumo sem passar pelo terminal. Acha o projeto como o `check` (sai com 2 se não acha um com `package.json` e `src`) e só então carrega o SDK do MCP, que fica fora dos outros comandos. O servidor se anuncia como `prumo`, com a versão da CLI, e só termina quando o cliente fecha.
 
 O stdout é do protocolo: nada além dele sai ali com o servidor no ar (o `console.log` vai para o stderr). Por isso, não rode o comando à mão: ligue-o ao agente. Num projeto que não saiu do `prumo new`, cole no `.mcp.json` da raiz:
 
@@ -349,14 +356,14 @@ O stdout é do protocolo: nada além dele sai ali com o servidor no ar (o `conso
 
 | Opção           | O que faz                                                          |
 | --------------- | ------------------------------------------------------------------ |
-| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta onde abriu |
+| `--root <pasta>` | A pasta do projeto, a que tem o `src`. Padrão: a pasta atual ou a primeira acima com `package.json` e `src` ([a busca](#a-busca-do-projeto)) |
 
 ### As ferramentas
 
 Uma ferramenta por comando, menos `new` e `mcp`. Elas saem da árvore de comandos da CLI: um comando novo vira ferramenta sem outra lista para manter.
 
 - **Nome:** o do comando, com `:` trocado por `_` (`make:schema` vira `make_schema`).
-- **Descrição:** o resumo e a descrição do comando, os mesmos da ajuda.
+- **Descrição:** o resumo e a descrição do comando, os mesmos da ajuda (sem a seção de exemplos).
 - **Entrada:** os argumentos posicionais (obrigatórios) e as opções, com nomes em snake_case sem acento: `<domínio>` vira `dominio`, `--data-source` vira `data_source`, `--dry-run` vira `dry_run`. Opção com valor é `string` (com `enum` quando o comando lista os valores); opção sem valor é `boolean`; `--no-<x>` vira `<x>: boolean`, com `true` de padrão. O posicional não pode começar com `-`. Campo fora do esquema é recusado.
 - **Fora da entrada:** `--root`, `--help` e `--version`. Nenhuma ferramenta recebe a pasta: o agente só escreve no projeto onde o servidor abriu. No `list`, o `--json` também não é campo: a ferramenta sempre o passa.
 
@@ -375,7 +382,7 @@ Os parâmetros têm o significado das opções do comando de mesmo nome (veja as
 
 A entrada vira a linha de comando (`['make:schema', '--fields=...', '--', 'livros']`: a opção de valor vai como `--opção=valor` e os posicionais depois de `--`, para nenhum valor ser lido como opção) e roda em processo, na pasta do projeto, com a saída capturada. O resultado é o texto da saída: o stdout e, se houver, o stderr. A ferramenta `list` devolve o JSON do `prumo list --json`.
 
-- `isError` é verdadeiro quando o código de saída não é 0, com a mensagem em português (o erro de uso traz o `prumo: ...` e a ajuda do comando).
+- `isError` é verdadeiro quando o código de saída não é 0, com a mensagem em português (o erro de uso traz o `prumo: ...`, com a linha de uso quando o erro é de opção ou argumento).
 - O `check` com violação (código 1) não é erro: volta com `isError` falso e as violações no texto, para o agente corrigir.
 - As chamadas rodam uma de cada vez, numa fila, para duas escritas no mesmo projeto não se cruzarem.
 
@@ -386,11 +393,11 @@ A entrada vira a linha de comando (`['make:schema', '--fields=...', '--', 'livro
 | `-v, --version`   | Mostra a versão.    |
 | `-h, --help`      | Mostra esta ajuda.  |
 
-`prumo` sem argumentos mostra a ajuda. Não há o subcomando `help`: use `prumo <comando> --help` para a ajuda de um comando.
+`prumo` sem argumentos mostra a ajuda.
 
 ## A ajuda
 
-A ajuda é toda em português, com os cabeçalhos `Uso:`, `Argumentos:`, `Opções:` e `Comandos:`:
+A ajuda é toda em português, com os cabeçalhos `Uso:`, `Argumentos:`, `Opções:` e `Comandos:`. A da raiz termina com o link desta documentação:
 
 ```text
 Uso: prumo [opções] [comando]
@@ -419,26 +426,61 @@ Comandos:
   list [opções]                       Mostra o que o projeto tem: schemas,
                                       repositórios, queries, telas e idiomas.
   mcp [opções]                        Abre o servidor MCP do projeto, por stdio.
+  help [comando]                      Mostra a ajuda de um comando.
+
+Documentação: https://docs.prumo.matizze.com.br/reference/cli
 ```
+
+A ajuda de cada comando é enxuta: uma ou duas linhas de descrição, as opções, uma seção `Exemplos:` com usos reais e a linha `Referência:` com o link da seção dele nesta página. O detalhe (o que cada comando cria, o que valida) está aqui.
+
+`prumo help <comando>` mostra a ajuda do comando, o mesmo que `prumo <comando> --help`, e sai com 0. O `help` existe só na raiz: `prumo help make:page`.
+
+O trecho do `.mcp.json` que `prumo mcp --help` mostra sai inteiro, sem quebra de linha, em qualquer largura de terminal, para copiar e colar.
 
 ## Códigos de saída
 
 | Código | Quando                                                                                                   |
 | ------ | -------------------------------------------------------------------------------------------------------- |
-| `0`    | Sem erro, inclusive `--help`, `--version` e `prumo` sem argumentos                                       |
-| `1`    | Erro inesperado (a pilha vai para o stderr) ou, nos comandos que o definem, o resultado do comando (`check` com violação; `new` com o `pnpm install` que falhou) |
-| `2`    | Uso errado: comando ou opção desconhecidos, argumento que falta ou a mais, opção sem valor, valor inválido |
+| `0`    | Sem erro, inclusive `--help`, `--version`, `help` e `prumo` sem argumentos                               |
+| `1`    | Erro inesperado ou, nos comandos que o definem, o resultado do comando (`check` com violação; `new` com o `pnpm install` que falhou) |
+| `2`    | Uso errado: comando ou opção desconhecidos, argumento que falta ou a mais, opção sem valor, valor inválido, nome inválido, projeto ou domínio que não existe |
 
-Os comandos que escrevem (`new` e os `make:*`) também saem com 2, sem escrever nada, quando um arquivo que iam gravar leva para fora do projeto por um link simbólico (o próprio `src`, uma pasta dentro dele ou um arquivo como o `App.tsx` sendo link para fora) ou passa por um link quebrado: antes de gravar, eles conferem o caminho real de cada arquivo, como o sistema o resolve, e a mensagem diz qual é o link (sem a ajuda do comando). O `--dry-run` faz a mesma conferência. Link dentro do projeto que aponta para dentro dele continua valendo; link físico (hard link) não é detectado.
+Os comandos que escrevem (`new` e os `make:*`) também saem com 2, sem escrever nada, quando um arquivo que iam gravar leva para fora do projeto por um link simbólico (o próprio `src`, uma pasta dentro dele ou um arquivo como o `App.tsx` sendo link para fora) ou passa por um link quebrado: antes de gravar, eles conferem o caminho real de cada arquivo, como o sistema o resolve, e a mensagem diz qual é o link. O `--dry-run` faz a mesma conferência. Link dentro do projeto que aponta para dentro dele continua valendo; link físico (hard link) não é detectado.
 
-No uso errado, o stderr traz a mensagem em português, no formato `prumo: opção desconhecida: '--x'.`, seguida da ajuda do comando:
+### Mensagens de erro
+
+Todo erro começa com `prumo: ` e vai para o stderr. Há três formas.
+
+**Erro de opção ou de argumento** (opção desconhecida, argumento que falta, valor inválido): a mensagem, a linha de uso do comando e como pedir a ajuda, sem a ajuda inteira:
 
 ```text
-$ prumo --x
-prumo: opção desconhecida: '--x'.
+$ prumo make:page
+prumo: falta o argumento <nome>.
 
-Uso: prumo [opções] [comando]
-...
+Uso: prumo make:page [opções] <nome>
+Veja 'prumo make:page --help'.
 ```
 
-Quando há um nome parecido, a mensagem sugere: `prumo: comando desconhecido: 'make:pag'. Você quis dizer make:page?`.
+Na raiz, sem comando, o fim é `Veja 'prumo --help'.`. Quando há um nome parecido, a mensagem sugere: `prumo: comando desconhecido: 'make:pag'. Você quis dizer make:page?`.
+
+**Erro do comando** (domínio que não existe, nome inválido, pasta que não é projeto): só a mensagem, que já diz o que fazer.
+
+```text
+$ prumo make:query livros
+prumo: falta o repositório livros (src/repositories/livros); rode prumo make:repository livros.
+```
+
+**Erro inesperado** (um defeito, não um uso errado): sai com 1, a mensagem e como ver a pilha. A pilha só aparece com `PRUMO_DEBUG=1`:
+
+```text
+$ prumo list
+prumo: erro inesperado: EACCES: permission denied
+Rode de novo com PRUMO_DEBUG=1 para ver a pilha.
+
+$ PRUMO_DEBUG=1 prumo list
+prumo: erro inesperado: EACCES: permission denied
+Error: EACCES: permission denied
+    at ...
+```
+
+Se você abrir uma issue de um erro inesperado, rode antes com `PRUMO_DEBUG=1` e anexe a pilha.

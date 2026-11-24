@@ -60,7 +60,7 @@ export interface ListedQuery {
 
 export type RouteKind = 'literal' | 'catchAll' | 'expression'
 
-export type PageVariation = 'titulo' | 'lista' | 'parametro' | 'detalhe'
+export type PageVariation = 'title' | 'list' | 'param' | 'detail'
 
 /** Uma tela de `src/pages/`. */
 export interface ListedPage {
@@ -76,7 +76,7 @@ export interface ListedPage {
   routeKind: RouteKind | null
   /** O caminho de fora (`<Route nest>`) não é literal e não deu para compor: `route` é só o da `<Route>` de dentro. */
   routePartial: boolean
-  /** `titulo` (só o título), `lista` (com query), `parametro` (rota com parâmetro) ou `detalhe` (os dois). */
+  /** `title` (só o título), `list` (com query), `param` (rota com parâmetro) ou `detail` (os dois). */
   variation: PageVariation
   /** O domínio da query que a tela usa; `null` se não usa. */
   query: string | null
@@ -346,11 +346,11 @@ function listPages(project: Project, queries: ListedQuery[]): ListedPage[] {
       /\buseParams\b/.test(model) || (found?.kind === 'literal' && found.route.includes('/:'))
     const variation: PageVariation = query
       ? param
-        ? 'detalhe'
-        : 'lista'
+        ? 'detail'
+        : 'list'
       : param
-        ? 'parametro'
-        : 'titulo'
+        ? 'param'
+        : 'title'
     result.push({
       name: entry.name,
       route: found?.route ?? null,

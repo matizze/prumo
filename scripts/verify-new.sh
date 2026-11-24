@@ -121,7 +121,7 @@ stage_cli() {
       if (!l.queries.some((q) => q.domain === d)) fail("falta a query " + d)
     }
     const pages = Object.fromEntries(l.pages.map((p) => [p.name, p.variation + ":" + p.route + ":" + p.query]))
-    const want = { home: "titulo:/:null", sobre: "titulo:/sobre:null", clientes: "lista:/clientes:clientes", cliente: "detalhe:/clientes/:id:clientes", livros: "lista:/livros:livros", livro: "detalhe:/livros/:id:livros", perfil: "parametro:/perfil/:usuario:null", pedidos: "lista:/pedidos:pedidos", fase: "detalhe:/fases/:id:fases-2" }
+    const want = { home: "title:/:null", sobre: "title:/sobre:null", clientes: "list:/clientes:clientes", cliente: "detail:/clientes/:id:clientes", livros: "list:/livros:livros", livro: "detail:/livros/:id:livros", perfil: "param:/perfil/:usuario:null", pedidos: "list:/pedidos:pedidos", fase: "detail:/fases/:id:fases-2" }
     for (const [n, v] of Object.entries(want)) if (pages[n] !== v) fail("tela " + n + ": " + pages[n] + " (esperado " + v + ")")
     if (l.languages.join(",") !== "en,pt-BR") fail("idiomas: " + l.languages)
   '

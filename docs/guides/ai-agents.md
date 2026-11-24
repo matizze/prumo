@@ -100,20 +100,15 @@ Quando o comando falha, o resultado volta com `isError` e a mensagem em portugu�
 
 ```text
 prumo: a query 'nada' não existe: falta src/queries/nada.ts; rode prumo make:query nada.
-
-Uso: prumo make:page [opções] <nome>
-
-Cria uma tela nova: index, model, view, teste, mensagens e rota.
-...
 ```
 
-Depois da mensagem vem a ajuda do comando (aqui, só o começo dela).
+A mensagem diz o que fazer, e o agente a segue (aqui, gerar a query antes). O erro de opção ou argumento traz também a linha de uso do comando.
 
 O `check` com violação não é erro: volta como resultado, com as violações no texto.
 
 ## O `list` antes de gerar
 
-A ferramenta `list` devolve o que o projeto já tem: os schemas com os campos, os repositórios e suas fontes, as queries, as telas (rota, variação e query) e os idiomas. O agente a chama antes de gerar, para não repetir um domínio, escolher a query certa para a tela e saber a ordem das camadas que faltam. O resultado é o JSON do `prumo list --json`:
+A ferramenta `list` devolve o que o projeto já tem: os schemas com os campos, os repositórios e suas fontes, as queries, as telas (rota, variação e query; a variação é `title`, `list`, `param` ou `detail`) e os idiomas. O agente a chama antes de gerar, para não repetir um domínio, escolher a query certa para a tela e saber a ordem das camadas que faltam. O resultado é o JSON do `prumo list --json`:
 
 ```json
 {
@@ -132,7 +127,7 @@ A ferramenta `list` devolve o que o projeto já tem: os schemas com os campos, o
   "repositories": [{ "domain": "pedidos", "entity": "Pedido", "sources": ["mock"] }],
   "queries": [],
   "pages": [
-    { "name": "home", "route": "/", "routeKind": "literal", "routePartial": false, "variation": "titulo", "query": null }
+    { "name": "home", "route": "/", "routeKind": "literal", "routePartial": false, "variation": "title", "query": null }
   ],
   "languages": ["en", "pt-BR"]
 }

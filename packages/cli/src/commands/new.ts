@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import { accessSync, constants, existsSync, readdirSync, rmSync, statSync } from 'node:fs'
 import path from 'node:path'
+import { Option } from 'commander'
 import { ExitError, UsageError } from '../errors.ts'
 import { generateApp } from '../generators/app.ts'
 import type { Io } from '../io.ts'
@@ -8,6 +9,7 @@ import { appNameProblem } from '../lib/names.ts'
 import { detectPnpmVersion, shellQuote } from '../lib/pnpm.ts'
 import { runChild } from '../lib/process.ts'
 import { readTarballs } from '../lib/tarballs.ts'
+import { addExamples } from './help-text.ts'
 import type { RegisterCommand } from './index.ts'
 
 /** O que o comando pede de fora do processo; os testes trocam por versões de mentira. */
@@ -111,25 +113,19 @@ function nextSteps(io: Io, destination: string, installed: boolean): string {
  */
 export function createNewCommand(deps: NewDeps = {}): RegisterCommand {
   return (program, io) => {
-    program
+    const command = program
       .command('new')
       .summary('Cria um app React mínimo do Prumo, sem CSS e sem design system.')
       .description(
-      `Cria um app React mínimo do Prumo, sem CSS e sem design system.
-
-Cria <dir>/<nome> com Vite, React 19, TypeScript, wouter, TanStack Query, zod e i18next (o que o @matizze/prumo-core usa), os pacotes do Prumo (core, rules, testing e cli), a estrutura de pastas (src/pages, src/components/shared, src/schemas, src/repositories, src/queries e src/messages), os provedores (query, i18n e repositórios), uma tela inicial (a mesma que o prumo make:page gera, na rota /), o eslint com o plugin do Prumo, o vitest com jsdom e o AGENTS.md. A fonte de dados padrão é o mock.
-
-O package.json do app fixa o pnpm em packageManager (pnpm@<versão>): a versão vem do pnpm que rodou o comando (npm_config_user_agent) ou, na falta dela, de pnpm --version; sem nenhuma das duas, o campo fica de fora.
-
-Os scripts do app são dev, build, typecheck, lint, check, test e verify (typecheck, lint, test e check, sem navegador). Os pacotes do Prumo entram como ^<versão>; com --packages, o app instala os tarballs da pasta (pnpm.overrides com file:), o que serve a quem ainda não tem os pacotes num registry. Roda git init (sem commit) e pnpm install, a não ser com --no-install.
-
-Valida antes de escrever: o nome (kebab-case), a pasta de destino (não pode existir com conteúdo) e os tarballs saem com código 2, sem deixar nada pela metade. --dry-run lista o que seria criado e não escreve nada. Os tarballs de --packages saem do pnpm pack:all, no monorepo do Prumo.`,
-    )
+        'Cria um app React mínimo do Prumo, sem CSS e sem design system.\n\nGera a estrutura em camadas e a tela inicial, roda git init e pnpm install.',
+      )
       .argument('<nome>', 'O nome do app, em kebab-case (meu-app): a pasta e o nome do pacote.')
       .option('--dir <pasta>', 'A pasta onde criar <nome>.', '.')
-      .option(
-        '--packages <pasta>',
-        'Uma pasta com os tarballs dos pacotes @matizze/prumo-* (pnpm pack:all), instalados no lugar do registry.',
+      .addOption(
+        new Option(
+          '--packages <pasta>',
+          'Uma pasta com os tarballs dos pacotes @matizze/prumo-* (pnpm pack:all), instalados no lugar do registry.',
+        ).hideHelp(),
       )
       .option('--no-install', 'Não roda o pnpm install: só cria os arquivos.')
       .option('--dry-run', 'Só lista o que seria criado, sem escrever nada.')
@@ -190,6 +186,11 @@ Valida antes de escrever: o nome (kebab-case), a pasta de destino (não pode exi
         }
         io.out(nextSteps(io, destination, install))
       })
+    addExamples(
+      command,
+      ['prumo new meu-app', 'prumo new meu-app --dir ~/projetos --no-install', 'prumo new meu-app --dry-run'],
+      'prumo-new',
+    )
   }
 }
 

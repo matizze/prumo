@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemods/test-support.ts'
@@ -128,6 +128,29 @@ describe('prumo make:page', () => {
     expect(result.stderr).toContain("conflita com a rota '/clientes/:id'")
     expect(existsSync(path.join(root, 'src/pages/novo'))).toBe(false)
     expect(read(root, 'src/App.tsx')).toBe(app)
+  })
+
+  it('de dentro de src/pages, acha o projeto subindo e gera no lugar certo', async () => {
+    const { root } = fixtureProject()
+    const inside = path.join(root, 'src/pages')
+    mkdirSync(inside, { recursive: true })
+    const result = await exec(['make:page', 'sobre'], inside)
+
+    expect(result.code, result.stderr).toBe(0)
+    expect(existsSync(path.join(root, 'src/pages/sobre/index.tsx'))).toBe(true)
+    expect(existsSync(path.join(inside, 'src'))).toBe(false)
+  })
+
+  it('com --root numa pasta sem projeto, não sobe: dá o erro da pasta', async () => {
+    const { root } = fixtureProject()
+    const inside = path.join(root, 'src/pages')
+    mkdirSync(inside, { recursive: true })
+    const result = await exec(['make:page', 'sobre', '--root', '.'], inside)
+
+    expect(result.code).toBe(2)
+    expect(result.stderr).toBe(
+      `prumo: a pasta '${inside}' não tem package.json: aponte --root para a raiz do projeto.\n`,
+    )
   })
 
   it('o comando dos testes usa o script test do projeto e a pasta dele, de fora', async () => {

@@ -1,4 +1,5 @@
 import { Command, CommanderError, Help, type Option } from 'commander'
+import { DOCS_URL } from './commands/help-text.ts'
 import { commands as builtinCommands, type RegisterCommand } from './commands/index.ts'
 import { ExitError, UsageError } from './errors.ts'
 import type { Io } from './io.ts'
@@ -77,6 +78,11 @@ class ParseUsageError extends UsageError {
     this.name = 'ParseUsageError'
     this.command = command
   }
+}
+
+/** O nome do comando com os de cima (`prumo make:page`), como se digita. */
+function commandPath(command: Command): string {
+  return command.parent ? `${commandPath(command.parent)} ${command.name()}` : command.name()
 }
 
 /** A sugestão do commander (`\n(Did you mean x?)`) em português. */
@@ -180,6 +186,8 @@ export function createProgram(io: Io, commands: readonly RegisterCommand[] = bui
     .description(DESCRIPTION)
     .version(readVersion(), '-v, --version', 'Mostra a versão.')
     .helpOption('-h, --help', 'Mostra esta ajuda.')
+    .helpCommand('help [comando]', 'Mostra a ajuda de um comando.')
+    .addHelpText('after', `\nDocumentação: ${DOCS_URL}/reference/cli\n`)
     .showSuggestionAfterError(true)
     .exitOverride()
     .configureOutput({
@@ -194,61 +202,71 @@ export function createProgram(io: Io, commands: readonly RegisterCommand[] = bui
   return program
 }
 
+/** Como a execução terminou: o código de saída e o motivo, para quem a chama não depender do texto do stderr. */
+export type Outcome = {
+  code: number
+  /** `ok` (0), `usage` (uso errado, 2), `exit` (o código de um `ExitError`) ou `unexpected` (erro inesperado, 1). */
+  kind: 'ok' | 'usage' | 'exit' | 'unexpected'
+}
+
+/** O erro de uso do commander: a mensagem, a linha de uso e como pedir a ajuda; sem a ajuda inteira. */
+function parseUsageText(error: ParseUsageError): string {
+  const { command } = error
+  const usage = `Uso: ${command.createHelp().commandUsage(command)}`
+  return `${NAME}: ${error.message}\n\n${usage}\nVeja '${commandPath(command)} --help'.\n`
+}
+
 /**
- * Roda o prumo com os argumentos (sem o `node` e o script) e devolve o código de saída; nunca encerra o
- * processo. 0: sem erro (inclusive `--help`, `--version` e nenhum argumento, que mostra a ajuda); 2: uso
- * errado; 1: erro inesperado; ou o código de um `ExitError`.
+ * Roda o prumo com os argumentos (sem o `node` e o script) e diz como terminou. Nunca encerra o
+ * processo. Com `PRUMO_DEBUG=1` no `io.env`, o erro inesperado traz a pilha.
  */
+export async function execute(
+  argv: readonly string[],
+  io: Io,
+  commands: readonly RegisterCommand[] = builtinCommands,
+): Promise<Outcome> {
+  try {
+    const program = createProgram(io, commands)
+    if (argv.length === 0) {
+      program.outputHelp()
+      return { code: 0, kind: 'ok' }
+    }
+    await program.parseAsync([...argv], { from: 'user' })
+    return { code: 0, kind: 'ok' }
+  } catch (error) {
+    if (error instanceof ParseUsageError) {
+      io.err(parseUsageText(error))
+      return { code: 2, kind: 'usage' }
+    }
+    if (error instanceof UsageError) {
+      io.err(`${NAME}: ${error.message}\n`)
+      return { code: 2, kind: 'usage' }
+    }
+    if (error instanceof ExitError) {
+      if (error.message) io.err(`${error.message}\n`)
+      return { code: error.code, kind: 'exit' }
+    }
+    if (error instanceof CommanderError) {
+      // --help, --version e `help`: o commander já escreveu e pede saída 0
+      if (error.exitCode === 0) return { code: 0, kind: 'ok' }
+      // Comando com subcomandos chamado sem nenhum: o commander já mostrou a ajuda no stderr
+      if (error.code === 'commander.help') return { code: 2, kind: 'usage' }
+    }
+    const message = error instanceof Error ? error.message : String(error)
+    const debug = io.env?.PRUMO_DEBUG === '1'
+    const detail = debug
+      ? (error instanceof Error ? (error.stack ?? message) : message)
+      : 'Rode de novo com PRUMO_DEBUG=1 para ver a pilha.'
+    io.err(`${NAME}: erro inesperado: ${message}\n${detail}\n`)
+    return { code: 1, kind: 'unexpected' }
+  }
+}
+
+/** O mesmo que `execute`, só com o código de saída: 0 sem erro, 2 uso errado, 1 erro inesperado ou o código de um `ExitError`. */
 export async function run(
   argv: readonly string[],
   io: Io,
   commands: readonly RegisterCommand[] = builtinCommands,
 ): Promise<number> {
-  // O comando que está rodando, para mostrar a ajuda dele num UsageError (inclusive o lançado pelo
-  // parser de uma opção ou argumento, que roda antes da ação)
-  let current: Command | undefined
-  const usage = (message: string, command: Command): number => {
-    io.err(`${NAME}: ${message}\n\n${command.helpInformation({ error: true })}`)
-    return 2
-  }
-
-  try {
-    const program = createProgram(io, commands)
-    current = program
-    if (argv.length === 0) {
-      io.out(program.helpInformation())
-      return 0
-    }
-    // O preSubcommand roda antes do parse das opções do subcomando; vale para cada nível da árvore
-    const track = (command: Command): void => {
-      command.hook('preSubcommand', (_command, subcommand) => {
-        current = subcommand
-      })
-      command.commands.forEach(track)
-    }
-    track(program)
-    program.hook('preAction', (_command, action) => {
-      current = action
-    })
-    await program.parseAsync([...argv], { from: 'user' })
-    return 0
-  } catch (error) {
-    if (error instanceof ParseUsageError) return usage(error.message, error.command)
-    if (error instanceof UsageError && current) return usage(error.message, current)
-    if (error instanceof ExitError) {
-      if (error.message) io.err(`${error.message}\n`)
-      return error.code
-    }
-    if (error instanceof CommanderError) {
-      // --help e --version: o commander já escreveu e pede saída 0
-      if (error.code === 'commander.helpDisplayed' || error.code === 'commander.version') {
-        return error.exitCode
-      }
-      // Comando com subcomandos chamado sem nenhum: o commander já mostrou a ajuda no stderr
-      if (error.code === 'commander.help') return 2
-    }
-    const detail = error instanceof Error ? (error.stack ?? error.message) : String(error)
-    io.err(`${NAME}: erro inesperado.\n${detail}\n`)
-    return 1
-  }
+  return (await execute(argv, io, commands)).code
 }

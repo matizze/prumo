@@ -1,6 +1,6 @@
 import { fromJsonSchema, McpServer, type CallToolResult } from '@modelcontextprotocol/server'
 import type { Io } from '../io.ts'
-import { createProgram, run } from '../program.ts'
+import { createProgram, execute, type Outcome } from '../program.ts'
 import { describeTools, toArgv, type ToolSpec } from './tools.ts'
 
 /** Como o servidor é montado. */
@@ -12,14 +12,14 @@ export type ServerOptions = {
 }
 
 /** O resultado de uma ferramenta: o stdout e, se houver, o stderr; `isError` quando a saída não é 0 (menos o `check` com violação). */
-export function resultOf(tool: ToolSpec, code: number, stdout: string, stderr: string): CallToolResult {
+export function resultOf(tool: ToolSpec, outcome: Outcome, stdout: string, stderr: string): CallToolResult {
   const parts = [stdout, stderr].filter((part) => part !== '')
   const text = parts.map((part) => (part.endsWith('\n') ? part : `${part}\n`)).join('')
-  // O código 1 do check é violação; o do erro inesperado (`prumo: erro inesperado.` no stderr) é falha
-  const violation = tool.command === 'check' && code === 1 && !stderr.startsWith('prumo: erro inesperado.')
+  // O código 1 do check é violação (`exit`); o do erro inesperado é falha
+  const violation = tool.command === 'check' && outcome.kind === 'exit' && outcome.code === 1
   return {
     content: [{ type: 'text', text: text === '' ? '(sem saída)' : text }],
-    isError: code !== 0 && !violation,
+    isError: outcome.code !== 0 && !violation,
   }
 }
 
@@ -33,7 +33,7 @@ async function callTool(
   try {
     argv = toArgv(tool, input)
   } catch (error) {
-    return resultOf(tool, 2, '', `prumo: ${error instanceof Error ? error.message : String(error)}\n`)
+    return resultOf(tool, { code: 2, kind: 'usage' }, '', `prumo: ${error instanceof Error ? error.message : String(error)}\n`)
   }
   let stdout = ''
   let stderr = ''
@@ -43,8 +43,8 @@ async function callTool(
     out: (text) => void (stdout += text),
     err: (text) => void (stderr += text),
   }
-  const code = await run(argv, io)
-  return resultOf(tool, code, stdout, stderr)
+  const outcome = await execute(argv, io)
+  return resultOf(tool, outcome, stdout, stderr)
 }
 
 /**

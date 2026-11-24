@@ -2,6 +2,10 @@ import { statSync, type Stats } from 'node:fs'
 import path from 'node:path'
 import { UsageError } from '../errors.ts'
 
+/** A descrição da opção `--root`, a mesma em todo comando que acha o projeto. */
+export const ROOT_OPTION_DESCRIPTION =
+  'A pasta do projeto, a que tem o src. Padrão: a pasta atual ou a primeira acima com package.json e src.'
+
 /** Os caminhos de um projeto Prumo que os comandos usam, todos absolutos. */
 export interface Project {
   /** A raiz: a pasta com `package.json` e `src`. */
@@ -39,6 +43,28 @@ export function findProject(root: string): Project {
   }
 
   return projectAt(resolved)
+}
+
+/**
+ * O projeto de um comando. Com `--root`, é aquela pasta exata (`findProject`, com os mesmos erros).
+ * Sem `--root`, sobe da pasta atual até a primeira que tem `package.json` e `src`, como o git faz
+ * com o `.git`: assim os comandos rodam de dentro de `src/pages`, por exemplo.
+ */
+export function locateProject(cwd: string, root: string | undefined): Project {
+  if (root !== undefined) {
+    if (root === '') throw new UsageError("a opção '--root' precisa de um valor.")
+    return findProject(path.resolve(cwd, root))
+  }
+  const start = path.resolve(cwd)
+  for (let dir = start; ; dir = path.dirname(dir)) {
+    if (statOf(path.join(dir, 'package.json'))?.isFile() && statOf(path.join(dir, 'src'))?.isDirectory()) {
+      return projectAt(dir)
+    }
+    if (path.dirname(dir) === dir) break
+  }
+  throw new UsageError(
+    `nenhum projeto Prumo achado a partir de '${start}' (uma pasta com package.json e src, nela ou acima): entre na pasta do projeto ou aponte --root.`,
+  )
 }
 
 /**

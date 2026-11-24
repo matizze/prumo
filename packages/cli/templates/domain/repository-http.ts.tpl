@@ -1,12 +1,12 @@
 import { pageSchema, type Page } from '@matizze/prumo-core/data'
 import { UIError } from '@matizze/prumo-core/errors'
+import { HttpError, type Http, type HttpRequest } from '@matizze/prumo-core/http'
 import {
   {{singular.camel}}Schema,
   type {{singular.pascal}}Input,
   type {{singular.pascal}}ListQuery,
   type {{singular.pascal}}Schema,
 } from '@/schemas'
-import { HttpError, type Http, type HttpRequest } from '../http'
 import type { I{{plural.pascal}}Repository } from './repository.contract'
 
 const {{singular.camel}}PageSchema = pageSchema({{singular.camel}}Schema)

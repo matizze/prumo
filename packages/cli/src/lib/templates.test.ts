@@ -12,6 +12,7 @@ import {
 } from '../generators/page.ts'
 import { HTTP_CLIENT_FILES, REPOSITORY_FILES, SOURCE_FILES } from '../generators/repository.ts'
 import { QUERY_FILE } from '../generators/query.ts'
+import { DOMAIN_INDEX_FILE, LOCAL_USE_CASE_FILES, USE_CASE_FILES } from '../generators/usecase.ts'
 import { SCHEMA_FILE } from '../generators/schema.ts'
 import { deriveNames } from './names.ts'
 import {
@@ -79,6 +80,9 @@ const GENERATED: { template: string; to: string }[] = [
   ...REPOSITORY_FILES,
   ...Object.values(SOURCE_FILES),
   ...HTTP_CLIENT_FILES,
+  ...USE_CASE_FILES,
+  ...LOCAL_USE_CASE_FILES,
+  DOMAIN_INDEX_FILE,
   ...MESSAGE_LANGUAGES.flatMap((language) =>
     [false, true].map((withQuery) => ({
       template: messagesTemplate(language, withQuery),
@@ -124,7 +128,7 @@ describe('os modelos', () => {
     }
     for (const marker of markers)
       expect(marker).toMatch(
-        /^((plural|singular|page|domain|app)\.(kebab|pascal|camel|constant|title)|page\.path|route\.(path|example)|param\.(name|example)|detail\.hook|field\.(name|sample)|fields\.[A-Za-z]+|test\.[A-Za-z]+)$/,
+        /^((plural|singular|page|domain|action|app)\.(kebab|pascal|camel|constant|title)|page\.path|route\.(path|example)|param\.(name|example)|detail\.hook|field\.(name|sample)|fields\.[A-Za-z]+|test\.[A-Za-z]+|types\.[A-Za-z]+|usecase\.[A-Za-z]+|mock\.[A-Za-z]+)$/,
       )
   })
 
@@ -143,11 +147,13 @@ describe('os modelos', () => {
       'field.sample': "'Exemplo 1'",
       'detail.hook': 'useClienteDetail',
     }
-    // O schema, o repositório e as queries dependem dos nomes de domínio e entidade: os testes dos geradores os renderizam
+    // O schema, os use cases, o repositório e as queries dependem dos nomes de domínio e entidade: os testes dos geradores os renderizam
     const needsFields = (template: string) =>
       template === SCHEMA_FILE.template ||
       template === QUERY_FILE.template ||
-      [...REPOSITORY_FILES, ...Object.values(SOURCE_FILES)].some((file) => file.template === template)
+      [...REPOSITORY_FILES, ...Object.values(SOURCE_FILES), ...USE_CASE_FILES, ...LOCAL_USE_CASE_FILES, DOMAIN_INDEX_FILE].some(
+        (file) => file.template === template,
+      )
     for (const { template } of GENERATED.filter(({ template }) => !needsFields(template))) {
       const text = renderTemplateFile(template, vars)
       // O app tem `undefined` de verdade no código (resolveDataSource(undefined, ...))

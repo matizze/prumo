@@ -1,9 +1,7 @@
-import { UsageError } from '../errors.ts'
 import { generatePage } from '../generators/page.ts'
 import { testCommandFor } from '../lib/pnpm.ts'
-import { locateProject, ROOT_OPTION_DESCRIPTION } from '../lib/project.ts'
 import { documentCommand } from './help-text.ts'
-import { formatSummary } from './summary.ts'
+import { DRY_RUN_OPTION, formatWarnings, nonEmpty, projectOf, ROOT_OPTION, runPlan } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 type MakePageOptions = {
@@ -11,14 +9,6 @@ type MakePageOptions = {
   path?: string
   root?: string
   dryRun?: boolean
-}
-
-/** Recusa a opção dada sem valor (`--query ''`): o commander a aceita. */
-function nonEmpty(option: string) {
-  return (value: string): string => {
-    if (value.trim() === '') throw new UsageError(`a opção '${option}' precisa de um valor.`)
-    return value
-  }
 }
 
 /**
@@ -45,24 +35,19 @@ export const registerMakePage: RegisterCommand = (program, io) => {
       'O caminho da rota, com um parâmetro opcional (por exemplo, /clientes/:id). Padrão: /<nome>.',
       nonEmpty('--path'),
     )
-    .option('--root <pasta>', ROOT_OPTION_DESCRIPTION)
-    .option('--dry-run', 'Só lista o que seria criado e alterado, sem escrever nada.')
+    .option(...ROOT_OPTION)
+    .option(...DRY_RUN_OPTION)
     .action((name: string, options: MakePageOptions) => {
-      const project = locateProject(io.cwd, options.root)
+      const project = projectOf(io, options)
       const { plan, names, query, route, warnings } = generatePage(project, {
         name,
         query: options.query,
         route: options.path,
       })
-      const dryRun = options.dryRun === true
-      const summary = dryRun ? plan.verify() : plan.commit()
-      const heading = `prumo make:page: ${names.kebab} (rota ${route}${query ? `, query ${query.kebab}` : ''})${dryRun ? ' (simulação)' : ''}.`
-      const warningLines = warnings.map((warning) => `Aviso: ${warning}\n`).join('')
-      const warningText = warningLines === '' ? '' : `${warningLines}\n`
-      const ending = dryRun
-        ? 'Simulação (--dry-run): nada foi escrito.\n'
-        : `Edite o model (src/pages/${names.kebab}/model.ts), a view (view.tsx) e os textos (src/messages/<idioma>/${names.kebab}.json); o teste acompanha.\n\nPara rodar os testes da tela nova:\n  ${testCommandFor(project, io.cwd, `src/pages/${names.kebab}`)}\n`
-      io.out(`${heading}\n\n${formatSummary(summary, dryRun)}\n${warningText}${ending}`)
+      const run = runPlan(plan, options)
+      const heading = `prumo make:page: ${names.kebab} (rota ${route}${query ? `, query ${query.kebab}` : ''})${run.mark}.`
+      const ending = run.ending(() => `Edite o model (src/pages/${names.kebab}/model.ts), a view (view.tsx) e os textos (src/messages/<idioma>/${names.kebab}.json); o teste acompanha.\n\nPara rodar os testes da tela nova:\n  ${testCommandFor(project, io.cwd, `src/pages/${names.kebab}`)}\n`)
+      io.out(`${heading}\n\n${run.files}\n${formatWarnings(warnings)}${ending}`)
     })
   documentCommand(command, {
     examples: [

@@ -1,11 +1,9 @@
 import { Option } from 'commander'
-import { UsageError } from '../errors.ts'
 import { DATA_SOURCE_CHOICES, generateRepository, type DataSourceChoice } from '../generators/repository.ts'
 import { describeField } from '../lib/fields.ts'
 import { entityFlag } from '../lib/names.ts'
-import { locateProject, ROOT_OPTION_DESCRIPTION } from '../lib/project.ts'
 import { documentCommand } from './help-text.ts'
-import { formatSummary } from './summary.ts'
+import { DRY_RUN_OPTION, formatWarnings, nonEmpty, projectOf, ROOT_OPTION, runPlan } from './shared.ts'
 import type { RegisterCommand } from './index.ts'
 
 type MakeRepositoryOptions = {
@@ -13,14 +11,6 @@ type MakeRepositoryOptions = {
   dataSource: DataSourceChoice
   root?: string
   dryRun?: boolean
-}
-
-/** Recusa a opção dada sem valor (`--entity ''`): o commander a aceita. */
-function nonEmpty(option: string) {
-  return (value: string): string => {
-    if (value.trim() === '') throw new UsageError(`a opção '${option}' precisa de um valor.`)
-    return value
-  }
 }
 
 /**
@@ -51,30 +41,26 @@ export const registerMakeRepository: RegisterCommand = (program, io) => {
         .choices(DATA_SOURCE_CHOICES)
         .default('mock'),
     )
-    .option('--root <pasta>', ROOT_OPTION_DESCRIPTION)
-    .option('--dry-run', 'Só lista o que seria criado e alterado, sem escrever nada.')
+    .option(...ROOT_OPTION)
+    .option(...DRY_RUN_OPTION)
     .action((name: string, options: MakeRepositoryOptions) => {
-      const project = locateProject(io.cwd, options.root)
+      const project = projectOf(io, options)
       const { plan, names, fields, dataSource, created, warnings } = generateRepository(project, {
         name,
         entity: options.entity,
         dataSource: options.dataSource,
       })
-      const dryRun = options.dryRun === true
-      const summary = dryRun ? plan.verify() : plan.commit()
+      const run = runPlan(plan, options)
       const origin = created ? '' : ', repositório que já existia'
-      const heading = `prumo make:repository: ${names.plural.kebab} (entidade ${names.singular.kebab}, fonte ${dataSource}${origin})${dryRun ? ' (simulação)' : ''}.`
+      const heading = `prumo make:repository: ${names.plural.kebab} (entidade ${names.singular.kebab}, fonte ${dataSource}${origin})${run.mark}.`
       const fieldsLine = `Campos (lidos do schema): ${fields.map(describeField).join(', ')}.`
-      const warningLines = warnings.map((warning) => `Aviso: ${warning}\n`).join('')
       const use =
         dataSource === 'mock'
           ? ''
           : `Para usar a fonte ${dataSource}: ${dataSource === 'http' ? 'VITE_DATA_SOURCE=http e VITE_API_URL=<endereço da API>' : 'VITE_DATA_SOURCE=storage'} (veja docs/guides/real-api.md).\n`
-      const ending = dryRun
-        ? 'Simulação (--dry-run): nada foi escrito.\n'
-        : `${use}Próximo passo: prumo make:query ${names.plural.kebab}${entityFlag(names)}\n`
+      const ending = run.ending(() => `${use}Próximo passo: prumo make:query ${names.plural.kebab}${entityFlag(names)}\n`)
       io.out(
-        `${heading}\n${fieldsLine}\n\n${formatSummary(summary, dryRun)}\n${warningLines}${warningLines === '' ? '' : '\n'}${ending}`,
+        `${heading}\n${fieldsLine}\n\n${run.files}\n${formatWarnings(warnings)}${ending}`,
       )
     })
   documentCommand(command, {

@@ -2,7 +2,7 @@
 '@matizze/prumo-cli': minor
 ---
 
-A CLI foi reescrita do zero com o commander. A arquitetura do app gerado é a mesma; mudam os comandos, as opções e as mensagens, agora todas em português, com os códigos de saída `0` (sem erro), `1` (erro inesperado, ou violação no `check`) e `2` (uso errado: comando, opção ou argumento que não existe, nome inválido, camada que falta). Todo comando valida tudo antes de escrever, nunca sobrescreve arquivo e aceita `--root <pasta>` e `--dry-run`.
+A CLI foi reescrita do zero com o commander. A arquitetura do app gerado é a mesma; mudam os comandos, as opções e as mensagens, agora todas em português, com os códigos de saída `0` (sem erro), `1` (erro inesperado, ou violação no `check`) e `2` (uso errado: comando, opção ou argumento que não existe, nome inválido, camada que falta). Todo comando que escreve valida tudo antes e nunca sobrescreve arquivo; `new` e os `make:*` aceitam `--dry-run`, e os `make:*` e o `check` aceitam `--root <pasta>` (o `new` tem `--dir`).
 
 **Os comandos da v1**
 

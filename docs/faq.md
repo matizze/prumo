@@ -20,7 +20,7 @@ O Prumo usa o pnpm: o `prumo new` roda `pnpm install`, os scripts do app chamam 
 
 ### Por que Node 24?
 
-O Node 24 é a versão mínima que o Prumo testa: a CLI roda TypeScript direto e usa recursos do Node moderno.
+O Node 24 é a versão mínima que o Prumo testa: a CLI publicada roda JavaScript compilado (`dist/`) e usa recursos do Node moderno; no monorepo do Prumo ela roda o TypeScript direto.
 
 ### Preciso usar os geradores?
 
@@ -53,7 +53,7 @@ Saíram na v1 (`@matizze/prumo-cli` 0.7.0):
 ### `prumo make:schema` recusa o nome do domínio
 
 ```text
-prumo make:schema: tirar o 's' de 'categories' daria 'categorie', que provavelmente não é o singular: informe a entidade com --entity (provavelmente --entity category).
+prumo: tirar o 's' de 'categories' daria 'categorie', que provavelmente não é o singular: informe a entidade com --entity (provavelmente --entity category).
 ```
 
 O nome do domínio vai no plural, e a entidade sai dele tirando o `s`. Quando a regra erra, informe a entidade: `prumo make:schema categories --entity category`. Use o mesmo `--entity` no `make:repository` e no `make:query`.
@@ -61,7 +61,7 @@ O nome do domínio vai no plural, e a entidade sai dele tirando o `s`. Quando a 
 ### O `make:repository` ou o `make:query` diz que falta uma camada
 
 ```text
-prumo make:repository: falta o schema clientes (src/schemas/entities/cliente.ts); rode prumo make:schema clientes.
+prumo: falta o schema clientes (src/schemas/entities/cliente.ts); rode prumo make:schema clientes.
 ```
 
 Cada camada usa a de baixo, e o comando recusa sem criar nada quando ela não existe. Rode, em ordem, `make:schema`, `make:repository` e `make:query`. Se o schema foi gerado com `--entity`, a mensagem lembra de repetir a opção.

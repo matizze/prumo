@@ -23,7 +23,7 @@ Os pacotes do Prumo estão no npm público. Não há token, `.npmrc` nem configu
 pnpm dlx @matizze/prumo-cli new loja
 ```
 
-O comando cria a pasta `loja`, roda `git init` (sem commit: o primeiro commit é seu) e `pnpm install`. A saída lista os arquivos criados e termina com os próximos passos (o `pnpm install` já rodou, a não ser que você use `--no-install`):
+O comando cria a pasta `loja`, roda `git init` (sem commit: o primeiro commit é seu) e `pnpm install`. A saída lista os arquivos criados, mostra o andamento do `pnpm install` e termina com os próximos passos:
 
 ```text
 prumo new: loja.
@@ -42,9 +42,11 @@ Criados (31):
 
 Pacotes do Prumo: do registry, pela versão (^<versão>) no package.json.
 
+Instalando as dependências (pnpm install)...
+...
+
 Próximos passos:
   cd loja
-  pnpm install
   pnpm verify                                   # typecheck, lint, test e check
   pnpm dev                                      # o app em http://localhost:5173
   pnpm exec prumo make:page <tela>              # uma tela, com a rota e as mensagens
@@ -346,10 +348,10 @@ export function Resumo({ title }: ResumoProps) {
 
 Use-o na view: `import { Resumo } from './components/resumo'`.
 
-Um componente que duas ou mais telas usam vai para `src/components/shared`. O `prumo check` confere que ele é mesmo compartilhado: se você mover o resumo para `shared` e só uma tela o usar, ele acusa:
+Um componente que duas ou mais telas usam vai para `src/components/shared`. O `prumo check` confere que ele é mesmo compartilhado: se você mover o resumo para `shared` e só a tela de clientes o usar, ele acusa:
 
 ```text
-src/components/shared/resumo.tsx  [shared-usage]  O módulo não é usado por nenhuma tela, e o que está em src/components/shared precisa de 2 ou mais telas: mova-o para a tela que o usa.
+src/components/shared/resumo.tsx  [shared-usage]  O módulo é usado só pela tela 'clientes', e o que está em src/components/shared precisa de 2 ou mais telas: mova-o para a tela que o usa.
 ```
 
 Também acusa uma pasta nova em `src/components` fora de `ui`, `shared` e `layout`. Deixe o resumo na pasta da tela.

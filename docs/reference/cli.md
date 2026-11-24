@@ -288,8 +288,8 @@ No uso errado, o stderr traz a mensagem em português, no formato `prumo: opçã
 $ prumo --x
 prumo: opção desconhecida: '--x'.
 
-Uso: prumo [opções]
+Uso: prumo [opções] [comando]
 ...
 ```
 
-Quando há um nome parecido, a mensagem sugere: `prumo: comando desconhecido: 'mak'. Você quis dizer make:page?`.
+Quando há um nome parecido, a mensagem sugere: `prumo: comando desconhecido: 'make:pag'. Você quis dizer make:page?`.

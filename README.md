@@ -100,7 +100,7 @@ A view não busca dado nem guarda estado de dados; o model não tem JSX; uma tel
 | `prumo make:page <nome> [--query <domínio>] [--path <caminho>]`                | Gera a tela (index, model, view, teste), os textos nos idiomas do projeto e a rota                 |
 | `prumo check`                                                                  | Analisa o projeto e lista as violações da arquitetura                                              |
 
-Cada camada usa a de baixo, então a ordem é schema, repositório, query e tela; o comando recusa, sem criar nada, quando a camada de baixo falta. Os comandos validam tudo antes de escrever, nunca sobrescrevem um arquivo e aceitam `--dry-run`. Opções, saídas e códigos de saída estão na [referência da CLI](docs/reference/cli.md).
+Cada camada usa a de baixo, então a ordem é schema, repositório, query e tela; o comando recusa, sem criar nada, quando a camada de baixo falta. Os comandos que escrevem validam tudo antes, nunca sobrescrevem um arquivo e aceitam `--dry-run` (os `make:*` e o `check` aceitam `--root`). Opções, saídas e códigos de saída estão na [referência da CLI](docs/reference/cli.md).
 
 ## Pacotes
 

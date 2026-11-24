@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'wouter'
+import { getErrorMessage } from '@/errors'
 import { useTranslations } from '@/i18n'
 import { useUseCases } from '@/providers/use-cases'
 import { {{uc.keyFn}} } from '@/use-cases/{{uc.domain}}/{{uc.kebab}}.types'
@@ -17,6 +18,7 @@ export function use{{page.pascal}}Model() {
     item: detail.data,
     loading: detail.isPending,
     failed: detail.isError,
+    errorText: detail.isError ? getErrorMessage(detail.error) : null,
   }
 }
 

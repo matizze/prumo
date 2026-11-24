@@ -18,6 +18,8 @@ export function use{{page.pascal}}Model() {
     fields: {{form.labels}},
     submitText: t('submit'),
     successText: t('success'),
+    // Voltar a editar tira o aviso de sucesso (ou de erro) do envio anterior
+    onChange: () => mutation.reset(),
     onSubmit: (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
       {{form.submit}}

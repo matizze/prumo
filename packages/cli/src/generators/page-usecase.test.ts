@@ -148,10 +148,34 @@ describe('generatePage --usecase: formulário', () => {
     expect(model).toContain('errorText: mutation.isError ? getErrorMessage(mutation.error) : null,')
     const view = created(result, 'pages/livro-novo/view.tsx')
     expect(view).toContain('<input id="titulo" name="titulo" type="text" required />')
-    expect(view).toContain('<input id="nota" name="nota" type="number" step="1" />')
+    expect(view).toContain('<input id="nota" name="nota" type="number" />')
     expect(view).toContain('<input id="lido" name="lido" type="checkbox" />')
     expect(view).toContain('<button type="submit" disabled={m.submitting}>')
     expect(view).toContain('{m.succeeded && <p role="status">{m.successText}</p>}')
+  })
+
+  it('o number aceita decimais (step="any"), e o int fica com o padrão', () => {
+    const project = withLivros('preco:number,paginas:int')
+    const view = created(page(project, { name: 'livro-novo', useCase: 'livros.create-livro' }), 'pages/livro-novo/view.tsx')
+    expect(view).toContain('<input id="preco" name="preco" type="number" step="any" required />')
+    expect(view).toContain('<input id="paginas" name="paginas" type="number" required />')
+    expect(view).not.toContain('step="1"')
+  })
+
+  it('depois de criar o formulário volta ao começo, e editar tira o aviso', () => {
+    const project = withLivros()
+    const result = page(project, { name: 'livro-novo', useCase: 'livros.create-livro' })
+    const model = created(result, 'pages/livro-novo/model.ts')
+    expect(model).toContain("const form = event.currentTarget\n      mutation.mutate(inputOf(new FormData(form)), { onSuccess: () => form.reset() })")
+    expect(model).toContain('onChange: () => mutation.reset(),')
+    expect(created(result, 'pages/livro-novo/view.tsx')).toContain('onChange={m.onChange}')
+  })
+
+  it('o detalhe mostra o texto do erro do use case (o 404)', () => {
+    const project = withLivros()
+    const result = page(project, { name: 'livro', useCase: 'livros.get-livro', route: '/livros/:id' })
+    expect(created(result, 'pages/livro/model.ts')).toContain('errorText: detail.isError ? getErrorMessage(detail.error) : null,')
+    expect(created(result, 'pages/livro/view.tsx')).toContain('{m.errorText ?? m.failedText}')
   })
 
   it('o update tem o id e os outros campos opcionais', () => {
@@ -195,6 +219,7 @@ describe('generatePage --usecase: formulário', () => {
     const result = page(project, { name: 'sair', useCase: 'auth.sign-out' })
     expect(created(result, 'pages/sair/model.ts')).toContain('mutation.mutate({})')
     expect(created(result, 'pages/sair/model.ts')).not.toContain('inputOf')
+    expect(created(result, 'pages/sair/model.ts')).toContain("sign-out.types'\n\nexport function")
   })
 
   it('recusa o --path com parâmetro e o campo que o leitor não reconhece', () => {

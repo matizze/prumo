@@ -11,6 +11,6 @@ export const {{plural.camel}}Collection = createMockCollection(MOCK_{{plural.con
   idPrefix: '{{singular.kebab}}',
   searchFields: (item) => [{{fields.searchList}}],
   sortFields: {
-{{fields.sortFields}}
+{{fields.sortAccessors}}
   },
 })

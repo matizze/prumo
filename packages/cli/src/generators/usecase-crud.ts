@@ -215,14 +215,11 @@ export function generateCrudUseCases(project: Project, { name, entity }: CrudReq
     ...nameVars('plural', domain.plural),
     ...nameVars('singular', domain.singular),
     ...nameVars('domain', domain.plural),
-    ...domainFieldVars(fields, domain.singular.kebab, shape),
+    ...domainFieldVars(fields, domain.singular.kebab, shape, '    '),
   }
-  // Os accessors de ordem vêm num recuo de 6 colunas, do mock do repositório; a coleção os quer em 4
-  const sortFields = base['fields.sortAccessors'].replaceAll(/^ {2}/gm, '')
-  const collectionVars = { ...base, 'fields.sortFields': sortFields }
   plan.createSource(
-    path.join(project.root, renderTemplate(COLLECTION_FILE.to, collectionVars)),
-    renderTemplateFile(COLLECTION_FILE.template, collectionVars),
+    path.join(project.root, renderTemplate(COLLECTION_FILE.to, base)),
+    renderTemplateFile(COLLECTION_FILE.template, base),
   )
 
   const notFoundCode = `${base['singular.constant']}_NOT_FOUND`

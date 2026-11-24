@@ -13,6 +13,11 @@ export function camelOf(pascal: string): string {
   return pascal.charAt(0).toLowerCase() + pascal.slice(1)
 }
 
+/** `livro` vira `Livro`: o nome da entidade, a partir do nome do schema. */
+export function pascalOf(camel: string): string {
+  return camel.charAt(0).toUpperCase() + camel.slice(1)
+}
+
 /**
  * O arquivo do schema da entidade, relativo à raiz: o de `src/schemas/entities/` que exporta o
  * `<camel>Schema`. Não refaz o nome do arquivo a partir do PascalCase (`Fase2` pode ser `fase-2`).

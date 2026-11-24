@@ -371,6 +371,14 @@ const list = useQuery({ queryKey: listLivrosKey(input), queryFn: () => listLivro
 
 O formulário lê os campos do Input do `.types.ts` do use case, pela árvore (`z.object({ ... })`, ou o `<entidade>InputSchema` do `--crud`, com `.partial()` e `.extend({ ... })`), e usa só elementos nativos, sem biblioteca de formulário: um `<input>` por campo (`type` pelo tipo: `text`, `number`, `checkbox`, `date`, `datetime-local`, e `email` e `password` pelo nome do campo), um `<select>` no enum, e `required` nos obrigatórios. O model lê o `FormData` no formato do Input, desabilita o botão enquanto envia e mostra o erro com o `getErrorMessage` de `@/errors` (o `UIError` pelo `errors.json`: `LIVRO_NOT_FOUND`, `SIGN_IN_FAILED`); o teste da tela preenche os campos e envia o formulário contra o mock. Os textos (título, rótulos, envio, sucesso, carregando, erro e vazio) entram nas mensagens dos dois idiomas, e os rótulos saem do nome do campo, para a pessoa traduzir. Funciona com tela em subpasta (`auth.login`).
 
+Limitações de hoje:
+
+- O formulário de **update** não lê o `:id` da rota nem carrega o registro: o `id` é um campo do formulário, como os outros, e os campos começam vazios.
+- O checkbox desmarcado envia `false` (o campo `boolean` sempre vai no Input).
+- A **lista** exige o Output `<entidade>[]` (`z.array(<entidade>Schema)`) ou `Page` (`pageSchema(<entidade>Schema)`); outro formato é erro de uso.
+- Os rótulos de um `enum` mostram o valor (`lido`, `lendo`), sem tradução: troque na view.
+- Depois de um envio com sucesso o formulário volta ao começo, e editar um campo tira o aviso.
+
 São erro de uso: `--usecase` junto com `--query`; um use case que não existe; uma leitura que não devolve lista de entidade e não tem `:parâmetro` (a mensagem diz como ajustar o Output); um `--path` com parâmetro que o endereço do use case não tem, ou o contrário; um `--path` com parâmetro numa escrita; e, na lista e no detalhe, um Input com campo obrigatório que a tela não preenche. O `--query` continua funcionando enquanto a transição para os use cases não termina.
 
 O comando valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada pela metade: nome inválido ou reservado (ou com segmento vazio); tela que já existe; tela dentro de outra tela (`auth/login` com `src/pages/auth/index.tsx`); pasta que já agrupa telas (`auth` com `src/pages/auth/login/index.tsx`); nome que dá o mesmo componente e as mesmas mensagens de outra tela (`auth/login` e `auth-login`, e a mensagem diz o conflito); `--path` inválido, com rota repetida ou que conflita com uma do `App.tsx`; query que falta, ou sem o `use<Domínio>List` (ou, no detalhe, sem o `use<Entidade>Detail`); `App.tsx` ou índice de mensagens que falta. No fim, mostra o que fez, os avisos e o comando dos testes da tela nova.

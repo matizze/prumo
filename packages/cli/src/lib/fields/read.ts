@@ -266,7 +266,7 @@ export function readEntityShape(
   if (!declaration || !argument || !Node.isObjectLiteralExpression(argument)) {
     return fail(
       declaration?.getStartLineNumber() ?? 1,
-      `não achei 'export const ${inputName} = ${expected}({ campo: true, ... })': só o .pick({ ... }) é aceito (o .omit({ ... }) não), então liste no .pick os campos que entram na criação`,
+      `não achei 'export const ${inputName} = ${expected}({ campo: true, ... })': só o .pick({ ... }) é aceito (o .omit({ ... }) não): o formato esperado é exatamente '${expected}({ campo: true, ... })', sem .extend nem outro encadeamento. Liste no .pick os campos que entram na criação`,
     )
   }
   const input: string[] = []

@@ -2,7 +2,7 @@ import path from 'node:path'
 import { Node, type Expression, type SourceFile } from 'ts-morph'
 import { UsageError } from '../errors.ts'
 import { endpointOf, hasQueryKey } from './listing.ts'
-import { schemaFileOf } from './entity.ts'
+import { pascalOf, schemaFileOf } from './entity.ts'
 import { readEntityFields, readEntityShape, readObjectFields, type Fail, type Field } from './fields/index.ts'
 import { deriveNames, useCaseNames, type UseCaseNames } from './names.ts'
 import { displayPath } from './paths.ts'
@@ -84,8 +84,9 @@ function inputFields(plan: ChangePlan, source: SourceFile, variable: string, fil
   if (!entity) {
     return fail(line, `não sei ler o ${variable}: use z.object({ ... }) ou o <entidade>InputSchema (com .partial() e .extend({ ... }))`)
   }
-  const schema = schemaFileOf(plan.project, entity.charAt(0).toUpperCase() + entity.slice(1))
+  const schema = schemaFileOf(plan.project, pascalOf(entity))
   if (!schema) fail(line, `o schema da entidade '${entity}' não está em src/schemas/entities`)
+  // O leitor de schemas pede o domínio e a entidade; aqui só a entidade importa, então o plural e o singular são o mesmo nome
   const names = deriveNames(path.basename(schema!, '.ts'))
   const domain = { plural: names, singular: names }
   const fields = readEntityFields(plan, domain)
@@ -117,7 +118,7 @@ function outputShape(source: SourceFile, variable: string): OutputShape {
   if (!initializer) return { kind: 'other' }
   const expression = unwrap(initializer)
   const entityOf = (node: Node | undefined) => /^([a-z][A-Za-z0-9]*)Schema$/.exec(node?.getText() ?? '')?.[1]
-  const pascal = (camel: string | undefined) => camel && camel.charAt(0).toUpperCase() + camel.slice(1)
+  const pascal = (camel: string | undefined) => camel && pascalOf(camel)
   for (const [callee, page] of [['z.array', false], ['pageSchema', true]] as const) {
     if (!isCall(expression, callee)) continue
     const entity = pascal(entityOf(expression.getArguments()[0]))

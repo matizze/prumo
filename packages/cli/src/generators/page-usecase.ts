@@ -40,7 +40,7 @@ const pageFiles = (model: string, view: string, test: string): readonly PageFile
 /** Os arquivos de cada tela: a lista e o detalhe reaproveitam a view e o teste da tela com `--query` quando servem. */
 export const USE_CASE_PAGE_FILES: Record<UseCasePageKind, readonly PageFile[]> = {
   list: pageFiles('model-list.ts.tpl', 'view-list.tsx.tpl', 'page/index-domain-test.tsx.tpl'),
-  detail: pageFiles('model-detail.ts.tpl', 'page/view-detail.tsx.tpl', 'test-detail.tsx.tpl'),
+  detail: pageFiles('model-detail.ts.tpl', 'view-detail.tsx.tpl', 'test-detail.tsx.tpl'),
   form: pageFiles('model-form.ts.tpl', 'view-form.tsx.tpl', 'test-form.tsx.tpl'),
 }
 
@@ -77,7 +77,7 @@ function viewField(field: Field): string {
           ...enumValues(field).map((value) => `  <option value="${value}">${value}</option>`),
           '</select>',
         ]
-      : [`<input id="${name}" name="${name}" type="${controlType(field)}"${type === 'int' ? ' step="1"' : ''}${required} />`]
+      : [`<input id="${name}" name="${name}" type="${controlType(field)}"${type === 'number' ? ' step="any"' : ''}${required} />`]
   const lines = ['<div>', `  <label htmlFor="${name}">{m.fields.${name}}</label>`, ...control.map((line) => `  ${line}`), '</div>']
   return lines.map((line) => `        ${line}\n`).join('')
 }
@@ -114,7 +114,11 @@ function formVars(model: UseCaseModel): Record<string, string> {
       input.length === 0
         ? ''
         : `\n/** Lê os campos do formulário, no formato do Input do use case. */\nfunction inputOf(form: FormData): ${type} {\n  return ${block(input.map((field) => `${field.name}: ${readExpression(field, type)}`), '  ')}\n}\n`,
-    'form.submit': input.length === 0 ? 'mutation.mutate({})' : 'mutation.mutate(inputOf(new FormData(event.currentTarget)))',
+    // O formulário volta ao começo depois de criar; o `form` se guarda antes, porque o `currentTarget` do evento não vale depois do envio
+    'form.submit':
+      input.length === 0
+        ? 'mutation.mutate({})'
+        : "const form = event.currentTarget\n      mutation.mutate(inputOf(new FormData(form)), { onSuccess: () => form.reset() })",
     'form.labels': block(labels.map(([name]) => `${name}: t('fields.${name}')`), '    '),
     'form.fields': input.map(viewField).join(''),
     'form.test': input.map(testLine).join(''),

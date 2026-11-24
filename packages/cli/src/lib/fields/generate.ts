@@ -84,6 +84,8 @@ export function domainFieldVars(
    * os campos no `pick` e os ordenáveis (fora o booleano) mais `createdAt` na chave de ordem.
    */
   shape?: { input: readonly string[]; sort: readonly string[] },
+  /** O recuo das linhas de `fields.sortAccessors` (padrão: 6 espaços, o do mock do repositório). */
+  sortIndent = '      ',
 ): Record<string, string> {
   const texts = fields.filter(isText)
   const inputs = shape ? fields.filter((field) => shape.input.includes(field.name)) : fields
@@ -116,7 +118,7 @@ export function domainFieldVars(
     return `  ${object(entries, '  ')},`
   })
   const accessor = (field: Field) =>
-    `      ${field.name}: (item) => item.${field.name}${field.optional ? (field.type === 'string' || field.type === 'enum' ? " ?? ''" : ' ?? 0') : ''},`
+    `${sortIndent}${field.name}: (item) => item.${field.name}${field.optional ? (field.type === 'string' || field.type === 'enum' ? " ?? ''" : ' ?? 0') : ''},`
   const searchHit = searchBy ? sampleValue(searchBy, 2) : `${idBase}-2`
   return {
     'fields.schema': fields.map((field) => `  ${field.name}: ${zodOf(field)},`).join('\n'),
@@ -132,7 +134,7 @@ export function domainFieldVars(
     'fields.search': searchStatement(searchFields.length > 0 ? searchFields : ['item.id']),
     'fields.sortAccessors': [
       ...sortable.map(accessor),
-      ...(sortsByDate ? ['      createdAt: (item) => item.createdAt,'] : []),
+      ...(sortsByDate ? [`${sortIndent}createdAt: (item) => item.createdAt,`] : []),
     ].join('\n'),
     // O campo fora do `pick` não vem na entrada: o mock dá um valor de exemplo (os opcionais ficam sem)
     'fields.create': fields

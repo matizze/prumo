@@ -1,8 +1,8 @@
 # @matizze/prumo-cli
 
-O comando `prumo`: cria apps React organizados em camadas e confere a arquitetura. Parte do [Prumo](https://github.com/matizze/prumo).
+O comando `prumo`: cria apps React organizados em camadas e confere a arquitetura. Parte do [Prumo](https://docs.prumo.matizze.com.br).
 
-**[Documentação](https://github.com/matizze/prumo/blob/main/docs/README.md)** · **[Primeiros passos](https://github.com/matizze/prumo/blob/main/docs/getting-started.md)** · **[Referência da CLI](https://github.com/matizze/prumo/blob/main/docs/reference/cli.md)** · **[Changelog](https://github.com/matizze/prumo/blob/main/packages/cli/CHANGELOG.md)**
+**[Documentação](https://docs.prumo.matizze.com.br)** · **[Primeiros passos](https://docs.prumo.matizze.com.br/getting-started)** · **[Referência da CLI](https://docs.prumo.matizze.com.br/reference/cli)**
 
 ## Instalação
 
@@ -43,4 +43,4 @@ Códigos de saída: `0` sucesso, `1` erro inesperado (ou violação, no `check`)
 
 ## Suporte
 
-Mantido pela [Matizze](https://github.com/matizze). Problemas e sugestões em [issues](https://github.com/matizze/prumo/issues).
+Mantido pela [Matizze](https://github.com/matizze). Problemas e sugestões em [issues](https://github.com/matizze/prumo/issues). Licença MIT.

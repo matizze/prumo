@@ -1,8 +1,8 @@
 # @matizze/prumo-testing
 
-Utilitários de teste do [Prumo](https://github.com/matizze/prumo), sem interface, para o Vitest com jsdom: `renderWithProviders` e `renderHookWithProviders` com rota em memória, setup do DOM, `matchMedia` controlável, `createDeferred` e o teste de contrato de repositórios.
+Utilitários de teste do [Prumo](https://docs.prumo.matizze.com.br), sem interface, para o Vitest com jsdom: `renderWithProviders` e `renderHookWithProviders` com rota em memória, setup do DOM, `matchMedia` controlável, `createDeferred` e o teste de contrato de repositórios.
 
-**[Documentação](https://github.com/matizze/prumo/blob/main/docs/README.md)** · **[Referência deste pacote](https://github.com/matizze/prumo/blob/main/docs/reference/testing.md)** · **[Guia de testes](https://github.com/matizze/prumo/blob/main/docs/guides/test.md)** · **[Changelog](https://github.com/matizze/prumo/blob/main/packages/testing/CHANGELOG.md)**
+**[Documentação](https://docs.prumo.matizze.com.br)** · **[Referência deste pacote](https://docs.prumo.matizze.com.br/reference/testing)** · **[Guia de testes](https://docs.prumo.matizze.com.br/guides/test)**
 
 ## Instalação
 
@@ -59,4 +59,4 @@ runContractSuite(contract, {
 
 ## Suporte
 
-Mantido pela [Matizze](https://github.com/matizze). Problemas e sugestões em [issues](https://github.com/matizze/prumo/issues).
+Mantido pela [Matizze](https://github.com/matizze). Problemas e sugestões em [issues](https://github.com/matizze/prumo/issues). Licença MIT.

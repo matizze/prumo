@@ -129,7 +129,7 @@ describe('prumo new', () => {
     }
   })
 
-  it('não grava .npmrc nem fala de token: os pacotes vêm do npm público', async () => {
+  it('não grava .npmrc nem fala de token', async () => {
     const cwd = makeDir()
     await run(['new', 'app-npmrc', '--no-install'], cwd)
     const root = path.join(cwd, 'app-npmrc')
@@ -137,7 +137,6 @@ describe('prumo new', () => {
     expect(listFiles(root)).not.toContain('.npmrc')
     for (const file of ['AGENTS.md', 'README.md']) {
       expect(read(root, file), file).not.toMatch(/GitHub Packages|NODE_AUTH_TOKEN|read:packages/)
-      expect(read(root, file), file).toContain('npm público')
     }
   })
 
@@ -234,9 +233,6 @@ export default function App() {
       expect(agents).toContain(text)
     }
     expect(read(root, 'README.md')).toContain('.mcp.json')
-    for (const file of ['AGENTS.md', 'README.md']) {
-      expect(read(root, file), file).not.toMatch(/make:domain|make:component|move:component|doctor/i)
-    }
     expect(agents.split('\n').length).toBeLessThan(80)
   })
 

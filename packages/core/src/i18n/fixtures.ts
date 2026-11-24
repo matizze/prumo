@@ -31,7 +31,7 @@ export const en = {
   errors: { generic: 'Something went wrong. Please try again.' },
 }
 
-/** Kit de fixture com os mesmos idiomas e o mesmo padrão do app de referência. */
+/** Kit de fixture com os mesmos idiomas e o mesmo padrão do app gerado pelo `prumo new`. */
 export const fixtureKit = defineI18n({
   messages: { 'pt-BR': ptBR, en },
   defaultLocale: 'pt-BR',

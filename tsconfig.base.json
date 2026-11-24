@@ -1,5 +1,5 @@
 {
-  // Opções comuns aos pacotes, as mesmas do app de referência. Cada pacote estende este arquivo.
+  // Opções comuns aos pacotes. Cada pacote estende este arquivo.
   "compilerOptions": {
     "target": "es2023",
     "lib": ["ES2023"],
@@ -7,7 +7,7 @@
     "types": [],
     "skipLibCheck": true,
 
-    /* Modo bundler: os pacotes exportam o código-fonte até o build com tsup (Fase 1) */
+    /* Modo bundler: no workspace, os pacotes exportam o código-fonte (o build emite o dist/) */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,

@@ -2,6 +2,21 @@
   "name": "@matizze/prumo-rules",
   "version": "0.2.3",
   "description": "Regras da arquitetura do Prumo: plugin de ESLint, com aviso no editor, e análise do projeto inteiro para o prumo check.",
+  "keywords": [
+    "eslint",
+    "eslint-plugin",
+    "architecture",
+    "lint",
+    "react",
+    "typescript",
+    "prumo"
+  ],
+  "homepage": "https://docs.prumo.matizze.com.br",
+  "bugs": {
+    "url": "https://github.com/matizze/prumo/issues"
+  },
+  "license": "MIT",
+  "author": "Matizze",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/matizze/prumo.git",
@@ -9,7 +24,6 @@
   },
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
     "./eslint": "./src/eslint/index.ts",
     "./check": "./src/check/index.ts"
   },
@@ -19,12 +33,7 @@
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
     "access": "public",
-    "types": "./dist/index.d.ts",
     "exports": {
-      ".": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
       "./eslint": {
         "types": "./dist/eslint/index.d.ts",
         "default": "./dist/eslint/index.js"
@@ -54,5 +63,8 @@
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1",
     "vitest": "^5.1.0"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

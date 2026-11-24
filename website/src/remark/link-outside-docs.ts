@@ -10,7 +10,7 @@ interface Node {
 export interface LinkOutsideDocsOptions {
   /** A pasta publicada como site (a `docs/` do repositório), caminho absoluto. */
   docsDir: string
-  /** Arquivos de `docs/` que o site não publica, relativos a ela (`plan.md`). */
+  /** Arquivos de `docs/` que o site não publica, relativos a ela (nenhum, por ora). */
   excluded: readonly string[]
   /** O endereço do repositório no GitHub. */
   repository: string
@@ -18,7 +18,7 @@ export interface LinkOutsideDocsOptions {
 
 /**
  * Plugin de remark que leva para o GitHub os links que saem do site. A documentação é escrita para
- * ser lida no GitHub, com links relativos para o CONTRIBUTING.md, o SECURITY.md e o plano; o site só
+ * ser lida no GitHub, com links relativos para o CONTRIBUTING.md e o SECURITY.md; o site só
  * publica a pasta `docs/`, e esses links quebrariam. O link para um arquivo fora de `docs/`, ou para
  * um arquivo de `docs/` que o site não publica, vira o endereço do arquivo na `main`, com a âncora.
  */

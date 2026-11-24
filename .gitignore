@@ -23,13 +23,7 @@ coverage
 .DS_Store
 Thumbs.db
 
-# Config local de ferramenta de editor
-.serena/
-
 # Site da documentação (website/)
 website/build
 website/.docusaurus
 .pnpm-store
-
-# Capturas e logs do MCP do Playwright (podem ter páginas logadas)
-.playwright-mcp/

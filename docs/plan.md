@@ -179,7 +179,7 @@ Dependências da `cli`: `commander`, `ts-morph` e `@matizze/prumo-rules`. Nenhum
 - No `make:page`: tela de formulário, com as mutations do `make:query`.
 - `make:component` e `move:component`, se fizerem falta.
 - Na fonte `http`: os erros 401 (sessão) e 422 (validação).
-- Marcar o `@matizze/prumo-mcp` como descontinuado no npm, com o ok de uma pessoa.
+- O `@matizze/prumo-mcp`: em 24/11/2026 uma pessoa decidiu apagá-lo do npm (seção 13).
 
 ## 10. O que continua do plano anterior
 
@@ -259,7 +259,7 @@ O servidor MCP volta como um comando da própria cli. As ferramentas saem da ár
 | Projeto            | O da pasta onde o servidor abre (o `cwd`, ou `prumo mcp --root <pasta>`). Nenhuma ferramenta recebe `root`: o agente não escreve fora do projeto                                               |
 | Comando novo       | `prumo list`: o que o projeto já tem (seção 13.3)                                                                                                                                               |
 | App                | O `new` cria o `.mcp.json` (servidor `prumo`, `pnpm exec prumo mcp`), e o `AGENTS.md` do app cita o servidor                                                                                     |
-| Pacote antigo      | `@matizze/prumo-mcp` marcado como descontinuado no npm, com a mensagem "use `prumo mcp` (@matizze/prumo-cli 0.8.0 ou mais)", só com o ok de uma pessoa                                         |
+| Pacote antigo      | `@matizze/prumo-mcp` apagado do npm (`npm unpublish`), por decisão de uma pessoa em 24/11/2026, no lugar do `deprecate` planejado                                                          |
 | Versão             | `@matizze/prumo-cli` 0.8.0                                                                                                                                                                       |
 
 ### 13.1 As ferramentas
@@ -299,9 +299,9 @@ Sem `--json`, é um texto curto por seção. Com `--json`, é um objeto estável
 | M2 | `prumo mcp`: ferramentas descritas a partir do commander, servidor stdio, execução em processo e fila                                                                           | Teste cliente ↔ servidor no mesmo processo; teste de paridade (todo comando, menos `new` e `mcp`, tem ferramenta, e vice-versa); nada além do protocolo no stdout |
 | M3 | O app: `.mcp.json` e `AGENTS.md` pelo `new`; etapa MCP no `verify:new` (um domínio e uma tela gerados só por ferramentas, com o cliente do SDK por stdio contra o `prumo mcp` do app) | `pnpm verify:new` verde com a etapa MCP                                                                                                     |
 | M4 | Documentação (guia de agentes de IA, referência do `mcp` e do `list`) e changeset `minor` da cli                                                                               | O site compila e a documentação bate com os comandos                                                                                        |
-| M5 | Com o ok de uma pessoa: versões (cli 0.8.0), `develop` → `main` e o `npm deprecate` do pacote antigo                                                                           | A 0.8.0 no npm e o pacote antigo marcado                                                                                                    |
+| M5 | Com o ok de uma pessoa: versões (cli 0.8.0), `develop` → `main` e o `npm unpublish` do pacote antigo                                                                           | A 0.8.0 no npm e o pacote antigo fora do npm                                                                                                |
 
-**Situação:** M1 a M4 concluídos; o M5 (versão 0.8.0, `main` e `npm deprecate` do `@matizze/prumo-mcp`) espera o ok de uma pessoa.
+**Situação:** M1 a M4 concluídos. M5 aprovado por uma pessoa em 24/11/2026: `@matizze/prumo-cli` 0.8.0 publicada pelo workflow quando a `develop` vai para a `main`, e o `@matizze/prumo-mcp` apagado do npm (o prazo do npm para apagar um pacote inteiro vence 72 horas depois da criação, em 25/11/2026 às 20:40 UTC).
 
 ### 13.5 Execução e o que fica de fora
 

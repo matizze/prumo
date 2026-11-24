@@ -49,7 +49,11 @@ export class Mock{{plural.pascal}}Repository implements I{{plural.pascal}}Reposi
     await wait(this.latencyMs)
     const { at, item } = this.find(id)
     // Troca o objeto em vez de mexer nele: as fixtures e o que já foi devolvido não mudam
-    const updated = { ...item, ...input }
+    // Um campo indefinido vale "não muda": só os enviados trocam
+    const changes = Object.fromEntries(
+      Object.entries(input).filter(([, value]) => value !== undefined),
+    ) as Partial<{{singular.pascal}}Input>
+    const updated = { ...item, ...changes }
     this.items[at] = updated
     return updated
   }

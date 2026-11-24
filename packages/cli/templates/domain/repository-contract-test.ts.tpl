@@ -68,6 +68,12 @@ const {{plural.camel}}Contract = defineContractSuite<I{{plural.pascal}}Repositor
       expect(updated).toEqual({ ...before, {{test.editName}}: {{test.partialValue}} })
     })
 
+    it('ignora o campo indefinido no update: ele não muda', async () => {
+      const before = await repo.get('{{singular.kebab}}-1')
+      expect(await repo.update('{{singular.kebab}}-1', { {{test.editName}}: undefined })).toEqual(before)
+      expect(await repo.get('{{singular.kebab}}-1')).toEqual(before)
+    })
+
     it('remove um registro e rejeita um id que não existe', async () => {
       await repo.remove('{{singular.kebab}}-1')
       expect((await repo.list()).total).toBe(MOCK_{{plural.constant}}.length - 1)

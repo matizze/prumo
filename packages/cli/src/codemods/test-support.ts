@@ -82,6 +82,16 @@ export function createRepositories(options: Partial<RepositoryOptions> = {}): Re
 }
 `
 
+/** O `src/repositories/options.ts` do projeto de fixture: só o mock. */
+const REPOSITORY_OPTIONS = `import type { RepositoryOptions as CoreRepositoryOptions } from '@matizze/prumo-core/repositories'
+
+export const DATA_SOURCES = ['mock'] as const
+
+export type DataSource = (typeof DATA_SOURCES)[number]
+
+export type RepositoryOptions = CoreRepositoryOptions<DataSource>
+`
+
 /** Os arquivos de um idioma do projeto de fixture: o índice e um JSON por namespace. */
 function messagesOf(language: string): Record<string, string> {
   return {
@@ -128,6 +138,7 @@ export function fixtureProject(): Project {
       ...messagesOf('pt-BR'),
       'src/schemas/index.ts': SCHEMAS_INDEX,
       'src/repositories/index.ts': REPOSITORIES_INDEX,
+      'src/repositories/options.ts': REPOSITORY_OPTIONS,
     }),
   )
 }

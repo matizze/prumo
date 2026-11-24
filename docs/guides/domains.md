@@ -108,7 +108,7 @@ runContractSuite(clientesContract, {
 })
 ```
 
-Cada teste recebe uma instância nova do repositório, então um teste que cria ou remove registros não afeta o seguinte. Quando a implementação HTTP existir, ela roda o mesmo contrato (veja [Ligar uma API real](real-api.md#6-rode-o-contrato-contra-a-api)).
+Cada teste recebe uma instância nova do repositório, então um teste que cria ou remove registros não afeta o seguinte. Quando a implementação HTTP existir, ela roda o mesmo contrato (veja [Ligar uma API real](real-api.md#5-rode-o-contrato-contra-uma-api-de-teste)).
 
 ## Mudar a forma do dado
 

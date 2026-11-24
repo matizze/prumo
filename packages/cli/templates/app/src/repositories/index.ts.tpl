@@ -12,7 +12,10 @@ const factories = {}
 
 export type RepositoryContainer = RepositoryContainerOf<typeof factories>
 
+// A fonte vem da VITE_DATA_SOURCE (mock, quando falta). Os testes passam dataSource: 'mock' no render.
 export function createRepositories(options: Partial<RepositoryOptions> = {}): RepositoryContainer {
-  const dataSource = options.dataSource ?? resolveDataSource(undefined, DATA_SOURCES, 'mock')
+  const dataSource =
+    options.dataSource ??
+    resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')
   return createRepositoryContainer(factories, { ...options, dataSource })
 }

@@ -100,12 +100,13 @@ describe('prumo new', () => {
         'src/schemas/index.ts',
         'src/test/render.tsx',
         'src/test/setup.ts',
+        'src/vite-env.d.ts',
         'tsconfig.json',
         'vite.config.ts',
       ].sort(),
     )
     expect(result.stdout).toContain(`Destino: ${root}`)
-    expect(result.stdout).toContain('Criados (30):')
+    expect(result.stdout).toContain('Criados (31):')
     expect(result.stdout).toContain('pnpm exec prumo make:page <tela>')
     expect(result.stdout).not.toContain('clientes')
     expect(result.stdout).toContain('docs.prumo.matizze.com.br')
@@ -239,7 +240,13 @@ export default function App() {
     const root = path.join(cwd, 'app-mock')
 
     expect(read(root, 'src/repositories/options.ts')).toContain("DATA_SOURCES = ['mock']")
-    expect(read(root, 'src/repositories/index.ts')).toContain("DATA_SOURCES, 'mock'")
+    expect(read(root, 'src/repositories/index.ts')).toContain(
+      "resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')",
+    )
+    const env = read(root, 'src/vite-env.d.ts')
+    expect(env).toContain('/// <reference types="vite/client" />')
+    expect(env).toContain('readonly VITE_DATA_SOURCE?: string')
+    expect(env).toContain('readonly VITE_API_URL?: string')
     expect(read(root, 'src/test/render.tsx')).toContain("dataSource: 'mock'")
     for (const file of listFiles(root).filter((file) => !file.startsWith('.git/'))) {
       expect(read(root, file), file).not.toMatch(/'memory'/)
@@ -258,7 +265,7 @@ export default function App() {
 
     expect(result.code, result.stderr).toBe(0)
     expect(result.stdout).toContain('prumo new: app-seco (simulação).')
-    expect(result.stdout).toContain('Seriam criados (30):')
+    expect(result.stdout).toContain('Seriam criados (31):')
     expect(result.stdout).toContain('  src/pages/home/view.tsx\n')
     expect(result.stdout).toContain('Depois: git init e pnpm install.')
     expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')

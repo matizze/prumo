@@ -127,7 +127,7 @@ Algumas convenções não são cobradas por regra, mas o código gerado as segue
 O Prumo decide **onde** cada coisa mora e **como** as camadas se falam. Ele não decide:
 
 - **A interface.** Nenhum componente visual, ícone, tema, token ou CSS. Use o design system que quiser em `src/components/ui`.
-- **A API e a autenticação.** O Prumo gera o contrato e um repositório em memória; o cliente HTTP, a sessão e o formato da API são do produto (os guias [Ligar uma API real](../guides/real-api.md) e [Sessão e login](../guides/auth.md) mostram um jeito).
+- **A API e a autenticação.** O Prumo gera o contrato, um repositório em memória e, se você pedir, as fontes `storage` e `http` (o `fetch` num cliente simples, com o formato da API que o app espera); a sessão e a API em si são do produto (os guias [Ligar uma API real](../guides/real-api.md) e [Sessão e login](../guides/auth.md) mostram um jeito).
 - **As regras de negócio.** O Prumo diz onde elas moram (`src/rules/`), não quais são.
 - **O estado global de interface.** Estado de tela fica no model; se o produto precisar de um store global, é escolha dele.
 

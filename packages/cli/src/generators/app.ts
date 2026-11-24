@@ -38,6 +38,7 @@ export const APP_FILES: readonly AppFile[] = [
   { template: 'app/src/repositories/index.ts.tpl', to: 'src/repositories/index.ts' },
   { template: 'app/src/repositories/options.ts.tpl', to: 'src/repositories/options.ts' },
   { template: 'app/src/schemas-index.ts.tpl', to: 'src/schemas/index.ts' },
+  { template: 'app/src/vite-env.d.ts.tpl', to: 'src/vite-env.d.ts' },
   { template: 'app/src/test/render.tsx.tpl', to: 'src/test/render.tsx' },
   { template: 'app/src/test/setup.ts.tpl', to: 'src/test/setup.ts' },
 ]

@@ -67,7 +67,8 @@ stage_new() {
 # Os comandos de geração do app. Cada passo da reescrita da CLI acrescenta aqui as chamadas do seu
 # comando, na ordem das camadas:
 #   passo 3  make:schema      (schema com campos de todos os tipos: --fields e --entity)
-#   passo 4  make:repository  (o mock e o teste de contrato; passo 5: --data-source http e storage)
+#   passo 4  make:repository  (o mock e o teste de contrato)
+#   passo 5  make:repository --data-source (storage e http, no repositório que existe e no que nasce com a fonte)
 #   passo 6  make:query
 #   passo 7  make:page        (título, lista com --query, parâmetro e detalhe)
 # O `new` já gera a tela inicial (home), que o `check` e os testes do verify do app cobrem.
@@ -80,6 +81,13 @@ stage_cli() {
   prumo make:repository clientes
   prumo make:repository livros
   prumo make:repository paes --entity pao
+  # passo 5: as fontes. O storage e o http entram num repositório que já existe (o contrato do
+  # storage roda no verify do app, e o do http fica pulado sem API_TEST_URL); o pedidos já nasce
+  # com o http, e o segundo domínio http reaproveita o cliente que o primeiro criou
+  prumo make:repository livros --data-source storage
+  prumo make:repository clientes --data-source http
+  prumo make:schema pedidos
+  prumo make:repository pedidos --data-source http
 }
 
 stage_verify() {

@@ -50,7 +50,7 @@ describe('generateRepository', () => {
     for (const source of plan.createdSources()) {
       const file = check.createSourceFile(path.basename(source.getFilePath()), source.getFullText())
       expect(file.getPreEmitDiagnostics().filter((d) => d.getCode() < 2000)).toEqual([])
-      expect(source.getFullText()).not.toMatch(/\{\{|undefined/)
+      expect(source.getFullText()).not.toMatch(/\{\{|(?<!(?:: |!== ))undefined/)
     }
     const text = (name: string) =>
       plan.createdSources().find((s) => s.getFilePath().endsWith(name))!.getFullText()
@@ -158,6 +158,85 @@ describe('generateRepository', () => {
       writeFileSync(en, '{}\n')
       const { plan } = generateRepository(project, { name: 'livros' })
       expect(JSON.parse(plan.readText(en))).toEqual({ LIVRO_NOT_FOUND: 'Record not found.' })
+    })
+  })
+
+  describe('as fontes http e storage', () => {
+    const text = (plan: ReturnType<typeof generateRepository>['plan'], name: string) =>
+      plan.createdSources().find((s) => s.getFilePath().endsWith(name))!.getFullText()
+
+    it('http num repositório novo: os cinco arquivos, a fonte, o cliente e a instância; nada é gravado', () => {
+      const project = projectWithSchema()
+      const { plan, dataSource, created } = generateRepository(project, { name: 'livros', dataSource: 'http' })
+
+      expect(dataSource).toBe('http')
+      expect(created).toBe(true)
+      expect(plan.summary()).toEqual({
+        created: [
+          'src/repositories/api.ts',
+          'src/repositories/http.ts',
+          'src/repositories/livros/fixtures.ts',
+          'src/repositories/livros/index.ts',
+          'src/repositories/livros/repository.contract.test.ts',
+          'src/repositories/livros/repository.contract.ts',
+          'src/repositories/livros/repository.http.ts',
+          'src/repositories/livros/repository.mock.ts',
+          'src/vite-env.d.ts',
+        ],
+        modified: ['src/repositories/index.ts', 'src/repositories/options.ts'],
+      })
+      const http = text(plan, 'repository.http.ts')
+      expect(http).toContain('class HttpLivrosRepository implements ILivrosRepository')
+      expect(http).toContain('pageSchema(livroSchema)')
+      expect(http).toContain("method: 'PATCH'")
+      expect(http).toContain("'LIVRO_NOT_FOUND'")
+      expect(http).toContain('encodeURIComponent(id)')
+      expect(http).toContain("`${query.sort.key}:${query.sort.direction}`")
+      expect(text(plan, 'src/repositories/api.ts')).toContain("import.meta.env.VITE_API_URL || '/api'")
+      expect(text(plan, 'src/repositories/api.ts')).toContain('// auth: {')
+    })
+
+    it('http reaproveita o cliente e a instância que o app já tem', () => {
+      const project = projectWithSchema()
+      writeFileSync(path.join(project.src, 'repositories/http.ts'), 'export {}\n')
+      writeFileSync(path.join(project.src, 'repositories/api.ts'), 'export {}\n')
+      writeFileSync(path.join(project.src, 'vite-env.d.ts'), '/// <reference types="vite/client" />\n')
+      const { plan } = generateRepository(project, { name: 'livros', dataSource: 'http' })
+      expect(plan.summary().created).not.toContain('src/repositories/http.ts')
+      expect(plan.summary().created).not.toContain('src/repositories/api.ts')
+      expect(plan.summary().created).not.toContain('src/vite-env.d.ts')
+      expect(plan.summary().created).toContain('src/repositories/livros/repository.http.ts')
+    })
+
+    it('storage: a chave é <nome do app>:<domínio>, e o nome sai do package.json', () => {
+      const project = projectWithSchema()
+      const { plan } = generateRepository(project, { name: 'livros', dataSource: 'storage' })
+      expect(text(plan, 'repository.storage.ts')).toContain("STORAGE_KEY = 'app:livros'")
+      expect(plan.summary().created).not.toContain('src/repositories/http.ts')
+
+      writeFileSync(path.join(project.root, 'package.json'), '{ "name": "@loja/it\'s" }\n')
+      const scoped = generateRepository(project, { name: 'livros', dataSource: 'storage' })
+      expect(text(scoped.plan, 'repository.storage.ts')).toContain("STORAGE_KEY = '@loja/it\\'s:livros'")
+    })
+
+    it('storage mantém os campos do schema (busca, ordem e criação) como o mock', () => {
+      const { plan } = generateRepository(projectWithSchema(), { name: 'livros', dataSource: 'storage' })
+      const storage = text(plan, 'repository.storage.ts')
+      expect(storage).toContain('item.titulo')
+      expect(storage).toContain('situacao: (item) => item.situacao')
+      expect(storage).toContain('situacao: input.situacao,')
+    })
+
+    it('a fonte que já existe e o repositório que já existe (sem fonte) saem com 2', () => {
+      const project = projectWithSchema()
+      generateRepository(project, { name: 'livros' }).plan.commit()
+      expect(() => generateRepository(project, { name: 'livros' })).toThrow(UsageError)
+      generateRepository(project, { name: 'livros', dataSource: 'storage' }).plan.commit()
+      expect(() => generateRepository(project, { name: 'livros', dataSource: 'storage' })).toThrow(
+        "já tem a fonte storage",
+      )
+      // O mock criou o repositório antes: a fonte nova entrou, e o http ainda pode entrar
+      expect(generateRepository(project, { name: 'livros', dataSource: 'http' }).created).toBe(false)
     })
   })
 })

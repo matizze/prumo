@@ -2,7 +2,7 @@
   "name": "prumo",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.0.0",
+  "packageManager": "pnpm@10.34.9",
   "engines": {
     "node": ">=24"
   },
@@ -23,5 +23,10 @@
     "globals": "^17.13.0",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

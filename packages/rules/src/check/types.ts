@@ -18,7 +18,7 @@ export interface CheckOptions {
   alias?: string
   /** Pasta para onde o alias aponta, relativa à raiz. Padrão: `'src'`. */
   aliasRoot?: string
-  /** Pasta das telas, relativa à raiz. Cada subpasta é uma tela. Padrão: `'src/pages'`. */
+  /** Pasta das telas, relativa à raiz. Tela é a pasta com `index.tsx`, em qualquer profundidade. Padrão: `'src/pages'`. */
   pagesDir?: string
   /** Arquivos que toda tela tem na própria pasta. Padrão: `['index.tsx', 'model.ts', 'view.tsx']`. */
   requiredPageFiles?: string[]

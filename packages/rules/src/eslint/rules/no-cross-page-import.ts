@@ -1,5 +1,6 @@
 import path from 'node:path'
 import type { Rule } from 'eslint'
+import { pageOf } from '../../page-structure.ts'
 import {
   importListener,
   locateInside,
@@ -13,16 +14,21 @@ export interface NoCrossPageImportOptions {
   alias?: string
   /** Pasta para onde o alias aponta, relativa ao projeto. Padrão: `'src'`. */
   aliasRoot?: string
-  /** Pasta das telas, relativa ao projeto. Cada subpasta é uma tela. Padrão: `'src/pages'`. */
+  /** Pasta das telas, relativa ao projeto. Tela é a pasta com `index.tsx`, em qualquer profundidade. Padrão: `'src/pages'`. */
   pagesDir?: string
 }
 
 const DEFAULTS = { alias: '@/', aliasRoot: 'src', pagesDir: 'src/pages' }
 
 /**
- * Telas isoladas: um arquivo de `src/pages/<tela>/` não importa de `src/pages/<outra>/`, nem
- * pelo alias nem por caminho relativo. O que duas telas usam em comum vai para a pasta de
- * componentes compartilhados. A regra só precisa do caminho do arquivo e do caminho do import.
+ * Telas isoladas: um arquivo de uma tela (`src/pages/livros/` ou `src/pages/auth/login/`) não
+ * importa de outra (`src/pages/auth/register/`), nem pelo alias nem por caminho relativo. A tela é
+ * a primeira pasta, a partir de `src/pages`, que tem `index.tsx`; a pasta sem ele só agrupa telas.
+ * O que duas telas usam em comum vai para a pasta de componentes compartilhados.
+ *
+ * O arquivo solto em `src/pages/` ou numa pasta de grupo (`auth/shared.ts`) não é de tela, e a
+ * regra não o olha; importá-lo de uma tela conta como importar de outra, então ele também vai para
+ * os componentes compartilhados.
  */
 export const noCrossPageImport: Rule.RuleModule = {
   meta: {
@@ -51,13 +57,15 @@ export const noCrossPageImport: Rule.RuleModule = {
     }
     const pagesDir = trimSlashes(options.pagesDir)
     const placement = locateInside(context.filename, pagesDir)
-    // Só vale para arquivo dentro da pasta de uma tela, não para o que está solto em pages/
-    if (!placement || !placement.inner.includes('/')) return {}
+    if (!placement) return {}
 
     const { root } = placement
-    const page = placement.inner.split('/')[0]
-    const alias = normalizeAlias(options.alias)
     const pagesPath = path.posix.join(root, pagesDir)
+    // Só vale para arquivo dentro de uma tela, não para o que está solto em pages/ ou num grupo
+    const page = pageOf(pagesPath, placement.inner)
+    if (!page) return {}
+
+    const alias = normalizeAlias(options.alias)
 
     return importListener((node, specifier) => {
       const resolved = resolveSpecifier(specifier, {
@@ -68,7 +76,8 @@ export const noCrossPageImport: Rule.RuleModule = {
       })
       if (!resolved?.target.startsWith(`${pagesPath}/`)) return
 
-      const other = resolved.target.slice(pagesPath.length + 1).split('/')[0]
+      const target = resolved.target.slice(pagesPath.length + 1)
+      const other = pageOf(pagesPath, target) ?? target
       if (other !== page) {
         context.report({ node, messageId: 'crossPage', data: { page, other, specifier } })
       }

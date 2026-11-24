@@ -1,5 +1,11 @@
 # @matizze/prumo-testing
 
+## 0.3.1
+
+### Patch Changes
+
+- d60b9c3: Os exemplos do README usam a fonte de dados `mock` (antes `memory`).
+
 ## 0.3.0
 
 ### Minor Changes

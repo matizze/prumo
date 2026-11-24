@@ -13,10 +13,10 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { ExitError, UsageError } from '../errors.ts'
 import { applyEdits } from '../codemods/edit.ts'
-import { fixturePlan } from '../codemods/test-support.ts'
+import { fixturePlan } from '../test/fixture-project.ts'
 import { ChangePlan } from './plan.ts'
 import { findProject, projectAt } from './project.ts'
-import { makeDir } from '../test-support.ts'
+import { makeDir } from '../test/fs.ts'
 
 const at = (root: string, relative: string) => path.join(root, relative)
 

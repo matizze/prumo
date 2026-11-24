@@ -3,7 +3,8 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { exec, makeDir, makeProject } from '../test-support.ts'
+import { makeDir, makeProject } from '../test/fs.ts'
+import { exec } from '../test/run.ts'
 import { formatViolation } from './check.ts'
 
 /** Projeto temporário com uma violação (pasta de fora em src/components) ou nenhuma. */

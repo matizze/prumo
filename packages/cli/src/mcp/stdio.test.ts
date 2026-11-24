@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url'
 import { Client } from '@modelcontextprotocol/client'
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio'
 import { describe, expect, it } from 'vitest'
-import { fixtureProject } from '../codemods/test-support.ts'
-import { makeDir } from '../test-support.ts'
+import { fixtureProject } from '../test/fixture-project.ts'
+import { makeDir } from '../test/fs.ts'
 
 const BIN = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin.ts')
 const version = (

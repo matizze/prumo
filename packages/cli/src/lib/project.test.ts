@@ -3,7 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { UsageError } from '../errors.ts'
 import { findProject, locateProject } from './project.ts'
-import { makeDir, makeProject, PROJECT_MANIFEST } from '../test-support.ts'
+import { makeDir, makeProject, PROJECT_MANIFEST } from '../test/fs.ts'
 
 describe('findProject', () => {
   it('devolve os caminhos do projeto, todos absolutos', () => {

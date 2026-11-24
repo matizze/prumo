@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { domainNames } from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import { findProject } from '../lib/project.ts'
-import { makeProject } from '../test-support.ts'
+import { makeProject } from '../test/fs.ts'
 import { registerSchema } from './register-schema.ts'
-import { fixturePlan } from './test-support.ts'
+import { fixturePlan } from '../test/fixture-project.ts'
 
 const text = (plan: ChangePlan) => plan.source(`${plan.project.src}/schemas/index.ts`).getFullText()
 

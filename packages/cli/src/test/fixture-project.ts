@@ -1,6 +1,7 @@
 import { ChangePlan } from '../lib/plan.ts'
 import { findProject, type Project } from '../lib/project.ts'
-import { makeProject } from '../test-support.ts'
+import { generatedApp, patchText } from './app.ts'
+import { makeProject } from './fs.ts'
 
 /** O `index.ts` de mensagens de um idioma: os dois últimos namespaces fora da ordem alfabética. */
 const MESSAGES_INDEX = `// Mensagens, um arquivo por namespace.
@@ -51,52 +52,28 @@ export { customerKeys, useCustomersList } from './customers'
 export { taskKeys, useTasksList } from './tasks'
 `
 
-/** O `src/repositories/index.ts` do projeto de fixture: o container, com quatro domínios. */
-const REPOSITORIES_INDEX = `import {
-  createRepositoryContainer,
-  resolveDataSource,
-  type RepositoryContainerOf,
-} from '@matizze/prumo-core/repositories'
-import { createAccountRepository } from './account'
-import { createCustomersRepository } from './customers'
-import { DATA_SOURCES, type RepositoryOptions } from './options'
-import { createSupportRepository } from './support'
-import { createTaskRepository } from './task'
-
-export * from './account'
-export * from './customers'
-export * from './support'
-export * from './task'
-export { DATA_SOURCES, type DataSource, type RepositoryOptions } from './options'
-
 /**
- * Mapa de fábricas: cada domínio exporta \`create<Dominio>Repository(options)\` e entra aqui com
- * uma linha, em ordem alfabética.
+ * O `src/repositories/index.ts` do projeto de fixture: o container que o `prumo new` gera (o
+ * modelo, pelo `generatedApp`), já com quatro domínios registrados.
  */
-const factories = {
-  account: createAccountRepository,
-  customers: createCustomersRepository,
-  support: createSupportRepository,
-  tasks: createTaskRepository,
+function repositoriesIndex(): string {
+  const generated = generatedApp()['src/repositories/index.ts']!
+  const factory = (domain: string) => `create${domain[0]!.toUpperCase()}${domain.slice(1)}Repository`
+  const importOf = (domain: string) => `import { ${factory(domain)} } from './${domain}'`
+  const options = "import { DATA_SOURCES, type RepositoryOptions } from './options'"
+  const patches = [
+    [options, [importOf('account'), importOf('customers'), options, importOf('support'), importOf('task')].join('\n')],
+    [
+      'export { DATA_SOURCES',
+      `${['account', 'customers', 'support', 'task'].map((d) => `export * from './${d}'`).join('\n')}\nexport { DATA_SOURCES`,
+    ],
+    [
+      'const factories = {}',
+      `const factories = {\n  account: ${factory('account')},\n  customers: ${factory('customers')},\n  support: ${factory('support')},\n  tasks: ${factory('task')},\n}`,
+    ],
+  ] as const
+  return patches.reduce((text, [from, to]) => patchText(text, from, to), generated)
 }
-
-export type RepositoryContainer = RepositoryContainerOf<typeof factories>
-
-export function createRepositories(options: Partial<RepositoryOptions> = {}): RepositoryContainer {
-  const dataSource = options.dataSource ?? resolveDataSource(undefined, DATA_SOURCES, 'mock')
-  return createRepositoryContainer(factories, { ...options, dataSource })
-}
-`
-
-/** O `src/repositories/options.ts` do projeto de fixture: só o mock. */
-const REPOSITORY_OPTIONS = `import type { RepositoryOptions as CoreRepositoryOptions } from '@matizze/prumo-core/repositories'
-
-export const DATA_SOURCES = ['mock'] as const
-
-export type DataSource = (typeof DATA_SOURCES)[number]
-
-export type RepositoryOptions = CoreRepositoryOptions<DataSource>
-`
 
 /** Os arquivos de um idioma do projeto de fixture: o índice e um JSON por namespace. */
 function messagesOf(language: string): Record<string, string> {
@@ -143,8 +120,8 @@ export function fixtureProject(): Project {
       ...messagesOf('en'),
       ...messagesOf('pt-BR'),
       'src/schemas/index.ts': SCHEMAS_INDEX,
-      'src/repositories/index.ts': REPOSITORIES_INDEX,
-      'src/repositories/options.ts': REPOSITORY_OPTIONS,
+      'src/repositories/index.ts': repositoriesIndex(),
+      'src/repositories/options.ts': generatedApp()['src/repositories/options.ts']!,
       'src/queries/index.ts': QUERIES_INDEX,
     }),
   )

@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { domainNames } from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import { findProject } from '../lib/project.ts'
-import { makeProject } from '../test-support.ts'
+import { patchText } from '../test/app.ts'
+import { makeProject } from '../test/fs.ts'
 import { registerRepository, registerRepositoryEntry } from './register-repository.ts'
-import { fixturePlan } from './test-support.ts'
+import { fixturePlan } from '../test/fixture-project.ts'
 
 const text = (plan: ChangePlan) => plan.source(`${plan.project.src}/repositories/index.ts`).getFullText()
 
@@ -14,44 +15,21 @@ describe('registerRepository', () => {
 
     registerRepository(plan, domainNames('suppliers'))
 
-    expect(text(plan)).toBe(`import {
-  createRepositoryContainer,
-  resolveDataSource,
-  type RepositoryContainerOf,
-} from '@matizze/prumo-core/repositories'
-import { createAccountRepository } from './account'
-import { createCustomersRepository } from './customers'
-import { DATA_SOURCES, type RepositoryOptions } from './options'
-import { createSuppliersRepository } from './suppliers'
-import { createSupportRepository } from './support'
-import { createTaskRepository } from './task'
-
-export * from './account'
-export * from './customers'
-export * from './suppliers'
-export * from './support'
-export * from './task'
-export { DATA_SOURCES, type DataSource, type RepositoryOptions } from './options'
-
-/**
- * Mapa de fábricas: cada domínio exporta \`create<Dominio>Repository(options)\` e entra aqui com
- * uma linha, em ordem alfabética.
- */
-const factories = {
-  account: createAccountRepository,
-  customers: createCustomersRepository,
-  suppliers: createSuppliersRepository,
-  support: createSupportRepository,
-  tasks: createTaskRepository,
-}
-
-export type RepositoryContainer = RepositoryContainerOf<typeof factories>
-
-export function createRepositories(options: Partial<RepositoryOptions> = {}): RepositoryContainer {
-  const dataSource = options.dataSource ?? resolveDataSource(undefined, DATA_SOURCES, 'mock')
-  return createRepositoryContainer(factories, { ...options, dataSource })
-}
-`)
+    // O resto do arquivo (o que vem do modelo) fica como estava; só as três linhas entram
+    const before = text(fixturePlan())
+    expect(text(plan)).toBe(
+      [
+        [
+          "import { createSupportRepository } from './support'\n",
+          "import { createSuppliersRepository } from './suppliers'\nimport { createSupportRepository } from './support'\n",
+        ],
+        ["export * from './support'\n", "export * from './suppliers'\nexport * from './support'\n"],
+        [
+          '  support: createSupportRepository,\n',
+          '  suppliers: createSuppliersRepository,\n  support: createSupportRepository,\n',
+        ],
+      ].reduce((index, [from, to]) => patchText(index!, from!, to!), before),
+    )
   })
 
   it('no fim da lista, depois do último, com a vírgula do estilo do arquivo', () => {

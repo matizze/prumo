@@ -1,8 +1,9 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { fixtureProject } from '../codemods/test-support.ts'
-import { exec } from '../test-support.ts'
+import { patchText } from '../test/app.ts'
+import { fixtureProject } from '../test/fixture-project.ts'
+import { exec } from '../test/run.ts'
 
 const read = (root: string, file: string) => readFileSync(path.join(root, file), 'utf8')
 
@@ -12,6 +13,16 @@ async function withSchema(args: string[] = ['clientes']) {
   const made = await exec(['make:schema', ...args], root)
   expect(made.code, made.stderr).toBe(0)
   return root
+}
+
+const OLD_RESOLVE = "resolveDataSource(undefined, DATA_SOURCES, 'mock')"
+const NEW_RESOLVE =
+  "resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')"
+
+/** O container de um app de antes da leitura da `VITE_DATA_SOURCE`: o do modelo, com o `undefined` de antes. */
+function useOldContainer(root: string): void {
+  const file = path.join(root, 'src/repositories/index.ts')
+  writeFileSync(file, patchText(readFileSync(file, 'utf8'), NEW_RESOLVE, OLD_RESOLVE))
 }
 
 describe('prumo make:repository', () => {
@@ -154,6 +165,7 @@ describe('prumo make:repository', () => {
 
     it('storage num repositório que já existe: acrescenta só a fonte', async () => {
       const root = await withSchema()
+      useOldContainer(root)
       expect((await exec(['make:repository', 'clientes'], root)).code).toBe(0)
       const container = read(root, 'src/repositories/index.ts')
       const mock = read(root, 'src/repositories/clientes/repository.mock.ts')
@@ -233,7 +245,7 @@ describe('prumo make:repository', () => {
       expect(result.stdout).toContain('  src/repositories/options.ts\n')
       expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')
       expect(existsSync(path.join(root, 'src/repositories/http.ts'))).toBe(false)
-      expect(read(root, 'src/repositories/options.ts')).not.toContain('http')
+      expect(read(root, 'src/repositories/options.ts')).not.toContain("'http'")
     })
 
     it('sem o options.ts ou com a fábrica mudada: sai com 2 e não escreve nada', async () => {
@@ -246,7 +258,7 @@ describe('prumo make:repository', () => {
       expect(result.stderr).toContain("não tem a função 'createClientesRepository'")
       expect(existsSync(path.join(root, 'src/repositories/clientes/repository.http.ts'))).toBe(false)
       expect(existsSync(path.join(root, 'src/repositories/http.ts'))).toBe(false)
-      expect(read(root, 'src/repositories/options.ts')).not.toContain('http')
+      expect(read(root, 'src/repositories/options.ts')).not.toContain("'http'")
     })
 
     it('avisa, sem falhar, quando o teste de contrato foi apagado', async () => {
@@ -273,6 +285,7 @@ describe('prumo make:repository', () => {
 
     it('app de antes deste passo: troca o resolveDataSource(undefined, ...) pelo que lê a VITE_DATA_SOURCE', async () => {
       const root = await withSchema()
+      useOldContainer(root)
       const container = 'src/repositories/index.ts'
       expect(read(root, container)).toContain("resolveDataSource(undefined, DATA_SOURCES, 'mock')")
       const result = await exec(['make:repository', 'clientes', '--data-source', 'http'], root)
@@ -287,10 +300,8 @@ describe('prumo make:repository', () => {
     it('container que não é o do modelo: avisa como ligar e não o toca', async () => {
       const root = await withSchema()
       const container = 'src/repositories/index.ts'
-      const custom = read(root, container).replace(
-        "resolveDataSource(undefined, DATA_SOURCES, 'mock')",
-        "resolveDataSource(window.location.hash, DATA_SOURCES, 'mock')",
-      )
+      useOldContainer(root)
+      const custom = read(root, container).replace(OLD_RESOLVE, "resolveDataSource(window.location.hash, DATA_SOURCES, 'mock')")
       writeFileSync(path.join(root, container), custom)
       const result = await exec(['make:repository', 'clientes', '--data-source', 'storage'], root)
       expect(result.code, result.stderr).toBe(0)
@@ -302,13 +313,6 @@ describe('prumo make:repository', () => {
     it('container que já lê a VITE_DATA_SOURCE (app novo) não muda nem avisa', async () => {
       const root = await withSchema()
       const container = 'src/repositories/index.ts'
-      writeFileSync(
-        path.join(root, container),
-        read(root, container).replace(
-          "resolveDataSource(undefined, DATA_SOURCES, 'mock')",
-          "resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')",
-        ),
-      )
       const result = await exec(['make:repository', 'clientes', '--data-source', 'storage'], root)
       expect(result.code, result.stderr).toBe(0)
       expect(result.stdout).not.toContain('Aviso: o container')

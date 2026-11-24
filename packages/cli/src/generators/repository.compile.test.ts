@@ -1,11 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { exec } from '../test-support.ts'
-import { project, SETUP_STORAGE, tsc, vitest } from './compile-test-support.ts'
+import { project, tsc, useFakeApi, vitest } from '../test/compile.ts'
+import { exec } from '../test/run.ts'
 
 /**
- * O repositório gerado de verdade: o projeto temporário (`compile-test-support.ts`) recebe o schema (do
+ * O repositório gerado de verdade: o projeto temporário (`test/compile.ts`) recebe o schema (do
  * `make:schema`, às vezes editado à mão) e o repositório (do `make:repository`), e o `tsc` roda nele.
  */
 
@@ -14,8 +14,7 @@ import { project, SETUP_STORAGE, tsc, vitest } from './compile-test-support.ts'
  * (\`{ items, total }\`, a lista com search, sort, page e page_size, \`PATCH\`, \`DELETE\` e o 404) e
  * volta às fixtures antes de cada teste.
  */
-const SETUP_FAKE_API = `${SETUP_STORAGE}
-import { beforeEach } from 'vitest'
+const FAKE_API = `import { beforeEach, vi } from 'vitest'
 import { matchesSearch, paginate, sortBy } from '@matizze/prumo-core/mock'
 import { MOCK_CLIENTES } from '@/repositories/clientes/fixtures'
 
@@ -106,7 +105,7 @@ describe('o repositório gerado compila (tsc estrito) e passa no contrato', () =
     const root = await project()
     await generate(root)
     expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root)
+    const tests = vitest(root, {}, ['src/repositories'])
     expect(tests.status, tests.output).toBe(0)
   }, 120_000)
 
@@ -123,7 +122,7 @@ describe('o repositório gerado compila (tsc estrito) e passa no contrato', () =
       'peso: input.peso,',
     )
     expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root)
+    const tests = vitest(root, {}, ['src/repositories'])
     expect(tests.status, tests.output).toBe(0)
   }, 120_000)
 
@@ -135,7 +134,7 @@ describe('o repositório gerado compila (tsc estrito) e passa no contrato', () =
       'input.calculado',
     )
     expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root)
+    const tests = vitest(root, {}, ['src/repositories'])
     expect(tests.status, tests.output).toBe(0)
   }, 120_000)
 
@@ -147,7 +146,7 @@ describe('o repositório gerado compila (tsc estrito) e passa no contrato', () =
     expect(mock).not.toContain('input.idade')
     expect(mock).toContain('idade: (item) => item.idade')
     expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root)
+    const tests = vitest(root, {}, ['src/repositories'])
     expect(tests.status, tests.output).toBe(0)
   }, 120_000)
 
@@ -158,7 +157,7 @@ describe('o repositório gerado compila (tsc estrito) e passa no contrato', () =
     const mock = readFileSync(path.join(root, 'src/repositories/clientes/repository.mock.ts'), 'utf8')
     expect(mock).not.toContain('idade: (item)')
     expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root)
+    const tests = vitest(root, {}, ['src/repositories'])
     expect(tests.status, tests.output).toBe(0)
   }, 120_000)
 
@@ -179,7 +178,7 @@ describe('o repositório gerado compila (tsc estrito) e passa no contrato', () =
     )
     await generate(root)
     expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root)
+    const tests = vitest(root, {}, ['src/repositories'])
     expect(tests.status, tests.output).toBe(0)
   }, 120_000)
 })
@@ -196,7 +195,7 @@ describe('as fontes storage e http compilam (tsc estrito) e passam no contrato',
       "['mock', 'storage']",
     )
     expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root)
+    const tests = vitest(root, {}, ['src/repositories'])
     expect(tests.status, tests.output).toBe(0)
     expect(tests.output).toMatch(/StorageClientesRepository > busca um registro/)
     expect(tests.output).not.toMatch(/skipped/)
@@ -206,7 +205,7 @@ describe('as fontes storage e http compilam (tsc estrito) e passam no contrato',
     const root = await project(LIVROS)
     await generate(root, '--data-source', 'storage')
     expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root)
+    const tests = vitest(root, {}, ['src/repositories'])
     expect(tests.status, tests.output).toBe(0)
     expect(tests.output).toMatch(/StorageClientesRepository > ordena e pagina/)
   }, 120_000)
@@ -270,7 +269,7 @@ it('JSON ilegível volta às fixtures, com aviso', async () => {
 `,
     )
     expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root)
+    const tests = vitest(root, {}, ['src/repositories'])
     expect(tests.status, tests.output).toBe(0)
   }, 120_000)
 
@@ -325,26 +324,26 @@ it('a VITE_API_URL vazia vale como ausente (/api), e a com barra no fim é apara
 })
 `,
     )
-    writeFileSync(path.join(root, 'src/test/setup.ts'), SETUP_FAKE_API)
+    useFakeApi(root, FAKE_API)
     expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root)
+    const tests = vitest(root, {}, ['src/repositories'])
     expect(tests.status, tests.output).toBe(0)
   }, 120_000)
 
   it('http: o contrato fica pulado sem API_TEST_URL e roda contra uma API falsa em memória', async () => {
     const root = await project(LIVROS)
     await generate(root, '--data-source', 'http')
-    writeFileSync(path.join(root, 'src/test/setup.ts'), SETUP_FAKE_API)
+    useFakeApi(root, FAKE_API)
     expect(tsc(root)).toEqual({ status: 0, output: '' })
 
-    const skipped = vitest(root)
+    const skipped = vitest(root, {}, ['src/repositories'])
     expect(skipped.status, skipped.output).toBe(0)
     expect(skipped.output).toMatch(/skipped/)
     expect(skipped.output).toMatch(/pulado: defina API_TEST_URL/)
 
     // O remove passa com o DELETE respondendo 204, 200 sem corpo e 200 com 'OK'
     for (const FAKE_DELETE of ['204', 'empty', 'ok']) {
-      const ran = vitest(root, { API_TEST_URL: 'http://api.test', FAKE_DELETE })
+      const ran = vitest(root, { API_TEST_URL: 'http://api.test', FAKE_DELETE }, ['src/repositories'])
       expect(ran.status, `${FAKE_DELETE}: ${ran.output}`).toBe(0)
       expect(ran.output).toMatch(/HttpClientesRepository > cria um registro/)
       expect(ran.output).toMatch(/HttpClientesRepository > remove um registro/)
@@ -357,9 +356,9 @@ it('a VITE_API_URL vazia vale como ausente (/api), e a com barra no fim é apara
     const root = await project()
     await generate(root, '--data-source', 'http')
     await generate(root, '--data-source', 'storage')
-    writeFileSync(path.join(root, 'src/test/setup.ts'), SETUP_FAKE_API)
+    useFakeApi(root, FAKE_API)
     expect(tsc(root)).toEqual({ status: 0, output: '' })
-    const tests = vitest(root, { API_TEST_URL: 'http://api.test' })
+    const tests = vitest(root, { API_TEST_URL: 'http://api.test' }, ['src/repositories'])
     expect(tests.status, tests.output).toBe(0)
     expect(tests.output).toMatch(/StorageClientesRepository > lista as fixtures/)
     expect(tests.output).toMatch(/HttpClientesRepository > lista as fixtures/)

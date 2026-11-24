@@ -43,8 +43,10 @@ describe('generateRepository', () => {
 
   it('os arquivos saem dos campos do schema, e o TypeScript não tem erro de sintaxe', () => {
     const { plan } = generateRepository(projectWithSchema(), { name: 'livros' })
+    // Só a sintaxe: sem a lib do TypeScript, que deixaria o teste lento à toa
     const check = new Project({
       useInMemoryFileSystem: true,
+      skipLoadingLibFiles: true,
       compilerOptions: { module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.Preserve, noEmit: true },
     })
     for (const source of plan.createdSources()) {

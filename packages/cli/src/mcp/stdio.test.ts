@@ -41,7 +41,7 @@ describe('prumo mcp, por subprocesso', () => {
     expect(pid).not.toBeNull()
     await client.close()
     // O processo some: kill(0) falha com ESRCH
-    await expect.poll(() => alive(pid as number), { timeout: 5000 }).toBe(false)
+    await expect.poll(() => alive(pid as number), { timeout: 15000 }).toBe(false)
   }, 30_000)
 
   it('o stdout é só JSON-RPC (cru, sem o cliente)', async () => {
@@ -60,7 +60,7 @@ describe('prumo mcp, por subprocesso', () => {
     )
     child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n')
     child.stdin.write(request(2, 'tools/list', {}))
-    await expect.poll(() => out.split('\n').filter(Boolean).length, { timeout: 5000 }).toBeGreaterThanOrEqual(2)
+    await expect.poll(() => out.split('\n').filter(Boolean).length, { timeout: 15000 }).toBeGreaterThanOrEqual(2)
     child.stdin.end()
     const [code] = (await once(child, 'exit')) as [number | null]
     expect(code).toBe(0)

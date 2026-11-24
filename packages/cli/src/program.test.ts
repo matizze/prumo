@@ -3,7 +3,7 @@ import { InvalidArgumentError, Option } from 'commander'
 import { describe, expect, it } from 'vitest'
 import type { RegisterCommand } from './commands/index.ts'
 import { ExitError, UsageError } from './errors.ts'
-import { run } from './program.ts'
+import { execute, run } from './program.ts'
 
 const { version } = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
@@ -40,15 +40,19 @@ const fake: RegisterCommand = (program) => {
   program.command('group').description('Um grupo.').command('sub').description('Um subcomando.')
 }
 
-async function exec(argv: string[], commands: readonly RegisterCommand[] = [fake]) {
+async function exec(
+  argv: string[],
+  commands: readonly RegisterCommand[] = [fake],
+  env?: Readonly<Record<string, string | undefined>>,
+) {
   let out = ''
   let err = ''
-  const code = await run(
+  const outcome = await execute(
     argv,
-    { cwd: '/tmp', out: (text) => (out += text), err: (text) => (err += text) },
+    { cwd: '/tmp', env, out: (text) => (out += text), err: (text) => (err += text) },
     commands,
   )
-  return { code, out, err }
+  return { code: outcome.code, kind: outcome.kind, out, err }
 }
 
 /** Palavras que o commander escreve em inglês e que nada do que sai pode ter. */
@@ -73,12 +77,18 @@ describe('ajuda', () => {
     expect(out).not.toMatch(ENGLISH)
   })
 
-  it('não tem o subcomando help', async () => {
-    const { out } = await exec(['--help'])
-    expect(out).not.toMatch(/^\s+help\b/m)
-    const result = await exec(['help'])
-    expect(result.code).toBe(2)
-    expect(result.err).toContain("prumo: comando desconhecido: 'help'.")
+  it('a ajuda não termina com linha em branco', async () => {
+    for (const argv of [['--help'], ['greet', '--help'], ['help', 'greet']]) {
+      const { out } = await exec(argv)
+      expect(out.endsWith('\n') && !out.endsWith('\n\n'), argv.join(' ')).toBe(true)
+    }
+  })
+
+  it('termina com o link da documentação, só na raiz', async () => {
+    expect((await exec(['--help'])).out).toContain(
+      '\nDocumentação: https://docs.prumo.matizze.com.br/reference/cli\n',
+    )
+    expect((await exec(['greet', '--help'])).out).not.toContain('Documentação:')
   })
 
   it('aceita -h', async () => {
@@ -104,32 +114,80 @@ describe('ajuda', () => {
   it('mostra a ajuda quando não há argumento, com saída 0', async () => {
     const withArgs = await exec([])
     const help = await exec(['--help'])
-    expect(withArgs).toEqual({ code: 0, out: help.out, err: '' })
+    expect(withArgs).toEqual({ code: 0, kind: 'ok', out: help.out, err: '' })
   })
 
   it('funciona sem nenhum comando registrado', async () => {
     const { code, out } = await exec([], [])
     expect(code).toBe(0)
     expect(out).toContain('Uso: prumo [opções]')
-    expect(out).not.toContain('Comandos:')
+    expect(out).not.toContain('greet')
+  })
+})
+
+describe('prumo help', () => {
+  it('mostra a ajuda de um comando, com saída 0', async () => {
+    const help = await exec(['greet', '--help'])
+    const viaHelp = await exec(['help', 'greet'])
+    expect(viaHelp.code).toBe(0)
+    expect(viaHelp.out).toContain('Uso: prumo greet [opções] <nome>')
+    expect(viaHelp).toEqual(help)
+  })
+
+  it('sem comando, mostra a ajuda da raiz, com a descrição em português', async () => {
+    const { code, out } = await exec(['help'])
+    expect(code).toBe(0)
+    expect(out).toContain('help [comando]')
+    expect(out).toContain('Mostra a ajuda de um comando.')
+    expect(out).not.toMatch(ENGLISH)
+  })
+
+  it.each([
+    ['nada', "comando desconhecido: 'nada'."],
+    ['help', "comando desconhecido: 'help'."],
+  ])('prumo help %s: erro de comando desconhecido, com saída 2', async (name, message) => {
+    const { code, out, err } = await exec(['help', name])
+    expect(code).toBe(2)
+    expect(out).toBe('')
+    expect(err).toBe(`prumo: ${message}\n\nUso: prumo [opções] [comando]\nVeja 'prumo --help'.\n`)
+  })
+
+  it('prumo help com nome parecido sugere o comando', async () => {
+    const { code, err } = await exec(['help', 'gret'])
+    expect(code).toBe(2)
+    expect(err).toContain("prumo: comando desconhecido: 'gret'. Você quis dizer greet?")
+  })
+
+  it('só existe na raiz', async () => {
+    const { code, err } = await exec(['group', 'help'])
+    expect(code).toBe(2)
+    expect(err).toContain("comando desconhecido: 'help'")
   })
 })
 
 describe('versão', () => {
   it.each(['--version', '-v'])('%s mostra a versão do package.json', async (flag) => {
     const result = await exec([flag])
-    expect(result).toEqual({ code: 0, out: `${version}\n`, err: '' })
+    expect(result).toEqual({ code: 0, kind: 'ok', out: `${version}\n`, err: '' })
   })
 })
 
 describe('erros de uso (saída 2)', () => {
-  async function usageError(argv: string[], message: string, helpOf: string) {
-    const { code, out, err } = await exec(argv)
+  /** Erro do commander: a mensagem, a linha de uso e o "Veja", sem a ajuda inteira. */
+  async function usageError(argv: string[], message: string, usageOf: string) {
+    const helpCommand = usageOf.split(' [')[0]
+    const { code, kind, out, err } = await exec(argv)
     expect(code).toBe(2)
+    expect(kind).toBe('usage')
     expect(out).toBe('')
-    expect(err.startsWith(`prumo: ${message}\n\nUso: ${helpOf}`), err).toBe(true)
+    expect(err).toBe(`prumo: ${message}\n\nUso: ${usageOf}\nVeja '${helpCommand} --help'.\n`)
     expect(err).not.toMatch(ENGLISH)
-    return err
+  }
+
+  /** Erro lançado pelo comando: só a mensagem. */
+  async function actionError(argv: string[], message: string) {
+    const { code, kind, out, err } = await exec(argv)
+    expect({ code, kind, out, err }).toEqual({ code: 2, kind: 'usage', out: '', err: `prumo: ${message}\n` })
   }
 
   it('comando desconhecido, com sugestão', async () => {
@@ -139,7 +197,7 @@ describe('erros de uso (saída 2)', () => {
   it('comando desconhecido sem nenhum comando registrado', async () => {
     const { code, err } = await exec(['foo'], [])
     expect(code).toBe(2)
-    expect(err.startsWith("prumo: comando desconhecido: 'foo'.\n\nUso: prumo [opções]\n")).toBe(true)
+    expect(err).toBe("prumo: comando desconhecido: 'foo'.\n\nUso: prumo [opções]\nVeja 'prumo --help'.\n")
   })
 
   it('opção desconhecida na raiz', async () => {
@@ -191,19 +249,15 @@ describe('erros de uso (saída 2)', () => {
     )
   })
 
-  it('UsageError lançado pelo comando mostra a ajuda do próprio comando', async () => {
-    await usageError(['misuse'], 'o nome já existe.', 'prumo misuse')
+  it('UsageError lançado pelo comando mostra só a mensagem, sem a ajuda nem o "Veja"', async () => {
+    await actionError(['misuse'], 'o nome já existe.')
   })
 
-  it('UsageError lançado pelo parser de uma opção mostra a ajuda do comando, não a da raiz', async () => {
-    await usageError(
-      ['parse-fail', '--fields', 'x'],
-      'campo inválido: x.',
-      'prumo parse-fail [opções]',
-    )
+  it('UsageError lançado pelo parser de uma opção sai como erro de parse: linha de uso e "Veja"', async () => {
+    await usageError(['parse-fail', '--fields', 'x'], 'campo inválido: x.', 'prumo parse-fail [opções]')
   })
 
-  it('UsageError lançado pelo parser num subcomando de um grupo mostra a ajuda dele', async () => {
+  it('UsageError lançado pelo parser num subcomando de um grupo traz o uso dele', async () => {
     const nested: RegisterCommand = (program) => {
       program
         .command('outer')
@@ -215,7 +269,9 @@ describe('erros de uso (saída 2)', () => {
     }
     const { code, err } = await exec(['outer', 'inner', '--n', '1'], [nested])
     expect(code).toBe(2)
-    expect(err.startsWith('prumo: número inválido.\n\nUso: prumo outer inner [opções]')).toBe(true)
+    expect(err).toBe(
+      "prumo: número inválido.\n\nUso: prumo outer inner [opções]\nVeja 'prumo outer inner --help'.\n",
+    )
   })
 
   it('erro ao montar o programa (comando duplicado) sai com 1 e a mensagem de erro inesperado', async () => {
@@ -226,7 +282,7 @@ describe('erros de uso (saída 2)', () => {
     const { code, out, err } = await exec(['dup'], [twice])
     expect(code).toBe(1)
     expect(out).toBe('')
-    expect(err).toContain('prumo: erro inesperado.')
+    expect(err).toContain('prumo: erro inesperado:')
   })
 
   it('grupo chamado sem subcomando sai com 2', async () => {
@@ -240,18 +296,43 @@ describe('outros códigos de saída', () => {
   it('ExitError sai com o código dele e escreve a mensagem no stderr', async () => {
     expect(await exec(['exit-three'])).toEqual({
       code: 3,
+      kind: 'exit',
       out: '',
       err: 'violação encontrada.\n',
     })
   })
 
-  it('erro inesperado sai com 1 e mostra a pilha', async () => {
-    const { code, out, err } = await exec(['crash'])
+  it('erro inesperado sai com 1, com a mensagem e sem a pilha', async () => {
+    const { code, kind, out, err } = await exec(['crash'])
+    expect({ code, kind, out }).toEqual({ code: 1, kind: 'unexpected', out: '' })
+    expect(err).toBe(
+      'prumo: erro inesperado: quebrou\nRode de novo com PRUMO_DEBUG=1 para ver a pilha.\n',
+    )
+  })
+
+  it.each(['1', 'true', 'sim'])('com PRUMO_DEBUG=%s, o erro inesperado traz a pilha', async (value) => {
+    const { code, err } = await exec(['crash'], [fake], { PRUMO_DEBUG: value })
     expect(code).toBe(1)
-    expect(out).toBe('')
-    expect(err).toContain('prumo: erro inesperado.')
+    expect(err).toContain('prumo: erro inesperado: quebrou\n')
     expect(err).toContain('Error: quebrou')
     expect(err).toContain('at ')
+    expect(err).not.toContain('Rode de novo')
+  })
+
+  it.each(['', '0', 'false'])('com PRUMO_DEBUG=%j, a pilha não aparece', async (value) => {
+    const { err } = await exec(['crash'], [fake], { PRUMO_DEBUG: value })
+    expect(err).toContain('Rode de novo com PRUMO_DEBUG=1')
+    expect(err).not.toContain('at ')
+  })
+
+  it('ExitError e sucesso têm o tipo próprio', async () => {
+    expect((await exec(['exit-three'])).kind).toBe('exit')
+    expect((await exec(['greet', 'ana'])).kind).toBe('ok')
+  })
+
+  it('o run devolve só o código', async () => {
+    const io = { cwd: '/tmp', out: () => undefined, err: () => undefined }
+    expect(await run(['exit-three'], io, [fake])).toBe(3)
   })
 })
 

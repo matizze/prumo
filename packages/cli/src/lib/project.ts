@@ -1,6 +1,10 @@
-import { statSync, type Stats } from 'node:fs'
+import { readFileSync, statSync, type Stats } from 'node:fs'
 import path from 'node:path'
 import { UsageError } from '../errors.ts'
+
+/** A descrição da opção `--root`, a mesma em todo comando que acha o projeto. */
+export const ROOT_OPTION_DESCRIPTION =
+  'A pasta do projeto, a que tem o src. Padrão: a pasta atual ou a primeira acima com package.json e src.'
 
 /** Os caminhos de um projeto Prumo que os comandos usam, todos absolutos. */
 export interface Project {
@@ -39,6 +43,43 @@ export function findProject(root: string): Project {
   }
 
   return projectAt(resolved)
+}
+
+/** O `package.json` da pasta depende de algum pacote `@matizze/prumo-*`: é um projeto do Prumo. */
+function dependsOnPrumo(dir: string): boolean {
+  try {
+    const manifest = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8')) as {
+      dependencies?: Record<string, string>
+      devDependencies?: Record<string, string>
+    }
+    return [manifest.dependencies, manifest.devDependencies].some((deps) =>
+      Object.keys(deps ?? {}).some((name) => name.startsWith('@matizze/prumo-')),
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
+ * O projeto de um comando. Com `--root`, é aquela pasta exata (`findProject`, com os mesmos erros).
+ * Sem `--root`, sobe da pasta atual até a primeira que tem `src` e um `package.json` com dependência
+ * `@matizze/prumo-*`, como o git faz com o `.git`: assim os comandos rodam de dentro de `src/pages`,
+ * e uma pasta com `package.json` e `src` que não é do Prumo (o `website`, por exemplo) não é
+ * confundida com o projeto.
+ */
+export function locateProject(cwd: string, root: string | undefined): Project {
+  if (root !== undefined) {
+    if (root === '') throw new UsageError("a opção '--root' precisa de um valor.")
+    return findProject(path.resolve(cwd, root))
+  }
+  const start = path.resolve(cwd)
+  for (let dir = start; ; dir = path.dirname(dir)) {
+    if (statOf(path.join(dir, 'src'))?.isDirectory() && dependsOnPrumo(dir)) return projectAt(dir)
+    if (path.dirname(dir) === dir) break
+  }
+  throw new UsageError(
+    `nenhum projeto Prumo achado a partir de '${start}' (uma pasta com src e um package.json que depende de @matizze/prumo-*, nela ou acima): entre na pasta do projeto ou aponte --root.`,
+  )
 }
 
 /**

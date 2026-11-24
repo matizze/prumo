@@ -4,8 +4,9 @@ import path from 'node:path'
 import { Client, InMemoryTransport } from '@modelcontextprotocol/client'
 import { afterAll, describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemods/test-support.ts'
-import { createMcpServer, resultOf } from './server.ts'
-import { describeTools } from './tools.ts'
+import type { RegisterCommand } from '../commands/index.ts'
+import { callTool, createMcpServer, resultOf } from './server.ts'
+import { describeTools, type ToolSpec } from './tools.ts'
 import { createProgram } from '../program.ts'
 
 type Result = { text: string; isError: boolean }
@@ -153,14 +154,31 @@ describe('resultOf', () => {
   )!
 
   it('o check com violação (código 1) é resultado', () => {
-    expect(resultOf(check, 1, '', 'a.ts  [regra]  x\n\nprumo check: 1 violação.\n').isError).toBe(false)
+    expect(resultOf(check, { code: 1, kind: 'exit' }, '', 'a.ts  [regra]  x\n\nprumo check: 1 violação.\n').isError).toBe(false)
   })
 
-  it('o erro inesperado (código 1, no stderr) é erro, mesmo no check', () => {
-    expect(resultOf(check, 1, '', 'prumo: erro inesperado.\nError: x\n').isError).toBe(true)
+  it('o erro inesperado (código 1) é erro, mesmo no check', () => {
+    expect(resultOf(check, { code: 1, kind: 'unexpected' }, '', 'prumo: erro inesperado: x\n').isError).toBe(true)
   })
 
   it('outro código no check é erro', () => {
-    expect(resultOf(check, 2, '', 'prumo: x\n').isError).toBe(true)
+    expect(resultOf(check, { code: 2, kind: 'usage' }, '', 'prumo: x\n').isError).toBe(true)
+  })
+})
+
+describe('callTool', () => {
+  it('o erro inesperado volta com a pilha, sem a dica da variável', async () => {
+    const crash: RegisterCommand = (program) => {
+      program.command('crash').action(() => {
+        throw new Error('quebrou')
+      })
+    }
+    const tool = { name: 'crash', command: 'crash', description: '', fields: [], fixedArgs: [] } as unknown as ToolSpec
+    const result = await callTool(tool, {}, '/tmp', [crash])
+    const text = (result.content[0] as { text: string }).text
+    expect(result.isError).toBe(true)
+    expect(text).toContain('prumo: erro inesperado: quebrou')
+    expect(text).toContain('Error: quebrou')
+    expect(text).not.toContain('PRUMO_DEBUG')
   })
 })

@@ -115,6 +115,6 @@ describe('prumo make:schema', () => {
   it('fora de um projeto sai com 2', async () => {
     const result = await exec(['make:schema', 'clientes'], makeDir())
     expect(result.code).toBe(2)
-    expect(result.stderr).toContain('não tem package.json')
+    expect(result.stderr).toContain('nenhum projeto Prumo achado a partir de')
   })
 })

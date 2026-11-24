@@ -39,7 +39,10 @@ beforeAll(async () => {
       path.join(root, 'node_modules', dependency),
     )
   }
-  write('package.json', '{ "name": "app", "type": "module", "scripts": { "test": "vitest run" } }\n')
+  write(
+    'package.json',
+    '{ "name": "app", "type": "module", "scripts": { "test": "vitest run" }, "devDependencies": { "@matizze/prumo-cli": "^0.8.0" } }\n',
+  )
   write(
     'vitest.config.ts',
     `import path from 'node:path'

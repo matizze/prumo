@@ -33,7 +33,7 @@ Num projeto que não saiu do `prumo new` (um app existente que adotou o Prumo, v
 
 ### Como o agente o carrega
 
-O Claude Code lê o `.mcp.json` da raiz do projeto e abre o servidor por conta própria. Nele, abra a sessão na pasta do app: na primeira vez, ele pergunta se confia no servidor `prumo` do projeto (aprove), e o comando `/mcp` lista os servidores e mostra se o `prumo` está conectado. Outros clientes (Cursor, VS Code) usam o arquivo de configuração deles, e o comando é o mesmo:  `pnpm exec prumo mcp`, com a pasta do app como pasta de trabalho. Não rode o `prumo mcp` à mão: o stdout é do protocolo, e o servidor só termina quando o cliente fecha.
+O Claude Code lê o `.mcp.json` da raiz do projeto e abre o servidor por conta própria. Abra a sessão na pasta do app: na primeira vez, ele pergunta se confia no servidor `prumo` do projeto (aprove), e o comando `/mcp` lista os servidores e mostra se o `prumo` está conectado. Outros clientes (Cursor, VS Code) usam o arquivo de configuração deles, e o comando é o mesmo, `pnpm exec prumo mcp`, com a pasta do app como pasta de trabalho. Não rode o `prumo mcp` à mão: o stdout é do protocolo, e o servidor só termina quando o cliente fecha.
 
 ## As ferramentas
 

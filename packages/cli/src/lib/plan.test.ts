@@ -1,9 +1,22 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { UsageError } from '../errors.ts'
 import { applyEdits } from '../codemods/edit.ts'
 import { fixturePlan } from '../codemods/test-support.ts'
+import { ChangePlan } from './plan.ts'
+import { findProject } from './project.ts'
 
 const at = (root: string, relative: string) => path.join(root, relative)
 
@@ -80,5 +93,74 @@ describe('ChangePlan', () => {
     const file = at(plan.project.root, 'src/pages/novo/index.tsx')
     plan.createSource(file, 'export {}\n').saveSync()
     expect(existsSync(file)).toBe(false)
+  })
+})
+
+describe('ChangePlan: link simbólico para fora do projeto', () => {
+  /** Um projeto de fixture e uma pasta de fora, irmã dele, que começa vazia. */
+  function setup() {
+    const plan = fixturePlan()
+    const outside = mkdtempSync(path.join(tmpdir(), 'prumo-fora-'))
+    return { plan, root: plan.project.root, outside }
+  }
+
+  it('recusa escrever por uma pasta do projeto que é link para fora, e não escreve nada', () => {
+    const { plan, root, outside } = setup()
+    symlinkSync(outside, at(root, 'src/pages'))
+    plan.createSource(at(root, 'src/pages/sobre/index.tsx'), 'export {}\n')
+    plan.createText(at(root, 'src/messages/en/sobre.json'), '{}\n')
+    expect(() => plan.commit()).toThrow(UsageError)
+    expect(() => plan.commit()).toThrow(/'src\/pages\/sobre\/index.tsx' leva para fora do projeto/)
+    expect(readdirSync(outside)).toEqual([])
+    expect(existsSync(at(root, 'src/messages/en/sobre.json'))).toBe(false)
+  })
+
+  it('recusa quando o próprio src é link para fora', () => {
+    const { plan, root, outside } = setup()
+    const real = mkdtempSync(path.join(tmpdir(), 'prumo-src-'))
+    renameSync(at(root, 'src'), path.join(real, 'src'))
+    symlinkSync(path.join(real, 'src'), at(root, 'src'))
+    plan.createText(at(root, 'src/messages/en/novo.json'), '{}\n')
+    expect(() => plan.commit()).toThrow(/leva para fora do projeto/)
+    expect(existsSync(path.join(real, 'src/messages/en/novo.json'))).toBe(false)
+    expect(readdirSync(outside)).toEqual([])
+  })
+
+  it('recusa alterar um arquivo do projeto que é link para um arquivo de fora', () => {
+    const { plan, outside } = setup()
+    const target = path.join(outside, 'App.tsx')
+    writeFileSync(target, readFileSync(plan.project.app, 'utf8'))
+    rmSync(plan.project.app)
+    symlinkSync(target, plan.project.app)
+    applyEdits(plan.source(plan.project.app), [{ pos: 0, end: 0, text: '// alterado\n' }])
+    expect(() => plan.commit()).toThrow(/'src\/App.tsx' leva para fora do projeto/)
+    expect(readFileSync(target, 'utf8')).not.toContain('// alterado')
+  })
+
+  it('recusa um caminho que passa por um link quebrado', () => {
+    const { plan, root, outside } = setup()
+    symlinkSync(path.join(outside, 'nao-existe'), at(root, 'src/pages'))
+    plan.createSource(at(root, 'src/pages/sobre/index.tsx'), 'export {}\n')
+    expect(() => plan.commit()).toThrow(/passa por um link simbólico quebrado/)
+    expect(readdirSync(outside)).toEqual([])
+  })
+
+  it('aceita link dentro do projeto que aponta para dentro dele', () => {
+    const { plan, root } = setup()
+    mkdirSync(at(root, 'src/telas'), { recursive: true })
+    symlinkSync(at(root, 'src/telas'), at(root, 'src/pages'))
+    plan.createSource(at(root, 'src/pages/sobre/index.tsx'), 'export {}\n')
+    plan.commit()
+    expect(existsSync(at(root, 'src/telas/sobre/index.tsx'))).toBe(true)
+  })
+
+  it('aceita a raiz do projeto aberta por um caminho que é link', () => {
+    const { root } = setup()
+    const alias = path.join(mkdtempSync(path.join(tmpdir(), 'prumo-alias-')), 'app')
+    symlinkSync(root, alias)
+    const plan = new ChangePlan(findProject(alias))
+    plan.createText(path.join(alias, 'src/messages/en/novo.json'), '{}\n')
+    plan.commit()
+    expect(existsSync(at(root, 'src/messages/en/novo.json'))).toBe(true)
   })
 })

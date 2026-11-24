@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import path from 'node:path'
 import { IndentationText, Project as MorphProject, QuoteKind, ts, type SourceFile } from 'ts-morph'
 import { UsageError } from '../errors.ts'
@@ -127,10 +135,18 @@ export class ChangePlan {
    */
   commit(): PlanSummary {
     const summary = this.summary()
-    for (const file of [...this.#createdSources.keys(), ...this.#createdFiles.keys()]) {
+    const created = [...this.#createdSources.keys(), ...this.#createdFiles.keys()]
+    for (const file of created) {
       if (existsSync(file))
         throw new UsageError(`'${this.#display(file)}' já existe: nada foi escrito.`)
     }
+    const modified = [
+      ...[...this.#loadedSources]
+        .filter(([, s]) => s.file.getFullText() !== s.original)
+        .map(([f]) => f),
+      ...[...this.#editedTexts].filter(([, t]) => t.content !== t.original).map(([f]) => f),
+    ]
+    this.#assertInside([...created, ...modified])
     for (const [file, source] of this.#createdSources) write(file, source.getFullText())
     for (const [file, content] of this.#createdFiles) write(file, content)
     for (const [file, { file: source, original }] of this.#loadedSources) {
@@ -140,6 +156,38 @@ export class ChangePlan {
       if (content !== original) write(file, content)
     }
     return summary
+  }
+
+  /**
+   * Cada arquivo que o plano vai escrever fica dentro do projeto também no disco: o caminho real,
+   * com os links simbólicos resolvidos, não sai da raiz real do projeto. Os nomes já são validados
+   * antes, mas um link que já existe no projeto (o próprio `src`, uma pasta dentro dele, o
+   * `App.tsx`) levaria a escrita para fora; com o `prumo mcp`, quem escolhe os nomes é um agente.
+   * Link dentro do projeto que aponta para dentro dele continua valendo.
+   */
+  #assertInside(files: string[]): void {
+    const root = realPathOf(this.project.root)
+    for (const file of files) {
+      let real: string
+      try {
+        real = realPathOf(file)
+      } catch {
+        throw new UsageError(
+          `'${this.#display(file)}' passa por um link simbólico quebrado: nada foi escrito.`,
+        )
+      }
+      const relative = path.relative(root, real)
+      if (
+        relative === '' ||
+        relative === '..' ||
+        relative.startsWith(`..${path.sep}`) ||
+        path.isAbsolute(relative)
+      ) {
+        throw new UsageError(
+          `'${this.#display(file)}' leva para fora do projeto, por um link simbólico (${real}): nada foi escrito.`,
+        )
+      }
+    }
   }
 
   #assertNew(file: string): void {
@@ -155,6 +203,33 @@ export class ChangePlan {
 
   #display(file: string): string {
     return path.relative(this.project.root, file).split(path.sep).join('/')
+  }
+}
+
+/** Se o caminho existe no disco, mesmo como link simbólico quebrado (o `existsSync` segue o link). */
+function exists(file: string): boolean {
+  try {
+    lstatSync(file)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * O caminho real de `file`: resolve os links simbólicos do trecho que já existe no disco e
+ * acrescenta o resto, que ainda vai ser criado. Lança se o trecho que existe passa por um link
+ * quebrado (o `realpathSync` não o resolve).
+ */
+function realPathOf(file: string): string {
+  const rest: string[] = []
+  let current = path.resolve(file)
+  for (;;) {
+    if (exists(current)) return path.join(realpathSync(current), ...rest.reverse())
+    const parent = path.dirname(current)
+    if (parent === current) return path.join(current, ...rest.reverse())
+    rest.push(path.basename(current))
+    current = parent
   }
 }
 

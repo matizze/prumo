@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../codemods/test-support.ts'
@@ -137,5 +138,19 @@ describe('prumo make:page', () => {
 
     expect(result.code, result.stderr).toBe(0)
     expect(result.stdout).toContain(`pnpm --dir ${path.basename(root)} test src/pages/sobre`)
+  })
+})
+
+describe('prumo make:page com link simbólico para fora do projeto', () => {
+  it('sai com 2, diz o caminho e não escreve nada, nem dentro nem fora', async () => {
+    const { root } = fixtureProject()
+    const outside = mkdtempSync(path.join(tmpdir(), 'prumo-fora-'))
+    symlinkSync(outside, path.join(root, 'src/pages'))
+    const app = readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
+    const result = await exec(['make:page', 'sobre'], root)
+    expect(result.code).toBe(2)
+    expect(result.stderr).toMatch(/'src\/pages\/sobre\/index.tsx' leva para fora do projeto/)
+    expect(readdirSync(outside)).toEqual([])
+    expect(readFileSync(path.join(root, 'src/App.tsx'), 'utf8')).toBe(app)
   })
 })

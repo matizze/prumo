@@ -36,7 +36,7 @@ function section(title: string, lines: string[]): string {
 }
 
 /** O levantamento em texto: uma seção por tipo, uma linha por item; seção vazia diz "nenhum". */
-export function formatListing(listing: ProjectListing): string {
+function formatListing(listing: ProjectListing): string {
   return [
     section(
       'Schemas',

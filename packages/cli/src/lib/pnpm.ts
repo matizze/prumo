@@ -8,7 +8,7 @@ import type { Project } from './project.ts'
 const SIMPLE_SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?$/
 
 /** A versão, se for um semver simples; senão `undefined`. Nada que venha de fora passa sem isto. */
-export function validPnpmVersion(text: string | undefined): string | undefined {
+function validPnpmVersion(text: string | undefined): string | undefined {
   const version = text?.trim()
   return version && SIMPLE_SEMVER.test(version) ? version : undefined
 }
@@ -17,7 +17,7 @@ export function validPnpmVersion(text: string | undefined): string | undefined {
  * O pnpm que a pessoa usa, perguntando a ele (`pnpm --version`). Roda fora do projeto e sem baixar
  * versões, porque o `new` não usa a rede para isto. `undefined` se o pnpm não existe.
  */
-export function pnpmVersion(): string | undefined {
+function pnpmVersion(): string | undefined {
   const result = spawnSync('pnpm', ['--version'], {
     cwd: tmpdir(),
     encoding: 'utf8',

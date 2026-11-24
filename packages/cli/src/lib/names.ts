@@ -246,7 +246,7 @@ export function singularOf(plural: string): string {
  * O singular que o `make:*` deriva do domínio, ou `undefined` quando `singularOf` recusa: o
  * `--entity` só precisa aparecer na dica quando a entidade não é essa.
  */
-export function automaticSingular(plural: string): string | undefined {
+function automaticSingular(plural: string): string | undefined {
   try {
     return singularOf(plural)
   } catch {

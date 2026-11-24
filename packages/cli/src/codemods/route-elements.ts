@@ -5,7 +5,7 @@ import { isTextLiteral, type TextLiteral } from './edit.ts'
 export type RouteElement = JsxElement | JsxSelfClosingElement
 
 /** O nome da tag de um elemento JSX. */
-export function tagNameOf(element: RouteElement): string {
+function tagNameOf(element: RouteElement): string {
   return Node.isJsxElement(element)
     ? element.getOpeningElement().getTagNameNode().getText()
     : element.getTagNameNode().getText()

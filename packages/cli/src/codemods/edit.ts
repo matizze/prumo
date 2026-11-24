@@ -9,7 +9,7 @@ export interface TextEdit {
 }
 
 /** Aplica as edições a um texto, de trás para a frente, para as posições não se deslocarem. */
-export function spliceText(source: string, edits: TextEdit[]): string {
+function spliceText(source: string, edits: TextEdit[]): string {
   const sorted = [...edits].sort((a, b) => b.pos - a.pos)
   let result = source
   let limit = source.length
@@ -43,16 +43,6 @@ export function isTextLiteral(node: Node | undefined): node is TextLiteral {
 /** O conteúdo do literal como está escrito no arquivo, sem as aspas. */
 export function innerText(literal: TextLiteral): string {
   return literal.getText().slice(1, -1)
-}
-
-/**
- * A edição que troca o conteúdo do literal e mantém as aspas. Os valores que o codemod escreve
- * (nomes, namespaces, rotas) não têm aspas, barra invertida nem quebra de linha: se tiverem, é
- * erro do chamador, e escrever assim quebraria o arquivo.
- */
-export function replaceInner(literal: TextLiteral, value: string): TextEdit {
-  if (/['"`\\\n$]/.test(value)) throw new Error(`valor inválido para um literal: ${value}`)
-  return { pos: literal.getStart() + 1, end: literal.getEnd() - 1, text: value }
 }
 
 /** O recuo da linha onde está a posição `pos`: os espaços do começo da linha. */

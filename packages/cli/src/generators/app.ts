@@ -45,7 +45,7 @@ export const APP_FILES: readonly AppFile[] = [
 ]
 
 /** O nome da tela inicial: o modelo do `make:page` gera a pasta, as mensagens e o teste dela. */
-export const HOME_PAGE = 'home'
+const HOME_PAGE = 'home'
 
 /**
  * As dependências do app: as bibliotecas que o `@matizze/prumo-core` pede por peer (React, wouter,
@@ -100,7 +100,7 @@ export interface AppRequest {
 }
 
 /** O `package.json` do app: os scripts, as dependências e, com tarballs, os `pnpm.overrides`. */
-export function appPackageJson({ name, overrides, pnpm }: AppRequest): string {
+function appPackageJson({ name, overrides, pnpm }: AppRequest): string {
   const prumo = Object.entries(PRUMO_VERSIONS).map(
     ([pkg, version]) => [pkg, `^${version}`] as const,
   )

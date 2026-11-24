@@ -60,10 +60,10 @@ describe('listProject', () => {
       'useRemoveLivro',
     ])
     expect(listing.pages).toEqual([
-      { name: 'item', route: '/item/:id', variation: 'parametro', query: null },
-      { name: 'livro', route: '/livros/:id', variation: 'detalhe', query: 'livros' },
-      { name: 'livros-lista', route: '/livros-lista', variation: 'lista', query: 'livros' },
-      { name: 'sobre', route: '/sobre', variation: 'titulo', query: null },
+      { name: 'item', route: '/item/:id', routeKind: 'literal', routePartial: false, variation: 'parametro', query: null },
+      { name: 'livro', route: '/livros/:id', routeKind: 'literal', routePartial: false, variation: 'detalhe', query: 'livros' },
+      { name: 'livros-lista', route: '/livros-lista', routeKind: 'literal', routePartial: false, variation: 'lista', query: 'livros' },
+      { name: 'sobre', route: '/sobre', routeKind: 'literal', routePartial: false, variation: 'titulo', query: null },
     ])
     expect(listing.languages).toEqual(['en', 'pt-BR'])
   })
@@ -86,7 +86,8 @@ describe('listProject', () => {
     const [schema] = listProject(fixtureProjectAt(root)).schemas
     expect(schema?.entity).toBe('Livro')
     expect(schema?.fields).toBeNull()
-    expect(schema?.problem).toMatch(/^linha \d+: campo 'name': não reconheço o tipo/)
+    expect(schema?.problem).toMatch(/^linha \d+: campo 'name': não reconheço o tipo \(z\.string\(\)\.min\(2\)\.max\(9\)\)/)
+    expect(schema?.problem?.length).toBeLessThanOrEqual(160)
   })
 
   it('tela sem rota no App.tsx tem route null', async () => {
@@ -95,8 +96,125 @@ describe('listProject', () => {
     const app = path.join(root, 'src/App.tsx')
     writeFileSync(app, readFileSync(app, 'utf8').replace(/\s*<Route path="\/sobre">[\s\S]*?<\/Route>/, ''))
     expect(listProject(fixtureProjectAt(root)).pages).toEqual([
-      { name: 'sobre', route: null, variation: 'titulo', query: null },
+      { name: 'sobre', route: null, routeKind: null, routePartial: false, variation: 'titulo', query: null },
     ])
+  })
+
+  it('rota aninhada: compõe os <Route nest> de fora e usa a mais interna', () => {
+    const root = appWith(
+      `import { Route, Switch } from 'wouter'
+import UsersPage from '@/pages/usuarios'
+export default function App() {
+  return (
+    <Switch>
+      <Route path="/admin" nest>
+        <Route path="/usuarios/:id">
+          <UsersPage />
+        </Route>
+      </Route>
+    </Switch>
+  )
+}
+`,
+      ['usuarios'],
+    )
+    expect(listProject(fixtureProjectAt(root)).pages).toEqual([
+      { name: 'usuarios', route: '/admin/usuarios/:id', routeKind: 'literal', routePartial: false, variation: 'parametro', query: null },
+    ])
+  })
+
+  it('rota aninhada com o caminho de fora que não é literal: mostra a de dentro e marca parcial', () => {
+    const root = appWith(
+      `import { Route } from 'wouter'
+import UsersPage from '@/pages/usuarios'
+export default function App() {
+  return (
+    <Route path={BASE} nest>
+      <Route path="/usuarios">
+        <UsersPage />
+      </Route>
+    </Route>
+  )
+}
+`,
+      ['usuarios'],
+    )
+    const [page] = listProject(fixtureProjectAt(root)).pages
+    expect(page).toMatchObject({ route: '/usuarios', routeKind: 'literal', routePartial: true })
+  })
+
+  it('curinga e path com expressão aparecem como rota, com o tipo', async () => {
+    const root = appWith(
+      `import { Route } from 'wouter'
+import A from '@/pages/a'
+import B from '@/pages/b'
+import C from '@/pages/c'
+export default function App() {
+  return (
+    <>
+      <Route path={ROUTES.lenta}><A /></Route>
+      <Route path="*"><B /></Route>
+      <Route><C /></Route>
+    </>
+  )
+}
+`,
+      ['a', 'b', 'c', 'd'],
+    )
+    const pages = listProject(fixtureProjectAt(root)).pages.map(({ name, route, routeKind }) => ({ name, route, routeKind }))
+    expect(pages).toEqual([
+      { name: 'a', route: '{ROUTES.lenta}', routeKind: 'expression' },
+      { name: 'b', route: '*', routeKind: 'catchAll' },
+      { name: 'c', route: '*', routeKind: 'catchAll' },
+      { name: 'd', route: null, routeKind: null },
+    ])
+    const text = (await exec(['list'], root)).stdout
+    expect(text).toContain('  a  rota: {ROUTES.lenta} (expressão)  titulo\n')
+    expect(text).toContain('  b  rota: curinga  titulo\n')
+    expect(text).toContain('  d  rota: nenhuma  titulo\n')
+  })
+
+  it('tela carregada com lazy tem rota', () => {
+    const root = appWith(
+      `import { lazy } from 'react'
+import { Route } from 'wouter'
+const Sobre = lazy(() => import('@/pages/sobre'))
+export default function App() {
+  return (
+    <Route path="/sobre">
+      <Sobre />
+    </Route>
+  )
+}
+`,
+      ['sobre'],
+    )
+    expect(listProject(fixtureProjectAt(root)).pages[0]).toMatchObject({ name: 'sobre', route: '/sobre' })
+  })
+
+  it('pasta de tela com nome inválido não derruba o list', () => {
+    const root = appWith(`export default function App() { return null }\n`, ['c++', 'a.b'])
+    expect(listProject(fixtureProjectAt(root)).pages.map((page) => page.name)).toEqual(['a.b', 'c++'])
+  })
+
+  it('contrato vazio: a entidade vem do hook de detalhe da query, ou é null', () => {
+    const root = makeProject({
+      'src/repositories/livros/repository.contract.ts': '',
+      'src/queries/livros.ts': 'export function useLivroDetail() {}\n',
+      'src/repositories/vazio/repository.contract.ts': '',
+    })
+    const listing = listProject(fixtureProjectAt(root))
+    expect(listing.queries[0]?.entity).toBe('Livro')
+    expect(listing.repositories.map((r) => r.entity)).toEqual([null, null])
+  })
+
+  it('a ordem é a do código, não a do locale', () => {
+    const root = makeProject({
+      'src/pages/b/index.tsx': '',
+      'src/pages/Z/index.tsx': '',
+      'src/pages/a/index.tsx': '',
+    })
+    expect(listProject(fixtureProjectAt(root)).pages.map((page) => page.name)).toEqual(['Z', 'a', 'b'])
   })
 
   it('projeto vazio: só src', () => {
@@ -110,6 +228,14 @@ describe('listProject', () => {
     })
   })
 })
+
+/** Um projeto com o `App.tsx` dado e uma pasta (com `index.tsx`) por tela. */
+function appWith(app: string, pages: string[]): string {
+  return makeProject({
+    'src/App.tsx': app,
+    ...Object.fromEntries(pages.map((page) => [`src/pages/${page}/index.tsx`, ''])),
+  })
+}
 
 function fixtureProjectAt(root: string) {
   return {
@@ -144,7 +270,7 @@ describe('prumo list', () => {
     })
     const result = await exec(['list'], root)
     expect(result.stdout).toContain(
-      "Livro  src/schemas/entities/livro.ts  editado à mão (linha 1: campo 'a': não reconheço o tipo (z.foo()))",
+      "Livro  src/schemas/entities/livro.ts  editado à mão (linha 1: campo 'a': não reconheço o tipo (z.foo())",
     )
     expect(result.stdout).toContain('  solta  rota: nenhuma  titulo\n')
   })

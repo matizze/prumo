@@ -1,12 +1,19 @@
 import path from 'node:path'
 import { UsageError } from '../errors.ts'
-import { listProject, type ListedField, type ProjectListing } from '../generators/listing.ts'
+import { listProject, type ListedField, type ListedPage, type ProjectListing } from '../generators/listing.ts'
 import { findProject } from '../lib/project.ts'
 import type { RegisterCommand } from './index.ts'
 
 function fieldText({ name, type, values, optional }: ListedField): string {
   const shown = type === 'enum' ? `enum(${(values ?? []).join('|')})` : type
   return `${name}${optional ? '?' : ''}: ${shown}`
+}
+
+function routeText({ route, routeKind, routePartial }: ListedPage): string {
+  if (route === null) return 'nenhuma'
+  if (routeKind === 'catchAll') return 'curinga'
+  if (routeKind === 'expression') return `${route} (expressão)`
+  return routePartial ? `${route} (parcial: o caminho de fora não é literal)` : route
 }
 
 function section(title: string, lines: string[]): string {
@@ -44,7 +51,7 @@ export function formatListing(listing: ProjectListing): string {
       'Telas',
       listing.pages.map(
         (page) =>
-          `${page.name}  rota: ${page.route ?? 'nenhuma'}  ${page.variation}${page.query ? `  query: ${page.query}` : ''}`,
+          `${page.name}  rota: ${routeText(page)}  ${page.variation}${page.query ? `  query: ${page.query}` : ''}`,
       ),
     ),
     section('Idiomas', listing.languages),

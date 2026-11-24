@@ -1,7 +1,13 @@
 import { existsSync, readdirSync, readFileSync, type Dirent } from 'node:fs'
 import path from 'node:path'
-import type { SourceFile } from 'ts-morph'
-import { isRouteElement, pathLiteral, usesIdentifier } from '../codemods/route-elements.ts'
+import { Node, SyntaxKind, type SourceFile } from 'ts-morph'
+import {
+  isRouteElement,
+  isWildcardPath,
+  pathLiteral,
+  usesIdentifier,
+  type RouteElement,
+} from '../codemods/route-elements.ts'
 import { contractEntity } from '../lib/contract.ts'
 import { readEntityFields, type FieldType } from '../lib/fields.ts'
 import { deriveNames, type DomainNames } from '../lib/names.ts'
@@ -52,14 +58,24 @@ export interface ListedQuery {
   hooks: string[]
 }
 
+export type RouteKind = 'literal' | 'catchAll' | 'expression'
+
 export type PageVariation = 'titulo' | 'lista' | 'parametro' | 'detalhe'
 
 /** Uma tela de `src/pages/`. */
 export interface ListedPage {
   /** O nome da tela: o da pasta. */
   name: string
-  /** A rota do `src/App.tsx` que mostra a tela; `null` se nenhuma. */
+  /**
+   * A rota do `src/App.tsx` que mostra a tela: o caminho (composto com os `<Route nest>` de fora),
+   * `*` para a curinga (sem `path` ou só com curinga) ou o texto da expressão de um `path={...}`
+   * que não é literal. `null` só quando nenhuma `<Route>` usa a tela.
+   */
   route: string | null
+  /** `literal`, `catchAll` ou `expression`; `null` quando `route` é `null`. */
+  routeKind: RouteKind | null
+  /** O caminho de fora (`<Route nest>`) não é literal e não deu para compor: `route` é só o da `<Route>` de dentro. */
+  routePartial: boolean
   /** `titulo` (só o título), `lista` (com query), `parametro` (rota com parâmetro) ou `detalhe` (os dois). */
   variation: PageVariation
   /** O domínio da query que a tela usa; `null` se não usa. */
@@ -78,7 +94,10 @@ export interface ProjectListing {
 
 function entries(dir: string): Dirent[] {
   if (!existsSync(dir)) return []
-  return readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))
+  // Comparação fixa: a ordem não depende do locale da máquina
+  return readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
+    a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+  )
 }
 
 function readIfExists(file: string): string | undefined {
@@ -96,14 +115,12 @@ function relative(project: Project, file: string): string {
   return path.relative(project.root, file).split(path.sep).join('/')
 }
 
-/** O motivo da recusa do leitor, curto: sem o arquivo, só a primeira frase. */
+/** O motivo da recusa do leitor, curto: a primeira linha, sem o `arquivo:linha`, no máximo 160 caracteres. */
 function shortReason(message: string, file: string): string {
-  let reason = message.startsWith(`${file}:`) ? message.slice(file.length + 1) : message
-  reason = reason.startsWith(file) ? reason.slice(file.length).trim() : reason
-  reason = reason.replace(/^(\d+): /, 'linha $1: ')
-  const sentence = reason.split(/\.\s/)[0] ?? reason
-  const text = sentence.replace(/\.$/, '')
-  return text.length > 160 ? `${text.slice(0, 157)}...` : text
+  let reason = (message.split('\n')[0] ?? message).trim()
+  if (reason.startsWith(`${file}:`)) reason = reason.slice(file.length + 1).replace(/^(\d+): /, 'linha $1: ')
+  else if (reason.startsWith(`${file} `)) reason = reason.slice(file.length + 1)
+  return reason.length > 160 ? `${reason.slice(0, 157)}...` : reason
 }
 
 function listSchemas(project: Project): ListedSchema[] {
@@ -154,7 +171,7 @@ function listRepositories(project: Project): ListedRepository[] {
     )
     result.push({
       domain: entry.name,
-      entity: (contract && contractEntity(contract)) ?? null,
+      entity: (contract ? contractEntity(contract) : undefined) ?? null,
       sources,
     })
   }
@@ -189,22 +206,109 @@ function listQueries(project: Project): ListedQuery[] {
       path.join(project.src, 'repositories', domain, 'repository.contract.ts'),
     )
     const entity =
-      (contract && contractEntity(contract)) ??
+      (contract ? contractEntity(contract) : undefined) ??
       /\buse([A-Z][A-Za-z0-9]*)Detail\b/.exec(text)?.[1] ??
       null
     return { domain, file: relative(project, file), entity, hooks }
   })
 }
 
-/** O nome com que o `App.tsx` importa a tela `src/pages/<nome>`, se importa. */
-function componentOf(app: SourceFile, page: string): string | undefined {
+/** Se o módulo é `src/pages/<nome>` (`@/pages/x`, `./pages/x`, com ou sem `/index`). */
+function isPageSpecifier(specifier: string, page: string): boolean {
+  const module = specifier.replace(/\/index$/, '')
+  return module === `pages/${page}` || module.endsWith(`/pages/${page}`)
+}
+
+/** Os nomes com que o `App.tsx` traz a tela `src/pages/<nome>`: o import padrão ou um `const X = lazy(() => import('...'))`. */
+function componentsOf(app: SourceFile, page: string): string[] {
+  const names: string[] = []
   for (const declaration of app.getImportDeclarations()) {
-    const specifier = declaration.getModuleSpecifierValue()
-    if (!new RegExp(`(^|/)pages/${page}(/index)?$`).test(specifier)) continue
     const local = declaration.getDefaultImport()?.getText()
-    if (local) return local
+    if (local && isPageSpecifier(declaration.getModuleSpecifierValue(), page)) names.push(local)
   }
-  return undefined
+  for (const declaration of app.getVariableDeclarations()) {
+    const lazy = declaration
+      .getInitializer()
+      ?.asKind(SyntaxKind.CallExpression)
+      ?.getExpression()
+      .getText()
+    if (lazy !== 'lazy' && lazy !== 'React.lazy') continue
+    const imports = declaration
+      .getDescendantsOfKind(SyntaxKind.CallExpression)
+      .filter((call) => call.getExpression().getKind() === SyntaxKind.ImportKeyword)
+    const [argument] = imports[0]?.getArguments() ?? []
+    if (
+      argument &&
+      Node.isStringLiteral(argument) &&
+      isPageSpecifier(argument.getLiteralText(), page)
+    ) {
+      names.push(declaration.getName())
+    }
+  }
+  return names
+}
+
+function attributesOf(route: RouteElement) {
+  return Node.isJsxElement(route) ? route.getOpeningElement().getAttributes() : route.getAttributes()
+}
+
+/** O `path` de um `<Route>`: literal, curinga (sem `path` ou só curinga) ou a expressão que não é literal. */
+function pathOf(route: RouteElement): { kind: RouteKind; text: string } {
+  const literal = pathLiteral(route)
+  if (literal) {
+    const text = literal.getLiteralText()
+    return isWildcardPath(text) ? { kind: 'catchAll', text: '*' } : { kind: 'literal', text }
+  }
+  for (const attribute of attributesOf(route)) {
+    if (!Node.isJsxAttribute(attribute) || attribute.getNameNode().getText() !== 'path') continue
+    const initializer = attribute.getInitializer()
+    return { kind: 'expression', text: initializer ? initializer.getText() : '' }
+  }
+  return { kind: 'catchAll', text: '*' }
+}
+
+/** Se o `<Route>` é `nest` (`<Route nest>` ou `nest={true}`): os `path` de dentro são relativos ao dele. */
+function isNest(route: RouteElement): boolean {
+  return attributesOf(route).some((attribute) => {
+    if (!Node.isJsxAttribute(attribute) || attribute.getNameNode().getText() !== 'nest') return false
+    const initializer = attribute.getInitializer()
+    return !initializer || initializer.getText().replace(/\s+/g, '') === '{true}'
+  })
+}
+
+function joinPaths(outer: string, inner: string): string {
+  const base = outer.replace(/\/+$/, '')
+  return inner === '/' || inner === '' ? base || '/' : `${base}${inner.startsWith('/') ? '' : '/'}${inner}`
+}
+
+/**
+ * A rota de uma tela: a `<Route>` mais interna que a usa, com o caminho composto com os `<Route nest>`
+ * de fora (`/admin` + `/usuarios`). Se um `nest` de fora não tem `path` literal, devolve só o da de dentro,
+ * marcado como parcial.
+ */
+function routeOf(
+  routes: RouteElement[],
+  components: string[],
+): { route: string; kind: RouteKind; partial: boolean } | undefined {
+  const used = routes
+    .filter((route) => components.some((name) => usesIdentifier(route, name)))
+    .map((route) => ({ route, depth: route.getAncestors().filter(isRouteElement).length }))
+    .sort((a, b) => b.depth - a.depth)[0]?.route
+  if (!used) return undefined
+  const own = pathOf(used)
+  if (own.kind !== 'literal') return { route: own.text, kind: own.kind, partial: false }
+  let route = own.text
+  let partial = false
+  for (const outer of used.getAncestors().filter(isRouteElement)) {
+    if (!isNest(outer)) continue
+    const prefix = pathOf(outer)
+    if (prefix.kind !== 'literal') {
+      partial = true
+      break
+    }
+    route = joinPaths(prefix.text, route)
+  }
+  return { route, kind: 'literal', partial }
 }
 
 /** O texto do model da tela, se ele existe. */
@@ -235,12 +339,11 @@ function listPages(project: Project, queries: ListedQuery[]): ListedPage[] {
   const result: ListedPage[] = []
   for (const entry of entries(project.pages)) {
     if (!entry.isDirectory()) continue
-    const component = app ? componentOf(app, entry.name) : undefined
-    const route = component ? routes.find((candidate) => usesIdentifier(candidate, component)) : undefined
-    const routePath = route ? (pathLiteral(route)?.getLiteralText() ?? null) : null
+    const found = app ? routeOf(routes, componentsOf(app, entry.name)) : undefined
     const model = modelOf(path.join(project.pages, entry.name)) ?? ''
     const query = queryOfModel(model, queries)
-    const param = /\buseParams\b/.test(model) || (routePath?.includes('/:') ?? false)
+    const param =
+      /\buseParams\b/.test(model) || (found?.kind === 'literal' && found.route.includes('/:'))
     const variation: PageVariation = query
       ? param
         ? 'detalhe'
@@ -248,7 +351,14 @@ function listPages(project: Project, queries: ListedQuery[]): ListedPage[] {
       : param
         ? 'parametro'
         : 'titulo'
-    result.push({ name: entry.name, route: routePath, variation, query })
+    result.push({
+      name: entry.name,
+      route: found?.route ?? null,
+      routeKind: found?.kind ?? null,
+      routePartial: found?.partial ?? false,
+      variation,
+      query,
+    })
   }
   return result
 }

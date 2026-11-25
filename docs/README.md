@@ -13,24 +13,25 @@ A documentação segue quatro tipos de texto, cada um para um momento:
 
 ## Tutorial
 
-- [Primeiros passos](getting-started.md): cria um app, gera o schema, o repositório, as queries e uma tela que lista, muda os textos, roda os testes e a verificação. Leva cerca de 15 minutos.
+- [Primeiros passos](getting-started.md): cria um app, gera o schema, os use cases, uma tela que lista e um formulário, muda os textos, roda os testes e a verificação. Leva cerca de 20 minutos.
 
 ## Conceitos
 
-- [Arquitetura](concepts/architecture.md): as camadas, as regras que o Prumo cobra e o motivo de cada uma.
+- [Arquitetura](concepts/architecture.md): as camadas (telas → use cases → http e schemas), as regras que o Prumo cobra e o motivo de cada uma.
 - [Anatomia do app gerado](concepts/generated-app.md): arquivo por arquivo, o que o `prumo new` cria e quais pontos os comandos usam.
 
 ## Guias
 
 | Guia                                                     | Para                                                                                      |
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| [Telas](guides/pages.md)                                  | Criar telas, separar model e view, componentes do produto, rotas com parâmetro, navegação e rotas protegidas      |
-| [Domínios de dados](guides/domains.md)                   | Criar um domínio (`make:schema`, `make:repository` e `make:query`), os campos, o leitor do schema, mudar a forma do dado, o contrato, usar queries e mutations, regras de negócio e operações entre domínios |
-| [Ligar uma API real](guides/real-api.md)                  | Gerar a fonte http (ou storage), escolher a fonte de dados por ambiente e validar o contrato, inclusive contra uma API que não grava |
-| [Sessão e login](guides/auth.md)                          | A sessão dentro e fora do React, o login, o logout, o `AuthGuard` com origem e a guarda por perfil |
+| [Telas](guides/pages.md)                                  | Criar telas (em subpastas e a partir de um use case: lista, detalhe e formulário), separar model e view, componentes do produto, rotas com parâmetro, navegação e rotas protegidas |
+| [Use cases](guides/use-cases.md)                         | Criar um use case (`make:usecase`, com `--crud` e `--local`) e o schema da entidade (`make:schema`), os campos, mudar a forma do dado, filtros, regras de negócio e operações entre domínios |
+| [Ligar uma API real](guides/real-api.md)                  | Ligar os use cases à API, escolher a fonte de dados por ambiente e rodar o contrato contra uma API de teste |
+| [Migrar para use cases](guides/migrate-to-use-cases.md) | Trocar o repository e as queries de um app (cli até a 0.9) por use cases: o que muda, passo a passo, com antes e depois |
+| [Login e sessão](guides/auth.md)                          | O login gerado (`auth.sign-in` e `auth.login`), o `AuthGuard` com origem e, até a sessão chegar ao core, um jeito de escrevê-la |
 | [Textos e idiomas](guides/i18n.md)            | Textos por tela, ICU (plural, select), formatação de números e datas, trocar e criar idiomas |
 | [Erros e notificações](guides/errors-and-notifications.md)    | Erros com código, tradução do erro, notificação global e o `meta` das queries             |
-| [Testes](guides/test.md)                                | Testar telas, hooks de query e mutation, provedores do app (a sessão) e repositórios |
+| [Testes](guides/test.md)                                | Testar telas, hooks de query e mutation, provedores do app (a sessão) e use cases |
 | [Design system](guides/design-system.md)                  | Ligar a interface do produto: a pasta `ui`, a casca do layout e as notificações           |
 | [Agentes de IA](guides/ai-agents.md)                  | Usar o `AGENTS.md` e o servidor MCP (`prumo mcp`) com agentes de IA |
 | [Projeto existente](guides/existing-project.md)          | Adotar as regras e os geradores num app React que já existe                               |
@@ -39,8 +40,8 @@ A documentação segue quatro tipos de texto, cada um para um momento:
 
 | Referência                               | Conteúdo                                                                          |
 | ---------------------------------------- | --------------------------------------------------------------------------------- |
-| [CLI](reference/cli.md)                 | Os comandos `new`, `make:schema`, `make:repository`, `make:query`, `make:page`, `check`, `list` e `mcp`, com opções, a ajuda e os códigos de saída |
-| [core](reference/core.md)               | `@matizze/prumo-core`: repositórios, query, i18n, erros, dados, mock e auth       |
+| [CLI](reference/cli.md)                 | Os comandos `new`, `make:schema`, `make:usecase`, `make:page`, `check`, `list` e `mcp`, com opções, a ajuda e os códigos de saída |
+| [core](reference/core.md)               | `@matizze/prumo-core`: http, use cases, query, i18n, erros, dados, mock e auth       |
 | [rules](reference/rules.md)             | `@matizze/prumo-rules`: as regras de ESLint e a análise do `prumo check`          |
 | [testing](reference/testing.md)         | `@matizze/prumo-testing`: render com provedores, DOM e teste de contrato          |
 

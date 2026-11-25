@@ -6,18 +6,15 @@ import { exec } from '../test/run.ts'
 
 /**
  * As telas geradas de verdade: o projeto temporário de `test/compile.ts` (o app que o `prumo new`
- * gera, com o i18n, o `App.tsx` e o `renderWithProviders`) recebe dois domínios (schema,
- * repositório e query pelos comandos) e as quatro variações de tela. O `tsc` estrito compila tudo
- * e o teste que cada tela traz roda contra o mock.
+ * gera, com o i18n, o `App.tsx` e o `renderWithProviders`) recebe um domínio com dígito no nome da
+ * entidade (schema e use cases pelos comandos) e três variações de tela: só o título, a rota com
+ * parâmetro e o detalhe de um use case. O `tsc` estrito compila tudo e o teste que cada tela traz
+ * roda contra o mock.
  */
 const PAGES = [
   ['sobre'],
-  ['clientes', '--query', 'clientes'],
-  ['cliente', '--query', 'clientes', '--path', '/clientes/:id'],
-  ['livros', '--query', 'livros'],
-  ['livro', '--query', 'livros', '--path', '/livros/:id'],
   ['perfil', '--path', '/perfil/:usuario'],
-  ['fase', '--query', 'fases-2', '--path', '/fases/:id'],
+  ['fase', '--usecase', 'fases-2.get-fase-2', '--path', '/fases/:id'],
 ] as const
 
 let root: string
@@ -29,42 +26,30 @@ beforeAll(async () => {
     expect(made.code, `${args.join(' ')}\n${made.stdout}${made.stderr}`).toBe(0)
     return made
   }
-  await prumo(
-    'make:schema',
-    'livros',
-    '--fields',
-    'titulo:string,ano:number,situacao:enum(lido|lendo),lidoEm?:datetime',
-  )
   // Um domínio com dígito no nome da entidade (fase-2): o arquivo do schema e o id vêm dos arquivos
   await prumo('make:schema', 'fases-2', '--entity', 'fase-2', '--fields', 'titulo:string')
-  for (const domain of ['clientes', 'livros']) {
-    await prumo('make:repository', domain)
-    await prumo('make:query', domain)
-  }
-  await prumo('make:repository', 'fases-2', '--entity', 'fase-2')
-  await prumo('make:query', 'fases-2', '--entity', 'fase-2')
+  await prumo('make:usecase', 'fases-2', '--entity', 'fase-2', '--crud')
   for (const args of PAGES) await prumo('make:page', ...args)
 }, 120_000)
 
 describe('as telas geradas compilam (tsc estrito) e passam nos próprios testes', () => {
   it('registram as rotas e os namespaces, em ordem, nos dois idiomas', () => {
     const app = readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
-    for (const route of ['/sobre', '/clientes', '/clientes/:id', '/livros', '/livros/:id', '/perfil/:usuario', '/fases/:id']) {
+    for (const route of ['/sobre', '/perfil/:usuario', '/fases/:id']) {
       expect(app).toContain(`<Route path="${route}">`)
     }
     for (const language of ['en', 'pt-BR']) {
       const index = readFileSync(path.join(root, `src/messages/${language}/index.ts`), 'utf8')
-      expect(index).toContain('  cliente,\n  clientes,\n  errors,\n  fase,\n  home,\n  livro,\n  livros,\n  perfil,\n  sobre,\n')
+      expect(index).toContain('  errors,\n  fase,\n  home,\n  perfil,\n  sobre,\n')
     }
   })
 
-  it('as quatro variações: o que cada model usa', () => {
+  it('as variações: o que cada model usa', () => {
     const read = (file: string) => readFileSync(path.join(root, file), 'utf8')
-    expect(read('src/pages/sobre/model.ts')).not.toContain('@/queries')
-    expect(read('src/pages/clientes/model.ts')).toContain('useClientesList')
-    expect(read('src/pages/livros/view.tsx')).toContain('{i.titulo}')
+    expect(read('src/pages/sobre/model.ts')).not.toContain('useUseCases')
     expect(read('src/pages/perfil/model.ts')).toContain('useParams<{ usuario: string }>()')
-    expect(read('src/pages/livro/model.ts')).toContain('useLivroDetail(id)')
+    expect(read('src/pages/fase/model.ts')).toContain('getFase2')
+    expect(read('src/pages/fase/view.tsx')).toContain('m.item.titulo')
   })
 
   it('compilam com o tsc, no modo estrito do projeto', () => {
@@ -72,21 +57,21 @@ describe('as telas geradas compilam (tsc estrito) e passam nos próprios testes'
   }, 180_000)
 
   it('cada tela passa no teste que traz', () => {
-    const tests = vitest(root)
+    const tests = vitest(root, {}, ['src/pages'])
     expect(tests.status, tests.output).toBe(0)
-    for (const page of ['sobre', 'clientes', 'cliente', 'livros', 'livro', 'perfil', 'fase']) {
+    for (const page of ['sobre', 'perfil', 'fase']) {
       expect(tests.output).toContain(`src/pages/${page}/index.test.tsx`)
     }
   }, 180_000)
 
   it('o tsc de fato confere: um campo que não existe na tela gerada seria pego', () => {
-    const file = path.join(root, 'src/pages/livros/view.tsx')
+    const file = path.join(root, 'src/pages/fase/view.tsx')
     const original = readFileSync(file, 'utf8')
-    writeFileSync(file, original.replace('{i.titulo}', '{i.nome}'))
+    writeFileSync(file, original.replace('m.item.titulo', 'm.item.nome'))
     try {
       const result = tsc(root)
       expect(result.status).not.toBe(0)
-      expect(result.output).toContain('src/pages/livros/view.tsx')
+      expect(result.output).toContain('src/pages/fase/view.tsx')
     } finally {
       writeFileSync(file, original)
     }

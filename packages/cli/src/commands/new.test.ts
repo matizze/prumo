@@ -75,6 +75,7 @@ describe('prumo new', () => {
         'package.json',
         'src/App.tsx',
         'src/errors.ts',
+        'src/http/api.ts',
         'src/i18n.ts',
         'src/main.tsx',
         'src/messages/en/errors.json',
@@ -88,20 +89,20 @@ describe('prumo new', () => {
         'src/pages/home/model.ts',
         'src/pages/home/view.tsx',
         'src/providers/app.tsx',
-        'src/providers/repository/index.ts',
-        'src/queries/index.ts',
-        'src/repositories/index.ts',
-        'src/repositories/options.ts',
+        'src/providers/use-cases/index.ts',
         'src/schemas/index.ts',
         'src/test/render.tsx',
         'src/test/setup.ts',
+        'src/use-cases/deps.ts',
+        'src/use-cases/index.ts',
+        'src/use-cases/options.ts',
         'src/vite-env.d.ts',
         'tsconfig.json',
         'vite.config.ts',
       ].sort(),
     )
     expect(result.stdout).toContain(`Destino: ${root}`)
-    expect(result.stdout).toContain('Criados (32):')
+    expect(result.stdout).toContain('Criados (33):')
     expect(result.stdout).toContain('pnpm exec prumo make:page <tela>')
     expect(result.stdout).not.toContain('clientes')
     expect(result.stdout).toContain('docs.prumo.matizze.com.br')
@@ -214,15 +215,14 @@ export default function App() {
     for (const text of [
       'pages/<tela>/',
       'make:schema',
-      'make:repository',
-      'make:query',
+      'make:usecase',
       'make:page',
       'prumo check',
       'pnpm verify',
       '.mcp.json',
       'pnpm exec prumo mcp',
       'make_schema',
-      'data_source',
+      'crud',
     ]) {
       expect(agents).toContain(text)
     }
@@ -238,8 +238,8 @@ export default function App() {
     await run(['new', 'app-mock', '--no-install'], cwd)
     const root = path.join(cwd, 'app-mock')
 
-    expect(read(root, 'src/repositories/options.ts')).toContain("DATA_SOURCES = ['mock']")
-    expect(read(root, 'src/repositories/index.ts')).toContain(
+    expect(read(root, 'src/use-cases/options.ts')).toContain("DATA_SOURCES = ['mock', 'http']")
+    expect(read(root, 'src/use-cases/index.ts')).toContain(
       "resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')",
     )
     const env = read(root, 'src/vite-env.d.ts')
@@ -264,7 +264,7 @@ export default function App() {
 
     expect(result.code, result.stderr).toBe(0)
     expect(result.stdout).toContain('prumo new: app-seco (simulação).')
-    expect(result.stdout).toContain('Seriam criados (32):')
+    expect(result.stdout).toContain('Seriam criados (33):')
     expect(result.stdout).toContain('  src/pages/home/view.tsx\n')
     expect(result.stdout).toContain('Depois: git init e pnpm install.')
     expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')

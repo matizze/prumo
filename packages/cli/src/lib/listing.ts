@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync, type Dirent } from 'node:fs'
 import path from 'node:path'
+import { listPages as pagesIn } from '@matizze/prumo-rules/check'
 import { Node, SyntaxKind, type SourceFile } from 'ts-morph'
 import {
   isRouteElement,
@@ -8,11 +9,9 @@ import {
   usesIdentifier,
   type RouteElement,
 } from './route-elements.ts'
-import { contractEntity } from './contract.ts'
 import { readEntityFields, type FieldType } from './fields/index.ts'
-import { deriveNames, pascalCase, type DomainNames } from './names.ts'
+import { deriveNames, isValidName, pascalCase, type DomainNames } from './names.ts'
 import { ChangePlan } from './plan.ts'
-import { displayPath } from './paths.ts'
 import type { Project } from './project.ts'
 
 /** Um campo de um schema, como o leitor do Prumo o reconhece. */
@@ -36,36 +35,32 @@ export interface ListedSchema {
   problem: string | null
 }
 
-export type ListedSource = 'mock' | 'http' | 'storage'
+export type UseCaseKind = 'read' | 'write' | 'local'
 
-/** Um repositório de `src/repositories/`. */
-export interface ListedRepository {
-  /** O domínio: o nome da pasta, `livros`. */
+/** Um use case de `src/use-cases/<domínio>/<ação>.usecase.ts`. */
+export interface ListedUseCase {
+  /** O domínio: o nome da pasta, `stores`. */
   domain: string
-  /** A entidade do contrato, em PascalCase; `null` se não há contrato ou ele não diz. */
-  entity: string | null
-  /** As fontes que existem (o arquivo e a linha na fábrica), na ordem `mock`, `http`, `storage`. */
-  sources: ListedSource[]
-}
-
-/** As queries de um domínio, de `src/queries/`. */
-export interface ListedQuery {
-  domain: string
-  /** O arquivo, relativo à raiz. */
-  file: string
-  /** A entidade (do contrato do repositório ou do hook de detalhe); `null` se nenhum diz. */
-  entity: string | null
-  /** Os hooks (`use...`) que o arquivo exporta, na ordem do arquivo. */
-  hooks: string[]
+  /** A ação, em kebab-case: `get-stores`. */
+  name: string
+  /** A chave no registro (`useUseCases()`): a ação em camelCase, `getStores`. */
+  key: string
+  /**
+   * `read` (a chave de cache `<chave>Key` no `.types.ts`), `write` (chama a API, sem a chave) ou
+   * `local` (sem `ENDPOINT`: usa o `storage`).
+   */
+  kind: UseCaseKind
+  /** O `ENDPOINT` do `.types.ts`, como `GET /stores/get-stores`; `null` no `local`. */
+  endpoint: string | null
 }
 
 export type RouteKind = 'literal' | 'catchAll' | 'expression'
 
-export type PageVariation = 'title' | 'list' | 'param' | 'detail'
+export type PageVariation = 'title' | 'list' | 'param' | 'detail' | 'form'
 
 /** Uma tela de `src/pages/`. */
 export interface ListedPage {
-  /** O nome da tela: o da pasta. */
+  /** O nome da tela: a pasta a partir de `src/pages`, com barra nas subpastas (`auth/login`). */
   name: string
   /**
    * A rota do `src/App.tsx` que mostra a tela: o caminho (composto com os `<Route nest>` de fora),
@@ -77,17 +72,19 @@ export interface ListedPage {
   routeKind: RouteKind | null
   /** O caminho de fora (`<Route nest>`) não é literal e não deu para compor: `route` é só o da `<Route>` de dentro. */
   routePartial: boolean
-  /** `title` (só o título), `list` (com query), `param` (rota com parâmetro) ou `detail` (os dois). */
+  /**
+   * `title` (só o título), `list` (use case de leitura), `param` (rota com parâmetro),
+   * `detail` (use case de leitura com parâmetro) ou `form` (use case de escrita).
+   */
   variation: PageVariation
-  /** O domínio da query que a tela usa; `null` se não usa. */
-  query: string | null
+  /** O use case que o model chama de `useUseCases()` (`livros.list-livros`); `null` se não chama. */
+  useCase: string | null
 }
 
 /** O que o projeto tem, lido dos arquivos. É o que o `prumo list --json` escreve. */
 export interface ProjectListing {
   schemas: ListedSchema[]
-  repositories: ListedRepository[]
-  queries: ListedQuery[]
+  useCases: ListedUseCase[]
   pages: ListedPage[]
   /** Os idiomas de `src/messages`. */
   languages: string[]
@@ -144,66 +141,52 @@ function listSchemas(project: Project): ListedSchema[] {
   return result
 }
 
-const SOURCES: ListedSource[] = ['mock', 'http', 'storage']
+const ENDPOINT =
+  /\bENDPOINT\s*=\s*\{\s*method:\s*['"](\w+)['"]\s*,\s*path:\s*['"]([^'"]*)['"]/
 
-function listRepositories(project: Project): ListedRepository[] {
-  const base = path.join(project.src, 'repositories')
-  const result: ListedRepository[] = []
-  for (const entry of entries(base)) {
-    if (!entry.isDirectory()) continue
-    const dir = path.join(base, entry.name)
-    const contract = readIfExists(path.join(dir, 'repository.contract.ts'))
-    const factory = readIfExists(path.join(dir, 'index.ts')) ?? ''
-    const sources = SOURCES.filter(
-      (source) =>
-        existsSync(path.join(dir, `repository.${source}.ts`)) &&
-        (source === 'mock' || new RegExp(`dataSource\\s*===\\s*['"]${source}['"]`).test(factory)),
-    )
-    result.push({
-      domain: entry.name,
-      entity: (contract ? contractEntity(contract) : undefined) ?? null,
-      sources,
-    })
+/** O `ENDPOINT` de um `.types.ts` (`GET /stores/:id`) e os `:parâmetros` do caminho; `null` sem `ENDPOINT` (o use case local). */
+export function endpointOf(types: string): { method: string; path: string; params: string[] } | null {
+  const match = ENDPOINT.exec(types)
+  if (!match) return null
+  const route = match[2] ?? ''
+  return {
+    method: match[1] ?? '',
+    path: route,
+    params: [...route.matchAll(/\/:([A-Za-z]\w*)/g)].map((param) => param[1]!),
   }
-  return result
 }
 
-/** O arquivo de código de uma query: `<domínio>.ts(x)` ou `<domínio>/index.ts(x)`. */
-function queryFiles(project: Project): { domain: string; file: string }[] {
-  const base = path.join(project.src, 'queries')
-  const result: { domain: string; file: string }[] = []
-  for (const entry of entries(base)) {
-    if (entry.isFile() && /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) {
-      const domain = entry.name.replace(/\.tsx?$/, '')
-      if (domain !== 'index') result.push({ domain, file: path.join(base, entry.name) })
-    } else if (entry.isDirectory()) {
-      const index = ['index.ts', 'index.tsx']
-        .map((name) => path.join(base, entry.name, name))
-        .find((file) => existsSync(file))
-      if (index) result.push({ domain: entry.name, file: index })
+/** O use case tem a chave de cache `<chave>Key` no `.types.ts`: é uma leitura (a tela usa com `useQuery`). */
+export function hasQueryKey(types: string, key: string): boolean {
+  return new RegExp(`\\bexport\\s+(?:function|const)\\s+${key}Key\\b`).test(types)
+}
+
+/** Os use cases do projeto, por domínio e ação, lidos do `.types.ts` ao lado de cada `.usecase.ts`. */
+export function listUseCases(project: Project): ListedUseCase[] {
+  const base = path.join(project.src, 'use-cases')
+  const result: ListedUseCase[] = []
+  for (const folder of entries(base)) {
+    if (!folder.isDirectory()) continue
+    for (const file of entries(path.join(base, folder.name))) {
+      const name = /^(.+)\.usecase\.ts$/.exec(file.name)?.[1]
+      if (!file.isFile() || name === undefined || !isValidName(name)) continue
+      const key = deriveNames(name).camel
+      const types = readIfExists(path.join(base, folder.name, `${name}.types.ts`)) ?? ''
+      const endpoint = endpointOf(types)
+      const kind: UseCaseKind = !endpoint ? 'local' : hasQueryKey(types, key) ? 'read' : 'write'
+      result.push({
+        domain: folder.name,
+        name,
+        key,
+        kind,
+        endpoint: endpoint ? `${endpoint.method} ${endpoint.path}` : null,
+      })
     }
   }
   return result
 }
 
-const HOOK = /\bexport\s+(?:async\s+)?function\s+(use[A-Z]\w*)|\bexport\s+const\s+(use[A-Z]\w*)/g
-
-function listQueries(project: Project): ListedQuery[] {
-  return queryFiles(project).map(({ domain, file }) => {
-    const text = readFileSync(file, 'utf8')
-    const hooks = [...text.matchAll(HOOK)].map((match) => (match[1] ?? match[2])!)
-    const contract = readIfExists(
-      path.join(project.src, 'repositories', domain, 'repository.contract.ts'),
-    )
-    const entity =
-      (contract ? contractEntity(contract) : undefined) ??
-      /\buse([A-Z][A-Za-z0-9]*)Detail\b/.exec(text)?.[1] ??
-      null
-    return { domain, file: displayPath(project.root, file), entity, hooks }
-  })
-}
-
-/** Se o módulo é `src/pages/<nome>` (`@/pages/x`, `./pages/x`, com ou sem `/index`). */
+/** Se o módulo é `src/pages/<nome>`, com o nome em subpastas se for o caso (`@/pages/x`, `./pages/x`, com ou sem `/index`). */
 function isPageSpecifier(specifier: string, page: string): boolean {
   const module = specifier.replace(/\/index$/, '')
   return module === `pages/${page}` || module.endsWith(`/pages/${page}`)
@@ -310,44 +293,38 @@ function modelOf(dir: string): string | undefined {
   return undefined
 }
 
-/** O domínio da query que o model importa de `@/queries`, se importa. */
-function queryOfModel(model: string, queries: ListedQuery[]): string | null {
-  for (const match of model.matchAll(
-    /import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"]@\/queries(?:\/([\w-]+))?['"]/g,
-  )) {
-    if (match[2]) return match[2]
-    const names = (match[1] ?? '').split(',').map((name) => name.trim().replace(/^type\s+/, ''))
-    const found = queries.find((query) => query.hooks.some((hook) => names.includes(hook)))
-    if (found) return found.domain
-  }
-  return null
+/** O use case que o model pega de `useUseCases()` (`const { listLivros } = useUseCases()`), se pega e se está no projeto. */
+function useCaseOfModel(model: string, useCases: ListedUseCase[]): ListedUseCase | undefined {
+  const keys = /\{([^{}]*)\}\s*=\s*useUseCases\(\)/.exec(model)?.[1]?.split(',').map((key) => key.trim().split(':')[0]?.trim())
+  return useCases.find((useCase) => keys?.includes(useCase.key))
 }
 
-function listPages(project: Project, queries: ListedQuery[]): ListedPage[] {
+function listPages(project: Project, useCases: ListedUseCase[]): ListedPage[] {
   const app = existsSync(project.app) ? new ChangePlan(project).source(project.app) : undefined
   const routes = app ? app.getDescendants().filter(isRouteElement) : []
   const result: ListedPage[] = []
-  for (const entry of entries(project.pages)) {
-    if (!entry.isDirectory()) continue
-    const found = app ? routeOf(routes, componentsOf(app, entry.name)) : undefined
-    const model = modelOf(path.join(project.pages, entry.name)) ?? ''
-    const query = queryOfModel(model, queries)
+  for (const name of pagesIn(project.pages)) {
+    const found = app ? routeOf(routes, componentsOf(app, name)) : undefined
+    const model = modelOf(path.join(project.pages, name)) ?? ''
     const param =
       /\buseParams\b/.test(model) || (found?.kind === 'literal' && found.route.includes('/:'))
-    const variation: PageVariation = query
-      ? param
-        ? 'detail'
-        : 'list'
+    const useCase = useCaseOfModel(model, useCases)
+    const variation: PageVariation = useCase
+      ? /\buseMutation\b/.test(model)
+        ? 'form'
+        : param
+          ? 'detail'
+          : 'list'
       : param
         ? 'param'
         : 'title'
     result.push({
-      name: entry.name,
+      name,
       route: found?.route ?? null,
       routeKind: found?.kind ?? null,
       routePartial: found?.partial ?? false,
       variation,
-      query,
+      useCase: useCase ? `${useCase.domain}.${useCase.name}` : null,
     })
   }
   return result
@@ -360,18 +337,17 @@ function listLanguages(project: Project): string[] {
 }
 
 /**
- * O que o projeto tem hoje: os schemas (com os campos que o leitor reconhece), os repositórios (com
- * as fontes), as queries, as telas (com rota, variação e query) e os idiomas. Só lê os arquivos,
+ * O que o projeto tem hoje: os schemas (com os campos que o leitor reconhece), os use cases, as telas (com rota,
+ * variação e use case) e os idiomas. Só lê os arquivos,
  * nunca escreve, e não falha com um arquivo editado à mão: o que o leitor não entende vira um
  * `problem` no schema, ou um `null`. Quem chama confere antes que a pasta é um projeto.
  */
 export function listProject(project: Project): ProjectListing {
-  const queries = listQueries(project)
+  const useCases = listUseCases(project)
   return {
     schemas: listSchemas(project),
-    repositories: listRepositories(project),
-    queries,
-    pages: listPages(project, queries),
+    useCases,
+    pages: listPages(project, useCases),
     languages: listLanguages(project),
   }
 }

@@ -4,14 +4,14 @@ import { describe, expect, it } from 'vitest'
 import { APP_FILES } from '../generators/app.ts'
 import {
   MESSAGE_LANGUAGES,
+  MESSAGE_VARIANTS,
   messagesTemplate,
-  PAGE_DETAIL_FILES,
   PAGE_FILES,
-  PAGE_LIST_FILES,
   PAGE_PARAM_FILES,
 } from '../generators/page.ts'
-import { HTTP_CLIENT_FILES, REPOSITORY_FILES, SOURCE_FILES } from '../generators/repository.ts'
-import { QUERY_FILE } from '../generators/query.ts'
+import { USE_CASE_PAGE_FILES } from '../generators/page-usecase.ts'
+import { CASES_TEMPLATES, COLLECTION_FILE, CRUD_FILES } from '../generators/usecase-crud.ts'
+import { DOMAIN_INDEX_FILE, LOCAL_USE_CASE_FILES, USE_CASE_FILES } from '../generators/usecase.ts'
 import { SCHEMA_FILE } from '../generators/schema.ts'
 import { deriveNames } from './names.ts'
 import {
@@ -71,17 +71,18 @@ describe('nameVars', () => {
 const GENERATED: { template: string; to: string }[] = [
   ...APP_FILES,
   ...PAGE_FILES,
-  ...PAGE_LIST_FILES,
   ...PAGE_PARAM_FILES,
-  ...PAGE_DETAIL_FILES,
   SCHEMA_FILE,
-  QUERY_FILE,
-  ...REPOSITORY_FILES,
-  ...Object.values(SOURCE_FILES),
-  ...HTTP_CLIENT_FILES,
+  ...USE_CASE_FILES,
+  ...LOCAL_USE_CASE_FILES,
+  DOMAIN_INDEX_FILE,
+  ...CRUD_FILES,
+  COLLECTION_FILE,
+  ...CASES_TEMPLATES.map((template) => ({ template, to: 'cases.ts' })),
+  ...Object.values(USE_CASE_PAGE_FILES).flat(),
   ...MESSAGE_LANGUAGES.flatMap((language) =>
-    [false, true].map((withQuery) => ({
-      template: messagesTemplate(language, withQuery),
+    MESSAGE_VARIANTS.map((variant) => ({
+      template: messagesTemplate(language, variant),
       to: `${language}.json`,
     })),
   ),
@@ -124,7 +125,7 @@ describe('os modelos', () => {
     }
     for (const marker of markers)
       expect(marker).toMatch(
-        /^((plural|singular|page|domain|app)\.(kebab|pascal|camel|constant|title)|route\.(path|example)|param\.(name|example)|detail\.hook|field\.(name|sample)|fields\.[A-Za-z]+|test\.[A-Za-z]+)$/,
+        /^((plural|singular|page|domain|action|app|uc)\.(kebab|pascal|camel|constant|title)|page\.path|route\.(path|example)|param\.(name|example)|field\.(name|sample)|fields\.[A-Za-z]+|test\.[A-Za-z]+|types\.[A-Za-z]+|usecase\.[A-Za-z]+|mock\.[A-Za-z]+|key\.[a-z]+|form\.[A-Za-z]+|list\.items|uc\.(key|input|keyFn|domain))$/,
       )
   })
 
@@ -141,13 +142,26 @@ describe('os modelos', () => {
       'param.example': 'exemplo',
       'field.name': 'nome',
       'field.sample': "'Exemplo 1'",
-      'detail.hook': 'useClienteDetail',
     }
-    // O schema, o repositório e as queries dependem dos nomes de domínio e entidade: os testes dos geradores os renderizam
+    // O schema e os use cases dependem dos nomes de domínio e entidade: os testes dos geradores os renderizam
     const needsFields = (template: string) =>
       template === SCHEMA_FILE.template ||
-      template === QUERY_FILE.template ||
-      [...REPOSITORY_FILES, ...Object.values(SOURCE_FILES)].some((file) => file.template === template)
+      [
+        ...USE_CASE_FILES,
+        ...LOCAL_USE_CASE_FILES,
+        DOMAIN_INDEX_FILE,
+        ...CRUD_FILES,
+        COLLECTION_FILE,
+        ...CASES_TEMPLATES.map((template) => ({ template })),
+        ...Object.values(USE_CASE_PAGE_FILES).flat(),
+        ...MESSAGE_LANGUAGES.flatMap((language) =>
+          MESSAGE_VARIANTS.filter((variant) => variant.startsWith('usecase-')).map((variant) => ({
+            template: messagesTemplate(language, variant),
+          })),
+        ),
+      ].some(
+        (file) => file.template === template,
+      )
     for (const { template } of GENERATED.filter(({ template }) => !needsFields(template))) {
       const text = renderTemplateFile(template, vars)
       // O app tem `undefined` de verdade no código (resolveDataSource(undefined, ...))

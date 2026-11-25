@@ -9,7 +9,7 @@ export const {{singular.camel}}Schema = z.object({
 
 export type {{singular.pascal}}Schema = z.infer<typeof {{singular.camel}}Schema>
 
-/** O que se envia para criar ou editar: o `id` e a data são do repositório. */
+/** O que se envia para criar ou editar: o `id` e a data são da API. */
 export const {{singular.camel}}InputSchema = {{singular.camel}}Schema.pick({{fields.pick}})
 
 export type {{singular.pascal}}Input = z.infer<typeof {{singular.camel}}InputSchema>

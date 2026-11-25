@@ -46,42 +46,6 @@ export {
 export * from './entities/ai'
 `
 
-/** O `src/queries/index.ts` do projeto de fixture: já com dois domínios, fora de ordem de chegada. */
-const QUERIES_INDEX = `// Queries, uma por domínio.
-export { customerKeys, useCustomersList } from './customers'
-export { taskKeys, useTasksList } from './tasks'
-`
-
-/**
- * O `src/repositories/index.ts` do projeto de fixture: o container que o `prumo new` gera (o
- * modelo, pelo `generatedApp`), já com quatro domínios registrados.
- */
-const DOMAINS = ['account', 'customers', 'support', 'task'] as const
-/** A chave de cada domínio no mapa de fábricas. */
-const KEYS = { account: 'account', customers: 'customers', support: 'support', task: 'tasks' } as const
-
-function repositoriesIndex(): string {
-  const generated = generatedApp()['src/repositories/index.ts']!
-  const factory = (domain: string) => `create${domain[0]!.toUpperCase()}${domain.slice(1)}Repository`
-  const importOf = (domain: string) => `import { ${factory(domain)} } from './${domain}'`
-  const options = "import { DATA_SOURCES, type RepositoryOptions } from './options'"
-  const withImports = patchText(
-    generated,
-    options,
-    [importOf('account'), importOf('customers'), options, importOf('support'), importOf('task')].join('\n'),
-  )
-  const withExports = patchText(
-    withImports,
-    'export { DATA_SOURCES',
-    `${DOMAINS.map((d) => `export * from './${d}'`).join('\n')}\nexport { DATA_SOURCES`,
-  )
-  return patchText(
-    withExports,
-    'const factories = {}',
-    `const factories = {\n${DOMAINS.map((d) => `  ${KEYS[d]}: ${factory(d)},`).join('\n')}\n}`,
-  )
-}
-
 /** Os arquivos de um idioma do projeto de fixture: o índice e um JSON por namespace. */
 function messagesOf(language: string): Record<string, string> {
   return {
@@ -118,10 +82,9 @@ function appWithRoutes(): string {
 }
 
 /**
- * Um projeto em miniatura numa pasta temporária, com partes do app gerado (as opções e o container de
- * repositórios, o `App.tsx`) e partes postas em estados específicos para os codemods (as mensagens fora
- * de ordem, os índices de schemas e queries): o `App.tsx`, as mensagens em dois idiomas e os
- * índices de schemas, repositórios e queries, que são os arquivos onde as costuras mexem. Cada
+ * Um projeto em miniatura numa pasta temporária, com partes do app gerado (o registro de use cases, o `App.tsx`) e partes postas em estados específicos para os codemods (as mensagens fora
+ * de ordem, o índice de schemas): o `App.tsx`, as mensagens em dois idiomas e o
+ * índice de schemas, que são os arquivos onde as costuras mexem. Cada
  * chamada devolve um projeto novo, que o teste pode alterar à vontade.
  */
 export function fixtureProject(): Project {
@@ -131,9 +94,8 @@ export function fixtureProject(): Project {
       ...messagesOf('en'),
       ...messagesOf('pt-BR'),
       'src/schemas/index.ts': SCHEMAS_INDEX,
-      'src/repositories/index.ts': repositoriesIndex(),
-      'src/repositories/options.ts': generatedApp()['src/repositories/options.ts']!,
-      'src/queries/index.ts': QUERIES_INDEX,
+      'src/use-cases/deps.ts': generatedApp()['src/use-cases/deps.ts']!,
+      'src/use-cases/index.ts': generatedApp()['src/use-cases/index.ts']!,
     }),
   )
 }

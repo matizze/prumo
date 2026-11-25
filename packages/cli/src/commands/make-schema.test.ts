@@ -21,7 +21,7 @@ describe('prumo make:schema', () => {
     expect(result.stdout).toContain('Campos: name (string).')
     expect(result.stdout).toContain('Criados (1):\n  src/schemas/entities/cliente.ts')
     expect(result.stdout).toContain('Alterados (1):\n  src/schemas/index.ts')
-    expect(result.stdout).toContain('Próximo passo: prumo make:repository clientes')
+    expect(result.stdout).toContain('Próximo passo: prumo make:usecase clientes --crud')
     expect(read(root, 'src/schemas/entities/cliente.ts')).toContain('clienteSchema')
     expect(read(root, 'src/schemas/index.ts')).toContain("export * from './entities/cliente'")
   })
@@ -36,7 +36,7 @@ describe('prumo make:schema', () => {
     expect(result.code, result.stderr).toBe(0)
     expect(result.stdout).toContain('Campos: nome (string), peso (int, opcional), tipo (enum(a|b)).')
     expect(result.stdout).toContain('Entidade: pao (--entity).')
-    expect(result.stdout).toContain('Próximo passo: prumo make:repository paes --entity pao')
+    expect(result.stdout).toContain('Próximo passo: prumo make:usecase paes --crud --entity pao')
     expect(read(root, 'src/schemas/entities/pao.ts')).toContain('  peso: z.number().int().optional(),')
   })
 
@@ -54,7 +54,7 @@ describe('prumo make:schema', () => {
     const { root } = fixtureProject()
     const result = await exec(['make:schema', 'categories', '--entity', 'category'], root)
     expect(result.code, result.stderr).toBe(0)
-    expect(result.stdout).toContain('Próximo passo: prumo make:repository categories --entity category')
+    expect(result.stdout).toContain('Próximo passo: prumo make:usecase categories --crud --entity category')
   })
 
   it('--root aponta para o projeto', async () => {

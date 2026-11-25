@@ -1,4 +1,10 @@
-import { Node, type ExportDeclaration, type ImportDeclaration, type SourceFile } from 'ts-morph'
+import {
+  Node,
+  type ExportDeclaration,
+  type ImportDeclaration,
+  type ObjectLiteralExpression,
+  type SourceFile,
+} from 'ts-morph'
 import { UsageError } from '../errors.ts'
 
 /** Troca do trecho `[pos, end)` do texto por `text`. */
@@ -92,4 +98,58 @@ export function afterLine(file: SourceFile, last: ExportDeclaration, line: strin
   const newline = text.indexOf('\n', from)
   if (newline === -1) return { pos: text.length, end: text.length, text: `\n${line}\n` }
   return { pos: newline, end: newline, text: `\n${line}` }
+}
+
+/**
+ * Junta as inserções que caem na mesma posição numa só, na ordem em que vieram: o `applyEdits`
+ * poria a segunda antes da primeira.
+ */
+export function mergeInsertions(edits: TextEdit[]): TextEdit[] {
+  const merged: TextEdit[] = []
+  for (const edit of edits) {
+    const same =
+      edit.pos === edit.end ? merged.find((e) => e.pos === edit.pos && e.end === edit.pos) : undefined
+    if (same) same.text += edit.text
+    else merged.push({ ...edit })
+  }
+  return merged
+}
+
+/** O nome de um membro de um objeto: a chave de `a: 1` e `a`, ou a expressão de `...a`; `undefined` para o resto. */
+export function memberName(member: Node): string | undefined {
+  if (Node.isPropertyAssignment(member) || Node.isShorthandPropertyAssignment(member)) {
+    return member.getName()
+  }
+  if (Node.isSpreadAssignment(member)) return member.getExpression().getText()
+  return undefined
+}
+
+/**
+ * A edição que acrescenta `entry` (`chave: valor` ou `...origem`) ao objeto, na posição alfabética
+ * pelo `name`: antes do primeiro membro que vem depois, ou no fim. Copia o recuo dos membros que já
+ * existem (e a vírgula do último, se ele a tem); num objeto vazio, usa o recuo da linha dele mais dois.
+ */
+export function insertMember(
+  file: SourceFile,
+  object: ObjectLiteralExpression,
+  name: string,
+  entry: string,
+): TextEdit {
+  const text = file.getFullText()
+  const members = object.getProperties()
+  const last = members[members.length - 1]
+  const lineIndent = indentOf(text, object.getStart())
+  const indent = last ? indentOf(text, last.getStart()) : `${lineIndent}  `
+  const next = members.find((member) => (memberName(member) ?? '') > name)
+  if (next) return { pos: next.getStart(), end: next.getStart(), text: `${entry},\n${indent}` }
+  if (last) {
+    const { end, hasComma } = afterComma(text, last.getEnd())
+    return {
+      pos: end,
+      end,
+      text: `${hasComma ? '' : ','}\n${indent}${entry}${hasComma ? ',' : ''}`,
+    }
+  }
+  const open = object.getStart() + 1
+  return { pos: open, end: open, text: `\n${indent}${entry},\n${lineIndent}` }
 }

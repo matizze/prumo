@@ -27,7 +27,7 @@ export default [
 ]
 ```
 
-A config **`prumo.configs.recommended`** registra o plugin com o nome `prumo` e liga as duas regras como `error`, para os arquivos `**/*.{ts,tsx}`. Cada regra só olha a pasta que protege e deixa os outros arquivos passarem.
+A config **`prumo.configs.recommended`** registra o plugin com o nome `prumo` e liga as quatro regras como `error`, para os arquivos `**/*.{ts,tsx}`. Cada regra só olha a pasta que protege e deixa os outros arquivos passarem.
 
 Para mudar as opções, configure a regra depois da config recomendada:
 
@@ -47,7 +47,9 @@ As regras acham a pasta das telas no próprio caminho do arquivo (procurando `/s
 
 ### `prumo/no-cross-page-import`
 
-**Uma tela não importa da pasta de outra tela.** Um arquivo de `src/pages/<tela>/` (em qualquer profundidade, testes incluídos) não importa de `src/pages/<outra>/`, nem pelo alias nem por caminho relativo. O que duas telas usam vai para `src/components/shared`.
+**Uma tela não importa da pasta de outra tela.** Um arquivo de uma tela (em qualquer profundidade, testes incluídos) não importa de outra, nem pelo alias nem por caminho relativo. A tela é a primeira pasta, a partir de `src/pages`, que tem `index.tsx`: `auth/login` não importa de `auth/register`, e a pasta sem `index.tsx` (`auth`) só agrupa. O que duas telas usam vai para `src/components/shared`.
+
+O arquivo solto em `src/pages` ou numa pasta de grupo (`src/pages/auth/shared.ts`) não é de tela, e a regra não o olha; importá-lo de uma tela também é recusado (`não importa o arquivo solto`), e ele vai para `src/components/shared`. A pasta sem `index.tsx` e sem tela dentro (`src/pages/rascunho`) conta como tela, como no `prumo check`.
 
 Confere todo especificador com origem: `import`, `import type`, `export ... from`, `export *`, `import()` com texto fixo e `import('...')` em posição de tipo.
 
@@ -67,11 +69,41 @@ A tela 'clientes' não importa da pasta da tela 'home' ('@/pages/home/view'): o 
 | ----------- | ------------- | ----------------------------------------------------------- |
 | `alias`     | `'@/'`        | O alias de import que aponta para `aliasRoot`               |
 | `aliasRoot` | `'src'`       | A pasta para onde o alias aponta, relativa ao projeto       |
-| `pagesDir`  | `'src/pages'` | A pasta das telas, relativa ao projeto; cada subpasta é uma tela |
+| `pagesDir`  | `'src/pages'` | A pasta das telas, relativa ao projeto; tela é a pasta com `index.tsx` |
+
+### `prumo/no-http-in-page`
+
+**A tela não fala com a rede.** Um arquivo de `src/pages` (em qualquer profundidade, testes incluídos) não importa de `src/http`, nem pelo alias nem por caminho relativo, nem o `http` do core (`@matizze/prumo-core/http`). Quem usa o `http` é o use case, e a tela chama o use case pelo `useUseCases()`. O `import type` fica de fora: só tipo não acopla em tempo de execução.
+
+```text
+A tela não importa de 'src/http' ('@/http/api'): ela chama um use case, e é o use case que usa o http.
+```
+
+| Opção       | Padrão        | Descrição                                             |
+| ----------- | ------------- | ----------------------------------------------------- |
+| `alias`     | `'@/'`        | O alias de import que aponta para `aliasRoot`         |
+| `aliasRoot` | `'src'`       | A pasta para onde o alias aponta, relativa ao projeto |
+| `pagesDir`  | `'src/pages'` | A pasta das telas, relativa ao projeto                |
+| `httpDir`   | `'src/http'`  | A pasta da infra de rede, relativa ao projeto         |
+
+### `prumo/use-case-imports`
+
+**O use case não olha para cima.** Um arquivo de `src/use-cases` (testes incluídos) não importa de `src/pages`, de `react` (nem de `react/...`), `react-dom`, `wouter`, `@tanstack/*` nem `@testing-library/*`. O use case é código de domínio: usa o `http`, o `storage`, os schemas e outros use cases; React, o roteamento, o cache e os testes de tela são da tela.
+
+```text
+O use case não importa de 'react' ('react'): ele não depende de React nem do cache; isso é da tela.
+```
+
+| Opção         | Padrão            | Descrição                                             |
+| ------------- | ----------------- | ----------------------------------------------------- |
+| `alias`       | `'@/'`            | O alias de import que aponta para `aliasRoot`         |
+| `aliasRoot`   | `'src'`           | A pasta para onde o alias aponta, relativa ao projeto |
+| `pagesDir`    | `'src/pages'`     | A pasta das telas, relativa ao projeto                |
+| `useCasesDir` | `'src/use-cases'` | A pasta dos use cases, relativa ao projeto            |
 
 ### `prumo/page-structure`
 
-**Toda tela tem a mesma estrutura.** O `index.tsx` de `src/pages/<tela>/` precisa ter ao lado o `model.ts` e a `view.tsx`. A regra olha a pasta pelo sistema de arquivos e acusa no `index.tsx`, um erro por arquivo que falta. Subpastas da tela e arquivos soltos em `src/pages` ficam de fora.
+**Toda tela tem a mesma estrutura.** O `index.tsx` de uma tela (`src/pages/livros/` ou `src/pages/auth/login/`, em qualquer profundidade) precisa ter ao lado o `model.ts` e a `view.tsx`. A regra olha a pasta pelo sistema de arquivos e acusa no `index.tsx`, um erro por arquivo que falta. O `index.tsx` de uma subpasta da tela (`livros/components/index.tsx`) não é tela, e os arquivos soltos em `src/pages` ficam de fora.
 
 ```text
 A tela 'relatorios' precisa do arquivo 'model.ts' ao lado do index.tsx (src/pages/relatorios/model.ts).
@@ -129,10 +161,18 @@ src/components/shared/cartao.tsx  [shared-usage]  O módulo não é usado por ne
 
 ### `page-structure`
 
-**Toda pasta de `src/pages` tem `index.tsx`, `model.ts` e `view.tsx`.** É a mesma regra do `prumo/page-structure` do ESLint, mas aqui a falta do próprio `index.tsx` também acusa.
+**Toda tela de `src/pages`, em qualquer profundidade, tem `index.tsx`, `model.ts` e `view.tsx`.** É a mesma regra do `prumo/page-structure` do ESLint, mas aqui a falta do próprio `index.tsx` também acusa: a pasta sem `index.tsx` que tem telas dentro é só um grupo (`auth`), e a que não tem nenhuma é uma tela incompleta. A tela aparece com o caminho (`auth/login`).
 
 ```text
 src/pages/relatorios/model.ts  [page-structure]  A tela 'relatorios' precisa do arquivo 'model.ts' na própria pasta.
+```
+
+### `use-case-files`
+
+**Todo `*.usecase.ts` de `src/use-cases` tem o `.types.ts` e o teste ao lado.** Para `sign-in.usecase.ts`, a mesma pasta precisa de `sign-in.types.ts` (o endereço, o Input e o Output) e de `sign-in.usecase.test.ts`. O mock (`sign-in.mock.ts`) não é cobrado: o use case `--local` roda no navegador e não tem mock.
+
+```text
+src/use-cases/auth/sign-in.usecase.ts  [use-case-files]  O use case 'sign-in' precisa do arquivo 'sign-in.usecase.test.ts' na mesma pasta.
 ```
 
 ### `messages`
@@ -169,6 +209,7 @@ Todas têm padrão, menos a raiz. Os caminhos são relativos à raiz.
 | `aliasRoot`            | `'src'`                                 | A pasta para onde o alias aponta                        |
 | `pagesDir`             | `'src/pages'`                           | A pasta das telas                                       |
 | `requiredPageFiles`    | `['index.tsx', 'model.ts', 'view.tsx']` | Os arquivos de toda tela                                |
+| `useCasesDir`          | `'src/use-cases'`                       | A pasta dos use cases                                   |
 | `componentsDir`        | `'src/components'`                      | A pasta dos componentes                                 |
 | `allowedComponentDirs` | `['layout', 'shared', 'ui']`            | As únicas subpastas permitidas nela                     |
 | `sharedDir`            | `'src/components/shared'`               | A pasta dos componentes compartilhados                  |

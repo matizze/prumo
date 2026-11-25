@@ -1,15 +1,93 @@
-# Sessão e login
+# Login e sessão
 
-O Prumo não traz autenticação: quem entra, com que credencial e com que API é do produto. O que ele traz é o `AuthGuard` (e o `useAuthOrigin`) do core, e um lugar para o resto morar. Este guia mostra um jeito que funciona, com o mesmo lugar em todos os exemplos da documentação: **`src/providers/session/`**.
+O Prumo gera o **login** e traz o **`AuthGuard`**, mas ainda não traz a **sessão**. Hoje ele entrega:
 
-O exemplo usa um app de pedidos: a pessoa entra com usuário e senha, a API devolve um token de acesso e um de renovação, e algumas telas são só de quem tem o perfil `admin`.
+- o use case de entrar (`make:usecase auth.sign-in`) e a tela de login (`make:page auth.login --usecase auth.sign-in`), com o mock, o teste e os textos;
+- o `AuthGuard` e o `useAuthOrigin` do core (`@matizze/prumo-core/auth`), que protegem as rotas e levam a pessoa de volta à tela que ela pediu.
 
-## Um módulo, dois consumidores
+A **sessão de verdade** (o token guardado, a renovação no 401, o logout, o token indo no `http`) e o **`make:auth`**, que a gera, são o próximo passo do [roadmap](../roadmap.md). Até lá, ela é do produto: a segunda metade deste guia mostra um jeito que funciona, num lugar fixo, **`src/providers/session/`**, para trocar pelo do Prumo quando ele chegar.
+
+## O login que o Prumo gera
+
+Duas linhas, de baixo para cima (o use case antes da tela):
+
+```bash
+pnpm exec prumo make:usecase auth.sign-in --input "email:string,password:string" --output "token:string"
+pnpm exec prumo make:page auth.login --usecase auth.sign-in
+```
+
+O primeiro cria `src/use-cases/auth/` (`sign-in.types.ts`, `sign-in.usecase.ts`, `sign-in.mock.ts`, `sign-in.usecase.test.ts` e o `index.ts` do domínio) e registra a chave `signIn`; o segundo cria a tela `src/pages/auth/login/` (a pasta `auth` só agrupa), na rota `/auth/login`, com um formulário de `email` e `password` (o campo `password` sai com `type="password"`), o envio, o erro e o aviso de sucesso. O `execute` do use case valida o Input, faz o `POST /auth/sign-in` e valida a resposta com o Output:
+
+```ts
+// src/use-cases/auth/sign-in.types.ts
+export const ENDPOINT = { method: 'POST', path: '/auth/sign-in' } as const
+
+export const SignInInput = z.object({ email: z.string(), password: z.string() })
+export const SignInOutput = z.object({ token: z.string() })
+```
+
+O model da tela chama o use case com o `useMutation`:
+
+```ts
+// src/pages/auth/login/model.ts (trecho)
+const { signIn } = useUseCases()
+const mutation = useMutation({
+  mutationFn: (input: SignInInput) => signIn.execute(input),
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: ['auth'] }),
+})
+```
+
+Com `VITE_DATA_SOURCE=mock` (o padrão), o `http` de mentira responde `{ token: 'Token 1' }`, e a tela funciona sem backend. Com `VITE_DATA_SOURCE=http`, o mesmo código chama a API ([Ligar uma API real](real-api.md)). Ajuste o que for do seu backend:
+
+- **O endereço e o formato.** Edite o `ENDPOINT` e o Output no `sign-in.types.ts` (o `token` pode ser `accessToken` e `refreshToken`), e o mock acompanha.
+- **A credencial errada.** O erro da API vira `UIError('SIGN_IN_FAILED')`, com um texto genérico no `errors.json`. Para uma mensagem própria, traduza o 401 no `catch` do `.usecase.ts` e acrescente o texto aos dois idiomas:
+
+```ts
+// src/use-cases/auth/sign-in.usecase.ts (o catch)
+if (error instanceof HttpError && error.status === 401) {
+  throw new UIError('AUTH_INVALID_CREDENTIALS', error.message)
+}
+```
+
+```json
+// src/messages/pt-BR/errors.json
+{ "AUTH_INVALID_CREDENTIALS": "E-mail ou senha incorretos." }
+```
+
+O que a tela gerada **não** faz: guardar o token, entrar na sessão e ir para outra tela. Esse é o trecho que a sessão resolve.
+
+## Proteger as rotas com o `AuthGuard`
+
+O `AuthGuard` do core mostra o conteúdo só com a sessão aberta e, sem ela, redireciona para o login (trocando a entrada do histórico). Ele não conhece a sua autenticação: você passa o estado da sessão (`isAuthenticated`, `isLoading`). Passe `redirectTo="/auth/login"` para apontar para a tela gerada (o padrão é `/login`) e `keepOrigin` para levar a rota pedida até o login, em `?next=`; o `useAuthOrigin` do login a lê de volta e só devolve caminhos do próprio app (fecha o redirecionamento aberto). O detalhe está em [Telas](pages.md#rotas-protegidas).
+
+```tsx
+// src/App.tsx
+import { AuthGuard } from '@matizze/prumo-core/auth'
+
+<Route path="/clientes">
+  <AuthGuard
+    isAuthenticated={session.isAuthenticated}
+    isLoading={session.isLoading}
+    redirectTo="/auth/login"
+    keepOrigin
+  >
+    <ClientesPage />
+  </AuthGuard>
+</Route>
+```
+
+O guarda esconde a tela, mas **não protege os dados**: a autorização de verdade é da API.
+
+## A sessão, do jeito que você escreve hoje
+
+O `session` do exemplo acima precisa existir, e ainda é código do produto (o `make:auth` vai gerá-lo). Este jeito funciona com qualquer API de autenticação, e o exemplo usa um app de pedidos: a pessoa entra com usuário e senha, a API devolve um token de acesso e um de renovação, e algumas telas são só de quem tem o perfil `admin`. Ele guarda a sessão **fora do React**, porque o `http` precisa do token a cada chamada, e o `useUseCases()` só existe dentro do React: por isso o `AuthApi` abaixo é uma interface sua, que chama os mesmos endereços `/auth/*` dos use cases (com a API de verdade ou, nos testes, uma falsa). Com `VITE_DATA_SOURCE=mock`, o login gerado funciona sem backend, mas esta sessão pede a API ou um `AuthApi` de mentira.
+
+### Um módulo, dois consumidores
 
 A sessão tem dois consumidores que vivem em mundos diferentes:
 
 - as **telas**, dentro do React, que precisam saber quem é a pessoa e reagir quando ela entra ou sai;
-- o **cliente HTTP** (veja [Ligar uma API real](real-api.md#3-o-cliente-http-e-o-token)), fora do React, que precisa do token a cada chamada e de uma renovação quando a API responde 401.
+- o **cliente HTTP** (veja [Ligar uma API real](real-api.md#2-o-cliente-http-e-o-token)), fora do React, que precisa do token a cada chamada e de uma renovação quando a API responde 401.
 
 Por isso a sessão é um módulo de TypeScript puro (estado e inscrição, sem React), e o provedor e o hook só o mostram às telas:
 
@@ -39,7 +117,7 @@ export interface Usuario {
 
 /** A API de autenticação, por interface: o app usa a real, os testes usam uma falsa. */
 export interface AuthApi {
-  /** Rejeita com `UIError('CREDENCIAIS_INVALIDAS')` quando usuário ou senha estão errados. */
+  /** Rejeita com `UIError('AUTH_INVALID_CREDENTIALS')` quando usuário ou senha estão errados. */
   login(input: { username: string; password: string }): Promise<SessionTokens>
   /** O usuário do token. Rejeita com `UIError('SESSAO_EXPIRADA')` para token vencido. */
   me(accessToken: string): Promise<Usuario>
@@ -157,9 +235,9 @@ export const appSession = createSession({
 })
 ```
 
-A conexão com o cliente HTTP, com a renovação no 401, está em [Ligar uma API real](real-api.md#3-o-cliente-http-e-o-token).
+A conexão com o cliente HTTP, com a renovação no 401, está em [Ligar uma API real](real-api.md#2-o-cliente-http-e-o-token).
 
-## Provedor e `useSession`
+### Provedor e `useSession`
 
 O provedor entrega a sessão às telas e, quando ela termina (logout, ou renovação recusada), **limpa o cache do TanStack Query**: sem isso, a pessoa seguinte veria os dados da anterior até a próxima busca.
 
@@ -217,19 +295,19 @@ Ligue o provedor no `src/providers/app.tsx`, **dentro** do `QueryProvider` (ele 
 // src/providers/app.tsx
 <QueryProvider createClient={createClient}>
   <I18nProvider>
-    <RepositoryProvider>
+    <UseCasesProvider>
       <SessionProvider>{children}</SessionProvider>
-    </RepositoryProvider>
+    </UseCasesProvider>
   </I18nProvider>
 </QueryProvider>
 ```
 
-## Login e logout
+### Entrar e sair
 
-O model da tela de login chama `login` e navega; a tela só mostra. O erro de credencial é um `UIError` com código (`CREDENCIAIS_INVALIDAS`), traduzido pelo `getErrorMessage` (veja [Erros e notificações](errors-and-notifications.md)):
+Com a sessão pronta, troque, no model gerado da tela de login, a mutation do use case pela chamada à sessão: o model chama `login` e navega, e a tela só mostra (a view gerada lê o formulário e chama o `onSubmit` do model: ajuste os dois à assinatura abaixo). O erro de credencial é um `UIError` com código (`AUTH_INVALID_CREDENTIALS`), traduzido pelo `getErrorMessage` (veja [Erros e notificações](errors-and-notifications.md)):
 
 ```ts
-// src/pages/login/model.ts
+// src/pages/auth/login/model.ts
 import { useState } from 'react'
 import { useLocation } from 'wouter'
 import { useAuthOrigin } from '@matizze/prumo-core/auth'
@@ -237,8 +315,8 @@ import { getErrorMessage } from '@/errors'
 import { useTranslations } from '@/i18n'
 import { useSession } from '@/providers/session'
 
-export function useLoginModel() {
-  const t = useTranslations('login')
+export function useAuthLoginModel() {
+  const t = useTranslations('authLogin')
   const session = useSession()
   const [, navigate] = useLocation()
   const origin = useAuthOrigin('/pedidos')
@@ -262,7 +340,7 @@ export function useLoginModel() {
 
 O logout é `session.logout()` em qualquer ação do model (um botão "Sair" na casca). Como o provedor limpa o cache ao ver a sessão ficar anônima, não há mais nada a fazer.
 
-## Proteger as rotas
+### Proteger as rotas com a sessão
 
 O `AuthGuard` recebe o estado da sessão (`isAuthenticated`, `isLoading`) e, com `keepOrigin`, leva a rota pedida até o login, em `?next=`; o `useAuthOrigin` do login a lê de volta. O detalhe, e a proteção contra redirecionamento aberto, estão em [Telas](pages.md#rotas-protegidas).
 
@@ -271,14 +349,19 @@ O `AuthGuard` recebe o estado da sessão (`isAuthenticated`, `isLoading`) e, com
 function Autenticada({ children }: { children: ReactNode }) {
   const session = useSession()
   return (
-    <AuthGuard isAuthenticated={session.isAuthenticated} isLoading={session.isLoading} keepOrigin>
+    <AuthGuard
+      isAuthenticated={session.isAuthenticated}
+      isLoading={session.isLoading}
+      redirectTo="/auth/login"
+      keepOrigin
+    >
       {children}
     </AuthGuard>
   )
 }
 ```
 
-### Guarda por perfil
+#### Guarda por perfil
 
 Uma rota só de quem tem um perfil é outro `AuthGuard`, aninhado no primeiro: `isAuthenticated` vira "tem sessão **e** tem o perfil", e `redirectTo` leva a quem não tem para uma tela de "sem acesso". Quem nem tem sessão já foi mandado para o login pelo guarda de fora.
 
@@ -299,9 +382,9 @@ function SoAdmin({ children }: { children: ReactNode }) {
 // <Route path="/relatorios"><Autenticada><SoAdmin><RelatoriosPage /></SoAdmin></Autenticada></Route>
 ```
 
-O guarda esconde a tela, mas **não protege os dados**: a autorização de verdade é da API. O repositório traduz o 403 em `UIError('SEM_PERMISSAO')` (veja [Ligar uma API real](real-api.md#6-quando-a-api-não-segue-o-formato)).
+O guarda esconde a tela, mas **não protege os dados**: a autorização de verdade é da API. O use case traduz o 403 em `UIError('SEM_PERMISSAO')` (veja [Ligar uma API real](real-api.md#5-quando-a-api-não-segue-o-formato)).
 
-## Testar com a sessão
+### Testar com a sessão
 
 A sessão vem por interface (`AuthApi`) e storage injetados, então o teste cria uma sessão com uma API falsa e a entrega ao provedor pelo `providerProps` do `renderWithProviders`. O passo a passo de declarar o provedor no `src/test/render.tsx` está em [Testes](test.md#provedores-do-app-nos-testes).
 
@@ -348,7 +431,7 @@ it('o perfil comum não vê os relatórios', async () => {
 
 A renovação no 401 e o logout limpando o cache se testam sem React: o primeiro com um `fetch` falso e a sessão (veja [Cliente HTTP testável](real-api.md#testar-o-cliente-http-sem-rede)), o segundo com um `QueryClient` e o `SessionProvider` num `renderHookWithProviders`.
 
-## Checklist
+### Checklist
 
 - [ ] A sessão em `src/providers/session/`, com a API de autenticação e o storage injetados
 - [ ] O `SessionProvider` dentro do `QueryProvider`, limpando o cache quando a sessão termina

@@ -186,12 +186,12 @@ describe('readEntityFields', () => {
   })
 })
 
-describe('a dica do schema que falta, quando há schemas sem repositório', () => {
-  it('sem --entity, lista os schemas que nenhum repositório usa e manda repetir a opção', () => {
+describe('a dica do schema que falta, quando há schemas sem use case', () => {
+  it('sem --entity, lista os schemas que nenhum use case usa e manda repetir a opção', () => {
     const root = makeProject({
       'src/schemas/entities/pao.ts': 'export const paoSchema = 1\n',
       'src/schemas/entities/usado.ts': 'export const usadoSchema = 1\n',
-      'src/repositories/usados/repository.contract.ts': 'import type { UsadoSchema } from "@/schemas"\n',
+      'src/use-cases/usados/list-usados.types.ts': 'import type { UsadoSchema } from "@/schemas"\n',
     })
     const plan = new ChangePlan(findProject(root))
     const message = (() => {
@@ -204,9 +204,9 @@ describe('a dica do schema que falta, quando há schemas sem repositório', () =
     })()
     expect(message).toContain('rode prumo make:schema paes.')
     expect(message).toContain('repita a opção')
-    expect(message).toContain('schemas sem repositório: pao')
-    expect(message).toContain('repita a opção; schemas sem repositório: pao.')
-    expect(message).not.toContain('make:repository')
+    expect(message).toContain('schemas sem use case: pao')
+    expect(message).toContain('repita a opção; schemas sem use case: pao.')
+    expect(message).not.toContain('make:usecase')
     expect(message).not.toContain('usado')
   })
 
@@ -214,11 +214,11 @@ describe('a dica do schema que falta, quando há schemas sem repositório', () =
     const root = makeProject({
       'src/schemas/entities/item.ts': 'export const itemSchema = 1\n',
       'src/schemas/entities/pedido-item.ts': 'export const pedidoItemSchema = 1\n',
-      'src/repositories/pedido-itens/repository.contract.ts': 'import type { PedidoItemSchema } from "@/schemas"\n',
+      'src/use-cases/pedido-itens/list-pedido-itens.types.ts': 'import type { PedidoItemSchema } from "@/schemas"\n',
     })
     const plan = new ChangePlan(findProject(root))
     expect(() => readEntityFields(plan, domainNames('vendas'))).toThrow(
-      /schemas sem repositório: item\.$/,
+      /schemas sem use case: item\.$/,
     )
   })
 

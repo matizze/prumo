@@ -10,6 +10,12 @@ Não. Ele é uma ferramenta que **gera** a estrutura de um app React e **confere
 
 Porque a arquitetura que ele cobra vale para qualquer interface. Um app do Prumo pode usar o design system da empresa, o de um cliente ou nenhum, e trocar de um para outro sem mexer nos dados, nos textos e nos testes. Veja [Design system](guides/design-system.md).
 
+### Por que use case e não repository?
+
+Porque o repository responde à pergunta errada para uma tela. Ele descreve uma **coisa** (a entidade, com cinco métodos fixos: listar, ler, criar, editar, remover), e muito do que um app faz não cabe nisso: entrar (`signIn`), fazer um pedido que olha dois domínios, guardar um item no carrinho. Aí a regra de negócio escapava para o model da tela ou para uma função solta. O use case descreve o que o app **faz**, com nome de verbo, uma entrada, uma saída e um teste, e o CRUD vira só o caso mais comum (`--crud` gera os cinco de uma vez).
+
+O custo é real: para um CRUD simples há mais arquivos (quatro por ação, contra um repositório com um contrato), e quem vem de um app com repository precisa migrar ([Migrar para use cases](guides/migrate-to-use-cases.md)). Em troca, o mock saiu da classe e foi para o transporte (um `http` de mentira), então o código que roda no desenvolvimento e nos testes é o mesmo da produção; e as camadas passam a ser cobradas por regra (a tela não importa de `src/http`, o use case não importa de React). Se o seu app é só um CRUD pequeno, o `--crud` entrega o mesmo resultado com um comando.
+
 ### Posso usar com Next.js, Remix ou React Router?
 
 Os geradores supõem um app Vite com o wouter como roteador e o alias `@/`. As regras de ESLint, o `prumo check` e o `@matizze/prumo-core` (menos o `AuthGuard`, que usa o wouter) não dependem disso. Veja [Projeto existente](guides/existing-project.md).
@@ -32,7 +38,7 @@ O app gerado nasce com `pt-BR` e `en`, e o `prumo check` compara os dois. Um pro
 
 ### Onde fica o estado global da aplicação?
 
-O Prumo não decide. Estado de tela fica no model; dado do servidor fica no cache do TanStack Query, por domínio. Se o produto precisar de um store global (sessão, preferências), ele escolhe a biblioteca e o lugar, normalmente um provedor em `src/providers/` (a sessão de login, por exemplo, fica em `src/providers/session/`: veja [Sessão e login](guides/auth.md)).
+O Prumo não decide. Estado de tela fica no model; dado do servidor fica no cache do TanStack Query (as chaves de cache dos use cases levam o domínio no prefixo). Se o produto precisar de um store global (sessão, preferências), ele escolhe a biblioteca e o lugar, normalmente um provedor em `src/providers/` (a sessão de login, por exemplo, fica em `src/providers/session/`: veja [Login e sessão](guides/auth.md)).
 
 ### Como atualizo o Prumo num app existente?
 
@@ -40,7 +46,7 @@ Atualize os pacotes com o pnpm (`pnpm up "@matizze/prumo-*" --latest`) e rode `p
 
 ### Usei uma versão anterior e um comando sumiu. O que mudou?
 
-A 0.7.0 do `@matizze/prumo-cli` reescreveu a CLI: `make:domain` virou `make:schema`, `make:repository` e `make:query`; `--domain` virou `--query`; a fonte `memory` virou `mock`; `make:component`, `move:component` e `doctor` saíram. Os comandos de hoje estão na [referência da CLI](reference/cli.md).
+`make:component`, `move:component`, `doctor` e `make:domain` saíram, e `make:repository`, `make:query` e a opção `--query` do `make:page` deram lugar ao `make:usecase` e ao `--usecase`. Os comandos de hoje estão na [referência da CLI](reference/cli.md), e a troca de repository por use case, em [Migrar para use cases](guides/migrate-to-use-cases.md).
 
 ## Solução de problemas
 
@@ -50,19 +56,28 @@ A 0.7.0 do `@matizze/prumo-cli` reescreveu a CLI: `make:domain` virou `make:sche
 prumo: tirar o 's' de 'categories' daria 'categorie', que provavelmente não é o singular: informe a entidade com --entity (provavelmente --entity category).
 ```
 
-O nome do domínio vai no plural, e a entidade sai dele tirando o `s`. Quando a regra erra, informe a entidade: `prumo make:schema categories --entity category`. Use o mesmo `--entity` no `make:repository` e no `make:query`.
+O nome do domínio vai no plural, e a entidade sai dele tirando o `s`. Quando a regra erra, informe a entidade: `prumo make:schema categories --entity category`. Use o mesmo `--entity` no `make:usecase --crud`.
 
-### O `make:repository` ou o `make:query` diz que falta uma camada
+### O `make:usecase --crud` diz que falta o schema
 
 ```text
 prumo: falta o schema clientes (src/schemas/entities/cliente.ts); rode prumo make:schema clientes.
 ```
 
-Cada camada usa a de baixo, e o comando recusa sem criar nada quando ela não existe. Rode, em ordem, `make:schema`, `make:repository` e `make:query`. Se o schema foi gerado com `--entity`, a mensagem lembra de repetir a opção.
+Cada camada usa a de baixo, e o comando recusa sem criar nada quando ela não existe. Rode, em ordem, `make:schema` e `make:usecase --crud`. Se o schema foi gerado com `--entity`, a mensagem lembra de repetir a opção.
 
-### O `make:repository` não reconhece um campo do schema
+### O `make:usecase --crud` não reconhece um campo do schema
 
-O comando lê os campos do schema com os tipos do `--fields` (`string`, `number`, `int`, `boolean`, `date`, `datetime` e `enum`). Um campo como `z.string().min(3)` é erro de uso, com a linha. Deixe o campo no tipo simples, gere o repositório e acrescente a validação depois. Veja [O leitor de campos](guides/domains.md#o-leitor-de-campos).
+O comando lê os campos do schema com os tipos do `--fields` (`string`, `number`, `int`, `boolean`, `date`, `datetime` e `enum`). Um campo como `z.string().min(3)` é erro de uso, com a linha. Deixe o campo no tipo simples, gere os use cases e acrescente a validação depois. Veja [O leitor de campos](guides/use-cases.md#o-leitor-de-campos).
+
+### O `pnpm lint` acusa `prumo/no-http-in-page` ou `prumo/use-case-imports`
+
+```text
+A tela não importa de 'src/http' ('@/http/api'): ela chama um use case, e é o use case que usa o http.
+O use case não importa de 'react' ('react'): ele não depende de React nem do cache; isso é da tela.
+```
+
+São as fronteiras das camadas: a tela chama o use case (que fala com o `http`), e o use case não conhece React, o TanStack nem uma tela. Mova a chamada à API para um use case (`prumo make:usecase`), e deixe o `useQuery` e o `useMutation` no model da tela.
 
 ### Um componente em `shared` aparece no `prumo check`
 
@@ -71,6 +86,22 @@ src/components/shared/cartao.tsx  [shared-usage]  O módulo não é usado por ne
 ```
 
 É esperado: o que está em `shared` precisa ser usado por duas telas ou mais. A violação some quando duas telas o importarem. Se só uma tela o usa, mova-o para `src/pages/<tela>/components/`.
+
+### O `prumo check` acusa um use case sem `.types.ts` ou sem teste
+
+```text
+src/use-cases/auth/sign-in.usecase.ts  [use-case-files]  O use case 'sign-in' precisa do arquivo 'sign-in.usecase.test.ts' na mesma pasta.
+```
+
+Todo `*.usecase.ts` tem o `.types.ts` e o `.usecase.test.ts` na mesma pasta. Crie o arquivo que falta (copie o de outro use case do projeto e adapte) ou apague o use case que sobrou.
+
+### O app diz `Invalid VITE_DATA_SOURCE "storage"`
+
+```text
+Invalid VITE_DATA_SOURCE "storage". Expected one of: mock, http.
+```
+
+A fonte de dados aceita só `mock` (o padrão, o `http` de mentira) e `http` (a API). Para guardar dados no navegador, crie o use case com `--local`. Veja [Migrar para use cases](guides/migrate-to-use-cases.md).
 
 ### O `prumo check` acusa uma chave que falta num idioma
 

@@ -2,6 +2,8 @@ import {
   listProject,
   type ListedField,
   type ListedPage,
+  type ListedUseCase,
+  type UseCaseKind,
   type PageVariation,
   type ProjectListing,
 } from '../lib/listing.ts'
@@ -16,6 +18,18 @@ const VARIATION_LABELS: Record<PageVariation, string> = {
   list: 'lista',
   param: 'parâmetro',
   detail: 'detalhe',
+  form: 'formulário',
+}
+
+/** Os rótulos do tipo do use case no texto; o JSON traz o valor em inglês. */
+const KIND_LABELS: Record<UseCaseKind, string> = {
+  read: 'leitura',
+  write: 'escrita',
+  local: 'local',
+}
+
+function useCaseText({ domain, name, key, kind, endpoint }: ListedUseCase): string {
+  return `${domain}.${name}  ${key}  ${KIND_LABELS[kind]}${endpoint ? `  ${endpoint}` : ''}`
 }
 
 function fieldText({ name, type, values, optional }: ListedField): string {
@@ -47,25 +61,12 @@ function formatListing(listing: ProjectListing): string {
           : `${schema.entity}  ${schema.file}  editado à mão (${schema.problem})`,
       ),
     ),
-    section(
-      'Repositórios',
-      listing.repositories.map(
-        (repository) =>
-          `${repository.domain}  ${repository.entity ?? 'entidade desconhecida'}  fontes: ${repository.sources.join(', ') || 'nenhuma'}`,
-      ),
-    ),
-    section(
-      'Queries',
-      listing.queries.map(
-        (query) =>
-          `${query.domain}  ${query.entity ?? 'entidade desconhecida'}  ${query.hooks.join(', ') || 'sem hooks'}`,
-      ),
-    ),
+    section('Use cases', listing.useCases.map(useCaseText)),
     section(
       'Telas',
       listing.pages.map(
         (page) =>
-          `${page.name}  rota: ${routeText(page)}  ${VARIATION_LABELS[page.variation]}${page.query ? `  query: ${page.query}` : ''}`,
+          `${page.name}  rota: ${routeText(page)}  ${VARIATION_LABELS[page.variation]}${page.useCase ? `  use case: ${page.useCase}` : ''}`,
       ),
     ),
     section('Idiomas', listing.languages),
@@ -76,9 +77,9 @@ function formatListing(listing: ProjectListing): string {
 export const registerList: RegisterCommand = (program, io) => {
   const command = program
     .command('list')
-    .summary('Mostra o que o projeto tem: schemas, repositórios, queries, telas e idiomas.')
+    .summary('Mostra o que o projeto tem: schemas, use cases, telas e idiomas.')
     .description(
-      'Mostra o que o projeto tem: schemas, repositórios, queries, telas e idiomas.\n\nSó lê os arquivos; com --json, escreve o levantamento em JSON para outras ferramentas.',
+      'Mostra o que o projeto tem: schemas, use cases, telas e idiomas.\n\nSó lê os arquivos; com --json, escreve o levantamento em JSON para outras ferramentas.',
     )
     .option(...ROOT_OPTION)
     .option('--json', 'Escreve o levantamento em JSON.')
@@ -94,6 +95,6 @@ export const registerList: RegisterCommand = (program, io) => {
     ],
     anchor: 'prumo-list',
     agentDetail:
-      "Só lê os arquivos e nunca escreve. Devolve um JSON com as chaves schemas (entity, file, fields com name, type, optional e values; ou fields null e problem quando o schema foi editado à mão), repositories (domain, entity, sources: mock, http, storage), queries (domain, file, entity, hooks), pages (name, route, routeKind, routePartial, variation: title, list, param ou detail, e query) e languages (as pastas de src/messages). Chame antes de gerar: evita repetir um domínio e mostra qual camada falta.",
+      "Só lê os arquivos e nunca escreve. Devolve um JSON com as chaves schemas (entity, file, fields com name, type, optional e values; ou fields null e problem quando o schema foi editado à mão), useCases (domain, name em kebab-case, key no registro useUseCases(), kind read, write ou local, e endpoint como \"GET /stores/get-stores\", ou null no local), pages (name, route, routeKind, routePartial, variation: title, list, param, detail ou form, e useCase, o domain.ação do use case que o model chama, ou null) e languages (as pastas de src/messages). Chame antes de gerar: evita repetir um domínio ou uma chave de use case e mostra qual camada falta.",
   })
 }

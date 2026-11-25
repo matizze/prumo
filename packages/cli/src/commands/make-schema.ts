@@ -43,7 +43,7 @@ export const registerMakeSchema: RegisterCommand = (program, io) => {
           ? `Entidade: ${names.singular.kebab} (derivada de ${names.plural.kebab}; use --entity para trocar).`
           : `Entidade: ${names.singular.kebab} (--entity).`
       const fieldsLine = `Campos: ${fields.map(describeField).join(', ')}.`
-      const ending = run.dryRun ? DRY_RUN_ENDING : `Próximo passo: prumo make:repository ${names.plural.kebab}${entityFlag(names)}\n`
+      const ending = run.dryRun ? DRY_RUN_ENDING : `Próximo passo: prumo make:usecase ${names.plural.kebab} --crud${entityFlag(names)}\n`
       io.out(`${heading}\n${entityLine}\n${fieldsLine}\n\n${run.files}\n${ending}`)
     })
   documentCommand(command, {

@@ -1,10 +1,10 @@
 # Agentes de IA
 
-O Prumo foi feito para ser usado tanto por pessoas quanto por agentes de IA. Um agente conhece o app por dois arquivos que o `prumo new` cria: o `AGENTS.md`, que explica as camadas e as regras, e o `.mcp.json`, que liga o agente ao servidor MCP do Prumo, o [`prumo mcp`](../reference/cli.md#prumo-mcp). Com os dois, ele gera domínios e telas pelas mesmas ferramentas que uma pessoa usa no terminal e passa pela mesma verificação (`pnpm verify`).
+O Prumo foi feito para ser usado tanto por pessoas quanto por agentes de IA. Um agente conhece o app por dois arquivos que o `prumo new` cria: o `AGENTS.md`, que explica as camadas e as regras, e o `.mcp.json`, que liga o agente ao servidor MCP do Prumo, o [`prumo mcp`](../reference/cli.md#prumo-mcp). Com os dois, ele gera schemas, use cases e telas pelas mesmas ferramentas que uma pessoa usa no terminal e passa pela mesma verificação (`pnpm verify`).
 
 ## O `AGENTS.md`
 
-O `AGENTS.md` gerado é curto de propósito: as camadas, as quatro regras de convivência (telas isoladas, view sem dados, dado pelo repositório, texto nos dois idiomas), a tabela de comandos, a seção do servidor MCP e uma linha sobre testes. Ele é do seu time: acrescente as convenções do produto (o design system, a API, o idioma, o que exige aprovação).
+O `AGENTS.md` gerado é curto de propósito: as camadas, as camadas (telas → use cases → http e schemas) e as regras de convivência (telas isoladas, view sem dados, dado pelo use case, texto nos dois idiomas), a tabela de comandos, a seção do servidor MCP e uma linha sobre testes. Ele é do seu time: acrescente as convenções do produto (o design system, a API, o idioma, o que exige aprovação).
 
 Vários agentes leem o `AGENTS.md` da raiz do projeto por conta própria. O Claude Code lê o `CLAUDE.md`: crie um com a linha abaixo para que ele importe o `AGENTS.md` (é o que o próprio repositório do Prumo faz):
 
@@ -40,45 +40,54 @@ O Claude Code lê o `.mcp.json` da raiz do projeto e abre o servidor por conta p
 | Ferramenta        | Parâmetros                                                                               | O que faz                                                      |
 | ----------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | `make_schema`     | `dominio` (obrigatório), `entity`, `fields`, `dry_run`                                   | Gera o schema zod da entidade                                  |
-| `make_repository` | `dominio` (obrigatório), `entity`, `data_source` (`mock`, `http` ou `storage`), `dry_run` | Gera o contrato, o `mock`, as fixtures e o teste, ou uma fonte |
-| `make_query`      | `dominio` (obrigatório), `entity`, `dry_run`                                             | Gera as queries e mutations                                    |
-| `make_page`       | `nome` (obrigatório), `query`, `path`, `dry_run`                                         | Gera a tela, os textos e a rota                                |
+| `make_usecase`    | `nome` (obrigatório), `input`, `output`, `endpoint`, `read`, `write`, `local`, `crud`, `entity`, `dry_run` | Gera o use case (tipos, classe, mock e teste) e o registra; `nome` é `<domínio>.<ação>`, ou só o domínio com `crud` (os cinco do CRUD) |
+| `make_page`       | `nome` (obrigatório), `usecase`, `path`, `dry_run`                                       | Gera a tela, os textos e a rota; `nome` com ponto ou barra (`auth.login`) cria a tela em subpasta |
 | `check`           | nenhum                                                                                   | Confere a arquitetura                                          |
 | `list`            | nenhum                                                                                   | Mostra o que o projeto tem, em JSON                            |
 
-Os parâmetros são as opções do comando de mesmo nome, em snake_case e sem acento: `<domínio>` vira `dominio`, `--data-source` vira `data_source` e `--dry-run` vira `dry_run`. Nenhuma ferramenta recebe a pasta do projeto. A lista completa e as regras da conversão estão na [referência do `prumo mcp`](../reference/cli.md#as-ferramentas).
+Os parâmetros são as opções do comando de mesmo nome, em snake_case e sem acento: `<domínio>` vira `dominio` e `--dry-run` vira `dry_run`. Nenhuma ferramenta recebe a pasta do projeto. A lista completa e as regras da conversão estão na [referência do `prumo mcp`](../reference/cli.md#as-ferramentas).
 
 ### Um exemplo de chamada
 
-Num app com o schema e o repositório de `pedidos`, o agente chama `make_query` com:
+Num app com o schema de `pedidos`, o agente chama `make_usecase` com:
 
 ```json
-{ "dominio": "pedidos" }
+{ "nome": "pedidos", "crud": true }
 ```
 
-e recebe o texto da saída do `prumo make:query`:
+e recebe o texto da saída do `prumo make:usecase`:
 
 ```text
-prumo make:query: pedidos (entidade pedido).
-Exporta: pedidoKeys, pedidoQueries, usePedidosList, usePedidoDetail, useCreatePedido, useUpdatePedido, useRemovePedido, type PedidosListOptions.
+prumo make:usecase: pedidos --crud (entidade pedido).
+Campos (lidos do schema): numero (number), valor (number), status (string).
+Use cases (listPedidos, getPedido, createPedido, updatePedido, removePedido):
+  listPedidos  GET /pedidos
+  getPedido  GET /pedidos/:id
+  createPedido  POST /pedidos
+  updatePedido  PATCH /pedidos/:id
+  removePedido  DELETE /pedidos/:id
 
-Criados (1):
-  src/queries/pedidos.ts
+Criados (22):
+  src/use-cases/pedidos/collection.mock.ts
+  src/use-cases/pedidos/create-pedido.mock.ts
+  ...
 
-Alterados (1):
-  src/queries/index.ts
+Alterados (3):
+  src/messages/en/errors.json
+  src/messages/pt-BR/errors.json
+  src/use-cases/index.ts
 
-Próximo passo: prumo make:page pedidos --query pedidos
+Próximo passo: prumo make:page pedidos --usecase pedidos.list-pedidos
 ```
 
 Com `dry_run: true`, a chamada só diz o que faria, sem escrever nada. Antes de criar a tela, o agente pode conferir:
 
 ```json
-{ "nome": "pedidos", "query": "pedidos", "dry_run": true }
+{ "nome": "pedidos", "usecase": "pedidos.list-pedidos", "dry_run": true }
 ```
 
 ```text
-prumo make:page: pedidos (rota /pedidos, query pedidos) (simulação).
+prumo make:page: pedidos (rota /pedidos, use case pedidos.list-pedidos, lista) (simulação).
 
 Seriam criados (6):
   src/messages/en/pedidos.json
@@ -96,19 +105,29 @@ Seriam alterados (3):
 Simulação (--dry-run): nada foi escrito.
 ```
 
-Quando o comando falha, o resultado volta com `isError` e a mensagem em português, para o agente corrigir. Pedir uma tela com uma query que não existe, por exemplo, devolve:
+Quando o comando falha, o resultado volta com `isError` e a mensagem em português, para o agente corrigir. Pedir uma tela com um use case que não existe, por exemplo, devolve:
 
 ```text
-prumo: a query 'nada' não existe: falta src/queries/nada.ts; rode prumo make:query nada.
+prumo: o use case 'nada.list-nada' não existe: falta src/use-cases/nada/list-nada.usecase.ts. Rode prumo make:usecase nada.list-nada (ou prumo list para ver o que há).
 ```
 
-A mensagem diz o que fazer, e o agente a segue (aqui, gerar a query antes). O erro de opção ou argumento traz também a linha de uso do comando.
+A mensagem diz o que fazer, e o agente a segue (aqui, gerar o use case antes). O erro de opção ou argumento traz também a linha de uso do comando.
 
 O `check` com violação não é erro: volta como resultado, com as violações no texto.
 
+### Um use case pelo agente
+
+O use case é o caminho novo para o que o app faz com dados. O agente chama `make_usecase` com o domínio e a ação, e os campos quando sabe:
+
+```json
+{ "nome": "auth.sign-in", "input": "email:string,password:string", "output": "token:string" }
+```
+
+A ferramenta decide leitura ou escrita pelo verbo da ação (`get`, `list`, `search`, `find`, `check` e `count` são leitura), cria `src/use-cases/auth/` com o tipo, a classe, a rota de mock e o teste, e registra tudo. A descrição da ferramenta traz o formato de `input`, `output` (que aceita o nome de uma entidade que já tem schema: `store` ou `store[]`) e `endpoint` (`PATCH /livros/:id`, com cada `:parâmetro` saindo do campo do Input), além do `local` para um use case sem API. As chaves do registro são únicas no app: o `list` mostra os use cases que já existem (`useCases`, com a chave, o tipo e o endpoint), para o agente não repetir uma ação. Na tela, o model usa `useUseCases()`. O [guia de referência](../reference/cli.md#prumo-makeusecase) tem o detalhe.
+
 ## O `list` antes de gerar
 
-A ferramenta `list` devolve o que o projeto já tem: os schemas com os campos, os repositórios e suas fontes, as queries, as telas (rota, variação e query; a variação é `title`, `list`, `param` ou `detail`) e os idiomas. O agente a chama antes de gerar, para não repetir um domínio, escolher a query certa para a tela e saber a ordem das camadas que faltam. O resultado é o JSON do `prumo list --json`:
+A ferramenta `list` devolve o que o projeto já tem: os schemas com os campos, os use cases (domínio, ação, chave no registro, tipo e endpoint), as telas (rota, variação e o use case que o model chama; a variação é `title`, `list`, `param`, `detail` ou `form`) e os idiomas. O agente a chama antes de gerar, para não repetir um use case (as chaves do registro são únicas), escolher o use case certo para a tela e saber a ordem das camadas que faltam. O resultado é o JSON do `prumo list --json`:
 
 ```json
 {
@@ -124,10 +143,11 @@ A ferramenta `list` devolve o que o projeto já tem: os schemas com os campos, o
       "problem": null
     }
   ],
-  "repositories": [{ "domain": "pedidos", "entity": "Pedido", "sources": ["mock"] }],
-  "queries": [],
+  "useCases": [
+    { "domain": "pedidos", "name": "list-pedidos", "key": "listPedidos", "kind": "read", "endpoint": "GET /pedidos" }
+  ],
   "pages": [
-    { "name": "home", "route": "/", "routeKind": "literal", "routePartial": false, "variation": "title", "query": null }
+    { "name": "home", "route": "/", "routeKind": "literal", "routePartial": false, "variation": "title", "useCase": null }
   ],
   "languages": ["en", "pt-BR"]
 }
@@ -141,7 +161,7 @@ Um pedido como este já basta:
 
 > Crie um domínio de pedidos com os campos número, valor e status, e uma tela que lista os pedidos com o valor formatado em reais. Rode o `pnpm verify` no fim.
 
-O agente lê o `AGENTS.md`, chama o `list`, gera as camadas por `make_schema`, `make_repository`, `make_query` e `make_page`, ajusta o schema, as fixtures, o contrato, o model, a view e os textos à mão, confere com o `check` e roda o `pnpm verify`.
+O agente lê o `AGENTS.md`, chama o `list`, gera as camadas por `make_schema`, `make_usecase` e `make_page` (ou só `make_usecase` com `crud`), ajusta o schema, as fixtures, o model, a view e os textos à mão, confere com o `check` e roda o `pnpm verify`.
 
 ## O que o servidor não faz
 
@@ -152,4 +172,4 @@ O agente lê o `AGENTS.md`, chama o `list`, gera as camadas por `make_schema`, `
 
 ## O agente sem MCP
 
-Nem todo agente fala MCP, e não precisa. As ferramentas são os comandos da CLI, e o `AGENTS.md` traz a tabela deles: o agente usa `pnpm exec prumo make:schema`, `make:repository`, `make:query`, `make:page`, `check` e `list` pelo terminal, com os mesmos argumentos e a mesma saída. Para o agente que lê JSON, `pnpm exec prumo list --json` faz o papel da ferramenta `list`. A verificação é a mesma: `pnpm verify`.
+Nem todo agente fala MCP, e não precisa. As ferramentas são os comandos da CLI, e o `AGENTS.md` traz a tabela deles: o agente usa `pnpm exec prumo make:schema`, `make:usecase`, `make:page`, `check` e `list` pelo terminal, com os mesmos argumentos e a mesma saída. Para o agente que lê JSON, `pnpm exec prumo list --json` faz o papel da ferramenta `list`. A verificação é a mesma: `pnpm verify`.

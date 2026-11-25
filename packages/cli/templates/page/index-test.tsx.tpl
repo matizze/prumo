@@ -4,7 +4,7 @@ import { renderWithProviders } from '@/test/render'
 import {{page.pascal}}Page from '.'
 
 it('mostra o título da tela', () => {
-  renderWithProviders(<{{page.pascal}}Page />, { path: '/{{page.kebab}}' })
+  renderWithProviders(<{{page.pascal}}Page />, { path: '{{route.path}}' })
 
   expect(screen.getByRole('heading', { name: '{{page.title}}' })).toBeDefined()
 })

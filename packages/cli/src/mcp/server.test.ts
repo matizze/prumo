@@ -39,28 +39,27 @@ async function open() {
 }
 
 describe('prumo mcp, cliente e servidor no mesmo processo', () => {
-  it('informa o nome e a versão e lista as seis ferramentas', async () => {
+  it('informa o nome e a versão e lista as cinco ferramentas', async () => {
     const { client } = await open()
     expect(client.getServerVersion()).toMatchObject({ name: 'prumo', version: '9.9.9' })
     const { tools } = await client.listTools()
     expect(tools.map((tool) => tool.name).sort()).toEqual(
-      ['check', 'list', 'make_page', 'make_query', 'make_repository', 'make_schema'].sort(),
+      ['check', 'list', 'make_page', 'make_schema', 'make_usecase'].sort(),
     )
     const schema = tools.find((tool) => tool.name === 'make_schema')
     expect(schema?.description).toContain('Cria o schema')
     expect(schema?.inputSchema.required).toEqual(['dominio'])
   })
 
-  it('gera schema, repositório, query e tela, e confere com check e list', async () => {
+  it('gera schema, use cases e tela, e confere com check e list', async () => {
     const { root, call } = await open()
     const made = [
       await call('make_schema', { dominio: 'livros', fields: 'title:string,year?:int' }),
-      await call('make_repository', { dominio: 'livros', data_source: 'storage' }),
-      await call('make_query', { dominio: 'livros' }),
-      await call('make_page', { nome: 'livros', query: 'livros', path: '/livros' }),
+      await call('make_usecase', { nome: 'livros', crud: true }),
+      await call('make_page', { nome: 'livros', usecase: 'livros.list-livros', path: '/livros' }),
     ]
     for (const result of made) expect(result, result.text).toMatchObject({ isError: false })
-    expect(made[3]?.text).toContain('make:page: livros')
+    expect(made[2]?.text).toContain('make:page: livros')
     expect(existsSync(path.join(root, 'src/pages/livros/model.ts'))).toBe(true)
     expect(readFileSync(path.join(root, 'src/App.tsx'), 'utf8')).toContain('<Route path="/livros">')
 
@@ -71,12 +70,30 @@ describe('prumo mcp, cliente e servidor no mesmo processo', () => {
     expect(list.isError).toBe(false)
     const listing = JSON.parse(list.text) as {
       schemas: { entity: string }[]
-      repositories: { sources: string[] }[]
-      pages: { name: string; query?: string }[]
+      useCases: { domain: string; name: string; kind: string }[]
+      pages: { name: string; useCase?: string }[]
     }
     expect(listing.schemas.map((schema) => schema.entity)).toEqual(['Livro'])
-    expect(listing.repositories[0]?.sources).toEqual(['mock', 'storage'])
-    expect(listing.pages.find((page) => page.name === 'livros')?.query).toBe('livros')
+    expect(listing.useCases.map((useCase) => `${useCase.domain}.${useCase.name}`)).toEqual([
+      'livros.create-livro',
+      'livros.get-livro',
+      'livros.list-livros',
+      'livros.remove-livro',
+      'livros.update-livro',
+    ])
+    expect(listing.pages.find((page) => page.name === 'livros')?.useCase).toBe('livros.list-livros')
+  })
+
+  it('make_page aceita o nome em subpasta, com ponto ou barra, e o list mostra a barra', async () => {
+    const { root, call } = await open()
+    expect(await call('make_page', { nome: 'auth.login' })).toMatchObject({ isError: false })
+    expect(await call('make_page', { nome: 'auth/register' })).toMatchObject({ isError: false })
+    expect(existsSync(path.join(root, 'src/pages/auth/login/model.ts'))).toBe(true)
+    const conflict = await call('make_page', { nome: 'auth-login' })
+    expect(conflict.isError).toBe(true)
+    expect(conflict.text).toContain("conflita com a tela 'auth/login'")
+    const listing = JSON.parse((await call('list')).text) as { pages: { name: string }[] }
+    expect(listing.pages.map((page) => page.name)).toEqual(['auth/login', 'auth/register'])
   })
 
   it('dry_run só mostra o plano, sem escrever', async () => {
@@ -90,10 +107,9 @@ describe('prumo mcp, cliente e servidor no mesmo processo', () => {
 
   it('um erro de uso volta com isError e a mensagem em português', async () => {
     const { call } = await open()
-    const result = await call('make_page', { nome: 'livros', query: 'inexistente' })
+    const result = await call('make_page', { nome: 'livros', usecase: 'livros.inexistente' })
     expect(result.isError).toBe(true)
-    expect(result.text).toContain("prumo: a query 'inexistente' não existe")
-    expect(result.text).toMatch(/query/i)
+    expect(result.text).toContain("prumo: o use case 'livros.inexistente' não existe")
   })
 
   it('o check com violação é resultado, não erro', async () => {
@@ -111,7 +127,7 @@ describe('prumo mcp, cliente e servidor no mesmo processo', () => {
     const { client, root } = await open()
     const outside = await client.callTool({ name: 'check', arguments: { root: '/' } })
     expect(outside.isError).toBe(true)
-    const dash = await client.callTool({ name: 'make_query', arguments: { dominio: '--root=/tmp/x' } })
+    const dash = await client.callTool({ name: 'make_schema', arguments: { dominio: '--root=/tmp/x' } })
     expect(dash.isError).toBe(true)
     expect(existsSync(path.join(root, '..', 'x'))).toBe(false)
   })

@@ -1,6 +1,6 @@
 # @matizze/prumo-core
 
-Infraestrutura sem interface para apps React do [Prumo](https://docs.prumo.matizze.com.br): container de repositórios, query keys, i18n tipado, erros com código, utilitários de mock e guarda de rota.
+Infraestrutura sem interface para apps React do [Prumo](https://docs.prumo.matizze.com.br): cliente HTTP e mock por rota, use cases, query keys, i18n tipado, erros com código, utilitários de mock e guarda de rota.
 
 **[Documentação](https://docs.prumo.matizze.com.br)** · **[Referência deste pacote](https://docs.prumo.matizze.com.br/reference/core)**
 
@@ -20,13 +20,14 @@ Cada módulo tem um subcaminho próprio: importar um não traz as dependências 
 
 | Subcaminho                         | O que tem                                                                                         |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `@matizze/prumo-core/repositories` | `createRepositoryContainer`, `resolveDataSource` e `createRepositoryContext`: o container de repositórios por domínio e o provedor |
+| `@matizze/prumo-core/http`         | `createHttp` (cliente HTTP com Bearer, 401 que renova e query string), `createMockHttp` (um `http` de mentira por rota, sem rede) e `HttpError` |
+| `@matizze/prumo-core/use-cases`    | `IUseCase`, `createUseCasesContext` (o provedor e o hook do container de use cases) e `resolveDataSource` |
 | `@matizze/prumo-core/query`        | `createQueryKeys`, `createQueryClient` (cache e notificação global de erro), `QueryProvider` e o tipo `ErrorMeta` |
 | `@matizze/prumo-core/i18n`         | `defineI18n` (instância, provedor e hooks tipados pelas mensagens, com ICU), `createFormat` e `resolveLocale` |
 | `@matizze/prumo-core/errors`       | `UIError` (erro com código estável) e `createErrorMessage` (o texto do erro no idioma ativo)     |
 | `@matizze/prumo-core/data`         | `pageSchema` e os tipos `Page`, `PageQuery`, `Sort`, `SortDirection` e `DateRange`           |
 | `@matizze/prumo-core/date`         | `addDays`, `daysBetween` e `parseLocalDate`: datas `AAAA-MM-DD` sem depender do fuso, para regras de negócio e mocks |
-| `@matizze/prumo-core/mock`         | `wait`, `normalize`, `matchesSearch`, `sortBy`, `paginate` e `sum`, para repositórios em memória (e `addDays`, por compatibilidade) |
+| `@matizze/prumo-core/mock`         | `createMockCollection` (a coleção em memória dos mocks), `wait`, `normalize`, `matchesSearch`, `sortBy`, `paginate` e `sum` (e `addDays`, por compatibilidade) |
 | `@matizze/prumo-core/auth`         | `AuthGuard` (guarda de rota que redireciona sem sessão, com a opção de voltar à rota pedida) e `useAuthOrigin` |
 
 ## Exemplo
@@ -34,7 +35,6 @@ Cada módulo tem um subcaminho próprio: importar um não traz as dependências 
 ```ts
 import { defineI18n } from '@matizze/prumo-core/i18n'
 import { createQueryKeys } from '@matizze/prumo-core/query'
-import { createRepositoryContainer, type RepositoryContainerOf } from '@matizze/prumo-core/repositories'
 
 // i18n tipado pelas mensagens do idioma padrão
 export const { I18nProvider, useTranslations, useFormat } = defineI18n({
@@ -51,11 +51,6 @@ export const clienteKeys = createQueryKeys('clientes', {
   list: (query: ClienteListQuery = {}) => ['list', query] as const,
   detail: (id: string) => ['detail', id] as const,
 })
-
-// container de repositórios: o tipo sai do mapa de fábricas
-const factories = { clientes: createClientesRepository }
-export type RepositoryContainer = RepositoryContainerOf<typeof factories>
-export const repositories = createRepositoryContainer(factories, { dataSource: 'mock' })
 ```
 
 A referência de cada função, com as opções e os tipos, está na [referência do core](https://docs.prumo.matizze.com.br/reference/core).

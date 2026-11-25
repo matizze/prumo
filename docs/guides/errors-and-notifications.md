@@ -1,18 +1,18 @@
 # Erros e notificações
 
-Este guia mostra como um erro sai do repositório e chega à pessoa no idioma certo: o `UIError` com código estável, a tradução do código, a notificação global do `QueryClient` e o controle por query ou mutation.
+Este guia mostra como um erro sai do use case e chega à pessoa no idioma certo: o `UIError` com código estável, a tradução do código, a notificação global do `QueryClient` e o controle por query ou mutation.
 
 ## O caminho de um erro
 
 ```mermaid
 flowchart LR
-  repo["Repositório<br/>throw new UIError('CLIENTE_NOT_FOUND')"] --> query["Query ou mutation<br/>(TanStack Query)"]
+  http["http<br/>throw new HttpError(404)"] --> uc["Use case<br/>throw new UIError('CLIENTE_NOT_FOUND')"] --> query["Query ou mutation<br/>(TanStack Query)"]
   query -- "carga inicial" --> tela["A tela mostra<br/>(model: isError)"]
   query -- "refetch ou mutation" --> notify["notify(getErrorMessage(erro))<br/>(QueryClient do core)"]
   notify --> ds["Notificação do<br/>design system"]
 ```
 
-- **O repositório não conhece idioma.** Ele lança um `UIError` com um código estável, e a interface traduz o código.
+- **O use case não conhece idioma.** O `http` lança um `HttpError` (com o `status` da resposta), e o `execute` o traduz num `UIError` com um código estável (`CLIENTE_NOT_FOUND`, `SIGN_IN_FAILED`); a interface traduz o código. Um Input ou Output que o zod recusa é outro erro, que sobe como está e a interface mostra como `errors.generic`.
 - **A carga inicial que falha** é mostrada pela própria tela: o model expõe `isError`, e a view mostra o estado de erro.
 - **A falha de um refetch em segundo plano** (a tela já tem dados) e **o erro de uma mutation** viram uma notificação global, pelo `notify` que o produto passa ao `createQueryClient`.
 
@@ -24,11 +24,22 @@ import { UIError } from '@matizze/prumo-core/errors'
 throw new UIError('CLIENTE_NOT_FOUND', 'Registro não encontrado.')
 ```
 
-O `code` é o que importa para a interface. A `message` serve para logs e testes, nunca para a tela. Use códigos estáveis, em maiúsculas: eles são parte do contrato do repositório (`IClientesRepository` documenta que um id inexistente rejeita com `CLIENTE_NOT_FOUND`) e chaves de texto.
+O `code` é o que importa para a interface. A `message` serve para logs e testes, nunca para a tela. Use códigos estáveis, em maiúsculas: eles são parte do contrato do use case (o `getCliente` rejeita um id inexistente com `CLIENTE_NOT_FOUND`) e chaves de texto. Os use cases gerados já fazem a tradução no `execute`:
+
+```ts
+// src/use-cases/clientes/get-cliente.usecase.ts (o catch)
+} catch (error) {
+  if (error instanceof HttpError && error.status === 404) throw new UIError('CLIENTE_NOT_FOUND', error.message)
+  if (error instanceof HttpError) throw new UIError('GET_CLIENTE_FAILED', error.message)
+  throw error
+}
+```
+
+Para um erro do seu domínio (um 403, um 401 do login), acrescente um `if` no `catch` e o texto em `errors.<CÓDIGO>` nos dois idiomas.
 
 ## Traduzir o erro
 
-> O `prumo new` já gera tudo isto: o namespace `errors` nos dois idiomas (com o texto genérico), o `src/errors.ts` com o `getErrorMessage`, o `i18n` exportado e o `src/providers/app.tsx` usando o `getErrorMessage`. O `make:repository` acrescenta o texto de `<ENTIDADE>_NOT_FOUND` aos dois `errors.json`. Os passos abaixo são para entender o que existe e para um [app criado antes](#app-criado-antes-do-tratamento-de-erro).
+> O `prumo new` já gera tudo isto: o namespace `errors` nos dois idiomas (com o texto genérico), o `src/errors.ts` com o `getErrorMessage`, o `i18n` exportado e o `src/providers/app.tsx` usando o `getErrorMessage`. O `make:usecase` acrescenta aos dois `errors.json` o texto de `<AÇÃO>_FAILED` (e, no `--crud`, o de `<ENTIDADE>_NOT_FOUND`). Os passos abaixo são para entender o que existe e para um [app criado antes](#app-criado-antes-do-tratamento-de-erro).
 
 **1. Crie os textos dos erros**, um namespace `errors` nos dois idiomas, com o texto genérico e um por código:
 
@@ -71,7 +82,7 @@ O `getErrorMessage(erro)` devolve:
 
 ### App criado antes do tratamento de erro
 
-Um app criado por uma versão anterior do `new` não tem o namespace `errors`, o `src/errors.ts` nem o `i18n` exportado, e o `providers/app.tsx` usa o texto técnico do erro. Faça os três passos acima à mão (os textos, o registro do namespace e o `src/errors.ts`) e troque o `getErrorMessage` do `providers/app.tsx` pelo do `@/errors`. Enquanto isso, o `make:repository` continua funcionando: ele avisa que não acrescentou o texto de `<ENTIDADE>_NOT_FOUND` (falta o `errors.json`) e segue, sem falhar. Depois de criar os `errors.json`, acrescente você mesmo as chaves dos domínios já gerados.
+Um app criado por uma versão anterior do `new` não tem o namespace `errors`, o `src/errors.ts` nem o `i18n` exportado, e o `providers/app.tsx` usa o texto técnico do erro. Faça os três passos acima à mão (os textos, o registro do namespace e o `src/errors.ts`) e troque o `getErrorMessage` do `providers/app.tsx` pelo do `@/errors`. Enquanto isso, o `make:usecase --crud` continua funcionando: ele avisa que não acrescentou o texto de `<ENTIDADE>_NOT_FOUND` (falta o `errors.json`) e segue, sem falhar. Depois de criar os `errors.json`, acrescente você mesmo as chaves dos domínios já gerados.
 
 ### Valores no texto e códigos soltos
 
@@ -126,13 +137,13 @@ O `meta` de cada query e mutation tem dois campos, tipados:
 ```ts
 // a tela já mostra o erro (um alerta no formulário, por exemplo): sem notificação
 useMutation({
-  mutationFn: (input: ClienteInput) => repository.create(input),
+  mutationFn: (input: ClienteInput) => createCliente.execute(input),
   meta: { silent: true },
 })
 
 // outro texto no lugar do derivado do erro
 useMutation({
-  mutationFn: (id: string) => repository.remove(id),
+  mutationFn: (id: string) => removeCliente.execute({ id }),
   meta: { errorMessage: 'Não foi possível remover o cliente.' },
 })
 ```
@@ -162,10 +173,12 @@ A declaração é feita no módulo público, `@matizze/prumo-core/query`. Não d
 Para mostrar o texto do erro na própria tela, use o mesmo `getErrorMessage` no model:
 
 ```ts
-// src/pages/cliente/model.ts
+// src/pages/cliente/model.ts (as telas geradas com --usecase já fazem isto)
 import { getErrorMessage } from '@/errors'
 
-const detail = useClienteDetail(id)
+const { getCliente } = useUseCases()
+const input = { id }
+const detail = useQuery({ queryKey: getClienteKey(input), queryFn: () => getCliente.execute(input) })
 
 return {
   failed: detail.isError,

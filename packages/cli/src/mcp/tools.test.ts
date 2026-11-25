@@ -31,8 +31,7 @@ describe('paridade das ferramentas com os comandos', () => {
     )
     expect(tools.map((candidate) => candidate.name)).toEqual([
       'make_schema',
-      'make_repository',
-      'make_query',
+      'make_usecase',
       'make_page',
       'check',
       'list',
@@ -67,17 +66,20 @@ describe('paridade das ferramentas com os comandos', () => {
   })
 
   it('o detalhe que saiu da ajuda do terminal está na descrição da ferramenta', () => {
-    expect(tool('make_repository').description).toContain('VITE_DATA_SOURCE')
-    expect(tool('make_repository').description).toContain('{ items, total }')
     expect(tool('make_page').description).toContain(':param')
+    expect(tool('make_page').description).toContain('auth.login')
+    expect(tool('make_usecase').description).toContain('<AÇÃO>_FAILED')
+    expect(tool('make_usecase').description).toContain('PATCH /livros/:id')
+    expect(tool('make_usecase').description).toContain('store[]')
     expect(tool('make_schema').description).toContain('createdAt')
     expect(tool('make_schema').description).toContain('AAAA-MM-DD')
     expect(tool('check').description).toContain('components/shared')
   })
 
   it('o detalhe do agente não aparece na ajuda do terminal', () => {
-    const help = program.commands.find((item) => item.name() === 'make:repository')?.helpInformation()
-    expect(help).not.toContain('VITE_DATA_SOURCE')
+    const help = program.commands.find((item) => item.name() === 'make:page')?.helpInformation()
+    expect(tool('make_page').description).toContain('AuthLoginPage')
+    expect(help).not.toContain('AuthLoginPage')
   })
 })
 
@@ -102,16 +104,25 @@ describe('o esquema de cada ferramenta', () => {
     ])
   })
 
-  it('make_repository: o data_source é um enum', () => {
-    expect(tool('make_repository').inputSchema.properties.data_source).toMatchObject({
-      type: 'string',
-      enum: ['mock', 'http', 'storage'],
-    })
+  it('make_usecase: o crud e a entity', () => {
+    expect(Object.keys(tool('make_usecase').inputSchema.properties)).toEqual([
+      'nome',
+      'input',
+      'output',
+      'endpoint',
+      'read',
+      'write',
+      'local',
+      'crud',
+      'entity',
+      'dry_run',
+    ])
+    expect(tool('make_usecase').description).toContain('listLivros (GET /livros')
+    expect(tool('make_page').description).toContain('usecase=<domínio>.<ação>')
   })
 
-  it('make_query e make_page', () => {
-    expect(Object.keys(tool('make_query').inputSchema.properties)).toEqual(['dominio', 'entity', 'dry_run'])
-    expect(Object.keys(tool('make_page').inputSchema.properties)).toEqual(['nome', 'query', 'path', 'dry_run'])
+  it('make_page: o usecase e o path', () => {
+    expect(Object.keys(tool('make_page').inputSchema.properties)).toEqual(['nome', 'usecase', 'path', 'dry_run'])
     expect(tool('make_page').inputSchema.required).toEqual(['nome'])
   })
 
@@ -144,8 +155,8 @@ describe('toArgv', () => {
   })
 
   it('dry_run falso não passa a flag; o list sempre passa --json', () => {
-    expect(toArgv(tool('make_query'), { dominio: 'livros', dry_run: false })).toEqual([
-      'make:query',
+    expect(toArgv(tool('make_schema'), { dominio: 'livros', dry_run: false })).toEqual([
+      'make:schema',
       '--',
       'livros',
     ])
@@ -171,7 +182,7 @@ describe('toArgv com valor que parece opção', () => {
   const cases: [string, string, Record<string, unknown>][] = [
     ['make_schema', 'entity', { dominio: 'livros', fields: 'a:string' }],
     ['make_schema', 'fields', { dominio: 'livros' }],
-    ['make_page', 'query', { nome: 'livros' }],
+    ['make_page', 'usecase', { nome: 'livros' }],
     ['make_page', 'path', { nome: 'livros' }],
   ]
 

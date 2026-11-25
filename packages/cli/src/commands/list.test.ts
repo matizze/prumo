@@ -13,26 +13,46 @@ async function make(root: string, ...commands: string[][]) {
   }
 }
 
-/** Um projeto de fixture com todas as camadas: livros (as três fontes), uma lista, um detalhe e uma tela só com título. */
+/** Um projeto de fixture com todas as camadas: um schema, três use cases, uma lista, uma tela com parâmetro e uma só com título. */
 async function fullProject() {
   const { root } = fixtureProject()
   await make(
     root,
     ['make:schema', 'livros', '--fields', 'title:string,year?:int,status:enum(lido|lendo)'],
-    ['make:repository', 'livros'],
-    ['make:repository', 'livros', '--data-source', 'http'],
-    ['make:repository', 'livros', '--data-source', 'storage'],
-    ['make:query', 'livros'],
-    ['make:page', 'livros-lista', '--query', 'livros'],
-    ['make:page', 'livro', '--query', 'livros', '--path', '/livros/:id'],
     ['make:page', 'sobre'],
     ['make:page', 'item', '--path', '/item/:id'],
+    ['make:usecase', 'livros.get-livros', '--output', 'livro[]'],
+    ['make:usecase', 'livros.update-livro', '--endpoint', 'PATCH /livros/:id', '--input', 'id:string'],
+    ['make:usecase', 'cart.add-item', '--local'],
+    ['make:page', 'livros-lista', '--usecase', 'livros.get-livros'],
   )
   return root
 }
 
+describe('listProject: as telas de use case', () => {
+  it('mostra o use case de cada tela e a variação: lista, detalhe e formulário', async () => {
+    const { root } = fixtureProject()
+    await make(
+      root,
+      ['make:schema', 'livros', '--fields', 'title:string'],
+      ['make:usecase', 'livros', '--crud'],
+      ['make:page', 'livros', '--usecase', 'livros.list-livros'],
+      ['make:page', 'livro', '--usecase', 'livros.get-livro', '--path', '/livros/:id'],
+      ['make:page', 'livro-novo', '--usecase', 'livros.create-livro'],
+    )
+    const listing = listProject(fixtureProjectAt(root))
+    const pages = Object.fromEntries(listing.pages.map((page) => [page.name, `${page.variation} ${page.route} ${page.useCase}`]))
+    expect(pages.livros).toBe('list /livros livros.list-livros')
+    expect(pages.livro).toBe('detail /livros/:id livros.get-livro')
+    expect(pages['livro-novo']).toBe('form /livro-novo livros.create-livro')
+
+    const text = await exec(['list'], root)
+    expect(text.stdout).toContain('livro-novo  rota: /livro-novo  formulário  use case: livros.create-livro')
+  })
+})
+
 describe('listProject', () => {
-  it('lista um projeto com todas as camadas e as três fontes', async () => {
+  it('lista um projeto com todas as camadas', async () => {
     const root = await fullProject()
     const listing = listProject({ ...fixtureProjectAt(root) })
 
@@ -48,32 +68,17 @@ describe('listProject', () => {
         problem: null,
       },
     ])
-    expect(listing.repositories).toEqual([
-      { domain: 'livros', entity: 'Livro', sources: ['mock', 'http', 'storage'] },
-    ])
-    expect(listing.queries).toHaveLength(1)
-    expect(listing.queries[0]).toMatchObject({ domain: 'livros', entity: 'Livro', file: 'src/queries/livros.ts' })
-    expect(listing.queries[0]?.hooks).toEqual([
-      'useLivrosList',
-      'useLivroDetail',
-      'useCreateLivro',
-      'useUpdateLivro',
-      'useRemoveLivro',
+    expect(listing.useCases).toEqual([
+      { domain: 'cart', name: 'add-item', key: 'addItem', kind: 'local', endpoint: null },
+      { domain: 'livros', name: 'get-livros', key: 'getLivros', kind: 'read', endpoint: 'GET /livros/get-livros' },
+      { domain: 'livros', name: 'update-livro', key: 'updateLivro', kind: 'write', endpoint: 'PATCH /livros/:id' },
     ])
     expect(listing.pages).toEqual([
-      { name: 'item', route: '/item/:id', routeKind: 'literal', routePartial: false, variation: 'param', query: null },
-      { name: 'livro', route: '/livros/:id', routeKind: 'literal', routePartial: false, variation: 'detail', query: 'livros' },
-      { name: 'livros-lista', route: '/livros-lista', routeKind: 'literal', routePartial: false, variation: 'list', query: 'livros' },
-      { name: 'sobre', route: '/sobre', routeKind: 'literal', routePartial: false, variation: 'title', query: null },
+      { name: 'item', route: '/item/:id', routeKind: 'literal', routePartial: false, variation: 'param', useCase: null },
+      { name: 'livros-lista', route: '/livros-lista', routeKind: 'literal', routePartial: false, variation: 'list', useCase: 'livros.get-livros' },
+      { name: 'sobre', route: '/sobre', routeKind: 'literal', routePartial: false, variation: 'title', useCase: null },
     ])
     expect(listing.languages).toEqual(['en', 'pt-BR'])
-  })
-
-  it('só com mock: a fonte que falta na fábrica não aparece', async () => {
-    const { root } = fixtureProject()
-    await make(root, ['make:schema', 'livros'], ['make:repository', 'livros'])
-    const listing = listProject(fixtureProjectAt(root))
-    expect(listing.repositories[0]?.sources).toEqual(['mock'])
   })
 
   it('schema editado à mão aparece sem campos e com o motivo', async () => {
@@ -97,8 +102,24 @@ describe('listProject', () => {
     const app = path.join(root, 'src/App.tsx')
     writeFileSync(app, readFileSync(app, 'utf8').replace(/\s*<Route path="\/sobre">[\s\S]*?<\/Route>/, ''))
     expect(listProject(fixtureProjectAt(root)).pages).toEqual([
-      { name: 'sobre', route: null, routeKind: null, routePartial: false, variation: 'title', query: null },
+      { name: 'sobre', route: null, routeKind: null, routePartial: false, variation: 'title', useCase: null },
     ])
+  })
+
+  it('telas em subpastas aparecem com o nome com barra, e a pasta de grupo e o components/ não', async () => {
+    const { root } = fixtureProject()
+    await make(root, ['make:page', 'auth.login'], ['make:page', 'auth/register'], ['make:page', 'sobre'])
+    mkdirSync(path.join(root, 'src/pages/auth/login/components'), { recursive: true })
+    writeFileSync(path.join(root, 'src/pages/auth/login/components/index.tsx'), '')
+
+    const pages = listProject(fixtureProjectAt(root)).pages
+    expect(pages.map(({ name, route }) => [name, route])).toEqual([
+      ['auth/login', '/auth/login'],
+      ['auth/register', '/auth/register'],
+      ['sobre', '/sobre'],
+    ])
+    const result = await exec(['list', '--root', root], process.cwd())
+    expect(result.stdout).toContain('  auth/login  rota: /auth/login  título\n')
   })
 
   it('rota aninhada: compõe os <Route nest> de fora e usa a mais interna', () => {
@@ -120,7 +141,7 @@ export default function App() {
       ['usuarios'],
     )
     expect(listProject(fixtureProjectAt(root)).pages).toEqual([
-      { name: 'usuarios', route: '/admin/usuarios/:id', routeKind: 'literal', routePartial: false, variation: 'param', query: null },
+      { name: 'usuarios', route: '/admin/usuarios/:id', routeKind: 'literal', routePartial: false, variation: 'param', useCase: null },
     ])
   })
 
@@ -198,17 +219,6 @@ export default function App() {
     expect(listProject(fixtureProjectAt(root)).pages.map((page) => page.name)).toEqual(['a.b', 'c++'])
   })
 
-  it('contrato vazio: a entidade vem do hook de detalhe da query, ou é null', () => {
-    const root = makeProject({
-      'src/repositories/livros/repository.contract.ts': '',
-      'src/queries/livros.ts': 'export function useLivroDetail() {}\n',
-      'src/repositories/vazio/repository.contract.ts': '',
-    })
-    const listing = listProject(fixtureProjectAt(root))
-    expect(listing.queries[0]?.entity).toBe('Livro')
-    expect(listing.repositories.map((r) => r.entity)).toEqual([null, null])
-  })
-
   it('a ordem é a do código, não a do locale', () => {
     const root = makeProject({
       'src/pages/b/index.tsx': '',
@@ -222,8 +232,7 @@ export default function App() {
     const root = makeProject({}, ['src'])
     expect(listProject(fixtureProjectAt(root))).toEqual({
       schemas: [],
-      repositories: [],
-      queries: [],
+      useCases: [],
       pages: [],
       languages: [],
     })
@@ -258,8 +267,10 @@ describe('prumo list', () => {
     expect(result.stdout).toContain(
       'Schemas (1):\n  Livro  src/schemas/entities/livro.ts  title: string, year?: int, status: enum(lido|lendo)\n',
     )
-    expect(result.stdout).toContain('Repositórios (1):\n  livros  Livro  fontes: mock, http, storage\n')
-    expect(result.stdout).toContain('  livro  rota: /livros/:id  detalhe  query: livros\n')
+    expect(result.stdout).toContain(
+      'Use cases (3):\n  cart.add-item  addItem  local\n  livros.get-livros  getLivros  leitura  GET /livros/get-livros\n  livros.update-livro  updateLivro  escrita  PATCH /livros/:id\n',
+    )
+    expect(result.stdout).toContain('  livros-lista  rota: /livros-lista  lista  use case: livros.get-livros\n')
     expect(result.stdout).toContain('  sobre  rota: /sobre  título\n')
     expect(result.stdout).toContain('Idiomas (2):\n  en\n  pt-BR\n')
   })
@@ -280,7 +291,7 @@ describe('prumo list', () => {
     const root = makeProject({}, ['src'])
     const result = await exec(['list'], root)
     expect(result.stdout).toBe(
-      'Schemas: nenhum\n\nRepositórios: nenhum\n\nQueries: nenhum\n\nTelas: nenhum\n\nIdiomas: nenhum\n',
+      'Schemas: nenhum\n\nUse cases: nenhum\n\nTelas: nenhum\n\nIdiomas: nenhum\n',
     )
   })
 
@@ -290,9 +301,8 @@ describe('prumo list', () => {
     const listing = JSON.parse(result.stdout) as ProjectListing
 
     expect(result.code, result.stderr).toBe(0)
-    expect(Object.keys(listing)).toEqual(['schemas', 'repositories', 'queries', 'pages', 'languages'])
-    expect(listing.repositories[0]?.sources).toEqual(['mock', 'http', 'storage'])
-    expect(listing.pages.map((page) => page.name)).toEqual(['item', 'livro', 'livros-lista', 'sobre'])
+    expect(Object.keys(listing)).toEqual(['schemas', 'useCases', 'pages', 'languages'])
+    expect(listing.pages.map((page) => page.name)).toEqual(['item', 'livros-lista', 'sobre'])
   })
 
   it('não escreve nada no projeto', async () => {

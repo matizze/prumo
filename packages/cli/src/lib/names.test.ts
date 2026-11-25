@@ -9,9 +9,11 @@ import {
   entityFlag,
   GLOBAL_NAMES,
   isValidName,
+  pageNames,
   RESERVED_WORDS,
   singularOf,
   usableNames,
+  useCaseNames,
 } from './names.ts'
 
 describe('isValidName', () => {
@@ -258,5 +260,74 @@ describe('nomes reservados do domínio', () => {
     expect(() => domainNames('dates', 'date')).toThrow(/'Date'/)
     expect(() => domainNames('new', 'new-item')).toThrow(/o nome do domínio 'new'.*reservada/)
     expect(() => domainNames('maps', 'map')).toThrow(/'Map'/)
+  })
+})
+
+describe('pageNames', () => {
+  it('um nome só é uma tela de primeiro nível', () => {
+    expect(pageNames('clientes')).toEqual({
+      kebab: 'clientes',
+      pascal: 'Clientes',
+      camel: 'clientes',
+      path: 'clientes',
+    })
+  })
+
+  it.each(['auth.login', 'auth/login'])('%s vira a pasta auth/login e os nomes juntos', (input) => {
+    expect(pageNames(input)).toEqual({
+      kebab: 'auth-login',
+      pascal: 'AuthLogin',
+      camel: 'authLogin',
+      path: 'auth/login',
+    })
+  })
+
+  it('aceita mais de dois segmentos e dígitos', () => {
+    expect(pageNames('admin.fases-2.novo')).toMatchObject({
+      kebab: 'admin-fases-2-novo',
+      path: 'admin/fases-2/novo',
+    })
+  })
+
+  it.each(['auth..login', '/login', 'auth/', 'auth./login', '.', ''])(
+    'recusa o segmento vazio de %j',
+    (input) => expect(() => pageNames(input)).toThrow(/segmento vazio/),
+  )
+
+  it('a palavra reservada só vale para o nome junto: auth.new e clientes.delete passam', () => {
+    expect(pageNames('auth.new').pascal).toBe('AuthNew')
+    expect(pageNames('clientes/delete').camel).toBe('clientesDelete')
+  })
+
+  it('diz qual segmento é inválido ou reservado', () => {
+    expect(() => pageNames('auth.Login')).toThrow(/segmento do nome da tela 'Login' é inválido/)
+    expect(() => pageNames('new')).toThrow(/o nome da tela 'new'.*reservada/)
+    expect(() => pageNames('Auth')).toThrow(/o nome da tela 'Auth' é inválido/)
+    expect(() => pageNames('auth.2fa')).toThrow(UsageError)
+  })
+})
+
+describe('useCaseNames', () => {
+  it.each(['auth.sign-in', 'auth/sign-in'])('%s vira o domínio auth e a ação sign-in', (input) => {
+    expect(useCaseNames(input)).toEqual({
+      domain: { kebab: 'auth', pascal: 'Auth', camel: 'auth' },
+      action: { kebab: 'sign-in', pascal: 'SignIn', camel: 'signIn' },
+    })
+  })
+
+  it('exige o domínio e a ação, e só os dois', () => {
+    for (const input of ['stores', 'a.b.c', 'a/b.c']) {
+      expect(() => useCaseNames(input)).toThrow(/precisa ter o domínio e a ação, como em auth\.sign-in/)
+    }
+  })
+
+  it('recusa segmento vazio e nome fora do kebab-case', () => {
+    expect(() => useCaseNames('auth.')).toThrow(/o nome do use case 'auth\.' tem um segmento vazio/)
+    expect(() => useCaseNames('Auth.sign-in')).toThrow(/um segmento do nome do use case 'Auth' é inválido/)
+  })
+
+  it('recusa a ação que vira palavra reservada, e aceita o domínio com o nome dela', () => {
+    expect(() => useCaseNames('auth.delete')).toThrow(/a ação 'delete' vira o identificador 'delete'/)
+    expect(useCaseNames('delete.remove').domain.camel).toBe('delete')
   })
 })

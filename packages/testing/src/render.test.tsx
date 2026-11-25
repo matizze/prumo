@@ -2,73 +2,75 @@
 import { QueryClient, useMutation, useQuery, useQueryClient, type DefaultOptions } from '@tanstack/react-query'
 import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import { createContext, useContext, useEffect, type ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { useLocation } from 'wouter'
 import {
   createRenderHookWithProviders,
   createRenderWithProviders,
   createTestQueryClient,
-  createTestRepositories,
+  createTestUseCases,
+  type NoContainer,
+  type RenderWithProvidersBinding,
 } from './render.tsx'
 
 afterEach(() => {
   cleanup()
 })
 
-// Providers de mentira: o que o produto liga (tema e repositórios), sem conhecer o produto
-interface FakeContainer {
+// Providers de mentira: o que o produto liga (tema e use cases), sem conhecer o produto
+interface FakeUseCases {
   tasks: { list: () => string[] }
   users: { name: () => string }
 }
 
-const RepositoryContext = createContext<FakeContainer | null>(null)
+const UseCasesContext = createContext<FakeUseCases | null>(null)
 const ThemeContext = createContext('claro')
 
-function useFakeRepositories() {
-  const container = useContext(RepositoryContext)
-  if (!container) throw new Error('sem RepositoryContext')
+function useFakeUseCases() {
+  const container = useContext(UseCasesContext)
+  if (!container) throw new Error('sem UseCasesContext')
   return container
 }
 
 function FakeProviders({
   children,
-  repositories,
+  useCases,
 }: {
   children: ReactNode
-  repositories: FakeContainer
+  useCases: FakeUseCases
 }) {
   return (
     <ThemeContext.Provider value="escuro">
-      <RepositoryContext.Provider value={repositories}>{children}</RepositoryContext.Provider>
+      <UseCasesContext.Provider value={useCases}>{children}</UseCasesContext.Provider>
     </ThemeContext.Provider>
   )
 }
 
-const createInMemory = (): FakeContainer => ({
+const createInMemory = (): FakeUseCases => ({
   tasks: { list: () => ['em memória'] },
   users: { name: () => 'Ana' },
 })
 
-const createRepositories = vi.fn((overrides: Partial<FakeContainer> = {}) =>
-  createTestRepositories(createInMemory, overrides),
+const createUseCases = vi.fn((overrides: Partial<FakeUseCases> = {}) =>
+  createTestUseCases(createInMemory, overrides),
 )
 const createQueryClient = vi.fn(() =>
   createTestQueryClient((options) => new QueryClient({ defaultOptions: options })),
 )
 
-const renderWithProviders = createRenderWithProviders({
+const renderWithProviders = createRenderWithProviders<FakeUseCases>({
   Providers: FakeProviders,
-  createRepositories,
+  createUseCases,
   createQueryClient,
 })
 
 function Probe() {
   const [location] = useLocation()
   const theme = useContext(ThemeContext)
-  const repositories = useFakeRepositories()
+  const useCases = useFakeUseCases()
   return (
     <p>
-      {`${location}|${theme}|${repositories.tasks.list().join(',')}|${repositories.users.name()}`}
+      {`${location}|${theme}|${useCases.tasks.list().join(',')}|${useCases.users.name()}`}
     </p>
   )
 }
@@ -88,9 +90,9 @@ describe('createTestQueryClient', () => {
   })
 })
 
-describe('createTestRepositories', () => {
-  it('parte do container em memória e troca só o que o teste pede', () => {
-    const container = createTestRepositories(createInMemory, {
+describe('createTestUseCases', () => {
+  it('parte do container do produto e troca só o que o teste pede', () => {
+    const container = createTestUseCases(createInMemory, {
       users: { name: () => 'Bia' },
     })
 
@@ -101,8 +103,8 @@ describe('createTestRepositories', () => {
   it('cria um container novo a cada chamada', () => {
     const create = vi.fn(createInMemory)
 
-    const first = createTestRepositories(create)
-    const second = createTestRepositories(create)
+    const first = createTestUseCases(create)
+    const second = createTestUseCases(create)
 
     expect(create).toHaveBeenCalledTimes(2)
     expect(first).not.toBe(second)
@@ -110,7 +112,7 @@ describe('createTestRepositories', () => {
 })
 
 describe('renderWithProviders', () => {
-  it('renderiza dentro dos providers do produto, com a rota inicial e os repositórios', () => {
+  it('renderiza dentro dos providers do produto, com a rota inicial e os use cases', () => {
     renderWithProviders(<Probe />, { path: '/tarefas' })
 
     expect(screen.getByText('/tarefas|escuro|em memória|Ana')).toBeTruthy()
@@ -124,29 +126,29 @@ describe('renderWithProviders', () => {
     expect(currentPath()).toBe('/')
   })
 
-  it('troca só os repositórios de overrides', () => {
-    const { repositories } = renderWithProviders(<Probe />, {
-      repositories: { tasks: { list: () => ['a', 'b'] } },
+  it('troca só os use cases de overrides', () => {
+    const { useCases } = renderWithProviders(<Probe />, {
+      useCases: { tasks: { list: () => ['a', 'b'] } },
     })
 
     expect(screen.getByText('/|escuro|a,b|Ana')).toBeTruthy()
-    expect(repositories.tasks.list()).toEqual(['a', 'b'])
-    expect(createRepositories).toHaveBeenLastCalledWith({ tasks: expect.any(Object) })
+    expect(useCases.tasks.list()).toEqual(['a', 'b'])
+    expect(createUseCases).toHaveBeenLastCalledWith({ tasks: expect.any(Object) })
   })
 
   it('devolve o mesmo container que os componentes recebem', () => {
-    const seen: FakeContainer[] = []
+    const seen: FakeUseCases[] = []
     function Spy() {
-      const container = useFakeRepositories()
+      const container = useFakeUseCases()
       useEffect(() => {
         seen.push(container)
       })
       return null
     }
 
-    const { repositories } = renderWithProviders(<Spy />)
+    const { useCases } = renderWithProviders(<Spy />)
 
-    expect(seen[0]).toBe(repositories)
+    expect(seen[0]).toBe(useCases)
   })
 
   it('põe o QueryClientProvider com o client da fábrica de teste', async () => {
@@ -212,7 +214,7 @@ describe('renderWithProviders', () => {
 
     expect(first.history).toEqual(['/um'])
     expect(second.history).toEqual(['/dois'])
-    expect(first.repositories).not.toBe(second.repositories)
+    expect(first.useCases).not.toBe(second.useCases)
     expect(first.queryClient).not.toBe(second.queryClient)
   })
 })
@@ -226,28 +228,28 @@ const SessionContext = createContext('ninguém')
 
 function SessionProviders({
   children,
-  repositories,
+  useCases,
   session = 'ninguém',
-}: { children: ReactNode; repositories: FakeContainer } & FakeSessionProps) {
+}: { children: ReactNode; useCases: FakeUseCases } & FakeSessionProps) {
   return (
     <SessionContext.Provider value={session}>
-      <RepositoryContext.Provider value={repositories}>{children}</RepositoryContext.Provider>
+      <UseCasesContext.Provider value={useCases}>{children}</UseCasesContext.Provider>
     </SessionContext.Provider>
   )
 }
 
 const bindingWithSession = {
   Providers: SessionProviders,
-  createRepositories: (overrides?: Partial<FakeContainer>) =>
-    createTestRepositories(createInMemory, overrides),
+  createUseCases: (overrides?: Partial<FakeUseCases>) =>
+    createTestUseCases(createInMemory, overrides),
   createQueryClient: () =>
     createTestQueryClient((options) => new QueryClient({ defaultOptions: options })),
 }
 
-const renderWithSession = createRenderWithProviders<FakeContainer, FakeSessionProps>(
+const renderWithSession = createRenderWithProviders<FakeUseCases, FakeSessionProps>(
   bindingWithSession,
 )
-const renderHookWithSession = createRenderHookWithProviders<FakeContainer, FakeSessionProps>(
+const renderHookWithSession = createRenderHookWithProviders<FakeUseCases, FakeSessionProps>(
   bindingWithSession,
 )
 
@@ -291,7 +293,6 @@ describe('ordem dos provedores', () => {
     }
     const render = createRenderWithProviders({
       Providers: NeedsBoth,
-      createRepositories,
       createQueryClient,
     })
 
@@ -302,17 +303,17 @@ describe('ordem dos provedores', () => {
 })
 
 describe('renderHookWithProviders', () => {
-  const renderHookWithProviders = createRenderHookWithProviders({
+  const renderHookWithProviders = createRenderHookWithProviders<FakeUseCases>({
     Providers: FakeProviders,
-    createRepositories,
+    createUseCases,
     createQueryClient,
   })
 
   it('roda o hook dentro dos providers, da rota e do QueryClient', async () => {
-    const { result, queryClient, repositories } = renderHookWithProviders(
+    const { result, queryClient, useCases } = renderHookWithProviders(
       () => {
         const [location] = useLocation()
-        const container = useFakeRepositories()
+        const container = useFakeUseCases()
         const { data } = useQuery({ queryKey: ['tasks'], queryFn: () => container.tasks.list() })
         return { location, theme: useContext(ThemeContext), data }
       },
@@ -323,17 +324,17 @@ describe('renderHookWithProviders', () => {
     expect(result.current.location).toBe('/tarefas')
     expect(result.current.theme).toBe('escuro')
     expect(queryClient.getQueryData(['tasks'])).toEqual(['em memória'])
-    expect(repositories.users.name()).toBe('Ana')
+    expect(useCases.users.name()).toBe('Ana')
   })
 
-  it('troca os repositórios e testa uma mutation', async () => {
+  it('troca os use cases e testa uma mutation', async () => {
     const rename = vi.fn((name: string) => name)
     const { result } = renderHookWithProviders(
       () => {
-        const users = useFakeRepositories().users as { name: () => string; rename: typeof rename }
+        const users = useFakeUseCases().users as { name: () => string; rename: typeof rename }
         return useMutation({ mutationFn: async (name: string) => users.rename(name) })
       },
-      { repositories: { users: { name: () => 'Bia', rename } as FakeContainer['users'] } },
+      { useCases: { users: { name: () => 'Bia', rename } as FakeUseCases['users'] } },
     )
 
     await act(() => result.current.mutateAsync('Caio'))
@@ -362,5 +363,45 @@ describe('renderHookWithProviders', () => {
     act(() => navigate('/b'))
     expect(result.current.location).toBe('/b')
     expect(currentPath()).toBe('/b')
+  })
+})
+
+// O app recém-criado tem `UseCases = {}`: vazio como o NoContainer, então dispensa a fábrica também
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type EmptyUseCases = {}
+
+/** `true` quando o createUseCases pode faltar na ligação do produto com o U dado. */
+type CreateUseCasesOptional<U extends object> =
+  undefined extends RenderWithProvidersBinding<U>['createUseCases'] ? true : false
+
+describe('a fábrica dos use cases conforme o U', () => {
+  it('é opcional quando o U é vazio (NoContainer ou {})', () => {
+    expectTypeOf<CreateUseCasesOptional<NoContainer>>().toEqualTypeOf<true>()
+    expectTypeOf<CreateUseCasesOptional<EmptyUseCases>>().toEqualTypeOf<true>()
+    expect(true).toBe(true)
+  })
+
+  it('é obrigatória quando o U declara use cases', () => {
+    expectTypeOf<CreateUseCasesOptional<FakeUseCases>>().toEqualTypeOf<false>()
+    expect(true).toBe(true)
+  })
+})
+
+describe('o produto sem use cases', () => {
+  it('não precisa declarar o container: o NoContainer dispensa o createUseCases', () => {
+    const render = createRenderWithProviders({
+      Providers: ({ children }: { children: ReactNode }) => <>{children}</>,
+      createQueryClient,
+    })
+
+    const { useCases } = render(<p>sem container</p>)
+
+    expect(screen.getByText('sem container')).toBeTruthy()
+    expect(useCases).toEqual({})
+  })
+
+  it('exige o createUseCases quando o produto declara o container', () => {
+    // @ts-expect-error sem o createUseCases, o container de use cases não existiria
+    createRenderWithProviders<FakeUseCases>({ Providers: FakeProviders, createQueryClient })
   })
 })

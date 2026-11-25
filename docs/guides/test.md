@@ -1,6 +1,6 @@
 # Testes
 
-Cada gerador do Prumo cria o teste do que gerou, e o `pnpm test` roda todos com o Vitest e o jsdom, sem navegador. Este guia mostra como testar os estados de uma tela, trocar um repositório num teste, testar rotas e navegação, um hook de query ou mutation e escrever o contrato de um repositório.
+Cada gerador do Prumo cria o teste do que gerou, e o `pnpm test` roda todos com o Vitest e o jsdom, sem navegador. Este guia mostra como testar os estados de uma tela, trocar um use case num teste, testar rotas e navegação, um hook de query ou mutation e escrever o contrato de um use case.
 
 ## O que o app já traz
 
@@ -10,18 +10,18 @@ Cada gerador do Prumo cria o teste do que gerou, e o `pnpm test` roda todos com 
 | `src/test/setup.ts`   | Fixa o idioma padrão do app (`pt-BR`) e desmonta os componentes depois de cada teste           |
 | `src/test/render.tsx` | O `renderWithProviders` e o `renderHookWithProviders` do app                                  |
 
-O `renderWithProviders` renderiza o componente com os provedores do app (i18n e repositórios), um `QueryClient` só do teste e uma rota em memória do wouter:
+O `renderWithProviders` renderiza o componente com os provedores do app (i18n e use cases), um `QueryClient` só do teste e uma rota em memória do wouter:
 
-- os repositórios são os **em memória e sem latência**, criados de novo a cada render;
+- os use cases rodam sobre o **`http` de mentira, sem latência**, criados de novo a cada render;
 - o `QueryClient` é novo a cada render e **sem retry**, então uma falha aparece na hora;
 - a rota começa em `/` (ou na opção `path`) e fica registrada no histórico em memória.
 
 ```tsx
-const { repositories, queryClient, history, navigate, currentPath } = renderWithProviders(
+const { useCases, queryClient, history, navigate, currentPath } = renderWithProviders(
   <ClientesPage />,
   {
     path: '/clientes', // rota inicial (padrão: '/')
-    repositories: { clientes: meuRepositorio }, // troca só os domínios que o teste precisa
+    useCases: { listClientes: meuUseCase }, // troca só os use cases que o teste precisa
     queryClient: meuQueryClient, // opcional
   },
 )
@@ -50,7 +50,7 @@ Os exemplos deste guia supõem os testes em português. Para testar outro idioma
 
 ## Testar uma tela
 
-O teste gerado pelo `make:page --query` confere o título e espera a lista chegar:
+Os exemplos supõem o domínio `clientes` criado com `make:schema clientes` (sem `--fields`, a entidade tem o campo `name`) e `make:usecase clientes --crud`. O teste gerado pelo `make:page --usecase` confere o título e espera a lista chegar:
 
 ```tsx
 import { screen } from '@testing-library/react'
@@ -58,7 +58,7 @@ import { expect, it } from 'vitest'
 import { renderWithProviders } from '@/test/render'
 import ClientesPage from '.'
 
-it('mostra o título e, depois de carregar, a lista do domínio', async () => {
+it('mostra o título e, depois de carregar, a lista', async () => {
   renderWithProviders(<ClientesPage />, { path: '/clientes' })
 
   expect(screen.getByRole('heading', { name: 'Clientes' })).toBeDefined()
@@ -70,20 +70,18 @@ Prefira procurar pelo papel e pelo nome acessível (`getByRole('heading', { name
 
 ### Estado de erro
 
-Troque o repositório do domínio por um cuja operação falha. O `vi.spyOn` muda só o método que interessa:
+Troque o use case da tela por um cujo `execute` falha. Basta um objeto com o `execute`:
 
 ```tsx
 import { screen } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
-import { MockClientesRepository } from '@/repositories'
 import { renderWithProviders } from '@/test/render'
 import ClientesPage from '.'
 
 it('mostra o erro quando a lista falha', async () => {
-  const clientes = new MockClientesRepository({ latencyMs: 0 })
-  vi.spyOn(clientes, 'list').mockRejectedValue(new Error('fora do ar'))
+  const listClientes = { execute: vi.fn().mockRejectedValue(new Error('fora do ar')) }
 
-  renderWithProviders(<ClientesPage />, { repositories: { clientes } })
+  renderWithProviders(<ClientesPage />, { useCases: { listClientes } })
 
   expect(await screen.findByRole('alert')).toBeDefined()
 })
@@ -99,11 +97,10 @@ import { createDeferred } from '@matizze/prumo-testing'
 import type { ClienteSchema } from '@/schemas'
 
 it('mostra o carregando até a lista chegar', async () => {
-  const clientes = new MockClientesRepository({ latencyMs: 0 })
   const response = createDeferred<Page<ClienteSchema>>()
-  vi.spyOn(clientes, 'list').mockReturnValue(response.promise)
+  const listClientes = { execute: vi.fn().mockReturnValue(response.promise) }
 
-  renderWithProviders(<ClientesPage />, { repositories: { clientes } })
+  renderWithProviders(<ClientesPage />, { useCases: { listClientes } })
   expect(screen.getByText('Carregando…')).toBeDefined()
 
   response.resolve({
@@ -118,10 +115,9 @@ it('mostra o carregando até a lista chegar', async () => {
 
 ```tsx
 it('avisa quando não há clientes', async () => {
-  const clientes = new MockClientesRepository({ latencyMs: 0 })
-  vi.spyOn(clientes, 'list').mockResolvedValue({ items: [], total: 0 })
+  const listClientes = { execute: vi.fn().mockResolvedValue({ items: [], total: 0 }) }
 
-  renderWithProviders(<ClientesPage />, { repositories: { clientes } })
+  renderWithProviders(<ClientesPage />, { useCases: { listClientes } })
 
   expect(await screen.findByText('Nenhum cliente cadastrado.')).toBeDefined()
 })
@@ -138,19 +134,42 @@ fireEvent.change(screen.getByRole('textbox', { name: 'Buscar' }), { target: { va
 fireEvent.click(screen.getByRole('button', { name: 'Remover' }))
 ```
 
-Depois de uma mutation, confira a tela ou o próprio repositório, que o resultado do render devolve:
+Depois de uma mutation, confira a tela ou o próprio use case, que o resultado do render devolve:
 
 ```tsx
-const { repositories } = renderWithProviders(<ClientesPage />)
+const { useCases } = renderWithProviders(<ClientesPage />)
 // ... remove pela interface
-expect((await repositories.clientes.list()).total).toBe(2)
+expect((await useCases.listClientes.execute({})).total).toBe(2)
 ```
+
+### Formulário
+
+O teste que o `make:page --usecase` gera para um use case de escrita preenche os campos e envia o formulário contra o mock, e confere o aviso de sucesso e a falta de erro:
+
+```tsx
+// src/pages/cliente-novo/index.test.tsx
+it('envia o formulário contra o mock e mostra o aviso de sucesso', async () => {
+  renderWithProviders(<ClienteNovoPage />, { path: '/clientes/novo' })
+
+  fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Nome 1' } })
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ana@example.com' } })
+  fireEvent.click(screen.getByLabelText('Ativo'))
+  fireEvent.change(screen.getByLabelText('Plano'), { target: { value: 'basico' } })
+  fireEvent.change(screen.getByLabelText('Telefone'), { target: { value: 'Telefone 1' } })
+  fireEvent.submit(screen.getByRole('form', { name: 'Cliente novo' }))
+
+  expect(await screen.findByRole('status')).toBeDefined()
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+```
+
+Para o caminho de falha, troque o use case por um cujo `execute` rejeita com um `UIError` (`{ execute: vi.fn().mockRejectedValue(new UIError('CLIENTE_NOT_FOUND', '')) }`) e espere o `alert` com o texto do `errors.json`.
 
 ## Rotas e navegação
 
 ### Rotas com parâmetro
 
-O parâmetro de rota só existe dentro de uma `<Route>`. Renderize a tela dentro da rota, com o caminho inicial já com o parâmetro. O teste que o `make:page --path /clientes/:id` gera já é assim (e, sem `--query`, confere que o valor do parâmetro aparece na tela):
+O parâmetro de rota só existe dentro de uma `<Route>`. Renderize a tela dentro da rota, com o caminho inicial já com o parâmetro. O teste que o `make:page --path /clientes/:id` gera já é assim (e, sem `--usecase`, confere que o valor do parâmetro aparece na tela):
 
 ```tsx
 // src/pages/cliente/index.test.tsx
@@ -194,47 +213,54 @@ O `history` lista as rotas visitadas; navegar com `{ replace: true }` troca a ú
 
 ## Testar um hook de query ou mutation
 
-Para testar um hook sem montar um componente de mentira, use o `renderHookWithProviders` de `@/test/render`. Ele roda o hook com os mesmos provedores, repositórios em memória, `QueryClient` sem retry e rota em memória do `renderWithProviders`, e aceita as mesmas opções (`path`, `repositories`, `queryClient`, `providerProps`). O resultado traz o `result.current` do Testing Library e os campos `repositories`, `queryClient`, `navigate`, `history` e `currentPath`.
+Para testar um hook sem montar um componente de mentira, use o `renderHookWithProviders` de `@/test/render`. Ele roda o hook com os mesmos provedores, use cases sobre o `http` de mentira, `QueryClient` sem retry e rota em memória do `renderWithProviders`, e aceita as mesmas opções (`path`, `useCases`, `queryClient`, `providerProps`). O resultado traz o `result.current` do Testing Library e os campos `useCases`, `queryClient`, `navigate`, `history` e `currentPath`. Em geral, o hook é o do model da tela, que chama `useQuery` ou `useMutation` com um use case de `useUseCases()`.
 
 Uma query:
 
 ```tsx
+import { useQuery } from '@tanstack/react-query'
 import { waitFor } from '@testing-library/react'
 import { expect, it } from 'vitest'
 import { renderHookWithProviders } from '@/test/render'
-import { useClientes } from '@/queries/clientes'
+import { useUseCases } from '@/providers/use-cases'
 
 it('lista os clientes', async () => {
-  const { result } = renderHookWithProviders(() => useClientes())
+  const { result } = renderHookWithProviders(() => {
+    const { listClientes } = useUseCases()
+    return useQuery({ queryKey: ['clientes'], queryFn: () => listClientes.execute({}) })
+  })
 
   await waitFor(() => expect(result.current.isSuccess).toBe(true))
   expect(result.current.data?.total).toBeGreaterThan(0)
 })
 ```
 
-Uma mutation: chame `mutateAsync` dentro do `act` e confira o repositório, que o resultado devolve, ou o cache:
+Uma mutation: chame `mutateAsync` dentro do `act` e confira o use case, que o resultado devolve, ou o cache:
 
 ```tsx
+import { useMutation } from '@tanstack/react-query'
 import { act } from '@testing-library/react'
-import { useCreateCliente } from '@/queries/clientes'
 
 it('cria um cliente', async () => {
-  const { result, repositories } = renderHookWithProviders(() => useCreateCliente())
-  const antes = (await repositories.clientes.list()).total
+  const { result, useCases } = renderHookWithProviders(() => {
+    const { createCliente } = useUseCases()
+    return useMutation({ mutationFn: (input: ClienteInput) => createCliente.execute(input) })
+  })
+  const antes = (await useCases.listClientes.execute({})).total
 
   await act(() => result.current.mutateAsync({ name: 'Ana Souza' }))
 
-  expect((await repositories.clientes.list()).total).toBe(antes + 1)
+  expect((await useCases.listClientes.execute({})).total).toBe(antes + 1)
 })
 ```
 
-Uma operação que envolve mais de um domínio (veja [Regras de negócio e operações entre domínios](domains.md#regras-de-negócio-e-operações-entre-domínios)) testa-se melhor como função, chamando-a com os repositórios em memória; o hook só precisa de um teste de que invalida o que deve.
+Uma operação que envolve mais de um domínio (veja [Regras de negócio e operações entre domínios](use-cases.md#regras-de-negócio-e-operações-entre-domínios)) é um use case, e testa-se pelo `execute` dele, com o contrato do use case; o hook da tela só precisa de um teste de que invalida o que deve.
 
-Para uma mutation que falha, troque o método do repositório com `vi.spyOn(...).mockRejectedValue(...)` (como em [Estado de erro](#estado-de-erro)) e espere `await expect(act(() => result.current.mutateAsync(valor))).rejects.toThrow()`. Se o hook recebe argumentos que mudam, use `initialProps` e o `rerender` do resultado.
+Para uma mutation que falha, troque o use case por um `{ execute: vi.fn().mockRejectedValue(...) }` (como em [Estado de erro](#estado-de-erro)) e espere `await expect(act(() => result.current.mutateAsync(valor))).rejects.toThrow()`. Se o hook recebe argumentos que mudam, use `initialProps` e o `rerender` do resultado.
 
 ## Provedores do app nos testes
 
-O `Providers` gerado só conhece o i18n e os repositórios. Se o app tem um provedor que muda de teste para teste, como a sessão (logado como bibliotecário, como membro, sem ninguém), declare as opções dele no `src/test/render.tsx`, aceite-as no `Providers` e passe o tipo como segundo parâmetro aos dois criadores. O arquivo gerado traz esse passo a passo comentado.
+O `Providers` gerado só conhece o i18n e os use cases. Se o app tem um provedor que muda de teste para teste, como a sessão (logado como bibliotecário, como membro, sem ninguém), declare as opções dele no `src/test/render.tsx`, aceite-as no `Providers` e passe o tipo como segundo parâmetro aos dois criadores. O arquivo gerado traz esse passo a passo comentado.
 
 ```tsx
 // src/test/render.tsx
@@ -244,20 +270,20 @@ interface TestProviderProps {
 
 function Providers({
   children,
-  repositories,
+  useCases,
   session = createAnonymousSession(),
-}: { children: ReactNode; repositories: RepositoryContainer } & TestProviderProps) {
+}: { children: ReactNode; useCases: UseCases } & TestProviderProps) {
   return (
     <I18nProvider>
-      <RepositoryProvider value={repositories}>
+      <UseCasesProvider value={useCases}>
         <SessionProvider session={session}>{children}</SessionProvider>
-      </RepositoryProvider>
+      </UseCasesProvider>
     </I18nProvider>
   )
 }
 
-export const renderWithProviders = createRenderWithProviders<RepositoryContainer, TestProviderProps>(binding)
-export const renderHookWithProviders = createRenderHookWithProviders<RepositoryContainer, TestProviderProps>(binding)
+export const renderWithProviders = createRenderWithProviders<UseCases, TestProviderProps>(binding)
+export const renderHookWithProviders = createRenderHookWithProviders<UseCases, TestProviderProps>(binding)
 ```
 
 Cada teste escolhe a sessão na opção `providerProps`, tipada pelo app:
@@ -294,41 +320,53 @@ it('mostra o título', () => {
 
 Use o `renderWithProviders` só quando o componente usa um provedor (um hook de query, o i18n).
 
-## Testar um repositório: o contrato
+## Testar um use case: o contrato
 
-O contrato descreve o que o produto espera de um repositório, não o que uma implementação faz. Ele é declarado uma vez e roda contra cada implementação:
+O contrato descreve o que o produto espera de um use case, não o que uma implementação faz. Cada `make:usecase` já gera o teste dele (`<ação>.usecase.test.ts`): um contrato declarado uma vez, rodando contra o `http` de mentira (as rotas do `.mock.ts`) e, com `API_TEST_URL`, contra a API de teste, mais um teste do `UIError`. O do `auth.sign-in`, como sai do comando:
 
 ```ts
+// src/use-cases/auth/sign-in.usecase.test.ts
 import { defineContractSuite, runContractSuite } from '@matizze/prumo-testing/contract'
 
-const clientesContract = defineContractSuite<IClientesRepository>(
-  'IClientesRepository contract',
-  ({ repo, create }) => {
-    it('remove um registro', async () => {
-      await repo.remove('cliente-1')
-      expect((await repo.list()).total).toBe(MOCK_CLIENTES.length - 1)
+const INPUT: SignInInput = { email: 'Email 1', password: 'Password 1' }
+
+const signInContract = defineContractSuite<SignInUseCase>(
+  'SignInUseCase contract',
+  ({ subject }) => {
+    it('aceita um Input válido e devolve o Output', async () => {
+      const output = await subject.execute(INPUT)
+      expect(SignInOutput.safeParse(output).success).toBe(true)
     })
 
-    it('instâncias não compartilham estado', async () => {
-      const other = create()
-      await repo.remove('cliente-1')
-      expect((await other.list()).total).toBe(MOCK_CLIENTES.length)
+    it('recusa um Input inválido', async () => {
+      await expect(subject.execute(undefined as never)).rejects.toThrow()
     })
   },
 )
 
-runContractSuite(clientesContract, {
-  name: 'MockClientesRepository',
-  create: () => new MockClientesRepository({ latencyMs: 0 }),
+runContractSuite(signInContract, {
+  name: 'mock',
+  create: () => new SignInUseCase(createMockHttp(signInRoutes)),
+})
+
+it('traduz o erro da API em UIError SIGN_IN_FAILED', async () => {
+  const failing = new SignInUseCase(async () => {
+    throw new HttpError(500, 'falhou')
+  })
+  const error = await failing.execute(INPUT).catch((caught: unknown) => caught)
+  expect(error).toBeInstanceOf(UIError)
+  expect(error).toMatchObject({ code: 'SIGN_IN_FAILED' })
 })
 ```
 
-- **`repo`** é uma instância nova a cada teste. Use-a como uma variável comum: `vi.spyOn(repo, 'list')`, `repo instanceof MockClientesRepository` e atribuições funcionam.
+No `--crud`, os cinco testes usam o registro do domínio (`createClientesUseCases({ http, storage })`) e a coleção em memória, que volta às fixtures a cada teste (`clientesCollection.reset()`); o `subject` é então o domínio inteiro (`subject.listClientes.execute({})`). Os use cases `--local` não têm contrato de API: o teste roda a classe contra o `localStorage` do jsdom.
+
+- **`subject`** é uma instância nova a cada teste. Use-a como uma variável comum: `vi.spyOn(subject, 'execute')` e atribuições funcionam.
 - **`create`** cria mais uma instância, para o teste que precisa de duas.
-- **`dispose`**, opcional na implementação, roda depois de cada teste, também quando ele falha: é onde se apaga um banco ou se restaura uma API de teste.
+- **`dispose`**, opcional na implementação, roda depois de cada teste, também quando ele falha: é onde se restaura uma API de teste.
 - O título de cada grupo é `<contrato>: <implementação>`, então a saída do Vitest mostra qual implementação falhou.
 
-Para rodar o mesmo contrato contra a implementação HTTP, veja [Ligar uma API real](real-api.md#5-rode-o-contrato-contra-uma-api-de-teste). Se a API de teste só simula as escritas (a leitura seguinte não vê a mudança), rode o contrato contra uma [API falsa em memória pelo `fetch` injetável](real-api.md#quando-a-api-de-teste-não-persiste-escritas).
+Para rodar o mesmo contrato contra a API, veja [Ligar uma API real](real-api.md#4-rode-o-contrato-contra-uma-api-de-teste).
 
 ## Setup mais completo do DOM
 

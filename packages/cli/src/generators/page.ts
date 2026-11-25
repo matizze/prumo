@@ -1,22 +1,26 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
+import { listPages, pageOf } from '@matizze/prumo-rules/check'
 import { addRouteSnippet, messageLanguages, registerMessageNamespace } from '../codemods/index.ts'
 import { UsageError } from '../errors.ts'
-import { contractEntity } from '../lib/contract.ts'
-import { domainIdSample, domainShapeOf, literal, type DomainShape } from '../lib/fields/index.ts'
-import { assertValidName, deriveNames, RESERVED_WORDS, usableNames, type Names } from '../lib/names.ts'
-import { displayPath } from '../lib/paths.ts'
+import {
+  pageNames,
+  RESERVED_WORDS,
+  type Names,
+  type PageNames,
+} from '../lib/names.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'
 import { nameVars, renderTemplate, renderTemplateFile } from '../lib/templates.ts'
+import { useCasePage, type UseCasePage } from './page-usecase.ts'
 
 /** Um arquivo da tela: o modelo (em `templates/`) e onde ele cai no projeto, os dois com marcadores. */
-interface PageFile {
+export interface PageFile {
   template: string
   to: string
 }
 
-const PAGE_DIR = 'src/pages/{{page.kebab}}'
+const PAGE_DIR = 'src/pages/{{page.path}}'
 
 /** Os arquivos de uma tela só com o título. */
 export const PAGE_FILES: readonly PageFile[] = [
@@ -24,14 +28,6 @@ export const PAGE_FILES: readonly PageFile[] = [
   { template: 'page/model.ts.tpl', to: `${PAGE_DIR}/model.ts` },
   { template: 'page/view.tsx.tpl', to: `${PAGE_DIR}/view.tsx` },
   { template: 'page/index-test.tsx.tpl', to: `${PAGE_DIR}/index.test.tsx` },
-]
-
-/** Os arquivos de uma tela com `--query`: o model lê a lista, e a view a mostra. */
-export const PAGE_LIST_FILES: readonly PageFile[] = [
-  { template: 'page/index.tsx.tpl', to: `${PAGE_DIR}/index.tsx` },
-  { template: 'page/model-domain.ts.tpl', to: `${PAGE_DIR}/model.ts` },
-  { template: 'page/view-domain.tsx.tpl', to: `${PAGE_DIR}/view.tsx` },
-  { template: 'page/index-domain-test.tsx.tpl', to: `${PAGE_DIR}/index.test.tsx` },
 ]
 
 /** Os arquivos de uma tela cuja rota tem parâmetro: o model lê o parâmetro e a view o mostra. */
@@ -42,20 +38,17 @@ export const PAGE_PARAM_FILES: readonly PageFile[] = [
   { template: 'page/index-param-test.tsx.tpl', to: `${PAGE_DIR}/index.test.tsx` },
 ]
 
-/** Os arquivos de uma tela de detalhe (`--query` e rota com parâmetro): o model busca o registro. */
-export const PAGE_DETAIL_FILES: readonly PageFile[] = [
-  { template: 'page/index.tsx.tpl', to: `${PAGE_DIR}/index.tsx` },
-  { template: 'page/model-detail.ts.tpl', to: `${PAGE_DIR}/model.ts` },
-  { template: 'page/view-detail.tsx.tpl', to: `${PAGE_DIR}/view.tsx` },
-  { template: 'page/index-detail-test.tsx.tpl', to: `${PAGE_DIR}/index.test.tsx` },
-]
-
 /** Os messageLangs dos modelos de mensagens: o `pt-BR` e o `en`. */
 export const MESSAGE_LANGUAGES = ['pt-BR', 'en'] as const
 
-/** O modelo do JSON de mensagens de um idioma, com ou sem `--query` (os textos de carregando e de erro). */
-export function messagesTemplate(language: (typeof MESSAGE_LANGUAGES)[number], withQuery: boolean) {
-  return `page/messages${withQuery ? '-domain' : ''}.${language}.json.tpl`
+/** Os textos que a tela leva além do título: os de cada tela de use case. */
+export const MESSAGE_VARIANTS = ['title', 'usecase-list', 'usecase-detail', 'usecase-form'] as const
+
+export type MessagesVariant = (typeof MESSAGE_VARIANTS)[number]
+
+/** O modelo do JSON de mensagens de um idioma, na variação da tela. */
+export function messagesTemplate(language: (typeof MESSAGE_LANGUAGES)[number], variant: MessagesVariant) {
+  return `page/messages${variant === 'title' ? '' : `-${variant}`}.${language}.json.tpl`
 }
 
 /**
@@ -131,13 +124,16 @@ export function parseRoutePath(route: string): RoutePath {
 }
 
 export interface PageRequest {
-  /** O nome da tela, em kebab-case: `clientes`. */
+  /** O nome da tela, em kebab-case: `clientes`. Em subpasta, `auth.login` ou `auth/login`. */
   name: string
-  /** O domínio cuja query a tela usa (o nome dele, no plural), criada por `make:query`. */
-  query?: string | undefined
+  /**
+   * O use case que a tela usa (`<domínio>.<ação>`, como `livros.list-livros`): lista, detalhe ou
+   * formulário, conforme ele.
+   */
+  useCase?: string | undefined
   /**
    * A rota da tela (`--path`). Padrão: `/<nome>`. A tela inicial de um app novo usa `/`. Com um
-   * parâmetro (`/livros/:id`), a tela o lê com o `useParams`; com `query`, vira a tela de detalhe.
+   * parâmetro (`/livros/:id`), a tela o lê com o `useParams`.
    */
   route?: string | undefined
 }
@@ -151,13 +147,44 @@ export interface PageOptions {
 
 export interface PageResult {
   plan: ChangePlan
-  names: Names
-  /** O domínio da query, se a tela tem uma. */
-  query?: Names
+  names: PageNames
+  /** O use case da tela e o que ela mostra dele, se a tela tem um. */
+  useCase?: UseCasePage
   /** A rota nova no `src/App.tsx`: `/clientes`. */
   route: string
   /** Avisos que o comando mostra (por exemplo, a tela mostra o `id` por falta de campo de texto). */
   warnings: string[]
+}
+
+/**
+ * Recusa o nome que não pode virar tela: a pasta já é tela, está dentro de uma tela, já agrupa
+ * telas, ou dá as mesmas mensagens e o mesmo componente de outra tela (`auth/login` e `auth-login`).
+ */
+function assertPageFree(project: Project, names: PageNames): void {
+  const owner = pageOf(project.pages, names.path)
+  if (owner && owner !== names.path) {
+    throw new UsageError(
+      `'${names.path}' ficaria dentro da tela '${owner}' (src/pages/${owner} tem index.tsx): uma tela não contém outra; use outro nome ou mova a tela '${owner}' para um grupo.`,
+    )
+  }
+  const pages = listPages(project.pages)
+  const inside = pages.find((page) => page.startsWith(`${names.path}/`))
+  if (inside) {
+    throw new UsageError(
+      `'${names.path}' já agrupa telas (como '${inside}'): a pasta src/pages/${names.path} não pode virar tela.`,
+    )
+  }
+  if (existsSync(path.join(project.pages, names.path))) {
+    throw new UsageError(
+      `a tela '${names.path}' já existe: a pasta src/pages/${names.path} está no projeto.`,
+    )
+  }
+  const twin = pages.find((page) => page.replaceAll('/', '-') === names.kebab)
+  if (twin) {
+    throw new UsageError(
+      `a tela '${names.path}' conflita com a tela '${twin}': as duas gerariam ${names.kebab}.json e ${names.pascal}Page. Escolha outro nome.`,
+    )
+  }
 }
 
 /** O `<Route>` da tela, como entra no `src/App.tsx`. */
@@ -165,180 +192,41 @@ function routeElement(names: Names, route: string): string {
   return `<Route path="${route}">\n  <${names.pascal}Page />\n</Route>`
 }
 
-/** Lê o arquivo, ou `undefined` se não existe. */
-function readIfExists(file: string): string | undefined {
-  return existsSync(file) ? readFileSync(file, 'utf8') : undefined
-}
-
-/** O `src/queries/<domínio>.ts` (ou `.tsx`, ou a pasta com `index`), se existe. */
-function queryFileOf(project: Project, kebab: string): string | undefined {
-  return [`${kebab}.ts`, `${kebab}.tsx`, `${kebab}/index.ts`, `${kebab}/index.tsx`]
-    .map((file) => path.join(project.src, 'queries', file))
-    .find((file) => existsSync(file))
-}
-
-/** `Livro` vira `livro`: o nome do schema, que é um identificador (o kebab da entidade não se refaz dele). */
-function camelOf(pascal: string): string {
-  return pascal.charAt(0).toLowerCase() + pascal.slice(1)
-}
-
-/**
- * O arquivo do schema da entidade, relativo à raiz: o de `src/schemas/entities/` que exporta o
- * `<camel>Schema`. Não refaz o nome do arquivo a partir do PascalCase (`Fase2` pode ser `fase-2`).
- */
-function schemaFileOf(project: Project, entity: string): string | undefined {
-  const dir = path.join(project.src, 'schemas', 'entities')
-  if (!existsSync(dir)) return undefined
-  const declaration = new RegExp(`\\bexport\\s+const\\s+${camelOf(entity)}Schema\\b`)
-  const found = readdirSync(dir)
-    .filter((file) => file.endsWith('.ts'))
-    .sort()
-    .find((file) => declaration.test(readFileSync(path.join(dir, file), 'utf8')))
-  return found ? `src/schemas/entities/${found}` : undefined
-}
-
-/**
- * A entidade do domínio (`Livro`), lida do contrato do repositório (a lista é `Page<LivroSchema>`;
- * sem ela, o primeiro `<X>Schema`) e, se o contrato não existe, do hook `use<Entidade>Detail` da
- * query. `undefined` se nenhum dos dois diz.
- */
-function entityOf(project: Project, domain: Names, queryText: string): string | undefined {
-  const contract = readIfExists(
-    path.join(project.src, 'repositories', domain.kebab, 'repository.contract.ts'),
-  )
-  const fromContract = contract ? contractEntity(contract) : undefined
-  return fromContract ?? /\buse([A-Z][A-Za-z0-9]*)Detail\b/.exec(queryText)?.[1]
-}
-
-/** O que a tela usa da query: a entidade e o hook de detalhe, conferidos no arquivo da query. */
-function queryOf(
-  project: Project,
-  domain: Names,
-  detail: boolean,
-): { entity: string | undefined } {
-  const file = queryFileOf(project, domain.kebab)
-  if (!file) {
-    throw new UsageError(
-      `a query '${domain.kebab}' não existe: falta src/queries/${domain.kebab}.ts; rode prumo make:query ${domain.kebab}.`,
-    )
-  }
-  const text = readFileSync(file, 'utf8')
-  const list = `use${domain.pascal}List`
-  if (!new RegExp(`\\b${list}\\b`).test(text)) {
-    throw new UsageError(
-      `a query '${domain.kebab}' não tem o hook ${list} em ${displayPath(project.root, file)}: o model da tela lê a lista por ele; rode prumo make:query ${domain.kebab}.`,
-    )
-  }
-  const entity = entityOf(project, domain, text)
-  if (detail) {
-    const hook = entity ? `use${entity}Detail` : undefined
-    if (!entity || !new RegExp(`\\b${hook}\\b`).test(text)) {
-      throw new UsageError(
-        `a query '${domain.kebab}' não tem o hook use<Entidade>Detail em ${displayPath(project.root, file)}: a tela de detalhe (--query com um caminho com parâmetro) busca o registro por ele.`,
-      )
-    }
-  }
-  return { entity }
-}
-
-/**
- * O que a tela mostra do registro: o primeiro campo de texto do schema que o projeto tem hoje
- * (lido de um jeito tolerante, veja `domainShapeOf`), ou o `id`, com um aviso. Com `needSample` (a
- * tela de detalhe, cujo teste confere o texto), um campo sem valor nas fixtures também cai no `id`.
- */
-function shapeOf(
-  project: Project,
-  domain: Names,
-  entity: string | undefined,
-  needSample: boolean,
-): DomainShape {
-  const found = entity ? schemaFileOf(project, entity) : undefined
-  const file = found ?? 'src/schemas/entities/<entidade>.ts'
-  const fixturesFile = `src/repositories/${domain.kebab}/fixtures.ts`
-  const fixtures = readIfExists(path.join(project.root, fixturesFile))
-  const shape = domainShapeOf(
-    {
-      file,
-      source: found ? readIfExists(path.join(project.root, found)) : undefined,
-      camel: entity ? camelOf(entity) : undefined,
-    },
-    fixtures,
-  )
-  if (!needSample || shape.field === 'id' || shape.sample !== undefined) return shape
-  return {
-    field: 'id',
-    ...domainIdSample(fixtures),
-    warning: `não achei o valor de '${shape.field}' no primeiro registro de ${fixturesFile}: a tela mostra o id do registro. Troque pelo campo certo na view (e no teste).`,
-  }
-}
-
 /**
  * Monta o plano de uma tela nova: `index`, `model`, `view` e o teste a partir dos modelos, as
- * mensagens (`title` e, com `--query`, os textos de carregando e de erro) em cada idioma, o
- * namespace nos índices de mensagens e a rota no `src/App.tsx`. São quatro variações: só o título;
- * com `query`, a lista; com parâmetro na rota, a tela que o lê; com os dois, o detalhe. Nada vai
- * para o disco: quem chama mostra o `summary()` ou faz o `commit()`. Valida os nomes, a query e a
- * rota antes de montar qualquer coisa; todo erro de uso é um `UsageError` (saída 2).
+ * mensagens em cada idioma, o namespace nos índices de mensagens e a rota no `src/App.tsx`. São
+ * três variações: só o título; com parâmetro na rota, a tela que o lê; com `useCase`, a lista, o
+ * detalhe ou o formulário dele. Nada vai para o disco: quem chama mostra o `summary()` ou faz o
+ * `commit()`. Valida os nomes, o use case e a rota antes de montar qualquer coisa; todo erro de uso
+ * é um `UsageError` (saída 2).
  */
 export function generatePage(
   project: Project,
-  { name, query, route }: PageRequest,
+  { name, route, useCase }: PageRequest,
   { plan = new ChangePlan(project), languages }: PageOptions = {},
 ): PageResult {
-  const names = usableNames(name, 'o nome da tela')
-  let domain: Names | undefined
-  if (query !== undefined) {
-    assertValidName(query, 'o nome do domínio da query')
-    domain = deriveNames(query)
-  }
-  if (existsSync(path.join(project.pages, names.kebab))) {
-    throw new UsageError(
-      `a tela '${names.kebab}' já existe: a pasta src/pages/${names.kebab} está no projeto.`,
-    )
-  }
-  const pagePath = route ?? `/${names.kebab}`
+  const names = pageNames(name)
+  assertPageFree(project, names)
+  const pagePath = route ?? `/${names.path}`
   const routePath = parseRoutePath(pagePath)
-  const detailPage = domain !== undefined && routePath.param !== undefined
-  const used = domain ? queryOf(project, domain, detailPage) : undefined
-  const shape = domain ? shapeOf(project, domain, used?.entity, detailPage) : undefined
-  // O id do primeiro registro das fixtures: o teste de detalhe abre a rota com ele
-  const firstId = domain
-    ? (domainIdSample(readIfExists(path.join(project.src, 'repositories', domain.kebab, 'fixtures.ts')))
-        .sample ?? 'registro-1')
-    : 'exemplo'
-  if (detailPage && routePath.param === `use${used?.entity}Detail`) {
-    throw new UsageError(
-      `o parâmetro ':${routePath.param}' tem o nome do hook de detalhe que o model gerado chama: use outro, como :id.`,
-    )
-  }
+  const usecasePage = useCase === undefined ? undefined : useCasePage(plan, useCase, routePath)
   const messageLangs = languages ?? messageLanguages(project)
 
   const vars = {
     ...nameVars('page', names),
-    ...(domain ? nameVars('domain', domain) : {}),
-    ...(shape
-      ? {
-          'field.name': shape.field,
-          'field.sample': literal(shape.sample ?? firstId),
-        }
-      : {}),
+    'page.path': names.path,
     'route.path': pagePath,
     ...(routePath.param
       ? {
           'param.name': routePath.param,
           'param.example': 'exemplo',
-          'route.example': routePath.example(detailPage ? firstId : 'exemplo'),
-          ...(detailPage ? { 'detail.hook': `use${used?.entity}Detail` } : {}),
+          'route.example': routePath.example(usecasePage?.kind === 'detail' ? usecasePage.firstId : 'exemplo'),
         }
       : {}),
+    ...usecasePage?.vars,
   }
-  const files = detailPage
-    ? PAGE_DETAIL_FILES
-    : routePath.param
-      ? PAGE_PARAM_FILES
-      : domain
-        ? PAGE_LIST_FILES
-        : PAGE_FILES
+  const files = usecasePage?.files ?? (routePath.param ? PAGE_PARAM_FILES : PAGE_FILES)
+  const variant: MessagesVariant = usecasePage ? `usecase-${usecasePage.kind}` : 'title'
   for (const { template, to } of files) {
     plan.createSource(
       path.join(project.root, renderTemplate(to, vars)),
@@ -348,14 +236,14 @@ export function generatePage(
   for (const language of messageLangs) {
     plan.createText(
       path.join(project.messages, language, `${names.kebab}.json`),
-      renderTemplateFile(messagesTemplate(messagesLanguageOf(language), domain !== undefined), vars),
+      renderTemplateFile(messagesTemplate(messagesLanguageOf(language), variant), vars),
     )
   }
 
   registerMessageNamespace(plan, names.kebab, names.camel, messageLangs)
   addRouteSnippet(plan, {
     component: `${names.pascal}Page`,
-    importPath: `@/pages/${names.kebab}`,
+    importPath: `@/pages/${names.path}`,
     path: pagePath,
     element: routeElement(names, pagePath),
   })
@@ -363,7 +251,7 @@ export function generatePage(
     plan,
     names,
     route: pagePath,
-    warnings: shape?.warning ? [shape.warning] : [],
-    ...(domain ? { query: domain } : {}),
+    warnings: usecasePage?.warnings ?? [],
+    ...(usecasePage ? { useCase: usecasePage } : {}),
   }
 }

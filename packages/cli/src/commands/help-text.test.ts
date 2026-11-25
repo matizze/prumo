@@ -13,8 +13,6 @@ async function help(argv: string[], columns?: number): Promise<{ code: number; o
 const ANCHORS: Record<string, string> = {
   new: 'prumo-new',
   'make:schema': 'prumo-makeschema',
-  'make:repository': 'prumo-makerepository',
-  'make:query': 'prumo-makequery',
   'make:page': 'prumo-makepage',
   check: 'prumo-check',
   list: 'prumo-list',

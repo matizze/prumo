@@ -58,7 +58,7 @@ export const api = createHttp({
 })
 ```
 
-O endereço vem da `VITE_API_URL`; vazia, vale como ausente (`/api`), e a barra no fim é aparada. Sem login, deixe como está: o cliente só envia o corpo. Com login, o token vem da sessão (que é lida fora do React, por isso é um módulo puro): descomente o `auth` e importe o `appSession` do app. Veja [Sessão e login](auth.md).
+O endereço vem da `VITE_API_URL`; vazia, vale como ausente (`/api`), e a barra no fim é aparada. Sem login, deixe como está: o cliente só envia o corpo. Com login, o token vem da sessão (que é lida fora do React, por isso é um módulo puro): descomente o `auth` e importe o `appSession` do app. Veja [Login e sessão](auth.md).
 
 Três pontos do tratamento do 401:
 
@@ -135,7 +135,7 @@ A fonte vale para todos os use cases do app. Reinicie o `pnpm dev` ao mudar o `.
 
 ## 4. Rode o contrato contra uma API de teste
 
-Cada use case traz, no `.usecase.test.ts`, o mesmo contrato rodando contra o `http` de mentira e, com `API_TEST_URL`, contra a API:
+Cada use case traz, no `.usecase.test.ts`, o mesmo contrato rodando contra o `http` de mentira e, com `API_TEST_URL`, contra a API (num use case avulso, como o `auth.sign-in`, o `create` é `new SignInUseCase(createHttp({ baseUrl: apiTestUrl ?? '' }))`):
 
 ```ts
 const apiTestUrl = process.env.API_TEST_URL
@@ -143,7 +143,8 @@ const apiTestUrl = process.env.API_TEST_URL
 describe.skipIf(!apiTestUrl)('ListClientesUseCase contra a API de teste (pulado: defina API_TEST_URL)', () => {
   runContractSuite(listClientesContract, {
     name: 'API',
-    create: () => new ListClientesUseCase(createHttp({ baseUrl: apiTestUrl ?? '' })),
+    create: () =>
+      createClientesUseCases({ http: createHttp({ baseUrl: apiTestUrl ?? '' }), storage: localStorage }),
   })
 })
 ```
@@ -163,7 +164,7 @@ Muitas APIs públicas de demonstração só **simulam** as escritas: o `POST` re
 O use case é seu depois de gerado: edite o `.types.ts` e o `.usecase.ts` onde a API difere.
 
 - **Outro formato de lista.** Se a API responde `{ data, meta: { total } }`, converta no `execute` antes do `parse`: o Output da lista é sempre `{ items, total }`.
-- **Erros do domínio.** O 404 já vira `UIError('CLIENTE_NOT_FOUND')`. Um 403 pode virar `UIError('SEM_PERMISSAO')` e a rede fora do ar, `UIError('API_INDISPONIVEL')`, cada um com texto em `errors.<CÓDIGO>`. Os outros erros do `HttpError` viram `<AÇÃO>_FAILED`, e a interface mostra a mensagem do `errors.json`.
+- **Erros do domínio (`HttpError` → `UIError`).** O `http` lança `HttpError` (com `status` e `body`), e o `execute` o traduz: o 404 já vira `UIError('CLIENTE_NOT_FOUND')`, e os outros viram `<AÇÃO>_FAILED`. Acrescente os seus no `catch` do `.usecase.ts`: um 403 pode virar `UIError('SEM_PERMISSAO')`, e um 401 do login, `UIError('AUTH_INVALID_CREDENTIALS')`, cada um com texto em `errors.<CÓDIGO>` nos dois idiomas. A interface mostra a mensagem do `errors.json` (veja [Erros e notificações](errors-and-notifications.md)).
 - **Outro método ou outro caminho.** O `ENDPOINT` de cada use case está no `.types.ts`; troque o método e o caminho ali, e o mock (que responde por esse mesmo endereço) acompanha.
 - **Mock de outra forma.** O handler do `.mock.ts` responde pelo `ENDPOINT`; ajuste a resposta de exemplo ao formato novo.
 

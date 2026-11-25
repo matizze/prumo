@@ -4,7 +4,7 @@ O jeito mais simples de usar o Prumo é começar pelo `prumo new`. Mas um app Re
 
 | Nível                         | O que você ganha                                                    | O que o projeto precisa                                   |
 | ----------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------- |
-| 1. As regras                  | Aviso no editor e análise da arquitetura no `pnpm check`             | Telas em pastas, com `index`, `model` e `view`             |
+| 1. As regras                  | Aviso no editor e análise da arquitetura no `pnpm check`             | Telas em pastas, com `index`, `model` e `view`; use cases em `src/use-cases` (se houver) |
 | 2. A infraestrutura do core   | Cliente HTTP e mock, use cases, query keys, i18n tipado, erros com código | React, TanStack Query, zod, i18next e wouter               |
 | 3. Os geradores               | `make:schema`, `make:usecase` e `make:page`                          | Os pontos de registro do app gerado                       |
 
@@ -31,7 +31,7 @@ export default [
 ]
 ```
 
-A config `recommended` liga `prumo/no-cross-page-import` e `prumo/page-structure` como erro, para arquivos `.ts` e `.tsx`. Cada regra só olha a pasta das telas, então ela vale para o projeto inteiro sem efeito no resto.
+A config `recommended` liga como erro `prumo/no-cross-page-import`, `prumo/page-structure`, `prumo/no-http-in-page` (uma tela não importa de `src/http`) e `prumo/use-case-imports` (um use case não importa de `src/pages`, de `react` nem de `@tanstack/*`), para arquivos `.ts` e `.tsx`. Cada regra só olha a sua pasta (`src/pages` ou `src/use-cases`), então elas valem para o projeto inteiro sem efeito no resto, e um projeto sem `src/use-cases` não é afetado pelas duas últimas.
 
 Se as telas não moram em `src/pages`, ou o alias não é `@/`, configure as regras:
 
@@ -88,6 +88,8 @@ O `prumo check` usa a estrutura padrão do Prumo: telas em `src/pages`, componen
 - **Import entre telas:** mova o que as duas usam para `src/components/shared`.
 - **Pasta fora do permitido em `src/components`:** distribua os componentes entre `ui` (design system), `shared` (do produto, usados por duas telas ou mais) e `layout` (a casca), ou mova-os para a tela que os usa.
 - **Componente de `shared` usado por uma tela só:** mova-o para `src/pages/<tela>/components/`.
+- **Tela que importa de `src/http` (`no-http-in-page`):** mova a chamada para um use case em `src/use-cases` e use-o no model.
+- **Use case que importa de React, do TanStack ou de uma tela (`use-case-imports`):** deixe o `useQuery` e o `useMutation` no model da tela; o use case fica só com a regra e o `http`.
 
 ## Nível 2: a infraestrutura do core
 
@@ -100,8 +102,8 @@ O core é dividido por módulo, e cada um tem um subcaminho próprio: importar o
 
 | Módulo                               | Para                                                                 | Guia                                                  |
 | ------------------------------------ | -------------------------------------------------------------------- | ----------------------------------------------------- |
-| `@matizze/prumo-core/http`, `/use-cases` | Cliente HTTP, mock por rota e o provedor dos use cases, com troca nos testes | [Domínios de dados](domains.md) e [Ligar uma API real](real-api.md) |
-| `@matizze/prumo-core/query`          | Query keys por domínio e `QueryClient` com notificação de erro       | [Erros e notificações](errors-and-notifications.md)   |
+| `@matizze/prumo-core/http`, `/use-cases` | Cliente HTTP, mock por rota e o provedor dos use cases, com troca nos testes | [Use cases](use-cases.md) e [Ligar uma API real](real-api.md) |
+| `@matizze/prumo-core/query`          | Query keys e `QueryClient` com notificação de erro                   | [Erros e notificações](errors-and-notifications.md)   |
 | `@matizze/prumo-core/i18n`           | i18n tipado pelas mensagens, com ICU e formatadores                  | [Textos e idiomas](i18n.md)                           |
 | `@matizze/prumo-core/errors`         | `UIError` e a tradução do código do erro                             | [Erros e notificações](errors-and-notifications.md)   |
 | `@matizze/prumo-core/data`, `/mock`  | Tipos de página e ordenação, utilitários de mock em memória   | [Referência do core](../reference/core.md)            |
@@ -115,7 +117,7 @@ Os geradores criam arquivos que importam módulos do app (`@/i18n`, `@/test/rend
 
 O caminho mais curto para ter esses pontos num projeto existente:
 
-1. Crie um app de referência numa pasta temporária: `pnpm dlx @matizze/prumo-cli new referencia --no-install`.
+1. Crie um app de referência numa pasta temporária: `pnpm dlx @matizze/prumo-cli new referencia --no-install`. Um app que tem `make:repository` e `make:query` segue o [guia de migração](migrate-to-use-cases.md).
 2. Copie para o seu projeto o que faltar: `src/i18n.ts`, `src/providers/`, `src/http/api.ts`, `src/use-cases/` (o registro, `deps.ts`, `options.ts`), `src/schemas/index.ts`, `src/test/` e as pastas `src/messages/<idioma>/` com o `index.ts`.
 3. Ajuste o `App.tsx` para ter um `<Switch>` do wouter com as rotas, e o alias `@/` no `tsconfig.json` e no `vite.config.ts`.
 4. Rode um gerador com `--dry-run` para ver o que ele faria: se um ponto de registro falta ou tem outra forma, ele recusa com a explicação e código de saída 2, sem escrever nada.

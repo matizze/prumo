@@ -1,10 +1,10 @@
 # Agentes de IA
 
-O Prumo foi feito para ser usado tanto por pessoas quanto por agentes de IA. Um agente conhece o app por dois arquivos que o `prumo new` cria: o `AGENTS.md`, que explica as camadas e as regras, e o `.mcp.json`, que liga o agente ao servidor MCP do Prumo, o [`prumo mcp`](../reference/cli.md#prumo-mcp). Com os dois, ele gera domínios e telas pelas mesmas ferramentas que uma pessoa usa no terminal e passa pela mesma verificação (`pnpm verify`).
+O Prumo foi feito para ser usado tanto por pessoas quanto por agentes de IA. Um agente conhece o app por dois arquivos que o `prumo new` cria: o `AGENTS.md`, que explica as camadas e as regras, e o `.mcp.json`, que liga o agente ao servidor MCP do Prumo, o [`prumo mcp`](../reference/cli.md#prumo-mcp). Com os dois, ele gera schemas, use cases e telas pelas mesmas ferramentas que uma pessoa usa no terminal e passa pela mesma verificação (`pnpm verify`).
 
 ## O `AGENTS.md`
 
-O `AGENTS.md` gerado é curto de propósito: as camadas, as regras de convivência (telas isoladas, view sem dados, dado pelo use case, texto nos dois idiomas), a tabela de comandos, a seção do servidor MCP e uma linha sobre testes. Ele é do seu time: acrescente as convenções do produto (o design system, a API, o idioma, o que exige aprovação).
+O `AGENTS.md` gerado é curto de propósito: as camadas, as camadas (telas → use cases → http e schemas) e as regras de convivência (telas isoladas, view sem dados, dado pelo use case, texto nos dois idiomas), a tabela de comandos, a seção do servidor MCP e uma linha sobre testes. Ele é do seu time: acrescente as convenções do produto (o design system, a API, o idioma, o que exige aprovação).
 
 Vários agentes leem o `AGENTS.md` da raiz do projeto por conta própria. O Claude Code lê o `CLAUDE.md`: crie um com a linha abaixo para que ele importe o `AGENTS.md` (é o que o próprio repositório do Prumo faz):
 
@@ -58,9 +58,16 @@ Num app com o schema de `pedidos`, o agente chama `make_usecase` com:
 e recebe o texto da saída do `prumo make:usecase`:
 
 ```text
-prumo make:usecase: pedidos (CRUD de pedido).
+prumo make:usecase: pedidos --crud (entidade pedido).
+Campos (lidos do schema): numero (number), valor (number), status (string).
+Use cases (listPedidos, getPedido, createPedido, updatePedido, removePedido):
+  listPedidos  GET /pedidos
+  getPedido  GET /pedidos/:id
+  createPedido  POST /pedidos
+  updatePedido  PATCH /pedidos/:id
+  removePedido  DELETE /pedidos/:id
 
-Criados (21):
+Criados (22):
   src/use-cases/pedidos/collection.mock.ts
   src/use-cases/pedidos/create-pedido.mock.ts
   ...
@@ -76,11 +83,11 @@ Próximo passo: prumo make:page pedidos --usecase pedidos.list-pedidos
 Com `dry_run: true`, a chamada só diz o que faria, sem escrever nada. Antes de criar a tela, o agente pode conferir:
 
 ```json
-{ "nome": "pedidos", "query": "pedidos", "dry_run": true }
+{ "nome": "pedidos", "usecase": "pedidos.list-pedidos", "dry_run": true }
 ```
 
 ```text
-prumo make:page: pedidos (rota /pedidos, query pedidos) (simulação).
+prumo make:page: pedidos (rota /pedidos, use case pedidos.list-pedidos, lista) (simulação).
 
 Seriam criados (6):
   src/messages/en/pedidos.json
@@ -101,7 +108,7 @@ Simulação (--dry-run): nada foi escrito.
 Quando o comando falha, o resultado volta com `isError` e a mensagem em português, para o agente corrigir. Pedir uma tela com um use case que não existe, por exemplo, devolve:
 
 ```text
-prumo: o use case 'nada.list-nada' não existe: rode prumo make:usecase nada.list-nada.
+prumo: o use case 'nada.list-nada' não existe: falta src/use-cases/nada/list-nada.usecase.ts. Rode prumo make:usecase nada.list-nada (ou prumo list para ver o que há).
 ```
 
 A mensagem diz o que fazer, e o agente a segue (aqui, gerar o use case antes). O erro de opção ou argumento traz também a linha de uso do comando.
@@ -120,7 +127,7 @@ A ferramenta decide leitura ou escrita pelo verbo da ação (`get`, `list`, `sea
 
 ## O `list` antes de gerar
 
-A ferramenta `list` devolve o que o projeto já tem: os schemas com os campos, os use cases (domínio, ação, chave no registro, tipo e endpoint), os repositórios e suas fontes, as queries, as telas (rota, variação e query; a variação é `title`, `list`, `param` ou `detail`) e os idiomas. O agente a chama antes de gerar, para não repetir um domínio, escolher a query certa para a tela e saber a ordem das camadas que faltam. O resultado é o JSON do `prumo list --json`:
+A ferramenta `list` devolve o que o projeto já tem: os schemas com os campos, os use cases (domínio, ação, chave no registro, tipo e endpoint), as telas (rota, variação e o use case que o model chama; a variação é `title`, `list`, `param`, `detail` ou `form`) e os idiomas. O agente a chama antes de gerar, para não repetir um use case (as chaves do registro são únicas), escolher o use case certo para a tela e saber a ordem das camadas que faltam. O resultado é o JSON do `prumo list --json`:
 
 ```json
 {
@@ -137,9 +144,9 @@ A ferramenta `list` devolve o que o projeto já tem: os schemas com os campos, o
     }
   ],
   "useCases": [
-    { "domain": "pedidos", "name": "get-pedidos", "key": "getPedidos", "kind": "read", "endpoint": "GET /pedidos/get-pedidos" }
+    { "domain": "pedidos", "name": "list-pedidos", "key": "listPedidos", "kind": "read", "endpoint": "GET /pedidos" }
   ],
-    "pages": [
+  "pages": [
     { "name": "home", "route": "/", "routeKind": "literal", "routePartial": false, "variation": "title", "useCase": null }
   ],
   "languages": ["en", "pt-BR"]

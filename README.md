@@ -6,7 +6,7 @@
 [![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)](LICENSE)
 [![Documentação](https://img.shields.io/badge/docs-docs.prumo.matizze.com.br-0A7EA4)](https://docs.prumo.matizze.com.br)
 
-**Prumo cria e mantém aplicações React organizadas em camadas.** Ele gera a estrutura (telas, domínios de dados, textos em dois idiomas e testes) e confere a arquitetura a cada mudança, no terminal, no editor e para agentes de IA.
+**Prumo cria e mantém aplicações React organizadas em camadas.** Ele gera a estrutura (telas, use cases, schemas, textos em dois idiomas e testes) e confere a arquitetura a cada mudança, no terminal, no editor e para agentes de IA.
 
 O Prumo **não tem frontend**. Ele não traz componente de interface, ícone, tema, CSS nem Storybook: o código que ele gera usa só React e HTML semântico, e a interface é do seu produto, com o design system que você escolher.
 
@@ -15,11 +15,14 @@ pnpm dlx @matizze/prumo-cli new meu-app
 cd meu-app
 pnpm exec prumo make:schema clientes --fields "nome:string,email:string"
 pnpm exec prumo make:usecase clientes --crud
+pnpm exec prumo make:usecase auth.sign-in --input "email:string,password:string" --output "token:string"
 pnpm exec prumo make:page clientes --usecase clientes.list-clientes
-pnpm verify
+pnpm exec prumo check
 ```
 
-Em menos de um minuto, você tem um app com Vite, React 19, TypeScript, TanStack Query, zod e i18next, uma tela que lista clientes de um use case sobre um `http` de mentira (`mock`), o teste de cada use case, os textos em português e inglês e uma verificação que cobra a arquitetura.
+Em poucos minutos, você tem um app com Vite, React 19, TypeScript, TanStack Query, zod e i18next, uma tela que lista clientes por um use case rodando sobre um `http` de mentira (o mock, sem backend), o use case de entrar (`auth.sign-in`), o teste de cada use case, os textos em português e inglês e uma verificação que cobra a arquitetura. Para ligar a API de verdade, basta `VITE_DATA_SOURCE=http`.
+
+Documentação completa: **[docs.prumo.matizze.com.br](https://docs.prumo.matizze.com.br)**.
 
 ---
 
@@ -37,12 +40,12 @@ Em menos de um minuto, você tem um app com Vite, React 19, TypeScript, TanStack
 
 ## Por que o Prumo
 
-Todo time de frontend combina uma arquitetura e, poucos meses depois, encontra uma tela que busca dado direto na view, um componente "compartilhado" que só uma tela usa e um texto que existe em português e falta em inglês. O combinado vive num documento que ninguém relê.
+Todo time de frontend combina uma arquitetura e, poucos meses depois, encontra uma tela que busca dado direto na view, uma regra de negócio espalhada por três componentes e um texto que existe em português e falta em inglês. O combinado vive num documento que ninguém relê.
 
 O Prumo transforma o combinado em ferramenta:
 
 - **Gera do jeito certo.** `make:schema`, `make:usecase` e `make:page` criam, uma camada por comando, os arquivos a partir de modelos e fazem os registros (rota, textos, índices, registro de use cases). Ninguém copia uma tela antiga para começar outra.
-- **Confere sempre.** Um plugin de ESLint avisa no editor, e o `prumo check` analisa o projeto inteiro: estrutura das telas, imports entre telas, uso real dos componentes compartilhados e textos completos em todos os idiomas.
+- **Confere sempre.** Um plugin de ESLint avisa no editor, e o `prumo check` analisa o projeto inteiro: estrutura das telas, imports entre camadas, uso real dos componentes compartilhados e textos completos em todos os idiomas.
 - **Não amarra a interface.** As camadas de dados, textos e testes são as mesmas com qualquer design system. Trocar de biblioteca visual não muda a arquitetura.
 
 ## Começando
@@ -55,26 +58,18 @@ cd meu-app
 pnpm dev                                  # http://localhost:5173
 ```
 
-O passo a passo completo, do app vazio a uma tela com dados, textos e testes, está em [Primeiros passos](docs/getting-started.md).
+O passo a passo completo, do app vazio a uma tela de lista, um formulário e o `pnpm verify`, está em [Primeiros passos](docs/getting-started.md).
 
 ## A arquitetura
 
-```text
-src/
-  pages/<tela>/
-    index.tsx          liga a rota ao model e à view
-    model.ts           dados, textos e ações da tela, sem JSX
-    view.tsx           apresentação: recebe tudo por props
-    components/        componentes usados só por esta tela
-  components/
-    ui/                o design system do produto (seja qual for)
-    shared/            componentes usados por duas ou mais telas
-    layout/            a casca do app (cabeçalho, menu)
-  schemas/entities/    schemas zod das entidades
-  use-cases/<domínio>/     use cases: tipos, classe, mock e teste de cada ação
-  http/api.ts              a instância da API (VITE_API_URL)
-  messages/<idioma>/       textos por tela, em pt-BR e en
-```
+Tudo o que o app faz com dados é um **use case**: uma ação com nome de verbo (`getStores`, `signIn`), uma entrada (Input), uma saída (Output), as duas validadas com zod, e um `execute`. As telas chamam use cases, e os use cases falam com a API.
+
+| Camada    | Responde a                  | Pasta           |
+| --------- | --------------------------- | --------------- |
+| Interface | o que a pessoa vê e faz     | `src/pages`     |
+| Domínio   | o que o app **faz**         | `src/use-cases` |
+| Dados     | as **coisas** (entidades)   | `src/schemas`   |
+| Infra     | como o app fala com o mundo | `src/http`      |
 
 ```mermaid
 flowchart LR
@@ -82,13 +77,14 @@ flowchart LR
   index --> model["model.ts"]
   index --> view["view.tsx"]
   model -- props --> view
-  model --> usecases["use cases<br/>do domínio"]
+  model --> usecases["use cases<br/>(src/use-cases)"]
   model --> messages["textos<br/>(messages)"]
+  usecases --> schemas["schemas<br/>(zod)"]
   usecases --> http["http<br/>(API)"]
   usecases -.-> mock["http de mentira<br/>(mock)"]
 ```
 
-A view não busca dado nem guarda estado de dados; o model não tem JSX; uma tela não importa de outra; o dado chega por um use case, nunca por um `fetch` solto. O porquê de cada regra está em [Arquitetura](docs/concepts/architecture.md).
+A regra entre as camadas é uma só: **cada uma usa a de baixo, e nada aponta para cima**. A view não busca dado; o model não tem JSX; uma tela não importa de outra nem de `src/http`; um use case não importa de tela, de React nem do TanStack. O `prumo check` e o ESLint conferem. O porquê de cada regra está em [Arquitetura](docs/concepts/architecture.md).
 
 ## Comandos
 
@@ -122,13 +118,13 @@ A documentação completa está em [docs.prumo.matizze.com.br](https://docs.prum
 
 - **Tutorial:** [Primeiros passos](docs/getting-started.md)
 - **Conceitos:** [Arquitetura](docs/concepts/architecture.md) e [Anatomia do app gerado](docs/concepts/generated-app.md)
-- **Guias:** [telas](docs/guides/pages.md), [domínios de dados](docs/guides/domains.md), [ligar uma API real](docs/guides/real-api.md), [sessão e login](docs/guides/auth.md), [textos e idiomas](docs/guides/i18n.md), [erros e notificações](docs/guides/errors-and-notifications.md), [testes](docs/guides/test.md), [design system](docs/guides/design-system.md), [agentes de IA](docs/guides/ai-agents.md) e [projeto existente](docs/guides/existing-project.md)
+- **Guias:** [telas](docs/guides/pages.md), [use cases](docs/guides/use-cases.md), [ligar uma API real](docs/guides/real-api.md), [login e sessão](docs/guides/auth.md), [textos e idiomas](docs/guides/i18n.md), [erros e notificações](docs/guides/errors-and-notifications.md), [testes](docs/guides/test.md), [design system](docs/guides/design-system.md), [agentes de IA](docs/guides/ai-agents.md) e [projeto existente](docs/guides/existing-project.md)
 - **Referência:** [CLI](docs/reference/cli.md), [core](docs/reference/core.md), [rules](docs/reference/rules.md), [testing](docs/reference/testing.md)
 - [Perguntas frequentes e solução de problemas](docs/faq.md) e o [roadmap](docs/roadmap.md)
 
 ## Situação do projeto
 
-O Prumo está em versão `0.x` e é mantido pela Matizze. A estrutura que ele gera é estável; a API dos pacotes ainda pode mudar entre versões menores. O que vem depois está no [roadmap](docs/roadmap.md).
+O Prumo está em versão `0.x` e é mantido pela Matizze. A estrutura que ele gera é estável; a API dos pacotes ainda pode mudar entre versões menores (a troca do repository pelo use case, por exemplo, tem um [guia de migração](docs/guides/migrate-to-use-cases.md)). O que vem depois está no [roadmap](docs/roadmap.md).
 
 ## Contribuindo
 

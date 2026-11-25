@@ -10,13 +10,30 @@ O Prumo separa os três em camadas com fronteiras que uma ferramenta consegue ve
 
 | Assunto                  | Onde mora                                                          | Quem conhece                     |
 | ------------------------ | ------------------------------------------------------------------ | -------------------------------- |
-| De onde vêm os dados     | `schemas/`, `use-cases/`, `http/` | O model da tela |
+| De onde vêm os dados     | `use-cases/`, `schemas/`, `http/`                                  | O model da tela, só pelos use cases |
 | O que a tela diz         | `messages/<idioma>/<tela>.json`                                    | O model da tela                  |
 | Como a tela aparece      | `view.tsx` e os componentes                                        | Só a view                        |
 
 A **view** não conhece nenhuma das duas primeiras camadas: recebe tudo do model por props. Por isso o Prumo pode gerar views só com HTML semântico e deixar a interface inteira para o produto.
 
-## As camadas
+## As camadas em dois minutos
+
+O app tem quatro camadas, cada uma com uma pergunta e uma pasta:
+
+| Camada    | Responde a                  | Pasta           | Quem a usa                |
+| --------- | --------------------------- | --------------- | ------------------------- |
+| Interface | o que a pessoa vê e faz     | `src/pages`     | a rota                    |
+| Domínio   | o que o app **faz**         | `src/use-cases` | o model da tela           |
+| Dados     | as **coisas** (entidades)   | `src/schemas`   | os use cases              |
+| Infra     | como o app fala com o mundo | `src/http`      | os use cases              |
+
+A regra entre elas é uma só: **a tela chama um use case; o use case usa o `http`, o `storage` do navegador ou outros use cases; nada aponta para cima.** Por isso:
+
+- a tela não importa de `src/http` (`prumo/no-http-in-page`): quem fala com a API é o use case;
+- o use case não importa de `src/pages`, de `react` nem do TanStack (`prumo/use-case-imports`): ele não sabe que existe uma interface;
+- uma tela não importa de outra (`prumo/no-cross-page-import`).
+
+**Por que assim.** Trocar a API (ou trabalhar sem ela, com o mock) não mexe nas telas; trocar a biblioteca visual não mexe nos use cases; e cada regra de negócio mora num lugar só, com nome de verbo e um teste ao lado, em vez de espalhada por componentes. O `prumo check` e o ESLint cobram as fronteiras a cada `pnpm verify`.
 
 ```mermaid
 flowchart TB
@@ -66,36 +83,81 @@ Um componente que só uma tela usa não é compartilhado: mora na pasta da tela.
 
 ### Use cases
 
-O **use case** é o caminho novo para tudo o que o app faz com dados: uma ação com nome de verbo (`getStores`, `signIn`, `addItem`), com um Input, um Output e um `execute`. É o padrão do frontend do pratigo, com três acréscimos do Prumo: validação com zod, mock para trabalhar sem backend e um teste em cada use case. O `prumo make:usecase` cria um por vez, ou os cinco de um CRUD com `--crud`.
+O **use case** é o único caminho para tudo o que o app faz com dados: uma ação com nome de verbo (`getStores`, `signIn`, `addItem`), com um Input, um Output e um `execute`. É o padrão do frontend do pratigo, com três acréscimos do Prumo: **validação com zod**, **mock para trabalhar sem backend** e **um teste em cada use case**. O `prumo make:usecase` cria um por vez, ou os cinco de um CRUD com `--crud`; o guia [Use cases](../guides/use-cases.md) mostra o dia a dia.
 
-| Camada     | Responde a                       | Pasta            |
-| ---------- | -------------------------------- | ---------------- |
-| Interface  | o que a pessoa vê e faz          | `src/pages`      |
-| Domínio    | o que o app **faz**              | `src/use-cases`  |
-| Dados      | as **coisas** (as entidades)     | `src/schemas`    |
-| Infra      | como o app fala com o mundo      | `src/http`       |
+Cada use case é uma classe que recebe as dependências no construtor. O Input e o Output são schemas zod (cada um com o tipo de mesmo nome), e o `execute` valida o Input, faz o trabalho e valida o Output:
 
-A tela chama o use case; o use case usa o `http`, o `storage` do navegador ou outros use cases; nada aponta para cima. Cada use case é uma classe (`SignInUseCase implements IUseCase<SignInInput, SignInOutput>`) que recebe as dependências no construtor, e o model da tela a pega do registro:
+```ts
+// src/use-cases/auth/sign-in.types.ts
+export const ENDPOINT = { method: 'POST', path: '/auth/sign-in' } as const
+
+export const SignInInput = z.object({ email: z.string(), password: z.string() })
+export type SignInInput = z.infer<typeof SignInInput>
+
+export const SignInOutput = z.object({ token: z.string() })
+export type SignInOutput = z.infer<typeof SignInOutput>
+```
+
+```ts
+// src/use-cases/auth/sign-in.usecase.ts
+export class SignInUseCase implements IUseCase<SignInInput, SignInOutput> {
+  readonly #http: Http
+
+  constructor(http: Http) {
+    this.#http = http
+  }
+
+  /** Um erro da API vira `UIError` SIGN_IN_FAILED. */
+  async execute(input: SignInInput): Promise<SignInOutput> {
+    const body = SignInInput.parse(input)
+    try {
+      const response = await this.#http(ENDPOINT.path, { method: ENDPOINT.method, body })
+      return SignInOutput.parse(response)
+    } catch (error) {
+      if (error instanceof HttpError) throw new UIError('SIGN_IN_FAILED', error.message)
+      throw error
+    }
+  }
+}
+```
+
+O model da tela pega o use case do registro e o usa com o TanStack Query:
 
 ```ts
 const { signIn } = useUseCases()
 const login = useMutation({ mutationFn: (input: SignInInput) => signIn.execute(input) })
 ```
 
-O **mock fica no transporte, não no use case**: com `VITE_DATA_SOURCE=mock` (o padrão), o registro recebe um `http` de mentira (`createMockHttp`, do core), que responde a cada `ENDPOINT` com a rota do `*.mock.ts`. O código do use case que roda no desenvolvimento e nos testes é o mesmo que vai para produção, e só a rede é trocada. Os arquivos e a anatomia estão em [`prumo make:usecase`](../reference/cli.md#prumo-makeusecase) e na [anatomia do app](generated-app.md#os-use-cases).
+- **Leitura ou escrita**, pelo verbo: `get`, `list`, `search`, `find`, `check` e `count` são **leitura** (a tela usa com `useQuery`, e o use case ganha uma chave de cache, com o domínio no prefixo); o resto é **escrita** (`useMutation`, e o `onSuccess` invalida o prefixo do domínio). `--read` e `--write` forçam o tipo.
+- **`--local`**: um use case sem API, que usa o `storage` do navegador (o `localStorage`) ou outros use cases, como um carrinho. Não tem `ENDPOINT` nem mock, porque já roda no navegador.
+- **O erro** é um `UIError` com código estável (`SIGN_IN_FAILED`, `LIVRO_NOT_FOUND`): o use case não conhece idioma, e a interface traduz o código. Veja [Erros e notificações](../guides/errors-and-notifications.md).
+- **O registro** (`src/use-cases/index.ts`) junta os use cases de todos os domínios; as chaves são únicas no app, e o `prumo make:usecase` recusa uma repetida. Os testes trocam um use case pelo `renderWithProviders`, sem mock de módulo.
 
-### Domínios de dados
+O **mock fica no transporte, não no use case**. O registro recebe um `http`: com `VITE_DATA_SOURCE=mock` (o padrão, sem a variável), é um `http` de mentira (`createMockHttp`, do core) que responde a cada `ENDPOINT` com a rota do `*.mock.ts`; com `VITE_DATA_SOURCE=http`, é a API (`src/http/api.ts`). O código do use case que roda no desenvolvimento e nos testes é o mesmo que vai para produção, e só a rede é trocada (a ideia do MSW, sem dependência). Qualquer outro valor de `VITE_DATA_SOURCE` é erro, para a configuração errada não passar em silêncio.
 
-Um domínio (clientes, pedidos, produtos) tem duas partes, cada uma numa pasta:
+```mermaid
+flowchart LR
+  tela["model da tela"] --> uc["use case<br/>(Input, Output, execute)"]
+  uc --> t{"VITE_DATA_SOURCE"}
+  t -- "mock (padrão)" --> mock["http de mentira<br/>(os .mock.ts)"]
+  t -- http --> api["http<br/>(src/http/api.ts)"]
+  api --> back[("API")]
+```
 
-- **Schema** (`src/schemas/entities/<entidade>.ts`): o schema zod da entidade e os tipos derivados dele (a entidade, a entrada de criar e editar, a consulta da lista). É a fonte da verdade sobre a forma do dado.
-- **Use cases** (`src/use-cases/<domínio>/`): as ações do domínio (`listClientes`, `getCliente`, `createCliente`, `updateCliente`, `removeCliente`), cada uma com o Input, o Output, o mock e o teste. A tela escolhe o use case pelo `useUseCases()`, nunca por um import direto, e as mutations atualizam o cache do domínio (invalidam as queries afetadas).
+Os arquivos de cada use case e a anatomia do registro estão em [`prumo make:usecase`](../reference/cli.md#prumo-makeusecase) e em [Anatomia do app gerado](generated-app.md#os-use-cases).
 
-O **registro** (`src/use-cases/index.ts`) junta os use cases de todos os domínios e as rotas de mock deles. Os testes trocam um use case pelo `renderWithProviders`, sem mock de módulo.
+### Schemas e domínios
+
+Um domínio (clientes, pedidos, produtos) agrupa os use cases de uma entidade e tem duas partes, cada uma numa pasta:
+
+- **Schema** (`src/schemas/entities/<entidade>.ts`): o schema zod da entidade e os tipos derivados dele (a entidade, a entrada de criar e editar, a consulta da lista). É a fonte da verdade sobre a forma do dado, e vários use cases o usam.
+- **Use cases** (`src/use-cases/<domínio>/`): as ações do domínio (`listClientes`, `getCliente`, `createCliente`, `updateCliente`, `removeCliente`), cada uma com o Input, o Output, o mock e o teste. A tela escolhe o use case pelo `useUseCases()`, nunca por um import direto, e as mutations invalidam o cache do domínio.
+
+Nem todo use case é de uma entidade: `auth.sign-in` não tem schema, e `cart.add-item --local` não tem API.
 
 ### Regras de negócio e operações entre domínios
 
-O que não é CRUD de um domínio só tem lugar fixo por convenção (o Prumo não gera nem cobra): as **regras** são funções puras em `src/rules/` (recebem os dados e "hoje" como argumento), e as **operações que envolvem mais de um domínio** são use cases próprios, que recebem os outros use cases, aplicam as regras e devolvem o resultado (a tela invalida os domínios afetados). O model da tela usa as mesmas regras para ligar e desligar ações. Veja [Regras de negócio e operações entre domínios](../guides/domains.md#regras-de-negócio-e-operações-entre-domínios).
+O que não é CRUD de um domínio só tem lugar fixo por convenção (o Prumo não gera nem cobra): as **regras** são funções puras em `src/rules/` (recebem os dados e "hoje" como argumento), e as **operações que envolvem mais de um domínio** são use cases próprios, que recebem os outros use cases, aplicam as regras e devolvem o resultado (a tela invalida os domínios afetados). O model da tela usa as mesmas regras para ligar e desligar ações. Veja [Regras de negócio e operações entre domínios](../guides/use-cases.md#regras-de-negócio-e-operações-entre-domínios).
 
 ### Textos (`src/messages/<idioma>/`)
 
@@ -103,7 +165,7 @@ Cada tela tem um JSON por idioma, com o mesmo nome da tela. O `index.ts` de cada
 
 ### Provedores e infraestrutura
 
-`src/providers/` reúne o que envolve o app: o `QueryClient` (com o tratamento global de erro), o i18n, o provedor dos use cases e, se o app tem login, a sessão (`src/providers/session/`, veja [Sessão e login](../guides/auth.md)). A infraestrutura vem do `@matizze/prumo-core`, e o app guarda só a configuração: quais idiomas, quais fontes de dados, como notificar um erro.
+`src/providers/` reúne o que envolve o app: o `QueryClient` (com o tratamento global de erro), o i18n, o provedor dos use cases e, se o app tem login, a sessão (`src/providers/session/`, veja [Login e sessão](../guides/auth.md)). A infraestrutura vem do `@matizze/prumo-core`, e o app guarda só a configuração: quais idiomas, quais fontes de dados, como notificar um erro.
 
 ## As regras
 
@@ -150,7 +212,7 @@ Algumas convenções não são cobradas por regra, mas o código gerado as segue
 O Prumo decide **onde** cada coisa mora e **como** as camadas se falam. Ele não decide:
 
 - **A interface.** Nenhum componente visual, ícone, tema, token ou CSS. Use o design system que quiser em `src/components/ui`.
-- **A API e a autenticação.** O Prumo gera o contrato, um repositório `mock` (em memória) e, se você pedir com `--data-source`, as fontes `storage` e `http` (o `fetch` num cliente simples, com o formato da API que o app espera); a sessão e a API em si são do produto (os guias [Ligar uma API real](../guides/real-api.md) e [Sessão e login](../guides/auth.md) mostram um jeito).
+- **A API e a sessão.** O Prumo gera os use cases, o mock no transporte e o `createHttp` para a API que o app espera; a API em si é do produto (veja [Ligar uma API real](../guides/real-api.md)). O login tem o use case e a tela (`auth.sign-in` e `auth.login`) e o `AuthGuard` do core; a sessão de verdade (o token guardado, a renovação, o logout) é a próxima etapa, no [roadmap](../roadmap.md): hoje o produto a escreve, e o guia [Login e sessão](../guides/auth.md) mostra um jeito.
 - **As regras de negócio.** O Prumo diz onde elas moram (`src/rules/`), não quais são.
 - **O estado global de interface.** Estado de tela fica no model; se o produto precisar de um store global, é escolha dele.
 

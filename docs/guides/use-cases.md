@@ -1,8 +1,105 @@
-# Domínios de dados
+# Use cases
 
-Um domínio é um conjunto de dados do produto, como clientes, pedidos ou produtos. No Prumo, o dado tem duas camadas, cada uma com o seu comando: `make:schema` (a forma do dado) e `make:usecase` (o que o app faz com ele: listar, ler, criar, editar, remover). Este guia mostra como criar um domínio, escolher os campos, mudar a forma do dado, filtrar a lista, guardar regras de negócio e apagar o domínio. Quem vem de um app com `make:repository` e `make:query` encontra o caminho em [Migrar para use cases](migrate-to-use-cases.md).
+Um **use case** é uma ação que o app faz com dados, com nome de verbo: `getStores`, `signIn`, `addItem`. Ele tem um **Input** e um **Output** (os dois são schemas zod) e um **`execute`**. É o único caminho do dado até a tela: a tela chama o use case, e o use case fala com a API (ou com o navegador, ou com outros use cases). O [porquê das camadas](../concepts/architecture.md#as-camadas-em-dois-minutos) está na arquitetura; este guia mostra como criar use cases, escolher os campos, mudar a forma do dado, filtrar a lista, guardar regras de negócio e apagar um domínio. Quem vem de um app com `make:repository` e `make:query` encontra o caminho em [Migrar para use cases](migrate-to-use-cases.md).
 
-## Criar um domínio
+São duas camadas de dados, cada uma com o seu comando: `make:schema` (a **entidade**, a forma do dado, usada por vários use cases) e `make:usecase` (a **ação**, o que o app faz com ele).
+
+## Um use case de cada vez
+
+O nome é `<domínio>.<ação>`, em kebab-case: o domínio dá a pasta (`src/use-cases/auth/`), e a ação dá a classe (`SignInUseCase`) e a chave no registro (`signIn`, o que a tela lê de `useUseCases()`). As chaves são únicas no app, e o comando recusa uma repetida.
+
+O verbo decide se é **leitura** (`get`, `list`, `search`, `find`, `check` e `count`: a tela usa com `useQuery`) ou **escrita** (o resto: `useMutation`); `--read` e `--write` forçam o tipo. Uma entrada de login:
+
+```bash
+pnpm exec prumo make:usecase auth.sign-in --input "email:string,password:string" --output "token:string"
+```
+
+```text
+prumo make:usecase: auth.sign-in (escrita, POST /auth/sign-in).
+
+Criados (5):
+  src/use-cases/auth/index.ts
+  src/use-cases/auth/sign-in.mock.ts
+  src/use-cases/auth/sign-in.types.ts
+  src/use-cases/auth/sign-in.usecase.test.ts
+  src/use-cases/auth/sign-in.usecase.ts
+
+Alterados (3):
+  src/messages/en/errors.json
+  src/messages/pt-BR/errors.json
+  src/use-cases/index.ts
+
+Próximo passo: no model da tela, const { signIn } = useUseCases() e useMutation({ mutationFn: (input) => signIn.execute(input) }).
+```
+
+| Opção                  | O que faz                                                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `--input <campos>`     | Os campos do Input (`"email:string,password:string"`, a mesma sintaxe do [`--fields`](#os-campos-do-schema---fields))           |
+| `--output <campos>`    | Os campos do Output, ou o nome de uma entidade que já tem schema: `--output cliente`, ou `--output cliente[]` para a lista     |
+| `--endpoint "<MÉTODO> <caminho>"` | O endereço da API (`"PATCH /livros/:id"`; cada `:parâmetro` sai do campo do Input de mesmo nome). Padrão: `GET /<domínio>/<ação>` na leitura e `POST /<domínio>/<ação>` na escrita |
+| `--local`              | Um use case sem API, que usa o `storage` do navegador                                                                           |
+| `--crud`               | Os cinco use cases de uma entidade, de uma vez ([abaixo](#criar-um-domínio-com-crud))                                           |
+
+Sem `--input` e `--output`, o Input é um objeto vazio e o Output é `z.unknown()`, e o comando avisa para você preencher o `.types.ts`. Todas as opções estão na [referência](../reference/cli.md#prumo-makeusecase).
+
+### O que sai de um use case
+
+Cada ação tem quatro arquivos, um ao lado do outro:
+
+```text
+src/use-cases/auth/
+  index.ts                 createAuthUseCases(deps) e as rotas de mock do domínio
+  sign-in.types.ts         ENDPOINT, SignInInput e SignInOutput (e, na leitura, a chave de cache)
+  sign-in.usecase.ts       SignInUseCase
+  sign-in.mock.ts          a rota de mock do ENDPOINT
+  sign-in.usecase.test.ts  o teste, contra o mock e, com API_TEST_URL, contra a API
+```
+
+O `execute` valida o Input com zod, chama o `http` no `ENDPOINT` e valida a resposta com o Output; um erro da API vira um `UIError` com código (`SIGN_IN_FAILED`), cujo texto o comando já põe nos `errors.json` dos dois idiomas. O `.mock.ts` devolve uma resposta de exemplo no formato do Output, e é ele que responde enquanto a API não existe:
+
+```ts
+// src/use-cases/auth/sign-in.mock.ts
+export const signInRoutes = {
+  [`${ENDPOINT.method} ${ENDPOINT.path}` as const]: (): SignInOutput => ({ token: 'Token 1' }),
+}
+```
+
+O mock **não** é uma implementação à parte: o use case de verdade roda sobre um `http` de mentira (`createMockHttp`, do core). Com `VITE_DATA_SOURCE=http`, o mesmo código roda sobre a API ([Ligar uma API real](real-api.md)).
+
+### Um use case sem API (`--local`)
+
+Para dados que moram só no navegador, como o carrinho de uma loja:
+
+```bash
+pnpm exec prumo make:usecase cart.add-item --local --input "productId:string,quantity:int"
+```
+
+A classe recebe o `storage` (o `localStorage`, que o registro passa em `deps`), não tem `ENDPOINT`, mock nem erro de API, e o teste roda com o `localStorage` do jsdom. O `execute` guarda o Input no `storage` como exemplo, com o lugar da sua regra marcado num comentário:
+
+```ts
+// src/use-cases/cart/add-item.usecase.ts
+export class AddItemUseCase implements IUseCase<AddItemInput, AddItemOutput> {
+  readonly #storage: Storage
+
+  constructor(storage: Storage) {
+    this.#storage = storage
+  }
+
+  async execute(input: AddItemInput): Promise<AddItemOutput> {
+    const parsed = AddItemInput.parse(input)
+    // A regra do use case entra aqui. O exemplo guarda o Input no localStorage.
+    this.#storage.setItem(STORAGE_KEY, JSON.stringify(parsed))
+    // Troque o resultado de exemplo pelo que a regra calcula.
+    return AddItemOutput.parse({})
+  }
+}
+```
+
+### Usar o use case na tela
+
+O model pega o use case de `useUseCases()` e o liga ao TanStack Query: `useQuery` para leitura (a chave de cache é a `<ação>Key(input)` do `.types.ts`, com o domínio no prefixo) e `useMutation` para escrita. Uma escrita invalida o prefixo do domínio (`['livros']`) no `onSuccess`, e as listas e os detalhes se atualizam sozinhos. O `make:page --usecase` já gera o model assim: veja [Telas](pages.md#telas-a-partir-de-um-use-case).
+
+## Criar um domínio com CRUD
 
 ```bash
 pnpm exec prumo make:schema clientes --fields "nome:string,email:string,ativo:boolean"
@@ -32,7 +129,7 @@ O que cada comando cria, para `clientes`:
 
 Os comandos também registram o domínio: o `make:schema` em `src/schemas/index.ts`, o `make:usecase` em `src/use-cases/index.ts` (o registro que `useUseCases()` entrega às telas) e no `errors.json` de cada idioma (o texto de `CLIENTE_NOT_FOUND` e dos `_FAILED`). Rode `pnpm verify` para ver tudo junto.
 
-## Os campos do domínio (`--fields`)
+## Os campos do schema (`--fields`)
 
 Só o `make:schema` recebe `--fields`. Passe os campos da entidade no formato `nome:tipo` separados por vírgula (entre aspas, por causa do `?` e das vírgulas):
 
@@ -192,17 +289,22 @@ export interface ClienteListQuery extends PageQuery {
 
 E no Input do `list-clientes.types.ts`, que valida o Input com zod, acrescente o `status`.
 
-**2. O filtro no mock**, em `list-clientes.mock.ts`, depois da busca e antes de paginar:
+**2. O filtro no mock**, em `list-clientes.mock.ts`. A coleção em memória busca, ordena e pagina, mas não conhece o filtro novo: tire o `status` da consulta, peça a lista sem página, filtre e pagine depois (o `paginate` é do `@matizze/prumo-core/mock`):
 
 ```ts
-const filtered = items.filter((item) => !query.status || item.status === query.status)
+[`${ENDPOINT.method} ${ENDPOINT.path}` as const]: ({ query }: Call) => {
+  const { status, page, page_size, ...rest } = query
+  const { items } = clientesCollection.list(rest) // a busca e a ordem, em todas as páginas
+  const filtered = status ? items.filter((item) => item.status === status) : items
+  return paginate(filtered, page ? Number(page) : undefined, page_size ? Number(page_size) : undefined)
+},
 ```
 
 **3. O caso no teste do use case**, que a API real também vai cumprir (com `API_TEST_URL`):
 
 ```ts
 it('filtra pelo status', async () => {
-  const { items, total } = await subject.execute({ status: 'ativo' })
+  const { items, total } = await subject.listClientes.execute({ status: 'ativo' })
   expect(total).toBe(2)
   expect(items.every((item) => item.status === 'ativo')).toBe(true)
 })
@@ -218,11 +320,11 @@ Uma consulta como "atrasados" ou "vencem esta semana" depende da data de hoje, e
 // no Input do use case
 today?: string // data ISO (yyyy-mm-dd); o chamador informa
 
-// no mock
-.filter((item) => !query.today || item.dueDate < query.today)
+// no mock, no mesmo filtro do passo anterior
+const filtered = items.filter((item) => !today || item.dueDate < today)
 
 // no teste, com as datas das fixtures
-const { items } = await subject.execute({ today: '2026-03-01' })
+const { items } = await subject.listClientes.execute({ today: '2026-03-01' })
 expect(items.map((item) => item.id)).toEqual(['cliente-2'])
 ```
 
@@ -335,7 +437,7 @@ O `prumo check` e o ESLint não olham `src/rules` (a pasta é livre): o único c
 
 ## Validar a entrada
 
-O `clienteInputSchema` é um schema zod. Use-o no model para validar um formulário antes de chamar o use case:
+O use case já valida o Input com zod no `execute` (um Input inválido rejeita, antes de qualquer chamada à API). O `clienteInputSchema` é o mesmo schema zod: use-o no model para mostrar o erro de cada campo do formulário antes de chamar o use case:
 
 ```ts
 import { z } from 'zod'

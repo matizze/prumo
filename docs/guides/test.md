@@ -50,7 +50,7 @@ Os exemplos deste guia supõem os testes em português. Para testar outro idioma
 
 ## Testar uma tela
 
-O teste gerado pelo `make:page --usecase` confere o título e espera a lista chegar:
+Os exemplos supõem o domínio `clientes` criado com `make:schema clientes` (sem `--fields`, a entidade tem o campo `name`) e `make:usecase clientes --crud`. O teste gerado pelo `make:page --usecase` confere o título e espera a lista chegar:
 
 ```tsx
 import { screen } from '@testing-library/react'
@@ -142,6 +142,29 @@ const { useCases } = renderWithProviders(<ClientesPage />)
 expect((await useCases.listClientes.execute({})).total).toBe(2)
 ```
 
+### Formulário
+
+O teste que o `make:page --usecase` gera para um use case de escrita preenche os campos e envia o formulário contra o mock, e confere o aviso de sucesso e a falta de erro:
+
+```tsx
+// src/pages/cliente-novo/index.test.tsx
+it('envia o formulário contra o mock e mostra o aviso de sucesso', async () => {
+  renderWithProviders(<ClienteNovoPage />, { path: '/clientes/novo' })
+
+  fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Nome 1' } })
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'ana@example.com' } })
+  fireEvent.click(screen.getByLabelText('Ativo'))
+  fireEvent.change(screen.getByLabelText('Plano'), { target: { value: 'basico' } })
+  fireEvent.change(screen.getByLabelText('Telefone'), { target: { value: 'Telefone 1' } })
+  fireEvent.submit(screen.getByRole('form', { name: 'Cliente novo' }))
+
+  expect(await screen.findByRole('status')).toBeDefined()
+  expect(screen.queryByRole('alert')).toBeNull()
+})
+```
+
+Para o caminho de falha, troque o use case por um cujo `execute` rejeita com um `UIError` (`{ execute: vi.fn().mockRejectedValue(new UIError('CLIENTE_NOT_FOUND', '')) }`) e espere o `alert` com o texto do `errors.json`.
+
 ## Rotas e navegação
 
 ### Rotas com parâmetro
@@ -231,7 +254,7 @@ it('cria um cliente', async () => {
 })
 ```
 
-Uma operação que envolve mais de um domínio (veja [Regras de negócio e operações entre domínios](domains.md#regras-de-negócio-e-operações-entre-domínios)) é um use case, e testa-se pelo `execute` dele, com o contrato do use case; o hook da tela só precisa de um teste de que invalida o que deve.
+Uma operação que envolve mais de um domínio (veja [Regras de negócio e operações entre domínios](use-cases.md#regras-de-negócio-e-operações-entre-domínios)) é um use case, e testa-se pelo `execute` dele, com o contrato do use case; o hook da tela só precisa de um teste de que invalida o que deve.
 
 Para uma mutation que falha, troque o use case por um `{ execute: vi.fn().mockRejectedValue(...) }` (como em [Estado de erro](#estado-de-erro)) e espere `await expect(act(() => result.current.mutateAsync(valor))).rejects.toThrow()`. Se o hook recebe argumentos que mudam, use `initialProps` e o `rerender` do resultado.
 
@@ -299,32 +322,46 @@ Use o `renderWithProviders` só quando o componente usa um provedor (um hook de 
 
 ## Testar um use case: o contrato
 
-O contrato descreve o que o produto espera de um use case, não o que uma implementação faz. Cada `make:usecase` já gera o teste dele: um contrato declarado uma vez, rodando contra o `http` de mentira e, com `API_TEST_URL`, contra a API.
+O contrato descreve o que o produto espera de um use case, não o que uma implementação faz. Cada `make:usecase` já gera o teste dele (`<ação>.usecase.test.ts`): um contrato declarado uma vez, rodando contra o `http` de mentira (as rotas do `.mock.ts`) e, com `API_TEST_URL`, contra a API de teste, mais um teste do `UIError`. O do `auth.sign-in`, como sai do comando:
 
 ```ts
+// src/use-cases/auth/sign-in.usecase.test.ts
 import { defineContractSuite, runContractSuite } from '@matizze/prumo-testing/contract'
 
-const listClientesContract = defineContractSuite<ListClientesUseCase>(
-  'ListClientesUseCase contract',
-  ({ subject, create }) => {
-    it('lista as fixtures', async () => {
-      expect((await subject.execute({})).total).toBe(MOCK_CLIENTES.length)
+const INPUT: SignInInput = { email: 'Email 1', password: 'Password 1' }
+
+const signInContract = defineContractSuite<SignInUseCase>(
+  'SignInUseCase contract',
+  ({ subject }) => {
+    it('aceita um Input válido e devolve o Output', async () => {
+      const output = await subject.execute(INPUT)
+      expect(SignInOutput.safeParse(output).success).toBe(true)
     })
 
-    it('instâncias não compartilham estado', async () => {
-      const other = create()
-      expect(other).not.toBe(subject)
+    it('recusa um Input inválido', async () => {
+      await expect(subject.execute(undefined as never)).rejects.toThrow()
     })
   },
 )
 
-runContractSuite(listClientesContract, {
+runContractSuite(signInContract, {
   name: 'mock',
-  create: () => new ListClientesUseCase(createMockHttp(listClientesRoutes)),
+  create: () => new SignInUseCase(createMockHttp(signInRoutes)),
+})
+
+it('traduz o erro da API em UIError SIGN_IN_FAILED', async () => {
+  const failing = new SignInUseCase(async () => {
+    throw new HttpError(500, 'falhou')
+  })
+  const error = await failing.execute(INPUT).catch((caught: unknown) => caught)
+  expect(error).toBeInstanceOf(UIError)
+  expect(error).toMatchObject({ code: 'SIGN_IN_FAILED' })
 })
 ```
 
-- **`subject`** é uma instância nova a cada teste. Use-a como uma variável comum: `vi.spyOn(subject, 'execute')`, `subject instanceof ListClientesUseCase` e atribuições funcionam.
+No `--crud`, os cinco testes usam o registro do domínio (`createClientesUseCases({ http, storage })`) e a coleção em memória, que volta às fixtures a cada teste (`clientesCollection.reset()`); o `subject` é então o domínio inteiro (`subject.listClientes.execute({})`). Os use cases `--local` não têm contrato de API: o teste roda a classe contra o `localStorage` do jsdom.
+
+- **`subject`** é uma instância nova a cada teste. Use-a como uma variável comum: `vi.spyOn(subject, 'execute')` e atribuições funcionam.
 - **`create`** cria mais uma instância, para o teste que precisa de duas.
 - **`dispose`**, opcional na implementação, roda depois de cada teste, também quando ele falha: é onde se restaura uma API de teste.
 - O título de cada grupo é `<contrato>: <implementação>`, então a saída do Vitest mostra qual implementação falhou.

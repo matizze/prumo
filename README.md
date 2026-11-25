@@ -62,7 +62,7 @@ O passo a passo completo, do app vazio a uma tela de lista, um formulário e o `
 
 ## A arquitetura
 
-Tudo o que o app faz com dados é um **use case**: uma ação com nome de verbo (`getStores`, `signIn`), uma entrada (Input), uma saída (Output), as duas validadas com zod, e um `execute`. As telas chamam use cases, e os use cases falam com a API.
+Tudo o que o app faz com dados é um **use case**: uma ação com nome de verbo (`getStores`, `signIn`), uma entrada (Request), uma saída (Response), as duas validadas com zod, e um `execute`. As telas chamam use cases, e os use cases falam com a API.
 
 | Camada    | Responde a                  | Pasta           |
 | --------- | --------------------------- | --------------- |

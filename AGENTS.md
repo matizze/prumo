@@ -4,7 +4,7 @@ Guia para agentes de IA e pessoas que contribuem com este monorepo.
 
 ## O que é
 
-O Prumo é uma **ferramenta** da Matizze para criar e manter aplicações React organizadas em camadas (telas com `index`, `model` e `view`, use cases com Input e Output em zod, schemas das entidades, textos em dois idiomas) e conferir a arquitetura. **Não tem frontend:** nenhum componente de interface, ícone, tema, CSS, Storybook, tela pronta, catálogo de blocos ou padrão de tela. A interface é do produto.
+O Prumo é uma **ferramenta** da Matizze para criar e manter aplicações React organizadas em camadas (telas com `index`, `model` e `view`, use cases com Request e Response em zod, schemas das entidades, textos em dois idiomas) e conferir a arquitetura. **Não tem frontend:** nenhum componente de interface, ícone, tema, CSS, Storybook, tela pronta, catálogo de blocos ou padrão de tela. A interface é do produto.
 
 As camadas do app gerado, de cima para baixo: **telas** (`src/pages`) → **use cases** (`src/use-cases`) → **http** (`src/http`) e **schemas** (`src/schemas`). A tela chama o use case, o use case usa o `http`, o `storage` ou outros use cases, e nada aponta para cima; o mock fica no transporte (um `http` de mentira com `VITE_DATA_SOURCE=mock`). O repository e as queries saíram: o use case é o único caminho do dado.
 

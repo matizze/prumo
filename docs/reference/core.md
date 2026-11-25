@@ -8,7 +8,7 @@ pnpm add @matizze/prumo-core
 
 | Subcaminho                                          | Conteúdo                                                                          |
 | --------------------------------------------------- | --------------------------------------------------------------------------------- |
-| [`@matizze/prumo-core/http`](#http)                 | `createHttp`, `createMockHttp`, `HttpError` e os tipos do cliente                 |
+| [`@matizze/prumo-core/http`](#http)                 | `createHttp`, `createMockHttp`, `mockRoute`, `HttpError`, `NetworkError` e os tipos do cliente |
 | [`@matizze/prumo-core/use-cases`](#use-cases)       | `IUseCase`, `createUseCasesContext`, `resolveDataSource`                          |
 | [`@matizze/prumo-core/query`](#query)               | `createQueryKeys`, `createQueryClient`, `QueryProvider`, `ErrorMeta`               |
 | [`@matizze/prumo-core/i18n`](#i18n)                 | `defineI18n`, `createFormat`, `resolveLocale` e os tipos de mensagens              |
@@ -62,6 +62,10 @@ try {
 }
 ```
 
+### `NetworkError`
+
+`Error` que o `createHttp` lança quando o `fetch` rejeita: sem rede, DNS, CORS ou servidor fora do ar. A causa original fica em `cause`, e a mensagem é `<MÉTODO> <caminho>: falha de rede`. Só o que o próprio `fetch` lança vira `NetworkError`: um erro de código (um `headers()` que quebra, por exemplo) passa como veio. O `withErrors` do app traduz o `NetworkError` para `REQUEST_FAILED`, e deixa o `TypeError` de bug como está.
+
 ### `createMockHttp(routes, options?)`
 
 ```ts
@@ -99,6 +103,25 @@ const http = createMockHttp(
 )
 ```
 
+### `mockRoute(endpoint, handler)`
+
+```ts
+function mockRoute<M extends Method, P extends `/${string}`>(
+  endpoint: { method: M; path: P },
+  handler: MockHandler<`${M} ${P}`>,
+): { [K in `${M} ${P}`]: MockHandler<K> }
+```
+
+Monta uma rota do mock a partir do endereço do use case, o `ENDPOINT` de `types/<ação>.ts`, e devolve `{ '<MÉTODO> <caminho>': handler }` para espalhar no `createMockHttp`. O `params` do handler sai do `path`, como nas rotas do `createMockHttp`, e o método e o caminho não se repetem à mão: quem muda o `ENDPOINT` muda o mock junto.
+
+```ts
+export const signInRoutes = mockRoute(ENDPOINT, ({ body }) => ({ token: 'Token 1' }))
+
+const http = createMockHttp({ ...signInRoutes })
+```
+
+Os modelos de `prumo make:usecase` geram o mock assim.
+
 ---
 
 ## use-cases
@@ -118,19 +141,19 @@ type UseCaseOutput<U> // o TOutput de um use case
 Uma ação do app com nome de verbo. `UseCaseInput<SignInUseCase>` e `UseCaseOutput<SignInUseCase>` extraem os tipos.
 
 ```ts
-export class SignInUseCase implements IUseCase<SignInInput, SignInOutput> {
+export class SignInUseCase implements IUseCase<SignInRequest, SignInResponse> {
   readonly #http: Http
 
   constructor(http: Http) {
     this.#http = http
   }
 
-  async execute(input: SignInInput): Promise<SignInOutput> {
+  async execute(input: SignInRequest): Promise<SignInResponse> {
     const body = await this.#http('/auth/sign-in', {
       method: 'POST',
-      body: SignInInput.parse(input),
+      body: SignInRequest.parse(input),
     })
-    return SignInOutput.parse(body)
+    return SignInResponse.parse(body)
   }
 }
 ```

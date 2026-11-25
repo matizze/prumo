@@ -125,7 +125,7 @@ describe('os modelos', () => {
     }
     for (const marker of markers)
       expect(marker).toMatch(
-        /^((plural|singular|page|domain|action|app|uc)\.(kebab|pascal|camel|constant|title)|page\.path|route\.(path|example)|param\.(name|example)|field\.(name|sample)|fields\.[A-Za-z]+|test\.[A-Za-z]+|types\.[A-Za-z]+|usecase\.[A-Za-z]+|mock\.[A-Za-z]+|key\.[a-z]+|form\.[A-Za-z]+|list\.items|uc\.(key|input|keyFn|domain))$/,
+        /^((plural|singular|page|domain|action|app|uc)\.(kebab|pascal|camel|constant|title)|page\.path|route\.(path|example)|param\.(name|example)|field\.(name|sample)|fields\.[A-Za-z]+|test\.[A-Za-z]+|types\.[A-Za-z]+|usecase\.[A-Za-z]+|mock\.[A-Za-z]+|key\.[a-z]+|form\.[A-Za-z]+|list\.items|uc\.(key|request|keyFn|domain))$/,
       )
   })
 

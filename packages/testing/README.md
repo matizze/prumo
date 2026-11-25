@@ -44,7 +44,7 @@ it('mostra o erro quando a lista falha', async () => {
 
 ```ts
 // o contrato de um use case, rodado contra o mock (e, depois, contra a API)
-const contract = defineContractSuite<IUseCase<ListInput, ListOutput>>('ListClientesUseCase contract', ({ subject }) => {
+const contract = defineContractSuite<IUseCase<ListRequest, ListResponse>>('ListClientesUseCase contract', ({ subject }) => {
   it('lista os clientes', async () => {
     expect((await subject.execute({})).total).toBeGreaterThan(0)
   })

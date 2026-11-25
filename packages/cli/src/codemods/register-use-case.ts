@@ -86,8 +86,8 @@ export function registerUseCase(plan: ChangePlan, names: UseCaseNames, { local }
   const importFrom = importer(index)
   const className = `${pascal}UseCase`
   const edits = [
-    ...(local ? [] : [importFrom(`${camel}Routes`, `./${kebab}.mock`, where)]),
-    importFrom(className, `./${kebab}.usecase`, where),
+    ...(local ? [] : [importFrom(`${camel}Routes`, `./mocks/${kebab}`, where)]),
+    importFrom(className, `./services/${kebab}.usecase`, where),
     insertMember(index, useCases, camel, `${camel}: new ${className}(deps.${local ? 'storage' : 'http'})`),
     ...(local ? [] : [insertMember(index, routes, `${camel}Routes`, `...${camel}Routes`)]),
   ]

@@ -218,7 +218,7 @@ Roda o contrato contra uma implementação, num `describe` com o título `<nome 
 O contrato roda contra o `http` de mentira e, quando há uma API de teste, contra a real:
 
 ```ts
-const signInContract = defineContractSuite<IUseCase<SignInInput, SignInOutput>>(
+const signInContract = defineContractSuite<IUseCase<SignInRequest, SignInResponse>>(
   'SignInUseCase contract',
   ({ subject: signIn }) => {
     it('devolve o token e o usuário', async () => {

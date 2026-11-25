@@ -163,7 +163,7 @@ it('envia o formulário contra o mock e mostra o aviso de sucesso', async () => 
 })
 ```
 
-Para o caminho de falha, troque o use case por um cujo `execute` rejeita com um `UIError` (`{ execute: vi.fn().mockRejectedValue(new UIError('CLIENTE_NOT_FOUND', '')) }`) e espere o `alert` com o texto do `errors.json`.
+Para o caminho de falha, troque o use case por um cujo `execute` rejeita com um `UIError` (`{ execute: vi.fn().mockRejectedValue(new UIError('NOT_FOUND', '')) }`) e espere o `alert` com o texto do `errors.json`.
 
 ## Rotas e navegação
 
@@ -322,23 +322,23 @@ Use o `renderWithProviders` só quando o componente usa um provedor (um hook de 
 
 ## Testar um use case: o contrato
 
-O contrato descreve o que o produto espera de um use case, não o que uma implementação faz. Cada `make:usecase` já gera o teste dele (`<ação>.usecase.test.ts`): um contrato declarado uma vez, rodando contra o `http` de mentira (as rotas do `.mock.ts`) e, com `API_TEST_URL`, contra a API de teste, mais um teste do `UIError`. O do `auth.sign-in`, como sai do comando:
+O contrato descreve o que o produto espera de um use case, não o que uma implementação faz. Cada `make:usecase` já gera o teste dele (`services/<ação>.usecase.test.ts`): um contrato declarado uma vez, rodando contra o `http` de mentira (as rotas de `mocks/<ação>.ts`) e, com `API_TEST_URL`, contra a API de teste. O erro da API não é testado no use case: ele é traduzido pelo `withErrors` do app, que tem o teste dele em `src/http/errors.test.ts`. O do `auth.sign-in`, como sai do comando:
 
 ```ts
-// src/use-cases/auth/sign-in.usecase.test.ts
+// src/use-cases/auth/services/sign-in.usecase.test.ts
 import { defineContractSuite, runContractSuite } from '@matizze/prumo-testing/contract'
 
-const INPUT: SignInInput = { email: 'Email 1', password: 'Password 1' }
+const INPUT: SignInRequest = { email: 'Email 1', password: 'Password 1' }
 
 const signInContract = defineContractSuite<SignInUseCase>(
   'SignInUseCase contract',
   ({ subject }) => {
-    it('aceita um Input válido e devolve o Output', async () => {
-      const output = await subject.execute(INPUT)
-      expect(SignInOutput.safeParse(output).success).toBe(true)
+    it('aceita um Request válido e devolve o Response', async () => {
+      const response = await subject.execute(INPUT)
+      expect(SignInResponse.safeParse(response).success).toBe(true)
     })
 
-    it('recusa um Input inválido', async () => {
+    it('recusa um Request inválido', async () => {
       await expect(subject.execute(undefined as never)).rejects.toThrow()
     })
   },
@@ -347,15 +347,6 @@ const signInContract = defineContractSuite<SignInUseCase>(
 runContractSuite(signInContract, {
   name: 'mock',
   create: () => new SignInUseCase(createMockHttp(signInRoutes)),
-})
-
-it('traduz o erro da API em UIError SIGN_IN_FAILED', async () => {
-  const failing = new SignInUseCase(async () => {
-    throw new HttpError(500, 'falhou')
-  })
-  const error = await failing.execute(INPUT).catch((caught: unknown) => caught)
-  expect(error).toBeInstanceOf(UIError)
-  expect(error).toMatchObject({ code: 'SIGN_IN_FAILED' })
 })
 ```
 

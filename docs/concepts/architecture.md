@@ -48,9 +48,9 @@ flowchart TB
   view --> comps
   model --> uc["useUseCases()<br/>listClientes, createCliente..."]
   model --> m["src/messages/(idioma)/clientes.json"]
-  uc --> uca["src/use-cases/clientes/<br/>(Input, Output, execute)"]
+  uc --> uca["src/use-cases/clientes/<br/>(Request, Response, execute)"]
   uca --> http["src/http/api.ts<br/>(a API)"]
-  uca -.-> mock["http de mentira<br/>(os .mock.ts)"]
+  uca -.-> mock["http de mentira<br/>(os mocks/)"]
   view --> ui["src/components/ui<br/>(design system do produto)"]
   view --> shared["src/components/shared"]
 ```
@@ -83,40 +83,33 @@ Um componente que só uma tela usa não é compartilhado: mora na pasta da tela.
 
 ### Use cases
 
-O **use case** é o único caminho para tudo o que o app faz com dados: uma ação com nome de verbo (`getStores`, `signIn`, `addItem`), com um Input, um Output e um `execute`. É o padrão do frontend do pratigo, com três acréscimos do Prumo: **validação com zod**, **mock para trabalhar sem backend** e **um teste em cada use case**. O `prumo make:usecase` cria um por vez, ou os cinco de um CRUD com `--crud`; o guia [Use cases](../guides/use-cases.md) mostra o dia a dia.
+O **use case** é o único caminho para tudo o que o app faz com dados: uma ação com nome de verbo (`getStores`, `signIn`, `addItem`), com um Request, um Response e um `execute`. É o padrão do frontend do pratigo, com três acréscimos do Prumo: **validação com zod**, **mock para trabalhar sem backend** e **um teste em cada use case**. O `prumo make:usecase` cria um por vez, ou os cinco de um CRUD com `--crud`; o guia [Use cases](../guides/use-cases.md) mostra o dia a dia.
 
-Cada use case é uma classe que recebe as dependências no construtor. O Input e o Output são schemas zod (cada um com o tipo de mesmo nome), e o `execute` valida o Input, faz o trabalho e valida o Output:
+Cada domínio é uma pasta com a organização do `@services` do pratigo: `types/<ação>.ts`, `services/<ação>.usecase.ts` (e o teste ao lado), `mocks/<ação>.ts` e um `index.ts`. Cada use case é uma classe que recebe as dependências no construtor. O Request e o Response são schemas zod (cada um com o tipo de mesmo nome), e o `execute` valida o Request, chama a API e valida o Response, sem `try/catch`:
 
 ```ts
-// src/use-cases/auth/sign-in.types.ts
+// src/use-cases/auth/types/sign-in.ts
 export const ENDPOINT = { method: 'POST', path: '/auth/sign-in' } as const
 
-export const SignInInput = z.object({ email: z.string(), password: z.string() })
-export type SignInInput = z.infer<typeof SignInInput>
+export const SignInRequest = z.object({ email: z.string(), password: z.string() })
+export type SignInRequest = z.infer<typeof SignInRequest>
 
-export const SignInOutput = z.object({ token: z.string() })
-export type SignInOutput = z.infer<typeof SignInOutput>
+export const SignInResponse = z.object({ token: z.string() })
+export type SignInResponse = z.infer<typeof SignInResponse>
 ```
 
 ```ts
-// src/use-cases/auth/sign-in.usecase.ts
-export class SignInUseCase implements IUseCase<SignInInput, SignInOutput> {
+// src/use-cases/auth/services/sign-in.usecase.ts
+export class SignInUseCase implements IUseCase<SignInRequest, SignInResponse> {
   readonly #http: Http
 
   constructor(http: Http) {
     this.#http = http
   }
 
-  /** Um erro da API vira `UIError` SIGN_IN_FAILED. */
-  async execute(input: SignInInput): Promise<SignInOutput> {
-    const body = SignInInput.parse(input)
-    try {
-      const response = await this.#http(ENDPOINT.path, { method: ENDPOINT.method, body })
-      return SignInOutput.parse(response)
-    } catch (error) {
-      if (error instanceof HttpError) throw new UIError('SIGN_IN_FAILED', error.message)
-      throw error
-    }
+  async execute(input: SignInRequest): Promise<SignInResponse> {
+    const response = await this.#http(ENDPOINT.path, { method: ENDPOINT.method, body: SignInRequest.parse(input) })
+    return SignInResponse.parse(response)
   }
 }
 ```
@@ -125,21 +118,21 @@ O model da tela pega o use case do registro e o usa com o TanStack Query:
 
 ```ts
 const { signIn } = useUseCases()
-const login = useMutation({ mutationFn: (input: SignInInput) => signIn.execute(input) })
+const login = useMutation({ mutationFn: (input: SignInRequest) => signIn.execute(input) })
 ```
 
 - **Leitura ou escrita**, pelo verbo: `get`, `list`, `search`, `find`, `check` e `count` são **leitura** (a tela usa com `useQuery`, e o use case ganha uma chave de cache, com o domínio no prefixo); o resto é **escrita** (`useMutation`, e o `onSuccess` invalida o prefixo do domínio). `--read` e `--write` forçam o tipo.
-- **`--local`**: um use case sem API, que usa o `storage` do navegador (o `localStorage`) ou outros use cases, como um carrinho. Não tem `ENDPOINT` nem mock, porque já roda no navegador.
-- **O erro** é um `UIError` com código estável (`SIGN_IN_FAILED`, `LIVRO_NOT_FOUND`): o use case não conhece idioma, e a interface traduz o código. Veja [Erros e notificações](../guides/errors-and-notifications.md).
+- **`--local`**: um use case sem API, que usa o `storage` do navegador (o `localStorage`) ou outros use cases, como um carrinho. Não tem `ENDPOINT` nem a pasta `mocks/`, porque já roda no navegador.
+- **O erro** é tratado no cliente, num lugar só: o `http` do app (`src/http/errors.ts`) transforma o `HttpError` da API em `UIError` com um código genérico (`NOT_FOUND`, `UNAUTHORIZED`, `REQUEST_FAILED`...), tanto no `http` de verdade quanto no de mock. O use case não trata erro nem conhece idioma, e a interface traduz o código. Veja [Erros e notificações](../guides/errors-and-notifications.md).
 - **O registro** (`src/use-cases/index.ts`) junta os use cases de todos os domínios; as chaves são únicas no app, e o `prumo make:usecase` recusa uma repetida. Os testes trocam um use case pelo `renderWithProviders`, sem mock de módulo.
 
-O **mock fica no transporte, não no use case**. O registro recebe um `http`: com `VITE_DATA_SOURCE=mock` (o padrão, sem a variável), é um `http` de mentira (`createMockHttp`, do core) que responde a cada `ENDPOINT` com a rota do `*.mock.ts`; com `VITE_DATA_SOURCE=http`, é a API (`src/http/api.ts`). O código do use case que roda no desenvolvimento e nos testes é o mesmo que vai para produção, e só a rede é trocada (a ideia do MSW, sem dependência). Qualquer outro valor de `VITE_DATA_SOURCE` é erro, para a configuração errada não passar em silêncio.
+O **mock fica no transporte, não no use case**. O registro recebe um `http`: com `VITE_DATA_SOURCE=mock` (o padrão, sem a variável), é um `http` de mentira (`createMockHttp`, do core) que responde a cada `ENDPOINT` com a rota de `mocks/<ação>.ts`; com `VITE_DATA_SOURCE=http`, é a API (`src/http/api.ts`). O código do use case que roda no desenvolvimento e nos testes é o mesmo que vai para produção, e só a rede é trocada (a ideia do MSW, sem dependência). Qualquer outro valor de `VITE_DATA_SOURCE` é erro, para a configuração errada não passar em silêncio.
 
 ```mermaid
 flowchart LR
-  tela["model da tela"] --> uc["use case<br/>(Input, Output, execute)"]
+  tela["model da tela"] --> uc["use case<br/>(Request, Response, execute)"]
   uc --> t{"VITE_DATA_SOURCE"}
-  t -- "mock (padrão)" --> mock["http de mentira<br/>(os .mock.ts)"]
+  t -- "mock (padrão)" --> mock["http de mentira<br/>(os mocks/)"]
   t -- http --> api["http<br/>(src/http/api.ts)"]
   api --> back[("API")]
 ```
@@ -151,7 +144,7 @@ Os arquivos de cada use case e a anatomia do registro estão em [`prumo make:use
 Um domínio (clientes, pedidos, produtos) agrupa os use cases de uma entidade e tem duas partes, cada uma numa pasta:
 
 - **Schema** (`src/schemas/entities/<entidade>.ts`): o schema zod da entidade e os tipos derivados dele (a entidade, a entrada de criar e editar, a consulta da lista). É a fonte da verdade sobre a forma do dado, e vários use cases o usam.
-- **Use cases** (`src/use-cases/<domínio>/`): as ações do domínio (`listClientes`, `getCliente`, `createCliente`, `updateCliente`, `removeCliente`), cada uma com o Input, o Output, o mock e o teste. A tela escolhe o use case pelo `useUseCases()`, nunca por um import direto, e as mutations invalidam o cache do domínio.
+- **Use cases** (`src/use-cases/<domínio>/`): as ações do domínio (`listClientes`, `getCliente`, `createCliente`, `updateCliente`, `removeCliente`), cada uma com o Request, o Response, o mock e o teste. A tela escolhe o use case pelo `useUseCases()`, nunca por um import direto, e as mutations invalidam o cache do domínio.
 
 Nem todo use case é de uma entidade: `auth.sign-in` não tem schema, e `cart.add-item --local` não tem API.
 
@@ -180,7 +173,7 @@ O Prumo cobra a arquitetura em dois lugares. O **plugin de ESLint** olha um arqu
 | `page-structure`              | `prumo check`         | Toda tela de `src/pages`, em qualquer profundidade, tem `index.tsx`, `model.ts` e `view.tsx`     |
 | `components-folders`          | `prumo check`         | `src/components` só tem as subpastas `ui`, `shared` e `layout`                                  |
 | `shared-usage`                | `prumo check`         | O que está em `components/shared` é usado por duas ou mais telas                                |
-| `use-case-files`              | `prumo check`         | Todo `*.usecase.ts` tem o `.types.ts` e o `.usecase.test.ts` ao lado                            |
+| `use-case-files`              | `prumo check`         | Todo `services/*.usecase.ts` tem o `types/<ação>.ts` e o teste ao lado                                |
 | `messages`                    | `prumo check`         | Os idiomas têm as mesmas chaves, os mesmos argumentos ICU, nenhum texto vazio e os mesmos namespaces registrados |
 
 ### Por que cada regra existe
@@ -203,7 +196,7 @@ Algumas convenções não são cobradas por regra, mas o código gerado as segue
 
 - **O dado vem de um use case**, pelo `useUseCases()`. Nada de `fetch` solto numa tela.
 - **Todo texto visível mora em `src/messages`**, nos dois idiomas, e é lido pelo `useTranslations`.
-- **O use case não conhece idioma.** Ele lança `UIError` com um código estável (`CLIENTE_NOT_FOUND`), e a interface traduz o código. Veja [Erros e notificações](../guides/errors-and-notifications.md).
+- **O use case não conhece idioma.** O erro da API vira `UIError` com um código estável (`NOT_FOUND`) no `http` do app, e a interface traduz o código. Veja [Erros e notificações](../guides/errors-and-notifications.md).
 - **Nomes em kebab-case** para telas, domínios e componentes (`pedidos-recentes`). O Prumo deriva o resto: `PedidosRecentesPage`, `usePedidosRecentesModel`, o namespace `pedidosRecentes`, a rota `/pedidos-recentes`.
 - **Todo comportamento novo tem teste.** Cada comando que gera código (`make:usecase`, `make:page`) cria o teste do que gerou.
 

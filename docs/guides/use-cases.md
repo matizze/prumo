@@ -1,6 +1,6 @@
 # Use cases
 
-Um **use case** é uma ação que o app faz com dados, com nome de verbo: `getStores`, `signIn`, `addItem`. Ele tem um **Input** e um **Output** (os dois são schemas zod) e um **`execute`**. É o único caminho do dado até a tela: a tela chama o use case, e o use case fala com a API (ou com o navegador, ou com outros use cases). O [porquê das camadas](../concepts/architecture.md#as-camadas-em-dois-minutos) está na arquitetura; este guia mostra como criar use cases, escolher os campos, mudar a forma do dado, filtrar a lista, guardar regras de negócio e apagar um domínio. Quem vem de um app com `make:repository` e `make:query` encontra o caminho em [Migrar para use cases](migrate-to-use-cases.md).
+Um **use case** é uma ação que o app faz com dados, com nome de verbo: `getStores`, `signIn`, `addItem`. Ele tem um **Request** e um **Response** (os dois são schemas zod, como `SignInRequest` e `SignInResponse`) e um **`execute`**. É o único caminho do dado até a tela: a tela chama o use case, e o use case fala com a API (ou com o navegador, ou com outros use cases). O [porquê das camadas](../concepts/architecture.md#as-camadas-em-dois-minutos) está na arquitetura; este guia mostra como criar use cases, escolher os campos, mudar a forma do dado, filtrar a lista, guardar regras de negócio e apagar um domínio. Quem vem de um app com `make:repository` e `make:query` encontra o caminho em [Migrar para use cases](migrate-to-use-cases.md).
 
 São duas camadas de dados, cada uma com o seu comando: `make:schema` (a **entidade**, a forma do dado, usada por vários use cases) e `make:usecase` (a **ação**, o que o app faz com ele).
 
@@ -19,14 +19,12 @@ prumo make:usecase: auth.sign-in (escrita, POST /auth/sign-in).
 
 Criados (5):
   src/use-cases/auth/index.ts
-  src/use-cases/auth/sign-in.mock.ts
-  src/use-cases/auth/sign-in.types.ts
-  src/use-cases/auth/sign-in.usecase.test.ts
-  src/use-cases/auth/sign-in.usecase.ts
+  src/use-cases/auth/mocks/sign-in.ts
+  src/use-cases/auth/services/sign-in.usecase.test.ts
+  src/use-cases/auth/services/sign-in.usecase.ts
+  src/use-cases/auth/types/sign-in.ts
 
-Alterados (3):
-  src/messages/en/errors.json
-  src/messages/pt-BR/errors.json
+Alterados (1):
   src/use-cases/index.ts
 
 Próximo passo: no model da tela, const { signIn } = useUseCases() e useMutation({ mutationFn: (input) => signIn.execute(input) }).
@@ -34,33 +32,72 @@ Próximo passo: no model da tela, const { signIn } = useUseCases() e useMutation
 
 | Opção                  | O que faz                                                                                                                       |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `--input <campos>`     | Os campos do Input (`"email:string,password:string"`, a mesma sintaxe do [`--fields`](#os-campos-do-schema---fields))           |
-| `--output <campos>`    | Os campos do Output, ou o nome de uma entidade que já tem schema: `--output cliente`, ou `--output cliente[]` para a lista     |
-| `--endpoint "<MÉTODO> <caminho>"` | O endereço da API (`"PATCH /livros/:id"`; cada `:parâmetro` sai do campo do Input de mesmo nome). Padrão: `GET /<domínio>/<ação>` na leitura e `POST /<domínio>/<ação>` na escrita |
+| `--input <campos>`     | Os campos do Request (`"email:string,password:string"`, a mesma sintaxe do [`--fields`](#os-campos-do-schema---fields))           |
+| `--output <campos>`    | Os campos do Response, ou o nome de uma entidade que já tem schema: `--output cliente`, ou `--output cliente[]` para a lista     |
+| `--endpoint "<MÉTODO> <caminho>"` | O endereço da API (`"PATCH /livros/:id"`; cada `:parâmetro` sai do campo do Request de mesmo nome). Padrão: `GET /<domínio>/<ação>` na leitura e `POST /<domínio>/<ação>` na escrita |
 | `--local`              | Um use case sem API, que usa o `storage` do navegador                                                                           |
 | `--crud`               | Os cinco use cases de uma entidade, de uma vez ([abaixo](#criar-um-domínio-com-crud))                                           |
 
-Sem `--input` e `--output`, o Input é um objeto vazio e o Output é `z.unknown()`, e o comando avisa para você preencher o `.types.ts`. Todas as opções estão na [referência](../reference/cli.md#prumo-makeusecase).
+Sem `--input` e `--output`, o Request é um objeto vazio e o Response é `z.unknown()`, e o comando avisa para você preencher o `types/<ação>.ts`. Todas as opções estão na [referência](../reference/cli.md#prumo-makeusecase).
 
 ### O que sai de um use case
 
-Cada ação tem quatro arquivos, um ao lado do outro:
+Cada domínio é uma pasta, com a mesma organização em todos (a do `@services` do pratigo):
 
 ```text
 src/use-cases/auth/
-  index.ts                 createAuthUseCases(deps) e as rotas de mock do domínio
-  sign-in.types.ts         ENDPOINT, SignInInput e SignInOutput (e, na leitura, a chave de cache)
-  sign-in.usecase.ts       SignInUseCase
-  sign-in.mock.ts          a rota de mock do ENDPOINT
-  sign-in.usecase.test.ts  o teste, contra o mock e, com API_TEST_URL, contra a API
+  index.ts                          createAuthUseCases(deps) e as rotas de mock do domínio
+  types/sign-in.ts                  ENDPOINT, SignInRequest e SignInResponse (e, na leitura, a chave de cache)
+  services/sign-in.usecase.ts       SignInUseCase
+  services/sign-in.usecase.test.ts  o teste, contra o mock e, com API_TEST_URL, contra a API
+  mocks/sign-in.ts                  a rota de mock do ENDPOINT
 ```
 
-O `execute` valida o Input com zod, chama o `http` no `ENDPOINT` e valida a resposta com o Output; um erro da API vira um `UIError` com código (`SIGN_IN_FAILED`), cujo texto o comando já põe nos `errors.json` dos dois idiomas. O `.mock.ts` devolve uma resposta de exemplo no formato do Output, e é ele que responde enquanto a API não existe:
+Os tipos são zod, com o tipo de mesmo nome:
 
 ```ts
-// src/use-cases/auth/sign-in.mock.ts
+// src/use-cases/auth/types/sign-in.ts
+export const ENDPOINT = { method: 'POST', path: '/auth/sign-in' } as const
+
+export const SignInRequest = z.object({
+  email: z.string(),
+  password: z.string(),
+})
+
+export type SignInRequest = z.infer<typeof SignInRequest>
+
+export const SignInResponse = z.object({
+  token: z.string(),
+})
+
+export type SignInResponse = z.infer<typeof SignInResponse>
+```
+
+O `execute` só monta a chamada, valida e devolve, **sem `try/catch`**:
+
+```ts
+// src/use-cases/auth/services/sign-in.usecase.ts
+/** Sign in (domínio auth). */
+export class SignInUseCase implements IUseCase<SignInRequest, SignInResponse> {
+  readonly #http: Http
+
+  constructor(http: Http) {
+    this.#http = http
+  }
+
+  async execute(input: SignInRequest): Promise<SignInResponse> {
+    const response = await this.#http(ENDPOINT.path, { method: ENDPOINT.method, body: SignInRequest.parse(input) })
+    return SignInResponse.parse(response)
+  }
+}
+```
+
+O erro da API não é tratado no use case: o `http` do app (`src/http/errors.ts`, o `withErrors`, que envolve o da API e o de mock) transforma o `HttpError` num `UIError` com um código genérico (`NOT_FOUND`, `UNAUTHORIZED`...), e o `errors.json` já traz o texto dos dois idiomas. Veja [Erros e notificações](errors-and-notifications.md#do-erro-da-api-ao-texto). O `mocks/sign-in.ts` devolve uma resposta de exemplo no formato do Response, e é ele que responde enquanto a API não existe:
+
+```ts
+// src/use-cases/auth/mocks/sign-in.ts
 export const signInRoutes = {
-  [`${ENDPOINT.method} ${ENDPOINT.path}` as const]: (): SignInOutput => ({ token: 'Token 1' }),
+  [`${ENDPOINT.method} ${ENDPOINT.path}` as const]: (): SignInResponse => ({ token: 'Token 1' }),
 }
 ```
 
@@ -74,30 +111,29 @@ Para dados que moram só no navegador, como o carrinho de uma loja:
 pnpm exec prumo make:usecase cart.add-item --local --input "productId:string,quantity:int"
 ```
 
-A classe recebe o `storage` (o `localStorage`, que o registro passa em `deps`), não tem `ENDPOINT`, mock nem erro de API, e o teste roda com o `localStorage` do jsdom. O `execute` guarda o Input no `storage` como exemplo, com o lugar da sua regra marcado num comentário:
+A classe recebe o `storage` (o `localStorage`, que o registro passa em `deps`), não tem `ENDPOINT` nem a pasta `mocks/`, e o teste roda com o `localStorage` do jsdom. O `execute` guarda o Request no `storage` como exemplo, com o lugar da sua regra marcado num comentário:
 
 ```ts
-// src/use-cases/cart/add-item.usecase.ts
-export class AddItemUseCase implements IUseCase<AddItemInput, AddItemOutput> {
+// src/use-cases/cart/services/add-item.usecase.ts
+export class AddItemUseCase implements IUseCase<AddItemRequest, AddItemResponse> {
   readonly #storage: Storage
 
   constructor(storage: Storage) {
     this.#storage = storage
   }
 
-  async execute(input: AddItemInput): Promise<AddItemOutput> {
-    const parsed = AddItemInput.parse(input)
-    // A regra do use case entra aqui. O exemplo guarda o Input no localStorage.
+  async execute(input: AddItemRequest): Promise<AddItemResponse> {
+    const parsed = AddItemRequest.parse(input)
+    // A regra do use case entra aqui.
     this.#storage.setItem(STORAGE_KEY, JSON.stringify(parsed))
-    // Troque o resultado de exemplo pelo que a regra calcula.
-    return AddItemOutput.parse({})
+    return AddItemResponse.parse({})
   }
 }
 ```
 
 ### Usar o use case na tela
 
-O model pega o use case de `useUseCases()` e o liga ao TanStack Query: `useQuery` para leitura (a chave de cache é a `<ação>Key(input)` do `.types.ts`, com o domínio no prefixo) e `useMutation` para escrita. Uma escrita invalida o prefixo do domínio (`['livros']`) no `onSuccess`, e as listas e os detalhes se atualizam sozinhos. O `make:page --usecase` já gera o model assim: veja [Telas](pages.md#telas-a-partir-de-um-use-case).
+O model pega o use case de `useUseCases()` e o liga ao TanStack Query: `useQuery` para leitura (a chave de cache é a `<ação>Key(input)` do `types/<ação>.ts`, com o domínio no prefixo) e `useMutation` para escrita. Uma escrita invalida o prefixo do domínio (`['livros']`) no `onSuccess`, e as listas e os detalhes se atualizam sozinhos. O `make:page --usecase` já gera o model assim: veja [Telas](pages.md#telas-a-partir-de-um-use-case).
 
 ## Criar um domínio com CRUD
 
@@ -122,12 +158,12 @@ O que cada comando cria, para `clientes`:
 | Comando                        | Arquivo                                                       | Conteúdo                                                                                   |
 | ------------------------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `make:schema`                  | `src/schemas/entities/cliente.ts`                             | `clienteSchema`, `ClienteSchema`, `clienteInputSchema`, `ClienteInput`, `ClienteSortKey`, `ClienteListQuery` |
-| `make:usecase clientes --crud` | `src/use-cases/clientes/list-clientes.*`                      | O use case de listar: `.types.ts`, `.usecase.ts`, `.mock.ts` e `.usecase.test.ts`          |
-|                                | `src/use-cases/clientes/{get,create,update,remove}-cliente.*` | Os outros quatro, com os mesmos quatro arquivos                                            |
-|                                | `src/use-cases/clientes/collection.mock.ts`                   | `MOCK_CLIENTES` (os dados de exemplo) e a coleção em memória que os cinco mocks dividem    |
+| `make:usecase clientes --crud` | `src/use-cases/clientes/{types,services,mocks}/list-clientes.*` | O use case de listar: `types/list-clientes.ts`, `services/list-clientes.usecase.ts` (e o teste ao lado) e `mocks/list-clientes.ts` |
+|                                | `src/use-cases/clientes/*/{get,create,update,remove}-cliente.*` | Os outros quatro, com os mesmos quatro arquivos                                            |
+|                                | `src/use-cases/clientes/mocks/collection.ts`                  | `MOCK_CLIENTES` (os dados de exemplo) e a coleção em memória que os cinco mocks dividem    |
 |                                | `src/use-cases/clientes/index.ts`                             | `createClientesUseCases` e as rotas de mock do domínio                                     |
 
-Os comandos também registram o domínio: o `make:schema` em `src/schemas/index.ts`, o `make:usecase` em `src/use-cases/index.ts` (o registro que `useUseCases()` entrega às telas) e no `errors.json` de cada idioma (o texto de `CLIENTE_NOT_FOUND` e dos `_FAILED`). Rode `pnpm verify` para ver tudo junto.
+Os comandos também registram o domínio: o `make:schema` em `src/schemas/index.ts`, o `make:usecase` em `src/use-cases/index.ts` (o registro que `useUseCases()` entrega às telas). Rode `pnpm verify` para ver tudo junto.
 
 ## Os campos do schema (`--fields`)
 
@@ -159,7 +195,7 @@ O `make:usecase --crud` não tem `--fields`: ele **lê os campos do schema** que
 
 - **as fixtures** do mock: três registros com valores de exemplo por tipo (texto `Titulo 1`, número `10`, `20`, `30`, booleano alternado, datas crescentes, os valores do enum na ordem);
 - **a coleção do mock**: a busca nos campos de texto (sem campo de texto, no `id`) e a ordem por cada campo da `<Entidade>SortKey`;
-- **os tipos e os testes** dos use cases: o Input de `createCliente` e de `updateCliente` vem do `pick` do schema de entrada, e os testes de busca, ordem, criação e edição usam os campos lidos.
+- **os tipos e os testes** dos use cases: o Request de `createCliente` e de `updateCliente` vem do `pick` do schema de entrada, e os testes de busca, ordem, criação e edição usam os campos lidos.
 
 Isso significa que o schema pode ser **editado à mão** antes do `make:usecase --crud`, dentro do que o leitor entende:
 
@@ -174,9 +210,9 @@ Os textos de exemplo das fixtures são genéricos: troque pelos dados do seu pro
 
 ## Os use cases do domínio
 
-Cada use case é uma ação com nome de verbo, um Input, um Output e um `execute`. O `--crud` gera os cinco que um domínio costuma ter:
+Cada use case é uma ação com nome de verbo, um Request, um Response e um `execute`. O `--crud` gera os cinco que um domínio costuma ter:
 
-| Chave no registro | Endereço               | Input                                                  | Output                                     |
+| Chave no registro | Endereço               | Request                                                | Response                                   |
 | ----------------- | ---------------------- | ------------------------------------------------------ | ------------------------------------------ |
 | `listClientes`    | `GET /clientes`        | o `ClienteListQuery` do schema: `search`, `sort`, `page` e `page_size` | `Page<ClienteSchema>` (`{ items, total }`) |
 | `getCliente`      | `GET /clientes/:id`    | `{ id }`                                               | `ClienteSchema`                            |
@@ -186,8 +222,8 @@ Cada use case é uma ação com nome de verbo, um Input, um Output e um `execute
 
 - `listClientes` aceita busca (`search`, sem diferenciar maiúsculas e acentos), ordem (`sort: { key, direction }`) e página (`page`, a partir de 1, e `page_size`). Devolve `{ items, total }`, em que `total` conta todos os itens que casam com a busca, antes de paginar.
 - `updateCliente` é **parcial**: muda só os campos enviados e mantém os outros (um `PATCH`). Para mudar um ou dois campos, envie só eles: `updateCliente.execute({ id, status: 'cancelado' })`.
-- Um registro que não existe é um `UIError` com o código `<ENTIDADE>_NOT_FOUND`, que a interface traduz (veja [Erros e notificações](errors-and-notifications.md)).
-- O mock **não** é uma implementação à parte: o use case de verdade roda sobre um `http` de mentira (`createMockHttp`), que responde a cada endereço com o handler do `.mock.ts`. Os cinco mocks dividem uma coleção em memória, então criar e depois listar mostra o item novo.
+- Um registro que não existe volta da API como 404, e o `http` do app o transforma em `UIError` `NOT_FOUND`, que a interface traduz (veja [Erros e notificações](errors-and-notifications.md)).
+- O mock **não** é uma implementação à parte: o use case de verdade roda sobre um `http` de mentira (`createMockHttp`), que responde a cada endereço com o handler do `mocks/<ação>.ts`. Os cinco mocks dividem uma coleção em memória, então criar e depois listar mostra o item novo.
 
 Para uma ação que o CRUD não cobre (por exemplo, `list-by-city`), crie um use case avulso, que é registrado no mesmo domínio:
 
@@ -195,7 +231,7 @@ Para uma ação que o CRUD não cobre (por exemplo, `list-by-city`), crie um use
 pnpm exec prumo make:usecase clientes.list-by-city --input "city:string" --output "cliente[]"
 ```
 
-As telas usam o use case com `useQuery` (leitura) ou `useMutation` (escrita), e a chave de cache de cada leitura é a `<ação>Key(input)` do `.types.ts`, com o domínio no prefixo. Uma escrita invalida o prefixo do domínio (`['clientes']`) no `onSuccess`: as listas e os detalhes se atualizam sozinhos.
+As telas usam o use case com `useQuery` (leitura) ou `useMutation` (escrita), e a chave de cache de cada leitura é a `<ação>Key(input)` do `types/<ação>.ts`, com o domínio no prefixo. Uma escrita invalida o prefixo do domínio (`['clientes']`) no `onSuccess`: as listas e os detalhes se atualizam sozinhos.
 
 ```ts
 // src/pages/clientes/model.ts
@@ -235,7 +271,7 @@ export const clienteSchema = z.object({
 export const clienteInputSchema = clienteSchema.pick({ name: true, email: true })
 ```
 
-**2. As fixtures e a coleção do mock**, em `src/use-cases/clientes/collection.mock.ts`:
+**2. As fixtures e a coleção do mock**, em `src/use-cases/clientes/mocks/collection.ts`:
 
 ```ts
 export const MOCK_CLIENTES: ClienteSchema[] = [
@@ -265,8 +301,8 @@ Em um domínio criado sem `--fields`, trocar ou tirar o `name` (em vez de só ac
 | Onde                                                           | O que o cita                                                                 |
 | -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | `src/schemas/entities/cliente.ts`                              | `clienteSchema` e o `pick` do `clienteInputSchema`                           |
-| `src/use-cases/clientes/collection.mock.ts`                    | o `name` de cada fixture, a busca e o acessor `name` da ordem                |
-| `src/use-cases/clientes/*.usecase.test.ts`                     | a busca por `'EXEMPLO 2'`, a ordem esperada, o `name` do create e do update  |
+| `src/use-cases/clientes/mocks/collection.ts`                   | o `name` de cada fixture, a busca e o acessor `name` da ordem                |
+| `src/use-cases/clientes/services/*.usecase.test.ts`            | a busca por `'EXEMPLO 2'`, a ordem esperada, o `name` do create e do update  |
 | `src/pages/<tela>/view.tsx`, das telas geradas com `--usecase` | `item.name` na lista (e no detalhe, se a tela é de detalhe)                  |
 | `src/pages/<tela>/index.test.tsx`, das telas de detalhe        | o texto `Exemplo 1`, que é o `name` da primeira fixture                      |
 
@@ -287,9 +323,9 @@ export interface ClienteListQuery extends PageQuery {
 }
 ```
 
-E no Input do `list-clientes.types.ts`, que valida o Input com zod, acrescente o `status`.
+E no Request do `types/list-clientes.ts`, que valida o Request com zod, acrescente o `status`.
 
-**2. O filtro no mock**, em `list-clientes.mock.ts`. A coleção em memória busca, ordena e pagina, mas não conhece o filtro novo: tire o `status` da consulta, peça a lista sem página, filtre e pagine depois (o `paginate` é do `@matizze/prumo-core/mock`):
+**2. O filtro no mock**, em `mocks/list-clientes.ts`. A coleção em memória busca, ordena e pagina, mas não conhece o filtro novo: tire o `status` da consulta, peça a lista sem página, filtre e pagine depois (o `paginate` é do `@matizze/prumo-core/mock`):
 
 ```ts
 [`${ENDPOINT.method} ${ENDPOINT.path}` as const]: ({ query }: Call) => {
@@ -310,14 +346,14 @@ it('filtra pelo status', async () => {
 })
 ```
 
-A chave de cache já leva o Input inteiro (`listClientesKey(input)`), então o filtro novo entra na chave e na busca sem mais nada. Na API real, o Input de uma leitura vai como query string da URL, e o campo novo vira um parâmetro sem outra mudança.
+A chave de cache já leva o Request inteiro (`listClientesKey(input)`), então o filtro novo entra na chave e na busca sem mais nada. Na API real, o Request de uma leitura vai como query string da URL, e o campo novo vira um parâmetro sem outra mudança.
 
 ### Consultas que dependem de "hoje"
 
-Uma consulta como "atrasados" ou "vencem esta semana" depende da data de hoje, e um mock que chama `new Date()` dá um resultado que muda com o dia, o que quebra o teste. Passe a data **no Input**, e o mock e o teste ficam determinísticos:
+Uma consulta como "atrasados" ou "vencem esta semana" depende da data de hoje, e um mock que chama `new Date()` dá um resultado que muda com o dia, o que quebra o teste. Passe a data **no Request**, e o mock e o teste ficam determinísticos:
 
 ```ts
-// no Input do use case
+// no Request do use case
 today?: string // data ISO (yyyy-mm-dd); o chamador informa
 
 // no mock, no mesmo filtro do passo anterior
@@ -367,24 +403,24 @@ Para onde "hoje" vem, veja [Consultas que dependem de "hoje"](#consultas-que-dep
 **2. Operações entre domínios como um use case próprio.** Uma operação que lê ou grava em mais de um domínio (fazer um pedido olha pedidos e clientes; cancelar mexe em pedidos e estoque) não pertence a um domínio só. Ela vira um use case (`pedidos.place-order`), que **recebe os outros use cases pelo construtor**, aplica as regras e devolve o resultado. Como todo use case, ele não importa de React nem do TanStack: o `prumo/use-case-imports` do ESLint confere.
 
 ```ts
-// src/use-cases/pedidos/place-order.usecase.ts
+// src/use-cases/pedidos/services/place-order.usecase.ts
 import { UIError } from '@matizze/prumo-core/errors'
 import type { IUseCase } from '@matizze/prumo-core/use-cases'
 import { verificarPedido, LIMITE_DE_PEDIDOS_EM_ABERTO } from '@/rules'
-import type { PlaceOrderInput, PlaceOrderOutput } from './place-order.types'
+import type { PlaceOrderRequest, PlaceOrderResponse } from '../types/place-order'
 
-export class PlaceOrderUseCase implements IUseCase<PlaceOrderInput, PlaceOrderOutput> {
+export class PlaceOrderUseCase implements IUseCase<PlaceOrderRequest, PlaceOrderResponse> {
   readonly #getCliente: IUseCase<{ id: string }, ClienteSchema>
-  readonly #listPedidos: IUseCase<ListPedidosInput, Page<PedidoSchema>>
-  readonly #createPedido: IUseCase<CreatePedidoInput, PedidoSchema>
+  readonly #listPedidos: IUseCase<ListPedidosRequest, Page<PedidoSchema>>
+  readonly #createPedido: IUseCase<CreatePedidoRequest, PedidoSchema>
 
   constructor(deps: { getCliente: ...; listPedidos: ...; createPedido: ... }) {
     // guarda os três use cases
   }
 
-  async execute(input: PlaceOrderInput): Promise<PlaceOrderOutput> {
+  async execute(input: PlaceOrderRequest): Promise<PlaceOrderResponse> {
     const hoje = input.hoje ?? new Date().toISOString().slice(0, 10)
-    await this.#getCliente.execute({ id: input.clienteId }) // CLIENTE_NOT_FOUND, se não existir
+    await this.#getCliente.execute({ id: input.clienteId }) // NOT_FOUND, se não existir
     const { items } = await this.#listPedidos.execute({ clienteId: input.clienteId, emAberto: true })
 
     const recusa = verificarPedido(items, hoje)
@@ -407,7 +443,7 @@ const t = useTranslations('cliente')
 const filtro = { clienteId: id, emAberto: true }
 const pedidos = useQuery({ queryKey: listPedidosKey(filtro), queryFn: () => listPedidos.execute(filtro) })
 const { placeOrder, listPedidos } = useUseCases()
-const fazerPedido = useMutation({ mutationFn: (input: PlaceOrderInput) => placeOrder.execute(input) })
+const fazerPedido = useMutation({ mutationFn: (input: PlaceOrderRequest) => placeOrder.execute(input) })
 
 const recusa = verificarPedido(pedidos.data?.items ?? [], new Date().toISOString().slice(0, 10))
 
@@ -437,7 +473,7 @@ O `prumo check` e o ESLint não olham `src/rules` (a pasta é livre): o único c
 
 ## Validar a entrada
 
-O use case já valida o Input com zod no `execute` (um Input inválido rejeita, antes de qualquer chamada à API). O `clienteInputSchema` é o mesmo schema zod: use-o no model para mostrar o erro de cada campo do formulário antes de chamar o use case:
+O use case já valida o Request com zod no `execute` (um Request inválido rejeita, antes de qualquer chamada à API). O `clienteInputSchema` é o mesmo schema zod: use-o no model para mostrar o erro de cada campo do formulário antes de chamar o use case:
 
 ```ts
 import { z } from 'zod'
@@ -453,5 +489,5 @@ Para que as mensagens de validação saiam traduzidas, escreva-as como chaves de
 
 1. Apague `src/use-cases/<domínio>/` e `src/schemas/entities/<entidade>.ts`.
 2. Tire o import, o `...create<Domínio>UseCases(deps)` e as rotas de mock do domínio em `src/use-cases/index.ts`, e as linhas do domínio em `src/schemas/index.ts`.
-3. Tire as telas que o usam (`src/pages/<tela>` e a rota em `src/App.tsx`) e o texto `<ENTIDADE>_NOT_FOUND` dos `errors.json`.
+3. Tire as telas que o usam (`src/pages/<tela>` e a rota em `src/App.tsx`).
 4. Rode `pnpm verify`: o `tsc` aponta o que ainda usa o domínio.

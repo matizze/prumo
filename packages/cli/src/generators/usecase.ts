@@ -17,7 +17,6 @@ import { assertValidName, deriveNames, RESERVED_WORDS, useCaseNames, type UseCas
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'
 import { nameVars, renderTemplate, renderTemplateFile } from '../lib/templates.ts'
-import { addErrorMessages, type ErrorText } from './error-messages.ts'
 
 /** Os verbos que começam uma ação de leitura (o model usa com `useQuery`); o resto é escrita (`useMutation`). */
 export const READ_VERBS = ['get', 'list', 'search', 'find', 'check', 'count'] as const
@@ -33,16 +32,16 @@ export interface Endpoint {
   method: Method
   /** O caminho, com `:parâmetros` (`/livros/:id`). */
   path: string
-  /** Os nomes dos `:parâmetros`, na ordem do caminho: cada um sai de um campo do Input. */
+  /** Os nomes dos `:parâmetros`, na ordem do caminho: cada um sai de um campo do Request. */
   params: string[]
 }
 
 export interface UseCaseRequest {
   /** `<domínio>.<ação>` ou `<domínio>/<ação>`, em kebab-case. */
   name: string
-  /** Os campos do Input, na sintaxe do `--fields` do make:schema. */
+  /** Os campos do Request, na sintaxe do `--fields` do make:schema. */
   input?: string | undefined
-  /** Os campos do Output, ou o nome de uma entidade (`store`, `store[]`) que já tem schema. */
+  /** Os campos do Response, ou o nome de uma entidade (`store`, `store[]`) que já tem schema. */
   output?: string | undefined
   /** `<MÉTODO> <caminho>`: troca o endereço padrão. */
   endpoint?: string | undefined
@@ -65,11 +64,11 @@ export interface UseCaseResult {
   endpoint: Endpoint | null
   /** A chave no registro: `useUseCases().<chave>`. */
   key: string
-  /** Avisos que não impedem o comando (o Input e o Output que ficaram no padrão, o `errors.json` que falta). */
+  /** Avisos que não impedem o comando (o Request e o Response que ficaram no padrão). */
   warnings: string[]
 }
 
-/** O que o Output é: o padrão, os campos dados ou uma entidade que já tem schema. */
+/** O que o Response é: o padrão, os campos dados ou uma entidade que já tem schema. */
 export type OutputSpec =
   | { kind: 'default' }
   | { kind: 'fields'; fields: Field[] }
@@ -85,17 +84,17 @@ export const FOLDER = 'src/use-cases/{{domain.kebab}}'
 
 /** Os arquivos de um use case com API, na ordem em que o plano os lista. */
 export const USE_CASE_FILES: readonly UseCaseFile[] = [
-  { template: 'usecase/types.ts.tpl', to: `${FOLDER}/{{action.kebab}}.types.ts` },
-  { template: 'usecase/usecase.ts.tpl', to: `${FOLDER}/{{action.kebab}}.usecase.ts` },
-  { template: 'usecase/mock.ts.tpl', to: `${FOLDER}/{{action.kebab}}.mock.ts` },
-  { template: 'usecase/test.ts.tpl', to: `${FOLDER}/{{action.kebab}}.usecase.test.ts` },
+  { template: 'usecase/types.ts.tpl', to: `${FOLDER}/types/{{action.kebab}}.ts` },
+  { template: 'usecase/usecase.ts.tpl', to: `${FOLDER}/services/{{action.kebab}}.usecase.ts` },
+  { template: 'usecase/mock.ts.tpl', to: `${FOLDER}/mocks/{{action.kebab}}.ts` },
+  { template: 'usecase/test.ts.tpl', to: `${FOLDER}/services/{{action.kebab}}.usecase.test.ts` },
 ]
 
 /** Os arquivos de um use case `--local`: sem a rota de mock. */
 export const LOCAL_USE_CASE_FILES: readonly UseCaseFile[] = [
   USE_CASE_FILES[0]!,
-  { template: 'usecase/usecase-local.ts.tpl', to: `${FOLDER}/{{action.kebab}}.usecase.ts` },
-  { template: 'usecase/test-local.ts.tpl', to: `${FOLDER}/{{action.kebab}}.usecase.test.ts` },
+  { template: 'usecase/usecase-local.ts.tpl', to: `${FOLDER}/services/{{action.kebab}}.usecase.ts` },
+  { template: 'usecase/test-local.ts.tpl', to: `${FOLDER}/services/{{action.kebab}}.usecase.test.ts` },
 ]
 
 /** O índice do domínio, criado com o primeiro use case dele. */
@@ -108,13 +107,7 @@ export const DOMAIN_INDEX_FILE: UseCaseFile = {
 const PARAM_TYPES: readonly FieldType[] = ['string', 'number', 'int', 'boolean', 'enum']
 
 /** Os nomes que o `execute` gerado declara: um `:parâmetro` com um deles redeclararia a variável. */
-const EXECUTE_LOCALS: ReadonlySet<string> = new Set(['input', 'path', 'body', 'query', 'response', 'error'])
-
-/** O texto do erro de cada tipo de use case, em cada língua dos modelos. */
-export const FAILED_TEXT: Record<Access, ErrorText> = {
-  read: { 'pt-BR': 'Não foi possível carregar os dados.', en: 'Could not load the data.' },
-  write: { 'pt-BR': 'Não foi possível concluir a ação.', en: 'Could not complete the action.' },
-}
+const EXECUTE_LOCALS: ReadonlySet<string> = new Set(['input', 'path', 'body', 'query', 'response'])
 
 /** Leitura ou escrita: `--read` e `--write` mandam; sem eles, o verbo no começo da ação decide. */
 function accessOf(action: string, { read, write }: UseCaseRequest): Access {
@@ -126,8 +119,8 @@ function accessOf(action: string, { read, write }: UseCaseRequest): Access {
 }
 
 /**
- * Lê o `--endpoint` (`PATCH /livros/:id`) e confere com o Input: cada `:parâmetro` do caminho sai
- * de um campo obrigatório do Input com o mesmo nome, e um não pode ser o começo do nome de outro
+ * Lê o `--endpoint` (`PATCH /livros/:id`) e confere com o Request: cada `:parâmetro` do caminho sai
+ * de um campo obrigatório do Request com o mesmo nome, e um não pode ser o começo do nome de outro
  * (o `execute` troca cada um por texto).
  */
 function parseEndpoint(text: string, input: readonly Field[]): Endpoint {
@@ -137,7 +130,7 @@ function parseEndpoint(text: string, input: readonly Field[]): Endpoint {
   const found = METHODS.find((candidate) => candidate === method)
   if (!found || route === undefined || /[?#]/.test(route)) {
     throw new UsageError(
-      `--endpoint '${text}' é inválido: use '<MÉTODO> <caminho>', como 'PATCH /livros/:id' (métodos: ${METHODS.join(', ')}; o caminho começa com / e não leva ? nem #: o que vai na query sai do Input).`,
+      `--endpoint '${text}' é inválido: use '<MÉTODO> <caminho>', como 'PATCH /livros/:id' (métodos: ${METHODS.join(', ')}; o caminho começa com / e não leva ? nem #: o que vai na query sai do Request).`,
     )
   }
   const params = [...route.matchAll(/\/:([A-Za-z][A-Za-z0-9_]*)/g)].map((param) => param[1]!)
@@ -145,17 +138,17 @@ function parseEndpoint(text: string, input: readonly Field[]): Endpoint {
     const field = input.find((candidate) => candidate.name === param)
     if (!field) {
       throw new UsageError(
-        `--endpoint '${text}': o parâmetro ':${param}' do caminho não é um campo do Input: acrescente '${param}:string' ao --input.`,
+        `--endpoint '${text}': o parâmetro ':${param}' do caminho não é um campo do Request: acrescente '${param}:string' ao --input.`,
       )
     }
     if (field.optional) {
-      throw new UsageError(`--endpoint '${text}': o campo '${param}' do Input tem que ser obrigatório, porque o caminho precisa dele.`)
+      throw new UsageError(`--endpoint '${text}': o campo '${param}' do Request tem que ser obrigatório, porque o caminho precisa dele.`)
     }
     if (RESERVED_WORDS.has(param)) {
       throw new UsageError(`--endpoint '${text}': o parâmetro ':${param}' é palavra reservada do JavaScript: use outro nome (por exemplo, ':id').`)
     }
     if (!PARAM_TYPES.includes(field.type)) {
-      throw new UsageError(`--endpoint '${text}': o campo '${param}' do Input é ${field.type}, e um parâmetro do caminho só pode ser string, number, int, boolean ou enum.`)
+      throw new UsageError(`--endpoint '${text}': o campo '${param}' do Request é ${field.type}, e um parâmetro do caminho só pode ser string, number, int, boolean ou enum.`)
     }
     if (EXECUTE_LOCALS.has(param)) {
       throw new UsageError(`--endpoint '${text}': o parâmetro ':${param}' tem o nome de uma variável do execute gerado: use outro (por exemplo, ':id').`)
@@ -193,7 +186,7 @@ export function zodObject(fields: readonly Field[]): string {
   return `z.object({\n${fields.map((field) => `  ${field.name}: ${zodOf(field)},`).join('\n')}\n})`
 }
 
-/** O schema zod do Output: o que o `--output` descreve ou, sem ele, `z.unknown()` (a API real pode devolver corpo). */
+/** O schema zod do Response: o que o `--output` descreve ou, sem ele, `z.unknown()` (a API real pode devolver corpo). */
 function outputZod(output: OutputSpec): string {
   switch (output.kind) {
     case 'fields':
@@ -207,7 +200,7 @@ function outputZod(output: OutputSpec): string {
   }
 }
 
-/** Um Output de exemplo, no formato do schema (o que o mock responde). */
+/** Um Response de exemplo, no formato do schema (o que o mock responde). */
 function outputSample(output: OutputSpec): Sample {
   switch (output.kind) {
     case 'fields':
@@ -224,7 +217,7 @@ function outputSample(output: OutputSpec): Sample {
 /** Um objeto literal numa posição de expressão (o corpo de uma arrow) precisa de parênteses. */
 const asExpression = (code: string) => (code.startsWith('{') ? `(${code})` : code)
 
-/** Os blocos de `<ação>.types.ts` que variam: o import da entidade, o `ENDPOINT` e a chave de cache. */
+/** Os blocos de `types/<ação>.ts` que variam: o import da entidade, o `ENDPOINT` e a chave de cache. */
 export function typesVars(
   { domain, action }: UseCaseNames,
   endpoint: Endpoint | null,
@@ -236,27 +229,28 @@ export function typesVars(
     'types.schemaImport':
       output.kind === 'entity' ? `import { ${deriveNames(output.entity).camel}Schema } from '@/schemas'\n` : '',
     'types.endpoint': endpoint
-      ? `/** O endereço da API: o use case chama e o mock responde por ele. */\nexport const ENDPOINT = { method: '${endpoint.method}', path: '${endpoint.path}' } as const\n\n`
+      ? `export const ENDPOINT = { method: '${endpoint.method}', path: '${endpoint.path}' } as const\n\n`
       : '',
-    'types.inputType': `z.infer<typeof ${action.pascal}Input>`,
+    'types.inputType': `z.infer<typeof ${action.pascal}Request>`,
     'types.key':
       access === 'read'
-        ? `\n\n/** A chave de cache da consulta (\`queryKey\`): o prefixo é o domínio, e uma escrita invalida \`['${domain.kebab}']\`. */\nexport function ${key}(input: ${action.pascal}Input) {\n  return ['${domain.kebab}', '${action.kebab}', input] as const\n}`
+        ? `\n\nexport function ${key}(input: ${action.pascal}Request) {\n  return ['${domain.kebab}', '${action.kebab}', input] as const\n}`
         : '',
   }
 }
 
 /**
- * Do `execute` com API: valida o Input e monta a chamada. O Input vai na query (leitura) ou no
+ * Do `execute` com API: valida o Request e monta a chamada. O Request vai na query (leitura) ou no
  * corpo (escrita), menos os campos que são `:parâmetros` do caminho, que entram nele, codificados.
+ * `usecase.request` é o que vem antes da chamada (vazio, ou linhas terminadas em quebra de linha).
  */
 export function requestVars({ action }: UseCaseNames, endpoint: Endpoint, access: Access, input: readonly Field[]) {
   const slot = access === 'read' ? 'query' : 'body'
-  const parse = `${action.pascal}Input.parse(input)`
+  const parse = `${action.pascal}Request.parse(input)`
   if (endpoint.params.length === 0) {
     return {
-      'usecase.request': `    const ${slot} = ${parse}`,
-      'usecase.call': `ENDPOINT.path, { method: ENDPOINT.method, ${slot} }`,
+      'usecase.request': '',
+      'usecase.call': `ENDPOINT.path, { method: ENDPOINT.method, ${slot}: ${parse} }`,
     }
   }
   const rest = input.some((field) => !endpoint.params.includes(field.name))
@@ -269,20 +263,20 @@ export function requestVars({ action }: UseCaseNames, endpoint: Endpoint, access
     'usecase.request': [
       `    const { ${endpoint.params.join(', ')}${rest ? `, ...${slot}` : ''} } = ${parse}`,
       `    const path = ${path}`,
+      '',
     ].join('\n'),
     'usecase.call': `path, { method: ENDPOINT.method${rest ? `, ${slot}` : ''} }`,
   }
 }
 
-/** Do `execute` do `--local`: valida o Input, deixa a regra marcada e devolve o Output validado. */
+/** Do `execute` do `--local`: valida o Request, deixa a regra marcada e devolve o Response validado. */
 function ruleVars({ action }: UseCaseNames, access: Access, sample: Sample): Record<string, string> {
-  const parse = `${action.pascal}Input.parse(input)`
+  const parse = `${action.pascal}Request.parse(input)`
   const result = sampleCode(sample, '    ')
-  const placeholder = sample === undefined ? '' : '    // Troque o resultado de exemplo pelo que a regra calcula.\n'
   const rule =
     access === 'read'
-      ? `    ${parse}\n    // A regra do use case entra aqui. O exemplo lê o que está guardado no localStorage.\n    const stored = this.#storage.getItem(STORAGE_KEY)\n${placeholder}    return ${action.pascal}Output.parse(stored === null ? ${result} : JSON.parse(stored))`
-      : `    const parsed = ${parse}\n    // A regra do use case entra aqui. O exemplo guarda o Input no localStorage.\n    this.#storage.setItem(STORAGE_KEY, JSON.stringify(parsed))\n${placeholder}    return ${action.pascal}Output.parse(${result})`
+      ? `    ${parse}\n    // A regra do use case entra aqui.\n    const stored = this.#storage.getItem(STORAGE_KEY)\n    return ${action.pascal}Response.parse(stored === null ? ${result} : JSON.parse(stored))`
+      : `    const parsed = ${parse}\n    // A regra do use case entra aqui.\n    this.#storage.setItem(STORAGE_KEY, JSON.stringify(parsed))\n    return ${action.pascal}Response.parse(${result})`
   return { 'usecase.rule': rule }
 }
 
@@ -322,7 +316,7 @@ export function addUseCase(
 /**
  * Monta o plano de um use case: os arquivos de `src/use-cases/<domínio>/` (tipos, classe, rota de
  * mock e teste), o registro no índice do domínio (criado, se falta) e no registro geral
- * `src/use-cases/index.ts`, e o texto de `<AÇÃO>_FAILED` nos `errors.json`. Com `local`, o use case
+ * `src/use-cases/index.ts`. Com `local`, o use case
  * não chama a API: recebe o `storage`, e não tem `ENDPOINT` nem rota de mock. Nada vai para o
  * disco: quem chama mostra o `summary()` ou faz o `commit()`. Valida tudo antes de montar o plano;
  * todo erro de uso é um `UsageError` (saída 2).
@@ -352,7 +346,6 @@ export function generateUseCase(project: Project, request: UseCaseRequest): UseC
     ...nameVars('domain', domain),
     ...nameVars('action', action),
     ...typesVars(names, endpoint, access, output),
-    'usecase.notFound': '',
     'types.input': zodObject(input),
     'types.output': outputZod(output),
     'test.input': sampleCode(sampleRecord(input, 1)),
@@ -362,17 +355,12 @@ export function generateUseCase(project: Project, request: UseCaseRequest): UseC
   addUseCase(plan, names, vars, local ? LOCAL_USE_CASE_FILES : USE_CASE_FILES, { local })
 
   const warnings: string[] = []
-  const types = `src/use-cases/${domain.kebab}/${action.kebab}.types.ts`
+  const types = `src/use-cases/${domain.kebab}/types/${action.kebab}.ts`
   if (request.input === undefined) {
-    warnings.push(`sem --input, o Input é um objeto vazio: descreva os campos em ${types}.`)
+    warnings.push(`sem --input, o Request é um objeto vazio: descreva os campos em ${types}.`)
   }
   if (request.output === undefined) {
-    warnings.push(`sem --output, o Output é z.unknown(): descreva o que o use case devolve em ${types}.`)
-  }
-  if (!local) {
-    warnings.push(
-      ...addErrorMessages(plan, { [`${vars['action.constant']}_FAILED`]: FAILED_TEXT[access] }),
-    )
+    warnings.push(`sem --output, o Response é z.unknown(): descreva o que o use case devolve em ${types}.`)
   }
   return { plan, names, access, kind: local ? 'local' : access, endpoint, key: action.camel, warnings }
 }

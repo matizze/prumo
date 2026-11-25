@@ -50,6 +50,18 @@ export class HttpError extends Error {
   }
 }
 
+/**
+ * A chamada não chegou à API: o `fetch` rejeitou (sem rede, DNS, CORS, servidor fora do ar). É a
+ * única falha de transporte que o cliente marca, e o que o `fetch` lança em outro lugar (um bug de
+ * código, um `TypeError` qualquer) não vira `NetworkError`. A causa original fica em `cause`.
+ */
+export class NetworkError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options)
+    this.name = 'NetworkError'
+  }
+}
+
 /** Lê o corpo da resposta quando é JSON: o content-type diz `json`, ou o texto começa com `{` ou `[`. */
 async function readJson(response: Response): Promise<unknown> {
   const text = await response.text()
@@ -83,8 +95,13 @@ export function withQuery(path: string, query?: HttpQuery): string {
 export function createHttp({ baseUrl, headers, auth, fetch: fetchOverride }: HttpOptions): Http {
   // `http://api/` e `http://api` dão no mesmo: o caminho de cada chamada começa com a barra
   const base = baseUrl.replace(/\/+$/, '')
-  const send = (path: string, { method = 'GET', body, query }: HttpRequest, token: string | null) =>
-    (fetchOverride ?? fetch)(`${base}${withQuery(path, query)}`, {
+  const send = async (
+    path: string,
+    { method = 'GET', body, query }: HttpRequest,
+    token: string | null,
+  ) => {
+    const url = `${base}${withQuery(path, query)}`
+    const init: RequestInit = {
       method,
       headers: {
         // Sem corpo não há Content-Type: um GET com ele deixaria de ser uma requisição simples do CORS
@@ -93,7 +110,14 @@ export function createHttp({ baseUrl, headers, auth, fetch: fetchOverride }: Htt
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
-    })
+    }
+    try {
+      return await (fetchOverride ?? fetch)(url, init)
+    } catch (cause) {
+      // Só o que o próprio fetch lança vira falha de rede: o resto do código passa como veio
+      throw new NetworkError(`${method} ${path}: falha de rede`, { cause })
+    }
+  }
 
   return async (path, request = {}) => {
     const token = auth?.getToken() ?? null

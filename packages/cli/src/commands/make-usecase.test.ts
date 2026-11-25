@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fixtureProject } from '../test/fixture-project.ts'
@@ -6,13 +6,11 @@ import { exec } from '../test/run.ts'
 
 const read = (root: string, file: string) => readFileSync(path.join(root, file), 'utf8')
 
-/** Um projeto de fixture com o schema `stores` e o `errors.json` de cada idioma. */
+/** Um projeto de fixture com o schema `stores`. */
 async function withStores() {
   const { root } = fixtureProject()
   const made = await exec(['make:schema', 'stores', '--fields', 'name:string'], root)
   expect(made.code, made.stderr).toBe(0)
-  writeFileSync(path.join(root, 'src/messages/pt-BR/errors.json'), '{}\n')
-  writeFileSync(path.join(root, 'src/messages/en/errors.json'), '{}\n')
   return root
 }
 
@@ -24,17 +22,15 @@ describe('prumo make:usecase', () => {
     expect(result.code, result.stderr).toBe(0)
     expect(result.stderr).toBe('')
     expect(result.stdout).toContain('prumo make:usecase: stores.get-stores (leitura, GET /stores/get-stores).')
-    expect(result.stdout).toContain('Criados (5):\n  src/use-cases/stores/get-stores.mock.ts')
-    expect(result.stdout).toContain(
-      'Alterados (3):\n  src/messages/en/errors.json\n  src/messages/pt-BR/errors.json\n  src/use-cases/index.ts',
-    )
-    expect(result.stdout).toContain('Aviso: sem --input, o Input é um objeto vazio')
+    expect(result.stdout).toContain('Criados (5):\n  src/use-cases/stores/index.ts')
+    expect(result.stdout).toContain('Alterados (1):\n  src/use-cases/index.ts')
+    expect(result.stdout).toContain('Aviso: sem --input, o Request é um objeto vazio')
     expect(result.stdout).not.toContain('sem --output')
     expect(result.stdout).toContain(
       'Próximo passo: no model da tela, const { getStores } = useUseCases() e useQuery({ queryKey: getStoresKey(input), queryFn: () => getStores.execute(input) }).\n',
     )
     expect(read(root, 'src/use-cases/index.ts')).toContain('...createStoresUseCases(deps),')
-    expect(JSON.parse(read(root, 'src/messages/en/errors.json'))).toEqual({ GET_STORES_FAILED: 'Could not load the data.' })
+    expect(existsSync(path.join(root, 'src/use-cases/stores/services/get-stores.usecase.ts'))).toBe(true)
   })
 
   it('escrita: o próximo passo é o useMutation', async () => {
@@ -54,8 +50,8 @@ describe('prumo make:usecase', () => {
     const result = await exec(['make:usecase', 'cart.add-item', '--local', '--input', 'productId:string'], root)
     expect(result.code, result.stderr).toBe(0)
     expect(result.stdout).toContain('cart.add-item (local).')
-    expect(existsSync(path.join(root, 'src/use-cases/cart/add-item.mock.ts'))).toBe(false)
-    expect(result.stdout).not.toContain('errors.json')
+    expect(existsSync(path.join(root, 'src/use-cases/cart/mocks/add-item.ts'))).toBe(false)
+    expect(existsSync(path.join(root, 'src/use-cases/cart/mocks'))).toBe(false)
   })
 
   it('--dry-run lista o plano e não escreve nada', async () => {
@@ -65,7 +61,7 @@ describe('prumo make:usecase', () => {
     expect(result.code, result.stderr).toBe(0)
     expect(result.stdout).toContain('(simulação)')
     expect(result.stdout).toContain('Seriam criados (5):')
-    expect(result.stdout).toContain('Seriam alterados (3):')
+    expect(result.stdout).toContain('Seriam alterados (1):')
     expect(result.stdout).toContain('Simulação (--dry-run): nada foi escrito.')
     expect(result.stdout).not.toContain('Próximo passo')
     expect(existsSync(path.join(root, 'src/use-cases/stores'))).toBe(false)
@@ -121,7 +117,7 @@ describe('prumo make:usecase', () => {
   })
 
   describe('--crud', () => {
-    it('gera os cinco use cases, a coleção do mock e os textos de erro, e diz o próximo passo', async () => {
+    it('gera os cinco use cases e a coleção do mock, e diz o próximo passo', async () => {
       const root = await withStores()
       const result = await exec(['make:usecase', 'stores', '--crud'], root)
 
@@ -133,19 +129,11 @@ describe('prumo make:usecase', () => {
       expect(result.stdout).toContain('Criados (22):')
       expect(result.stdout).toContain('Próximo passo: prumo make:page stores --usecase stores.list-stores\n')
       for (const action of ['list-stores', 'get-store', 'create-store', 'update-store', 'remove-store']) {
-        for (const suffix of ['types.ts', 'usecase.ts', 'mock.ts', 'usecase.test.ts']) {
-          expect(existsSync(path.join(root, `src/use-cases/stores/${action}.${suffix}`)), `${action}.${suffix}`).toBe(true)
+        for (const file of [`types/${action}.ts`, `services/${action}.usecase.ts`, `mocks/${action}.ts`, `services/${action}.usecase.test.ts`]) {
+          expect(existsSync(path.join(root, `src/use-cases/stores/${file}`)), file).toBe(true)
         }
       }
-      expect(read(root, 'src/use-cases/stores/collection.mock.ts')).toContain('export const storesCollection = createMockCollection(MOCK_STORES, {')
-      expect(Object.keys(JSON.parse(read(root, 'src/messages/pt-BR/errors.json')))).toEqual([
-        'STORE_NOT_FOUND',
-        'LIST_STORES_FAILED',
-        'GET_STORE_FAILED',
-        'CREATE_STORE_FAILED',
-        'UPDATE_STORE_FAILED',
-        'REMOVE_STORE_FAILED',
-      ])
+      expect(read(root, 'src/use-cases/stores/mocks/collection.ts')).toContain('export const storesCollection = createMockCollection(MOCK_STORES, {')
     })
 
     it('--entity troca o singular, e --dry-run não escreve', async () => {
@@ -166,8 +154,8 @@ describe('prumo make:usecase', () => {
       const result = await exec(['make:usecase', 'stores', '--crud'], root)
       expect(result.code).toBe(2)
       expect(result.stderr).toContain("o use case 'stores.get-store' já existe")
-      expect(existsSync(path.join(root, 'src/use-cases/stores/list-stores.usecase.ts'))).toBe(false)
-      expect(existsSync(path.join(root, 'src/use-cases/stores/collection.mock.ts'))).toBe(false)
+      expect(existsSync(path.join(root, 'src/use-cases/stores/services/list-stores.usecase.ts'))).toBe(false)
+      expect(existsSync(path.join(root, 'src/use-cases/stores/mocks/collection.ts'))).toBe(false)
     })
 
     it('recusa o schema que falta e as opções de um use case só', async () => {

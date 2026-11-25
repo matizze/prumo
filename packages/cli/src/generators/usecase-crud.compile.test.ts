@@ -40,6 +40,6 @@ describe('o CRUD gerado compila (tsc estrito) e passa nos testes', () => {
 
   it('o registro tem as cinco chaves, e o mock dos cinco divide a coleção', () => {
     expect(read(root, 'src/use-cases/clientes/index.ts')).toContain('listClientes: new ListClientesUseCase(deps.http)')
-    expect(read(root, 'src/use-cases/clientes/collection.mock.ts')).toContain('createMockCollection(MOCK_CLIENTES')
+    expect(read(root, 'src/use-cases/clientes/mocks/collection.ts')).toContain('createMockCollection(MOCK_CLIENTES')
   })
 })

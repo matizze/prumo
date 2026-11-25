@@ -2,9 +2,9 @@
       await subject.{{key.remove}}.execute({ id: '{{singular.kebab}}-1' })
       expect((await subject.{{key.list}}.execute({})).total).toBe(MOCK_{{plural.constant}}.length - 1)
       await expect(subject.{{key.get}}.execute({ id: '{{singular.kebab}}-1' })).rejects.toMatchObject({
-        code: '{{singular.constant}}_NOT_FOUND',
+        status: 404,
       })
       await expect(subject.{{key.remove}}.execute({ id: '{{singular.kebab}}-1' })).rejects.toMatchObject({
-        code: '{{singular.constant}}_NOT_FOUND',
+        status: 404,
       })
     })

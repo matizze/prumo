@@ -6,40 +6,58 @@ Este guia mostra como um erro sai do use case e chega à pessoa no idioma certo:
 
 ```mermaid
 flowchart LR
-  http["http<br/>throw new HttpError(404)"] --> uc["Use case<br/>throw new UIError('CLIENTE_NOT_FOUND')"] --> query["Query ou mutation<br/>(TanStack Query)"]
+  http["http<br/>HttpError(404)"] --> wrap["withErrors (src/http)<br/>UIError('NOT_FOUND')"] --> uc["Use case<br/>(sem try/catch)"] --> query["Query ou mutation<br/>(TanStack Query)"]
   query -- "carga inicial" --> tela["A tela mostra<br/>(model: isError)"]
   query -- "refetch ou mutation" --> notify["notify(getErrorMessage(erro))<br/>(QueryClient do core)"]
   notify --> ds["Notificação do<br/>design system"]
 ```
 
-- **O use case não conhece idioma.** O `http` lança um `HttpError` (com o `status` da resposta), e o `execute` o traduz num `UIError` com um código estável (`CLIENTE_NOT_FOUND`, `SIGN_IN_FAILED`); a interface traduz o código. Um Input ou Output que o zod recusa é outro erro, que sobe como está e a interface mostra como `errors.generic`.
+- **O use case não trata erro e não conhece idioma.** O `http` do app lança um `HttpError` (com o `status` da resposta), e o `withErrors` de `src/http/errors.ts`, num lugar só, o transforma num `UIError` com um código estável (`NOT_FOUND`, `UNAUTHORIZED`); a interface traduz o código. Um Request ou Response que o zod recusa é outro erro, que sobe como está e a interface mostra como `errors.generic`.
 - **A carga inicial que falha** é mostrada pela própria tela: o model expõe `isError`, e a view mostra o estado de erro.
 - **A falha de um refetch em segundo plano** (a tela já tem dados) e **o erro de uma mutation** viram uma notificação global, pelo `notify` que o produto passa ao `createQueryClient`.
 
-## Lançar um erro com código
+## Do erro da API ao texto
+
+O `execute` de um use case gerado não tem `try/catch`: o erro do `http` sobe como veio. Quem o traduz é o `http` do app, que o `prumo new` já gera em `src/http/errors.ts` e aplica à API (`src/http/api.ts`) e ao `http` de mock (`src/use-cases/index.ts`), para os dois se comportarem igual:
+
+| Resposta da API                    | `UIError`          | Texto padrão (pt-BR)                          |
+| ---------------------------------- | ------------------ | --------------------------------------------- |
+| 400 e 422                          | `INVALID_REQUEST`  | Confira os dados e tente de novo.             |
+| 401                                | `UNAUTHORIZED`     | Entre na sua conta para continuar.            |
+| 403                                | `FORBIDDEN`        | Você não tem permissão para isso.             |
+| 404                                | `NOT_FOUND`        | Não encontramos o que você procura.           |
+| 409                                | `CONFLICT`         | Isso entra em conflito com o que já existe.   |
+| 5xx, outros status e falha de rede (`NetworkError`) | `REQUEST_FAILED` | Não foi possível concluir a ação. Tente de novo. |
+
+A falha de rede é o `NetworkError` que o `createHttp` lança quando o `fetch` rejeita. Um `TypeError` qualquer é bug de código e não vira `REQUEST_FAILED`: ele aparece como erro de programação.
+
+No 400 e no 422, a `message` do `UIError` é a `message` do corpo da resposta, quando houver (ela serve para logs e testes, não para a tela). O `MissingMockRouteError` (uma rota que falta no mock) não é traduzido: é erro de programação.
+
+```ts
+// src/http/errors.ts (o essencial)
+export function toUIError(error: unknown): unknown {
+  if (error instanceof HttpError) {
+    if (error.status === 400 || error.status === 422) {
+      return new UIError('INVALID_REQUEST', bodyMessage(error.body) ?? error.message)
+    }
+    return new UIError(CODES[error.status] ?? 'REQUEST_FAILED', error.message)
+  }
+  if (error instanceof NetworkError) return new UIError('REQUEST_FAILED', error.message)
+  return error // um TypeError de bug de código passa como veio
+}
+```
+
+Para um código do seu domínio (um 403 que significa "sem saldo", um 409 de CPF repetido), ajuste o `toUIError`, ou crie o `UIError` num use case que tem uma regra própria (veja [Regras de negócio](use-cases.md#regras-de-negócio-e-operações-entre-domínios)), e acrescente o texto em `errors.<CÓDIGO>` nos dois idiomas. O código é um contrato estável: a `message` serve para logs e testes, nunca para a tela.
 
 ```ts
 import { UIError } from '@matizze/prumo-core/errors'
 
-throw new UIError('CLIENTE_NOT_FOUND', 'Registro não encontrado.')
+throw new UIError('PEDIDO_LIMITE_ATINGIDO', 'Pedido recusado.', { limite: 3 })
 ```
-
-O `code` é o que importa para a interface. A `message` serve para logs e testes, nunca para a tela. Use códigos estáveis, em maiúsculas: eles são parte do contrato do use case (o `getCliente` rejeita um id inexistente com `CLIENTE_NOT_FOUND`) e chaves de texto. Os use cases gerados já fazem a tradução no `execute`:
-
-```ts
-// src/use-cases/clientes/get-cliente.usecase.ts (o catch)
-} catch (error) {
-  if (error instanceof HttpError && error.status === 404) throw new UIError('CLIENTE_NOT_FOUND', error.message)
-  if (error instanceof HttpError) throw new UIError('GET_CLIENTE_FAILED', error.message)
-  throw error
-}
-```
-
-Para um erro do seu domínio (um 403, um 401 do login), acrescente um `if` no `catch` e o texto em `errors.<CÓDIGO>` nos dois idiomas.
 
 ## Traduzir o erro
 
-> O `prumo new` já gera tudo isto: o namespace `errors` nos dois idiomas (com o texto genérico), o `src/errors.ts` com o `getErrorMessage`, o `i18n` exportado e o `src/providers/app.tsx` usando o `getErrorMessage`. O `make:usecase` acrescenta aos dois `errors.json` o texto de `<AÇÃO>_FAILED` (e, no `--crud`, o de `<ENTIDADE>_NOT_FOUND`). Os passos abaixo são para entender o que existe e para um [app criado antes](#app-criado-antes-do-tratamento-de-erro).
+> O `prumo new` já gera tudo isto: o namespace `errors` nos dois idiomas (com o texto genérico e os dos códigos da tabela acima), o `src/errors.ts` com o `getErrorMessage`, o `src/http/errors.ts`, o `i18n` exportado e o `src/providers/app.tsx` usando o `getErrorMessage`. O `make:usecase` não mexe nos `errors.json`. Os passos abaixo são para entender o que existe e para um [app criado antes](#app-criado-antes-do-tratamento-de-erro).
 
 **1. Crie os textos dos erros**, um namespace `errors` nos dois idiomas, com o texto genérico e um por código:
 
@@ -47,7 +65,12 @@ Para um erro do seu domínio (um 403, um 401 do login), acrescente um `if` no `c
 // src/messages/pt-BR/errors.json
 {
   "generic": "Algo deu errado. Tente de novo.",
-  "CLIENTE_NOT_FOUND": "Cliente não encontrado."
+  "INVALID_REQUEST": "Confira os dados e tente de novo.",
+  "UNAUTHORIZED": "Entre na sua conta para continuar.",
+  "FORBIDDEN": "Você não tem permissão para isso.",
+  "NOT_FOUND": "Não encontramos o que você procura.",
+  "CONFLICT": "Isso entra em conflito com o que já existe.",
+  "REQUEST_FAILED": "Não foi possível concluir a ação. Tente de novo."
 }
 ```
 
@@ -55,9 +78,16 @@ Para um erro do seu domínio (um 403, um 401 do login), acrescente um `if` no `c
 // src/messages/en/errors.json
 {
   "generic": "Something went wrong. Please try again.",
-  "CLIENTE_NOT_FOUND": "Customer not found."
+  "INVALID_REQUEST": "Check the data and try again.",
+  "UNAUTHORIZED": "Sign in to continue.",
+  "FORBIDDEN": "You do not have permission to do that.",
+  "NOT_FOUND": "We could not find what you are looking for.",
+  "CONFLICT": "That conflicts with what already exists.",
+  "REQUEST_FAILED": "The action could not be completed. Please try again."
 }
 ```
+
+Troque os textos pelos do seu produto, e mude o `toUIError` junto, se mudar os códigos.
 
 **2. Registre o namespace** no `index.ts` de cada idioma (`import errors from './errors.json'` e `errors` no `export default`).
 
@@ -82,7 +112,7 @@ O `getErrorMessage(erro)` devolve:
 
 ### App criado antes do tratamento de erro
 
-Um app criado por uma versão anterior do `new` não tem o namespace `errors`, o `src/errors.ts` nem o `i18n` exportado, e o `providers/app.tsx` usa o texto técnico do erro. Faça os três passos acima à mão (os textos, o registro do namespace e o `src/errors.ts`) e troque o `getErrorMessage` do `providers/app.tsx` pelo do `@/errors`. Enquanto isso, o `make:usecase --crud` continua funcionando: ele avisa que não acrescentou o texto de `<ENTIDADE>_NOT_FOUND` (falta o `errors.json`) e segue, sem falhar. Depois de criar os `errors.json`, acrescente você mesmo as chaves dos domínios já gerados.
+Um app criado por uma versão anterior do `new` não tem o namespace `errors`, o `src/errors.ts` nem o `i18n` exportado, e o `providers/app.tsx` usa o texto técnico do erro. Faça os três passos acima à mão (os textos, o registro do namespace e o `src/errors.ts`) e troque o `getErrorMessage` do `providers/app.tsx` pelo do `@/errors`. Um app da 0.10 também não tem o `src/http/errors.ts`: veja a [migração do layout](migrate-to-use-cases.md#do-layout-da-010-para-o-do-pratigo).
 
 ### Valores no texto e códigos soltos
 
@@ -182,7 +212,7 @@ const detail = useQuery({ queryKey: getClienteKey(input), queryFn: () => getClie
 
 return {
   failed: detail.isError,
-  failedText: detail.error ? getErrorMessage(detail.error) : undefined, // "Cliente não encontrado."
+  failedText: detail.error ? getErrorMessage(detail.error) : undefined, // "Não encontramos o que você procura."
 }
 ```
 
@@ -195,7 +225,7 @@ import { UIError } from '@matizze/prumo-core/errors'
 import { getErrorMessage } from '@/errors'
 
 it('traduz o código do erro', () => {
-  expect(getErrorMessage(new UIError('CLIENTE_NOT_FOUND', ''))).toBe('Cliente não encontrado.')
+  expect(getErrorMessage(new UIError('NOT_FOUND', ''))).toBe('Não encontramos o que você procura.')
   expect(getErrorMessage(new Error('falha de rede'))).toBe('Algo deu errado. Tente de novo.')
 })
 ```

@@ -10,11 +10,10 @@ import { generateUseCase, type UseCaseRequest } from './usecase.ts'
 
 type Fixture = ReturnType<typeof fixtureProject>
 
-/** Um projeto de fixture com o schema `livros`, o CRUD dele e o `errors.json` de cada idioma. */
+/** Um projeto de fixture com o schema `livros`, o CRUD dele. */
 function withLivros(fields = 'titulo:string,ano:int,situacao:enum(lido|lendo),nota?:int,lido:boolean') {
   const project = fixtureProject()
   generateSchema(project, { name: 'livros', fields }).plan.commit()
-  for (const language of ['pt-BR', 'en']) writeFileSync(path.join(project.messages, language, 'errors.json'), '{}\n')
   generateCrudUseCases(project, { name: 'livros' }).plan.commit()
   return project
 }
@@ -43,7 +42,7 @@ describe('generatePage --usecase: lista', () => {
     expect(created(result, 'pages/livros/model.ts')).toBe(`import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from '@/i18n'
 import { useUseCases } from '@/providers/use-cases'
-import { listLivrosKey } from '@/use-cases/livros/list-livros.types'
+import { listLivrosKey } from '@/use-cases/livros/types/list-livros'
 
 export function useLivrosModel() {
   const t = useTranslations('livros')
@@ -88,12 +87,12 @@ export type LivrosModel = ReturnType<typeof useLivrosModel>
     expect(read('en')).toMatchObject({ empty: 'Nothing here yet.' })
   })
 
-  it('recusa a leitura que não devolve uma lista de entidade, e o Input com campo obrigatório', () => {
+  it('recusa a leitura que não devolve uma lista de entidade, e o Request com campo obrigatório', () => {
     const project = withLivros()
     useCase(project, { name: 'stats.get-stats' })
-    expect(() => page(project, { name: 'stats', useCase: 'stats.get-stats' })).toThrow(/a tela de lista precisa que o Output de o use case 'stats.get-stats' seja uma lista/)
+    expect(() => page(project, { name: 'stats', useCase: 'stats.get-stats' })).toThrow(/a tela de lista precisa que o Response de o use case 'stats.get-stats' seja uma lista/)
     useCase(project, { name: 'clientes.get-clientes', output: 'livro[]', input: 'loja:string' })
-    expect(() => page(project, { name: 'clientes', useCase: 'clientes.get-clientes' })).toThrow(/pede loja no Input/)
+    expect(() => page(project, { name: 'clientes', useCase: 'clientes.get-clientes' })).toThrow(/pede loja no Request/)
   })
 })
 
@@ -128,17 +127,17 @@ describe('generatePage --usecase: detalhe', () => {
 })
 
 describe('generatePage --usecase: formulário', () => {
-  it('a escrita dá o formulário com os campos do Input, lidos do schema', () => {
+  it('a escrita dá o formulário com os campos do Request, lidos do schema', () => {
     const project = withLivros()
     const result = page(project, { name: 'livro-novo', useCase: 'livros.create-livro' })
 
     expect(result.useCase?.kind).toBe('form')
     const model = created(result, 'pages/livro-novo/model.ts')
-    expect(model).toContain(`function inputOf(form: FormData): CreateLivroInput {
+    expect(model).toContain(`function inputOf(form: FormData): CreateLivroRequest {
   return {
     titulo: String(form.get('titulo')),
     ano: Number(form.get('ano')),
-    situacao: String(form.get('situacao')) as CreateLivroInput['situacao'],
+    situacao: String(form.get('situacao')) as CreateLivroRequest['situacao'],
     nota: form.get('nota') ? Number(form.get('nota')) : undefined,
     lido: form.has('lido'),
   }
@@ -201,10 +200,10 @@ describe('generatePage --usecase: formulário', () => {
     expect(messages.fields).toEqual({ email: 'Email', password: 'Password' })
   })
 
-  it('lê o Input que a pessoa refinou à mão (z.email, z.string().min)', () => {
+  it('lê o Request que a pessoa refinou à mão (z.email, z.string().min)', () => {
     const project = withLivros()
     useCase(project, { name: 'auth.sign-in', input: 'email:string,password:string' })
-    const file = path.join(project.root, 'src/use-cases/auth/sign-in.types.ts')
+    const file = path.join(project.root, 'src/use-cases/auth/types/sign-in.ts')
     writeFileSync(
       file,
       readFileSync(file, 'utf8').replace('email: z.string()', 'email: z.email()').replace('password: z.string()', 'password: z.string().min(8)'),
@@ -213,13 +212,13 @@ describe('generatePage --usecase: formulário', () => {
     expect(created(result, 'pages/auth/login/model.ts')).toContain("password: String(form.get('password')),")
   })
 
-  it('o Input vazio dá o formulário só com o botão', () => {
+  it('o Request vazio dá o formulário só com o botão', () => {
     const project = withLivros()
     useCase(project, { name: 'auth.sign-out' })
     const result = page(project, { name: 'sair', useCase: 'auth.sign-out' })
     expect(created(result, 'pages/sair/model.ts')).toContain('mutation.mutate({})')
     expect(created(result, 'pages/sair/model.ts')).not.toContain('inputOf')
-    expect(created(result, 'pages/sair/model.ts')).toContain("sign-out.types'\n\nexport function")
+    expect(created(result, 'pages/sair/model.ts')).toContain("types/sign-out'\n\nexport function")
   })
 
   it('recusa o --path com parâmetro e o campo que o leitor não reconhece', () => {
@@ -228,7 +227,7 @@ describe('generatePage --usecase: formulário', () => {
       "um formulário, que não lê parâmetro da rota: tire o ':id'",
     )
     useCase(project, { name: 'auth.sign-in', input: 'email:string' })
-    const file = path.join(project.root, 'src/use-cases/auth/sign-in.types.ts')
+    const file = path.join(project.root, 'src/use-cases/auth/types/sign-in.ts')
     writeFileSync(file, readFileSync(file, 'utf8').replace('email: z.string()', 'email: z.array(z.string())'))
     expect(() => page(project, { name: 'login', useCase: 'auth.sign-in' })).toThrow(/campo 'email': não reconheço o tipo/)
   })

@@ -47,7 +47,7 @@ const violations = check({ root: process.cwd() })
 | `components-folders` | `src/components` só tem as subpastas `ui`, `shared` e `layout`                                    |
 | `shared-usage`       | O que está em `src/components/shared` é usado por duas telas ou mais (pelo grafo de imports)         |
 | `page-structure`     | Toda tela de `src/pages`, em qualquer profundidade, tem `index.tsx`, `model.ts` e `view.tsx`; a pasta que só agrupa telas não é cobrada |
-| `use-case-files`     | Todo `*.usecase.ts` de `src/use-cases` tem o `.types.ts` e o `.usecase.test.ts` na mesma pasta (o mock não é cobrado) |
+| `use-case-files`     | Todo `services/*.usecase.ts` de `src/use-cases` tem o `types/<ação>.ts` e o `.usecase.test.ts` ao lado (o mock não é cobrado) |
 | `messages`           | Os idiomas têm as mesmas chaves e os mesmos argumentos ICU, nenhum texto vazio e os mesmos namespaces registrados |
 
 As opções (pastas, alias, idiomas) e as mensagens de cada verificação estão na [referência do rules](https://docs.prumo.matizze.com.br/reference/rules).

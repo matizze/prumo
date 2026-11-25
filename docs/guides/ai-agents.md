@@ -68,13 +68,13 @@ Use cases (listPedidos, getPedido, createPedido, updatePedido, removePedido):
   removePedido  DELETE /pedidos/:id
 
 Criados (22):
-  src/use-cases/pedidos/collection.mock.ts
-  src/use-cases/pedidos/create-pedido.mock.ts
+  src/use-cases/pedidos/index.ts
+  src/use-cases/pedidos/mocks/collection.ts
+  src/use-cases/pedidos/mocks/create-pedido.ts
   ...
+  src/use-cases/pedidos/types/update-pedido.ts
 
-Alterados (3):
-  src/messages/en/errors.json
-  src/messages/pt-BR/errors.json
+Alterados (1):
   src/use-cases/index.ts
 
 Próximo passo: prumo make:page pedidos --usecase pedidos.list-pedidos
@@ -108,7 +108,7 @@ Simulação (--dry-run): nada foi escrito.
 Quando o comando falha, o resultado volta com `isError` e a mensagem em português, para o agente corrigir. Pedir uma tela com um use case que não existe, por exemplo, devolve:
 
 ```text
-prumo: o use case 'nada.list-nada' não existe: falta src/use-cases/nada/list-nada.usecase.ts. Rode prumo make:usecase nada.list-nada (ou prumo list para ver o que há).
+prumo: o use case 'nada.list-nada' não existe: falta src/use-cases/nada/services/list-nada.usecase.ts. Rode prumo make:usecase nada.list-nada (ou prumo list para ver o que há).
 ```
 
 A mensagem diz o que fazer, e o agente a segue (aqui, gerar o use case antes). O erro de opção ou argumento traz também a linha de uso do comando.
@@ -123,7 +123,7 @@ O use case é o caminho novo para o que o app faz com dados. O agente chama `mak
 { "nome": "auth.sign-in", "input": "email:string,password:string", "output": "token:string" }
 ```
 
-A ferramenta decide leitura ou escrita pelo verbo da ação (`get`, `list`, `search`, `find`, `check` e `count` são leitura), cria `src/use-cases/auth/` com o tipo, a classe, a rota de mock e o teste, e registra tudo. A descrição da ferramenta traz o formato de `input`, `output` (que aceita o nome de uma entidade que já tem schema: `store` ou `store[]`) e `endpoint` (`PATCH /livros/:id`, com cada `:parâmetro` saindo do campo do Input), além do `local` para um use case sem API. As chaves do registro são únicas no app: o `list` mostra os use cases que já existem (`useCases`, com a chave, o tipo e o endpoint), para o agente não repetir uma ação. Na tela, o model usa `useUseCases()`. O [guia de referência](../reference/cli.md#prumo-makeusecase) tem o detalhe.
+A ferramenta decide leitura ou escrita pelo verbo da ação (`get`, `list`, `search`, `find`, `check` e `count` são leitura), cria `src/use-cases/auth/` com `types/sign-in.ts`, `services/sign-in.usecase.ts`, `mocks/sign-in.ts` e o teste, e registra tudo. A descrição da ferramenta traz o formato de `input`, `output` (que aceita o nome de uma entidade que já tem schema: `store` ou `store[]`) e `endpoint` (`PATCH /livros/:id`, com cada `:parâmetro` saindo do campo do Request), além do `local` para um use case sem API. As chaves do registro são únicas no app: o `list` mostra os use cases que já existem (`useCases`, com a chave, o tipo e o endpoint), para o agente não repetir uma ação. Na tela, o model usa `useUseCases()`. O [guia de referência](../reference/cli.md#prumo-makeusecase) tem o detalhe.
 
 ## O `list` antes de gerar
 

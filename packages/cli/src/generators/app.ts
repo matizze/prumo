@@ -25,6 +25,8 @@ export const APP_FILES: readonly AppFile[] = [
   { template: 'app/src/App.tsx.tpl', to: 'src/App.tsx' },
   { template: 'app/src/errors.ts.tpl', to: 'src/errors.ts' },
   { template: 'app/src/http/api.ts.tpl', to: 'src/http/api.ts' },
+  { template: 'app/src/http/errors.ts.tpl', to: 'src/http/errors.ts' },
+  { template: 'app/src/http/errors-test.ts.tpl', to: 'src/http/errors.test.ts' },
   { template: 'app/src/i18n.ts.tpl', to: 'src/i18n.ts' },
   { template: 'app/src/main.tsx.tpl', to: 'src/main.tsx' },
   { template: 'app/src/messages/errors.pt-BR.json.tpl', to: 'src/messages/pt-BR/errors.json' },

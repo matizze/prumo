@@ -10,6 +10,8 @@ pnpm exec prumo make:page pedidos
 
 O comando cria `src/pages/pedidos/` (`index.tsx`, `model.ts`, `view.tsx` e `index.test.tsx`), os textos em `src/messages/<idioma>/pedidos.json` e a rota `/pedidos` no `App.tsx`. O nome vai em kebab-case (`pedidos-recentes`); o Prumo deriva `PedidosRecentesPage`, `usePedidosRecentesModel`, `PedidosRecentesView`, o namespace de textos `pedidosRecentes` e a rota `/pedidos-recentes`.
 
+### Telas em subpastas
+
 Para agrupar telas, use ponto ou barra no nome (`auth.login` e `auth/login` são a mesma coisa):
 
 ```bash
@@ -18,13 +20,9 @@ pnpm exec prumo make:page auth.login
 
 A tela fica em `src/pages/auth/login/`, a rota é `/auth/login`, o componente é `AuthLoginPage` e os textos ficam em `src/messages/<idioma>/auth-login.json`. A pasta `auth`, sem `index.tsx`, só agrupa. Uma tela não fica dentro de outra, e `auth/login` e `auth-login` não coexistem (dariam o mesmo arquivo de mensagens e o mesmo componente).
 
-Para uma tela que usa um use case, passe `--usecase`:
+### Telas a partir de um use case
 
-```bash
-pnpm exec prumo make:page pedidos --usecase pedidos.list-pedidos
-```
-
-A tela depende do use case: uma leitura que devolve uma lista vira a **lista** (o model chama o use case com `useQuery`, e a view mostra o carregando, o erro e a lista); uma leitura com `:id` no endereço vira o **detalhe** (com `--path /pedidos/:id`); uma escrita vira o **formulário**, com os campos do Input, o envio, o erro e o aviso de sucesso. A view mostra o primeiro campo de texto de cada registro, lido do schema que o projeto tem (o `name` num schema sem `--fields`; o primeiro campo `string` obrigatório num schema criado com [`--fields`](domains.md#os-campos-do-domínio---fields)). Se o schema não tem campo de texto, ou o Prumo não o encontra, a view mostra o `id` e o comando avisa. O use case precisa existir: o fluxo, da camada de baixo para a de cima, é `make:schema` → `make:usecase` → `make:page`:
+Para uma tela que usa um use case, passe `--usecase`. O fluxo, da camada de baixo para a de cima, é `make:schema` → `make:usecase` → `make:page`:
 
 ```bash
 pnpm exec prumo make:schema pedidos
@@ -32,7 +30,24 @@ pnpm exec prumo make:usecase pedidos --crud
 pnpm exec prumo make:page pedidos --usecase pedidos.list-pedidos
 ```
 
-Sem o use case, o `make:page` sai com 2 e diz o que falta (`o use case 'pedidos.list-pedidos' não existe`).
+Sem o use case, o `make:page` sai com 2 e diz o que falta (`o use case 'pedidos.list-pedidos' não existe`). A tela depende do use case:
+
+| O use case                                     | A tela                                                                                       |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| leitura que devolve uma lista                  | a **lista**: o model chama o use case com `useQuery`, e a view mostra o carregando, o erro, o vazio e os itens |
+| leitura com `:id` no endereço                  | o **detalhe**, com `--path /pedidos/:id`: o model lê o parâmetro da rota e busca o registro  |
+| escrita                                        | o **formulário**, com um campo por campo do Input, o envio, o erro e o aviso de sucesso      |
+
+```bash
+pnpm exec prumo make:page pedidos --usecase pedidos.list-pedidos                          # lista
+pnpm exec prumo make:page pedido --usecase pedidos.get-pedido --path /pedidos/:id         # detalhe
+pnpm exec prumo make:page pedido-novo --usecase pedidos.create-pedido --path /pedidos/novo # formulário
+pnpm exec prumo make:page auth.login --usecase auth.sign-in                                # formulário, em subpasta
+```
+
+A view da lista mostra o primeiro campo de texto de cada registro, lido do schema que o projeto tem (o `name` num schema sem `--fields`; o primeiro campo `string` obrigatório num schema criado com [`--fields`](use-cases.md#os-campos-do-schema---fields)). Se o schema não tem campo de texto, ou o Prumo não o encontra, a view mostra o `id` e o comando avisa. O formulário usa só elementos nativos (um `<input>` por campo, com o `type` pelo tipo, um `<select>` no enum), e o model lê o `FormData` no formato do Input. Uma escrita invalida o prefixo do domínio (`['pedidos']`) ao dar certo, e o erro aparece traduzido (o `UIError` pelo `errors.json`).
+
+A tela é um ponto de partida: as limitações de hoje (o formulário de edição ainda não carrega o registro, os rótulos do enum mostram o valor, a lista exige `<entidade>[]` ou `Page`) estão na [referência](../reference/cli.md#make-page-usecase) e no [roadmap](../roadmap.md).
 
 Use `--dry-run` para ver o que seria criado e alterado sem escrever nada.
 
@@ -42,7 +57,7 @@ A regra é simples: **o model decide, a view mostra.**
 
 | No model (`model.ts`)                                  | Na view (`view.tsx`)                              |
 | ------------------------------------------------------ | ------------------------------------------------- |
-| Ler dados (hooks de `@/queries`)                       | Elementos e componentes visuais                   |
+| Chamar use cases (`useQuery` e `useMutation` com o `useUseCases()`) | Elementos e componentes visuais      |
 | Textos (`useTranslations`)                             | Ler os campos do model                            |
 | Estado da interação (`useState`, filtros, seleção)     | Chamar as ações do model nos eventos              |
 | Ações (salvar, remover, navegar)                       | Estado puramente visual (um menu aberto, um hover) |
@@ -54,15 +69,27 @@ O tipo das props da view é o retorno do model (`ReturnType<typeof usePedidosMod
 
 ```ts
 // src/pages/clientes/model.ts
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslations } from '@/i18n'
-import { useClientesList, useRemoveCliente } from '@/queries/clientes'
+import { useUseCases } from '@/providers/use-cases'
+import { listClientesKey } from '@/use-cases/clientes/list-clientes.types'
 
 export function useClientesModel() {
   const t = useTranslations('clientes')
+  const { listClientes, removeCliente } = useUseCases()
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
-  const list = useClientesList({ search })
-  const remove = useRemoveCliente()
+  const input = { search }
+  const list = useQuery({
+    queryKey: listClientesKey(input),
+    queryFn: () => listClientes.execute(input),
+    placeholderData: keepPreviousData,
+  })
+  const remove = useMutation({
+    mutationFn: (id: string) => removeCliente.execute({ id }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clientes'] }),
+  })
 
   return {
     title: t('title'),
@@ -95,7 +122,7 @@ export function ClientesView(m: ClientesModel) {
       <ul>
         {m.items.map((item) => (
           <li key={item.id}>
-            {item.name}
+            {item.nome}
             <button type="button" disabled={m.removing} onClick={() => m.onRemove(item.id)}>
               {m.removeLabel}
             </button>
@@ -109,7 +136,7 @@ export function ClientesView(m: ClientesModel) {
 
 Os textos novos (`search` e `remove`) entram em `src/messages/pt-BR/clientes.json` e em `src/messages/en/clientes.json`; o `prumo check` acusa o que faltar num dos idiomas.
 
-A mutation `useRemoveCliente` tira do cache o detalhe do registro removido e invalida as listas do domínio ao terminar, então a lista se atualiza sozinha e uma tela de detalhe aberta não busca de novo o registro que acabou de sumir (o que viraria uma notificação de "não encontrado").
+A escrita invalida o prefixo do domínio (`['clientes']`) ao terminar, então a lista se atualiza sozinha. A tela de detalhe do registro removido, se ainda estiver montada, receberia `CLIENTE_NOT_FOUND`: saia dela ao remover.
 
 ## Componentes
 
@@ -170,6 +197,7 @@ pnpm exec prumo make:page cliente --usecase clientes.get-cliente --path /cliente
 // src/pages/cliente/model.ts
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'wouter'
+import { getErrorMessage } from '@/errors'
 import { useTranslations } from '@/i18n'
 import { useUseCases } from '@/providers/use-cases'
 import { getClienteKey } from '@/use-cases/clientes/get-cliente.types'
@@ -188,6 +216,7 @@ export function useClienteModel() {
     item: detail.data,
     loading: detail.isPending,
     failed: detail.isError,
+    errorText: detail.isError ? getErrorMessage(detail.error) : null,
   }
 }
 ```
@@ -232,20 +261,21 @@ import { Link } from 'wouter'
 import { useLocation } from 'wouter'
 
 const [, navigate] = useLocation()
-const create = useCreateCliente()
+const { createCliente } = useUseCases()
+const create = useMutation({ mutationFn: (input: CreateClienteInput) => createCliente.execute(input) })
 
-const onSave = (input: ClienteInput) =>
+const onSave = (input: CreateClienteInput) =>
   create.mutate(input, { onSuccess: (created) => navigate(`/clientes/${created.id}`) })
 ```
 
 ## Rotas protegidas
 
-O `AuthGuard` do core mostra o conteúdo só com a sessão aberta e, sem ela, redireciona para o login (trocando a entrada do histórico, para o "voltar" não cair de novo na rota protegida). Ele não conhece a sua autenticação: você passa o estado da sessão. Onde a sessão mora, como o login e o logout funcionam e como proteger por perfil estão em [Sessão e login](auth.md).
+O `AuthGuard` do core mostra o conteúdo só com a sessão aberta e, sem ela, redireciona para o login (trocando a entrada do histórico, para o "voltar" não cair de novo na rota protegida). Ele não conhece a sua autenticação: você passa o estado da sessão. Onde a sessão mora, como o login e o logout funcionam e como proteger por perfil estão em [Login e sessão](auth.md).
 
 ```tsx
 // src/App.tsx
 import { AuthGuard } from '@matizze/prumo-core/auth'
-import { useSession } from '@/providers/session' // o hook de sessão do app (veja Sessão e login)
+import { useSession } from '@/providers/session' // o hook de sessão do app (veja Login e sessão)
 
 export default function App() {
   const session = useSession()

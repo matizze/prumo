@@ -4,7 +4,9 @@ Guia para agentes de IA e pessoas que contribuem com este monorepo.
 
 ## O que é
 
-O Prumo é uma **ferramenta** da Matizze para criar e manter aplicações React organizadas em camadas (telas com `index`, `model` e `view`, domínios com schema e use cases, textos em dois idiomas) e conferir a arquitetura. **Não tem frontend:** nenhum componente de interface, ícone, tema, CSS, Storybook, tela pronta, catálogo de blocos ou padrão de tela. A interface é do produto.
+O Prumo é uma **ferramenta** da Matizze para criar e manter aplicações React organizadas em camadas (telas com `index`, `model` e `view`, use cases com Input e Output em zod, schemas das entidades, textos em dois idiomas) e conferir a arquitetura. **Não tem frontend:** nenhum componente de interface, ícone, tema, CSS, Storybook, tela pronta, catálogo de blocos ou padrão de tela. A interface é do produto.
+
+As camadas do app gerado, de cima para baixo: **telas** (`src/pages`) → **use cases** (`src/use-cases`) → **http** (`src/http`) e **schemas** (`src/schemas`). A tela chama o use case, o use case usa o `http`, o `storage` ou outros use cases, e nada aponta para cima; o mock fica no transporte (um `http` de mentira com `VITE_DATA_SOURCE=mock`). O repository e as queries saíram: o use case é o único caminho do dado.
 
 Onde ler mais:
 
@@ -20,7 +22,7 @@ Quatro pacotes em `packages/`, versionados separadamente:
 - `core`: infraestrutura do app gerado (cliente HTTP e mock por rota, use cases, query keys, i18n tipado, erros com código, utilitários de mock, guarda de rota).
 - `rules`: o plugin de ESLint e a análise do projeto que o `prumo check` roda.
 - `testing`: `renderWithProviders`, setup do DOM e o teste de contrato de use cases.
-- `cli`: o comando `prumo` (`new`, `make:schema`, `make:usecase`, `make:page`, `check`, `list` e `mcp`). Cada comando tem o seu gerador em `packages/cli/src/generators/`, que devolve um plano antes de escrever, e o servidor MCP, que descreve as ferramentas a partir dos comandos, fica em `packages/cli/src/mcp/`. Os modelos são arquivos `.tpl` com marcadores de nome em `packages/cli/templates/`.
+- `cli`: o comando `prumo` (`new`, `make:schema`, `make:usecase`, `make:page`, `check`, `list` e `mcp`). Cada comando tem o seu arquivo em `packages/cli/src/commands/` e o seu gerador em `packages/cli/src/generators/` (`app`, `schema`, `usecase`, `usecase-crud`, `page` e `page-usecase`), que devolve um plano antes de escrever; as edições dos arquivos de registro (rota, mensagens, schemas e use cases) são os codemods de `packages/cli/src/codemods/`, e o servidor MCP, que descreve as ferramentas a partir dos comandos, fica em `packages/cli/src/mcp/`. Os modelos são arquivos `.tpl` com marcadores de nome em `packages/cli/templates/` (`app`, `domain`, `usecase` com o `crud`, e `page` com o `usecase`).
 
 Os pacotes são publicados no npm (`@matizze`, acesso público) pelo workflow de release, quando a `develop` vai para a `main`. Publicar é decisão de uma pessoa: não publique por conta própria.
 

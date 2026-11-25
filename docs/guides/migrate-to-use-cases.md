@@ -1,6 +1,6 @@
 # Migrar para use cases
 
-Até a versão que tira o repository e as queries, o app buscava dado por um **repositório** (`src/repositories/<domínio>/`) e por **queries** (`src/queries/<domínio>.ts`). Nessa versão em diante, o **use case** é o único caminho: uma ação com nome de verbo (`listClientes`, `signIn`), com um Input, um Output e um `execute`. Este guia mostra o que trocar e por quê. Os apps nas versões anteriores continuam funcionando como estão: como o pacote está em 0.x, o `^` do `package.json` não sobe sozinho para a versão que tira essas peças.
+Até a cli 0.9 e o core 0.3, o app buscava dado por um **repositório** (`src/repositories/<domínio>/`) e por **queries** (`src/queries/<domínio>.ts`). Da cli 0.10 e do core, rules e testing 0.4 em diante, o **use case** é o único caminho: uma ação com nome de verbo (`listClientes`, `signIn`), com um Input, um Output e um `execute`. Este guia mostra o que trocar e por quê. Os apps nas versões anteriores continuam funcionando como estão: como os pacotes estão em 0.x, o `^0.3.0` do `package.json` não sobe sozinho para a 0.4.0. A migração é uma escolha sua, e não precisa ser de uma vez só: faça um domínio por vez, com os pacotes novos já instalados.
 
 ## O que sai e o que entra
 
@@ -21,7 +21,7 @@ Por quê: a tela deixa de conhecer o formato de dado de um repositório com cinc
 
 ## Passo a passo
 
-**1. Atualize os pacotes** do Prumo para as novas versões (`@matizze/prumo-cli`, `-core`, `-rules` e `-testing`) e rode `pnpm install`. Um app criado antes dos use cases não tem `src/http/api.ts`, `src/use-cases/` nem `src/providers/use-cases/`: o mais curto é criar um app de referência (`pnpm dlx @matizze/prumo-cli new referencia --no-install`) e copiar esses arquivos, além do `src/test/render.tsx` e do `src/providers/app.tsx` dele.
+**1. Atualize os pacotes** do Prumo para as novas versões (`pnpm up "@matizze/prumo-*" --latest`: `@matizze/prumo-cli` 0.10, e `-core`, `-rules` e `-testing` 0.4) e rode `pnpm install`. Um app criado antes dos use cases não tem `src/http/api.ts`, `src/use-cases/` nem `src/providers/use-cases/`: o mais curto é criar um app de referência (`pnpm dlx @matizze/prumo-cli new referencia --no-install`) e copiar esses arquivos, além do `src/test/render.tsx` e do `src/providers/app.tsx` dele.
 
 **2. Gere os use cases de cada domínio.** O schema continua o mesmo. Para um domínio com CRUD:
 
@@ -98,3 +98,9 @@ O plugin recomendado (`prumo.configs.recommended`) já liga as duas regras de ES
 ## O `prumo list` e o MCP
 
 O `prumo list` (e o `--json`) não traz mais `repositories` nem `queries`: ficam `schemas`, `useCases`, `pages` e `languages`, e cada tela mostra o `useCase` que o model chama. O servidor MCP perde as ferramentas `make_repository` e `make_query`; use `make_usecase` (com `crud`) e `make_page` (com `usecase`).
+
+## Para saber mais
+
+- [Use cases](use-cases.md): o guia do dia a dia, com `--crud`, `--local` e as regras de negócio.
+- [Arquitetura](../concepts/architecture.md#use-cases): as camadas e o porquê.
+- [Por que use case e não repository?](../faq.md#por-que-use-case-e-não-repository)

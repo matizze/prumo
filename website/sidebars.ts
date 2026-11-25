@@ -20,10 +20,10 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         { type: 'doc', id: 'guides/pages', label: 'Telas' },
-        { type: 'doc', id: 'guides/domains', label: 'Domínios de dados' },
+        { type: 'doc', id: 'guides/use-cases', label: 'Use cases' },
         { type: 'doc', id: 'guides/real-api', label: 'Ligar uma API real' },
         { type: 'doc', id: 'guides/migrate-to-use-cases', label: 'Migrar para use cases' },
-        { type: 'doc', id: 'guides/auth', label: 'Sessão e login' },
+        { type: 'doc', id: 'guides/auth', label: 'Login e sessão' },
         { type: 'doc', id: 'guides/i18n', label: 'Textos e idiomas' },
         { type: 'doc', id: 'guides/errors-and-notifications', label: 'Erros e notificações' },
         { type: 'doc', id: 'guides/test', label: 'Testes' },

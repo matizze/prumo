@@ -40,6 +40,35 @@ meu-app/
       setup.ts                    setup do Vitest (idioma fixado em pt-BR)
 ```
 
+Os comandos `make:*` acrescentam as camadas de cima a esse esqueleto. Depois de um `make:schema livros`, de um `make:usecase livros --crud` e `make:usecase auth.sign-in`, e de um `make:page livros --usecase livros.list-livros` e `make:page auth.login --usecase auth.sign-in`, o app fica assim (só o que mudou):
+
+```text
+  src/
+    App.tsx                         as rotas /livros e /auth/login
+    http/api.ts                     a camada de baixo: a instância da API
+    schemas/
+      index.ts                      export * from './entities/livro'
+      entities/livro.ts             livroSchema, livroInputSchema, LivroListQuery...
+    use-cases/
+      index.ts                      o registro: createUseCases e mockRoutes
+      auth/
+        index.ts                    createAuthUseCases(deps) e authRoutes
+        sign-in.types.ts            ENDPOINT, SignInInput e SignInOutput (zod)
+        sign-in.usecase.ts          SignInUseCase (execute)
+        sign-in.mock.ts             a resposta de mentira do ENDPOINT
+        sign-in.usecase.test.ts     o teste, contra o mock (e contra a API, com API_TEST_URL)
+      livros/
+        index.ts                    createLivrosUseCases(deps) e livrosRoutes
+        collection.mock.ts          os dados de exemplo e a coleção em memória dos cinco mocks
+        {list-livros,get-livro,create-livro,update-livro,remove-livro}.{types,usecase,mock,usecase.test}.ts
+    pages/
+      auth/login/                   a tela em subpasta (a pasta auth só agrupa): index, model, view e teste
+      livros/                       a lista: index, model, view e teste
+    messages/<idioma>/
+      auth-login.json  livros.json  os textos das telas
+      errors.json                   um texto por código de erro (SIGN_IN_FAILED, LIVRO_NOT_FOUND...)
+```
+
 Os arquivos marcados como **ponto de registro** são os que os geradores editam para ligar o que criam (uma rota, um namespace de textos, um domínio). Você pode editá-los, desde que mantenha a forma descrita em [Pontos de registro](#pontos-de-registro).
 
 ## Configuração
@@ -82,7 +111,7 @@ O plugin do React, o alias `@` e a configuração do Vitest: ambiente `jsdom`, `
 
 ### `eslint.config.js`
 
-As configurações recomendadas do ESLint, do typescript-eslint e do `react-hooks`, mais `prumo.configs.recommended`, que liga as regras `prumo/no-cross-page-import` e `prumo/page-structure`.
+As configurações recomendadas do ESLint, do typescript-eslint e do `react-hooks`, mais `prumo.configs.recommended`, que liga as regras de camada `prumo/no-cross-page-import`, `prumo/page-structure`, `prumo/no-http-in-page` e `prumo/use-case-imports`.
 
 ### `.mcp.json`
 
@@ -168,14 +197,16 @@ O registro dos use cases, como o `createAllServices` do pratigo:
 export function createUseCases(deps: UseCaseDeps) {
   return {
     ...createAuthUseCases(deps),
-    ...createStoresUseCases(deps),
+    ...createLivrosUseCases(deps),
   }
 }
 
 export type UseCases = ReturnType<typeof createUseCases>
 
 export function createAppUseCases(options: Partial<UseCaseOptions> = {}): UseCases {
-  const dataSource = options.dataSource ?? (import.meta.env.VITE_DATA_SOURCE === 'http' ? 'http' : 'mock')
+  const dataSource =
+    options.dataSource ??
+    resolveDataSource(import.meta.env.VITE_DATA_SOURCE, DATA_SOURCES, 'mock', 'VITE_DATA_SOURCE')
   const http =
     dataSource === 'http' ? api : createMockHttp(mockRoutes, { latencyMs: options.latencyMs ?? 300 })
   return createUseCases({ http, storage: localStorage })
@@ -183,8 +214,8 @@ export function createAppUseCases(options: Partial<UseCaseOptions> = {}): UseCas
 ```
 
 - **`createUseCases(deps)`** espalha o `create<Domínio>UseCases(deps)` de cada domínio, e o tipo `UseCases` sai dele: registrar um domínio é acrescentar uma linha. As `deps` (`deps.ts`) são o `http` (o transporte) e o `storage` (a Web Storage API, para os use cases `--local`).
-- **`mockRoutes`** junta as rotas de mock de todos os domínios (`...authRoutes`, `...storesRoutes`).
-- **`createAppUseCases(options)`** monta o container: a fonte vem da `VITE_DATA_SOURCE`: `http` usa a API, `mock` (o padrão, sem a variável) usa o `http` de mentira, e qualquer outro valor lança o erro do `resolveDataSource`. No `mock`, o `http` é o `createMockHttp(mockRoutes, { latencyMs })`, e no `http`, a instância `api`. O código dos use cases é o mesmo nos dois.
+- **`mockRoutes`** junta as rotas de mock de todos os domínios (`...authRoutes`, `...livrosRoutes`).
+- **`createAppUseCases(options)`** monta o container: a fonte vem da `VITE_DATA_SOURCE`: `http` usa a API, `mock` (o padrão, sem a variável) usa o `http` de mentira, e qualquer outro valor lança o erro do `resolveDataSource`. No `mock`, o `http` é o `createMockHttp(mockRoutes, { latencyMs })`, e no `http`, a instância `api`. O código dos use cases é o mesmo nos dois (o mock fica no transporte, não no use case).
 - **`UseCasesProvider` e `useUseCases()`** (`src/providers/use-cases/index.ts`), do `createUseCasesContext` do core, entregam o container às telas. Os testes passam outro ao `UseCasesProvider`, ou trocam um use case pelo `useCases` do `renderWithProviders`.
 
 Cada domínio tem a pasta `src/use-cases/<domínio>/`, criada pelo [`prumo make:usecase`](../reference/cli.md#prumo-makeusecase) com o primeiro use case dele: o `index.ts` (`create<Domínio>UseCases(deps)` e `<domínio>Routes`) e, por ação, `<ação>.types.ts`, `<ação>.usecase.ts`, `<ação>.mock.ts` e `<ação>.usecase.test.ts`.
@@ -215,7 +246,7 @@ Com `prumo make:page auth.login` (ou `auth/login`), a tela fica em `src/pages/au
 src/schemas/entities/<entidade>.ts   o schema zod, o de entrada, os tipos, a SortKey e a ListQuery
 ```
 
-Altera `src/schemas/index.ts` (um `export *`). Com `--fields "titulo:string,ano:int"`, o schema sai com esses campos em vez de `name` (veja [Domínios](../guides/domains.md#os-campos-do-domínio---fields)).
+Altera `src/schemas/index.ts` (um `export *`). Com `--fields "titulo:string,ano:int"`, o schema sai com esses campos em vez de `name` (veja [Use cases](../guides/use-cases.md#os-campos-do-schema---fields)).
 
 ### `prumo make:usecase <domínio.ação> [--input ...] [--output ...] [--endpoint ...] [--local]`
 
@@ -264,6 +295,6 @@ Quando um ponto de registro falta ou não tem a forma esperada, o gerador recusa
 
 - O conteúdo de qualquer tela, domínio ou componente gerado: o model, a view, o schema, as fixtures, o mock, os testes.
 - O caminho de uma rota no `App.tsx` (`/clientes` para `/clientes/:id`, por exemplo), e envolver o `<Switch>` com a casca do layout.
-- O `providers/app.tsx`: a notificação, a tradução do erro, provedores novos (tema, autenticação: veja [Sessão e login](../guides/auth.md), que põe a sessão em `src/providers/session/`).
+- O `providers/app.tsx`: a notificação, a tradução do erro, provedores novos (tema, autenticação: veja [Login e sessão](../guides/auth.md), que põe a sessão em `src/providers/session/`).
 - O `eslint.config.js`, o `vite.config.ts` e o `tsconfig.json`, mantendo o plugin do Prumo e o alias `@/`.
 - O `AGENTS.md`, com as regras do seu time.

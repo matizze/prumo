@@ -1,7 +1,7 @@
 import { createHttp } from '@matizze/prumo-core/http'
 
 /**
- * O cliente da API, usado pelos use cases e pelos repositórios com fonte http. O endereço vem da
+ * O cliente da API, usado pelos use cases (com VITE_DATA_SOURCE=http). O endereço vem da
  * VITE_API_URL (padrão: /api, o mesmo domínio do app; vazia vale como ausente).
  */
 export const api = createHttp({

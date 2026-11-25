@@ -1,8 +1,8 @@
 # Primeiros passos
 
-Neste tutorial você cria um app com o Prumo, gera as camadas de um domínio de dados (schema e use cases) e uma tela que o lista, muda os textos, cria um componente à mão e vê a verificação da arquitetura em ação. No fim, você terá passado por todas as camadas que o Prumo organiza.
+Neste tutorial você cria um app com o Prumo, gera as camadas de um domínio de dados (schema e use cases), uma tela que lista os registros e um formulário que cria um, muda os textos, cria um componente à mão e vê a verificação da arquitetura em ação. No fim, você terá passado por todas as camadas que o Prumo organiza: **telas → use cases → http e schemas**.
 
-Tempo estimado: 15 minutos.
+Tempo estimado: 20 minutos.
 
 ## Antes de começar
 
@@ -27,7 +27,7 @@ O comando cria a pasta `loja`, roda `git init` (sem commit: o primeiro commit é
 prumo new: loja.
 Destino: /home/voce/loja
 
-Criados (32):
+Criados (33):
   .gitignore
   .mcp.json
   AGENTS.md
@@ -76,8 +76,8 @@ loja/
     messages/pt-BR/      os textos em português (um JSON por tela)
     messages/en/         os textos em inglês
     providers/           TanStack Query, i18n e use cases
-    http/                a instância da API (createHttp)
-    use-cases/           o registro dos use cases e o mock (vazio por enquanto)
+    http/                a instância da API (createHttp), a camada de baixo
+    use-cases/           o registro dos use cases e as rotas de mock (vazio por enquanto)
     schemas/             o índice dos schemas (vazio por enquanto)
     test/                o renderWithProviders e o setup do Vitest
   AGENTS.md              o guia do projeto para agentes de IA
@@ -147,7 +147,7 @@ Alterados (1):
 Próximo passo: prumo make:usecase clientes --crud
 ```
 
-O nome do domínio vai no plural; a entidade (`cliente`) sai dele, tirando o `s` (quando a regra erra, o `--entity` informa o singular). Os campos são `nome:tipo` separados por vírgula, e o `?` torna o campo opcional (todos os tipos estão em [Domínios](guides/domains.md#os-campos-do-domínio---fields)). Sem `--fields`, a entidade tem só o campo `name`. O schema zod tem o `id`, os campos e o `createdAt`, mais os tipos de entrada e de consulta.
+O nome do domínio vai no plural; a entidade (`cliente`) sai dele, tirando o `s` (quando a regra erra, o `--entity` informa o singular). Os campos são `nome:tipo` separados por vírgula, e o `?` torna o campo opcional (todos os tipos estão em [Use cases](guides/use-cases.md#os-campos-do-schema---fields)). Sem `--fields`, a entidade tem só o campo `name`. O schema zod tem o `id`, os campos e o `createdAt`, mais os tipos de entrada e de consulta.
 
 Agora os use cases. O que o app faz com os clientes (listar, ler, criar, editar e remover) são cinco ações, e o `--crud` as gera de uma vez. Elas leem os campos do schema que acabou de nascer, então não precisam de `--fields`:
 
@@ -165,7 +165,7 @@ Use cases (listClientes, getCliente, createCliente, updateCliente, removeCliente
   updateCliente  PATCH /clientes/:id
   removeCliente  DELETE /clientes/:id
 
-Criados (23):
+Criados (22):
   src/use-cases/clientes/collection.mock.ts
   src/use-cases/clientes/create-cliente.mock.ts
   ...
@@ -189,6 +189,32 @@ e registrou o domínio no registro de use cases e o texto de `CLIENTE_NOT_FOUND`
 
 ```bash
 pnpm test src/use-cases/clientes
+```
+
+Abra o `list-clientes.usecase.ts` para ver o que é um use case: uma classe com um `execute`, que valida o Input, chama o `http`, valida o Output com zod e traduz o erro da API num `UIError` com código (que a interface traduz para a pessoa):
+
+```ts
+// src/use-cases/clientes/list-clientes.usecase.ts
+export class ListClientesUseCase implements IUseCase<ListClientesInput, ListClientesOutput> {
+  readonly #http: Http
+
+  constructor(http: Http) {
+    this.#http = http
+  }
+
+  /** Um erro da API vira `UIError` LIST_CLIENTES_FAILED. */
+  async execute(input: ListClientesInput): Promise<ListClientesOutput> {
+    const { sort, ...rest } = ListClientesInput.parse(input)
+    const query = { ...rest, sort: sort && `${sort.key}:${sort.direction}` }
+    try {
+      const response = await this.#http(ENDPOINT.path, { method: ENDPOINT.method, query })
+      return ListClientesOutput.parse(response)
+    } catch (error) {
+      if (error instanceof HttpError) throw new UIError('LIST_CLIENTES_FAILED', error.message)
+      throw error
+    }
+  }
+}
 ```
 
 O mock vale enquanto a API não existe: o código dos use cases é o mesmo, e só a rede é de mentira. Quando a API existir, `VITE_DATA_SOURCE=http` liga os use cases a ela e o resto do app não muda. O guia [Ligar uma API real](guides/real-api.md) mostra como.
@@ -243,9 +269,52 @@ export function useClientesModel() {
 }
 ```
 
-## 6. Mude os textos e veja a verificação agir
+## 6. Gere um formulário que cria um cliente
 
-Os textos da tela moram em `src/messages/<idioma>/clientes.json`. Acrescente uma mensagem para a lista vazia, **só em português** por enquanto:
+Um use case de escrita vira um formulário. Gere a tela de "cliente novo" a partir do `clientes.create-cliente`, com a rota `/clientes/novo`:
+
+```bash
+pnpm exec prumo make:page cliente-novo --usecase clientes.create-cliente --path /clientes/novo
+```
+
+```text
+prumo make:page: cliente-novo (rota /clientes/novo, use case clientes.create-cliente, formulário).
+
+Criados (6):
+  src/messages/en/cliente-novo.json
+  src/messages/pt-BR/cliente-novo.json
+  src/pages/cliente-novo/index.test.tsx
+  src/pages/cliente-novo/index.tsx
+  src/pages/cliente-novo/model.ts
+  src/pages/cliente-novo/view.tsx
+
+Alterados (3):
+  src/App.tsx
+  src/messages/en/index.ts
+  src/messages/pt-BR/index.ts
+
+Edite o model (src/pages/cliente-novo/model.ts), a view (view.tsx) e os textos (src/messages/<idioma>/cliente-novo.json); o teste acompanha.
+
+Para rodar os testes da tela nova:
+  pnpm test src/pages/cliente-novo
+```
+
+O formulário sai com um campo por campo do Input do use case (`nome`, `email`, um checkbox para `ativo`, um `<select>` para `plano` e `telefone`, sem `required` porque é opcional), só com elementos nativos. O model usa o `useMutation` com o `createCliente`, desabilita o botão enquanto envia, mostra o erro traduzido e, no sucesso, invalida as consultas do domínio (`['clientes']`):
+
+```ts
+// src/pages/cliente-novo/model.ts (trecho)
+const { createCliente } = useUseCases()
+const mutation = useMutation({
+  mutationFn: (input: CreateClienteInput) => createCliente.execute(input),
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clientes'] }),
+})
+```
+
+Com o `pnpm dev`, abra `http://localhost:5173/clientes/novo`, envie o formulário e volte para `/clientes`: o cliente novo está na lista, porque os mocks dos cinco use cases dividem uma coleção em memória (ela volta ao começo quando a página recarrega). O teste da tela preenche os campos e envia o formulário contra o mock; rode-o com `pnpm test src/pages/cliente-novo`.
+
+## 7. Mude os textos e veja a verificação agir
+
+Os textos da tela moram em `src/messages/<idioma>/clientes.json`. Acrescente um texto novo, **só em português** por enquanto:
 
 ```json
 // src/messages/pt-BR/clientes.json
@@ -253,7 +322,8 @@ Os textos da tela moram em `src/messages/<idioma>/clientes.json`. Acrescente uma
   "title": "Clientes",
   "loading": "Carregando…",
   "failed": "Não foi possível carregar a lista.",
-  "empty": "Nenhum cliente cadastrado."
+  "empty": "Nada por aqui ainda.",
+  "subtitle": "Os clientes da loja."
 }
 ```
 
@@ -264,7 +334,7 @@ pnpm check
 ```
 
 ```text
-src/messages/en/clientes.json  [messages]  A chave 'clientes.empty' existe em 'pt-BR' e falta em 'en'.
+src/messages/en/clientes.json  [messages]  A chave 'clientes.subtitle' existe em 'pt-BR' e falta em 'en'.
 
 prumo check: 1 violação.
 ```
@@ -277,44 +347,33 @@ O `prumo check` compara os idiomas e acusa o texto que falta. Acrescente a mesma
   "title": "Clientes",
   "loading": "Loading…",
   "failed": "Could not load the list.",
-  "empty": "No customers yet."
+  "empty": "Nothing here yet.",
+  "subtitle": "The store's customers."
 }
 ```
 
 > O `make:page` escreve o título em inglês igual ao nome da tela, para você traduzir. Se traduzir o título, atualize também o teste da tela (`index.test.tsx`), que procura o título pelo texto. O guia [Testes](guides/test.md#o-idioma-dos-testes) explica em que idioma os testes rodam.
 
-Agora use o texto. No model, acrescente o texto e um indicador de lista vazia:
+Agora use o texto. No model, acrescente-o ao `return`:
 
 ```ts
 // src/pages/clientes/model.ts (dentro do return)
-    emptyText: t('empty'),
-    empty: list.isSuccess && list.data.items.length === 0,
+    subtitle: t('subtitle'),
 ```
 
-A chave `'empty'` é tipada: o `useTranslations('clientes')` só aceita chaves que existem nas mensagens em português, e um erro de digitação não compila.
+A chave `'subtitle'` é tipada: o `useTranslations('clientes')` só aceita chaves que existem nas mensagens em português, e um erro de digitação não compila.
 
-Na view, mostre a mensagem quando a lista estiver vazia:
+Na view, mostre o texto abaixo do título:
 
 ```tsx
 // src/pages/clientes/view.tsx
-      {m.loading ? (
-        <p>{m.loadingText}</p>
-      ) : m.failed ? (
-        <p role="alert">{m.failedText}</p>
-      ) : m.empty ? (
-        <p>{m.emptyText}</p>
-      ) : (
-        <ul>
-          {m.items.map((i) => (
-            <li key={i.id}>{i.nome}</li>
-          ))}
-        </ul>
-      )}
+      <h1>{m.title}</h1>
+      <p>{m.subtitle}</p>
 ```
 
 Repare que a view não sabe de onde os dados vêm nem como os textos são traduzidos: recebe tudo pronto por props.
 
-## 7. Crie um componente da tela
+## 8. Crie um componente da tela
 
 O Prumo não tem comando de componente: os de interface (botão, tabela, diálogo) vêm do design system do produto, por exemplo o shadcn em `src/components/ui`, e os componentes do produto se criam à mão. Componentes usados só por uma tela moram na pasta dela. Crie um resumo para a tela de clientes, em `src/pages/clientes/components/resumo.tsx`:
 
@@ -342,7 +401,7 @@ src/components/shared/resumo.tsx  [shared-usage]  O módulo é usado só pela te
 
 Também acusa uma pasta nova em `src/components` fora de `ui`, `shared` e `layout`. Deixe o resumo na pasta da tela.
 
-## 8. Veja a arquitetura protegendo o projeto
+## 9. Veja a arquitetura protegendo o projeto
 
 Tente importar a view da tela inicial dentro da tela de clientes:
 
@@ -359,19 +418,34 @@ A tela 'clientes' não importa da pasta da tela 'home' ('@/pages/home/view'): o 
 
 Telas isoladas podem ser mudadas, movidas ou apagadas sem efeito colateral nas outras. Desfaça o import.
 
-As outras regras funcionam do mesmo jeito: uma tela sem `model.ts`, uma pasta nova em `src/components` fora das permitidas, um componente compartilhado que ninguém compartilha. A lista completa está em [Arquitetura](concepts/architecture.md#as-regras).
+As camadas de baixo também são cobradas. Tente, no model da tela, importar o `http` direto:
 
-## 9. Feche com a verificação
+```ts
+// src/pages/clientes/model.ts
+import { api } from '@/http/api'
+```
+
+```text
+A tela não importa de 'src/http' ('@/http/api'): ela chama um use case, e é o use case que usa o http.
+```
+
+A tela chama o use case, e só o use case fala com a API. O contrário também vale: um use case que importa de `react`, do TanStack ou de uma tela é acusado (o `useQuery` e o `useMutation` ficam no model). Desfaça o import.
+
+As outras regras funcionam do mesmo jeito: uma tela sem `model.ts`, uma pasta nova em `src/components` fora das permitidas, um componente compartilhado que ninguém compartilha, um `.usecase.ts` sem o teste ao lado. A lista completa está em [Arquitetura](concepts/architecture.md#as-regras).
+
+## 10. Feche com a verificação
 
 ```bash
 pnpm verify
 ```
 
-Typecheck, lint, `prumo check` e testes verdes: o app tem um domínio com contrato testado, uma tela com estados de carregamento, erro e lista vazia, textos completos em dois idiomas e um componente.
+Typecheck, lint, `prumo check` e testes verdes: o app tem um domínio com use cases testados, uma tela de lista com estados de carregamento, erro e lista vazia, um formulário, textos completos em dois idiomas e um componente.
 
 ## Próximos passos
 
-- Ligue uma API no lugar do repositório em memória: [Ligar uma API real](guides/real-api.md).
+- Ligue uma API no lugar do mock (`VITE_DATA_SOURCE=http`): [Ligar uma API real](guides/real-api.md).
+- Crie use cases que não são CRUD (um `auth.sign-in`, um `cart.add-item --local`): [Use cases](guides/use-cases.md).
+- Faça o login: [Login e sessão](guides/auth.md).
 - Ponha a interface do produto: [Design system](guides/design-system.md).
 - Teste os estados da tela: [Testes](guides/test.md).
 - Veja o que o projeto já tem, a qualquer hora, com `pnpm exec prumo list` (ou `--json`, para outras ferramentas lerem).

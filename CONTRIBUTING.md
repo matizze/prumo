@@ -12,6 +12,24 @@ Antes de propor uma mudança, confira o critério que vale para qualquer decisã
 
 O Prumo gera a estrutura e confere a arquitetura de apps React. Ele não traz componente de interface, ícone, tema, CSS, Storybook, tela pronta, catálogo de blocos ou padrão de tela. O que vem depois está no [roadmap](docs/roadmap.md).
 
+## Onde fica cada coisa
+
+```text
+packages/
+  core/      @matizze/prumo-core     http e mock por rota, use cases, query, i18n, erros, auth (AuthGuard)
+  rules/     @matizze/prumo-rules    as regras de ESLint e a análise do `prumo check`
+  testing/   @matizze/prumo-testing  renderWithProviders, setup do DOM e o teste de contrato de use cases
+  cli/       @matizze/prumo-cli      o comando `prumo`
+    src/commands/    um arquivo por comando (new, make-schema, make-usecase, make-page, check, list e mcp)
+    src/generators/  o gerador de cada comando: valida e devolve um plano, sem escrever
+    src/codemods/    as edições dos arquivos de registro (rota, mensagens, schemas e use cases)
+    src/mcp/         o servidor MCP, que descreve as ferramentas a partir dos comandos
+    templates/       os modelos .tpl (app, domain, usecase, page)
+docs/                a documentação (e o site, em website/)
+```
+
+O passo a passo de cada peça está em [Como o Prumo funciona por dentro](docs/contributing/internals.md).
+
 ## Ambiente
 
 Requisitos: **Node.js 24** (a versão está no `.nvmrc`) e **pnpm 10** (o `packageManager` da raiz).
@@ -39,7 +57,7 @@ Não há CI de verificação: **a verificação é local**, e todo pull request 
 | `pnpm verify`      | Typecheck, lint e testes dos quatro pacotes (`tsc`, `eslint` e `vitest`), sem navegador                              | Sempre                                                       |
 | `pnpm build`       | Compila os pacotes (`dist/`)                                                                                 | Para inspecionar o que vai para o npm                        |
 | `pnpm pack:all`    | Compila e empacota os quatro pacotes em `.packs/`                                                             | Para testar um app com os tarballs (`prumo new <nome> --packages .packs`) |
-| `pnpm verify:new`  | Empacota, cria um app com `prumo new --packages` fora do monorepo, roda nele todos os comandos (`make:schema`, `make:usecase` e `make:page`), o `list`, a etapa MCP (um cliente gera um domínio e três telas só pelas ferramentas do `prumo mcp`) e o `pnpm verify` dele (`tsc`, `eslint` e `vitest`) | Ao mudar os modelos (`packages/cli/templates`), o `new`, os `make:*` ou o servidor MCP |
+| `pnpm verify:new`  | Empacota, cria um app com `prumo new --packages` fora do monorepo, roda nele todos os comandos (`make:schema`, `make:usecase` e `make:page`), o `list`, a etapa MCP (um cliente gera um domínio, use cases e telas só pelas ferramentas do `prumo mcp`) e o `pnpm verify` dele (`tsc`, `eslint` e `vitest`) | Ao mudar os modelos (`packages/cli/templates`), o `new`, os `make:*` ou o servidor MCP |
 
 Rode um comando pesado por vez: o `verify` e o `verify:new` rodam `tsc`, `eslint` e `vitest` (o `build` e o `pack:all` só compilam), e dois ao mesmo tempo disputam memória e processador.
 

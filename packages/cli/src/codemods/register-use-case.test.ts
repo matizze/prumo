@@ -9,12 +9,10 @@ import { registerUseCase, registerUseCaseDomain } from './register-use-case.ts'
 
 const DOMAIN_INDEX = `import type { UseCaseDeps } from '../deps'
 
-/** Os use cases do domínio auth. */
 export function createAuthUseCases(deps: UseCaseDeps) {
   return {}
 }
 
-/** As rotas de mock do domínio auth. */
 export const authRoutes = {}
 `
 
@@ -35,14 +33,13 @@ describe('registerUseCase', () => {
     registerUseCase(plan, useCaseNames('auth.sign-out'), { local: false })
 
     expect(read(plan, 'use-cases/auth/index.ts')).toBe(`import type { UseCaseDeps } from '../deps'
-import { getProfileRoutes } from './get-profile.mock'
-import { GetProfileUseCase } from './get-profile.usecase'
-import { signInRoutes } from './sign-in.mock'
-import { SignInUseCase } from './sign-in.usecase'
-import { signOutRoutes } from './sign-out.mock'
-import { SignOutUseCase } from './sign-out.usecase'
+import { getProfileRoutes } from './mocks/get-profile'
+import { signInRoutes } from './mocks/sign-in'
+import { signOutRoutes } from './mocks/sign-out'
+import { GetProfileUseCase } from './services/get-profile.usecase'
+import { SignInUseCase } from './services/sign-in.usecase'
+import { SignOutUseCase } from './services/sign-out.usecase'
 
-/** Os use cases do domínio auth. */
 export function createAuthUseCases(deps: UseCaseDeps) {
   return {
     getProfile: new GetProfileUseCase(deps.http),
@@ -51,7 +48,6 @@ export function createAuthUseCases(deps: UseCaseDeps) {
   }
 }
 
-/** As rotas de mock do domínio auth. */
 export const authRoutes = {
   ...getProfileRoutes,
   ...signInRoutes,
@@ -64,7 +60,7 @@ export const authRoutes = {
     const plan = planWithDomain()
     registerUseCase(plan, useCaseNames('auth.remember-me'), { local: true })
     const index = read(plan, 'use-cases/auth/index.ts')
-    expect(index).toContain("import { RememberMeUseCase } from './remember-me.usecase'")
+    expect(index).toContain("import { RememberMeUseCase } from './services/remember-me.usecase'")
     expect(index).not.toContain('Routes } from')
     expect(index).toContain('rememberMe: new RememberMeUseCase(deps.storage),')
     expect(index).toContain('export const authRoutes = {}')

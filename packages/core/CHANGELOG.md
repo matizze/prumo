@@ -1,5 +1,13 @@
 # @matizze/prumo-core
 
+## 0.5.0
+
+### Minor Changes
+
+- 59b513a: Novo `mockRoute(endpoint, handler)` em `@matizze/prumo-core/http`: monta a rota do mock a partir do `ENDPOINT` do use case (`export const signInRoutes = mockRoute(ENDPOINT, ...)`), sem repetir `` `${ENDPOINT.method} ${ENDPOINT.path}` `` à mão. O `params` do handler sai do caminho, como no `createMockHttp`.
+  
+  Novo `NetworkError`: o `createHttp` o lança quando o `fetch` rejeita (sem rede, DNS, CORS). O que o `fetch` não lança, como um `TypeError` de bug de código, passa como veio.
+
 ## 0.4.0
 
 ### Minor Changes

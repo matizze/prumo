@@ -166,53 +166,48 @@ Use cases (listClientes, getCliente, createCliente, updateCliente, removeCliente
   removeCliente  DELETE /clientes/:id
 
 Criados (22):
-  src/use-cases/clientes/collection.mock.ts
-  src/use-cases/clientes/create-cliente.mock.ts
+  src/use-cases/clientes/index.ts
+  src/use-cases/clientes/mocks/collection.ts
+  src/use-cases/clientes/mocks/create-cliente.ts
   ...
+  src/use-cases/clientes/types/update-cliente.ts
 
-Alterados (3):
-  src/messages/en/errors.json
-  src/messages/pt-BR/errors.json
+Alterados (1):
   src/use-cases/index.ts
 
 Próximo passo: prumo make:page clientes --usecase clientes.list-clientes
 ```
 
-O comando criou, para cada ação, os quatro arquivos de um use case:
+O comando criou, para cada ação, os quatro arquivos de um use case, cada um na sua pasta do domínio:
 
-- os **tipos** (`.types.ts`): o endereço (`ENDPOINT`), o Input e o Output em zod e, na leitura, a chave de cache;
-- a **classe** (`.usecase.ts`), com o `execute`, que valida o Input, chama a API e valida o Output;
-- o **mock** (`.mock.ts`): a resposta de mentira do endereço, sobre uma coleção em memória com três registros de exemplo (as fixtures);
-- o **teste** (`.usecase.test.ts`), que roda o contrato contra o mock;
+- os **tipos** (`types/<ação>.ts`): o endereço (`ENDPOINT`), o Request e o Response em zod e, na leitura, a chave de cache;
+- a **classe** (`services/<ação>.usecase.ts`), com o `execute`, que valida o Request, chama a API e valida o Response;
+- o **mock** (`mocks/<ação>.ts`): a resposta de mentira do endereço, sobre uma coleção em memória (`mocks/collection.ts`) com três registros de exemplo (as fixtures);
+- o **teste** (`services/<ação>.usecase.test.ts`), que roda o contrato contra o mock;
 
-e registrou o domínio no registro de use cases e o texto de `CLIENTE_NOT_FOUND` nos `errors.json`. Rode os testes deles:
+e registrou o domínio no registro de use cases. Rode os testes deles:
 
 ```bash
 pnpm test src/use-cases/clientes
 ```
 
-Abra o `list-clientes.usecase.ts` para ver o que é um use case: uma classe com um `execute`, que valida o Input, chama o `http`, valida o Output com zod e traduz o erro da API num `UIError` com código (que a interface traduz para a pessoa):
+Abra o `services/list-clientes.usecase.ts` para ver o que é um use case: uma classe com um `execute`, que valida o Request, chama o `http` e valida o Response com zod, sem `try/catch`. O erro da API é traduzido num lugar só, no `http` do app (`src/http/errors.ts`), num `UIError` com código que a interface traduz para a pessoa:
 
 ```ts
-// src/use-cases/clientes/list-clientes.usecase.ts
-export class ListClientesUseCase implements IUseCase<ListClientesInput, ListClientesOutput> {
+// src/use-cases/clientes/services/list-clientes.usecase.ts
+/** List clientes (domínio clientes). */
+export class ListClientesUseCase implements IUseCase<ListClientesRequest, ListClientesResponse> {
   readonly #http: Http
 
   constructor(http: Http) {
     this.#http = http
   }
 
-  /** Um erro da API vira `UIError` LIST_CLIENTES_FAILED. */
-  async execute(input: ListClientesInput): Promise<ListClientesOutput> {
-    const { sort, ...rest } = ListClientesInput.parse(input)
+  async execute(input: ListClientesRequest): Promise<ListClientesResponse> {
+    const { sort, ...rest } = ListClientesRequest.parse(input)
     const query = { ...rest, sort: sort && `${sort.key}:${sort.direction}` }
-    try {
-      const response = await this.#http(ENDPOINT.path, { method: ENDPOINT.method, query })
-      return ListClientesOutput.parse(response)
-    } catch (error) {
-      if (error instanceof HttpError) throw new UIError('LIST_CLIENTES_FAILED', error.message)
-      throw error
-    }
+    const response = await this.#http(ENDPOINT.path, { method: ENDPOINT.method, query })
+    return ListClientesResponse.parse(response)
   }
 }
 ```
@@ -299,13 +294,13 @@ Para rodar os testes da tela nova:
   pnpm test src/pages/cliente-novo
 ```
 
-O formulário sai com um campo por campo do Input do use case (`nome`, `email`, um checkbox para `ativo`, um `<select>` para `plano` e `telefone`, sem `required` porque é opcional), só com elementos nativos. O model usa o `useMutation` com o `createCliente`, desabilita o botão enquanto envia, mostra o erro traduzido e, no sucesso, invalida as consultas do domínio (`['clientes']`):
+O formulário sai com um campo por campo do Request do use case (`nome`, `email`, um checkbox para `ativo`, um `<select>` para `plano` e `telefone`, sem `required` porque é opcional), só com elementos nativos. O model usa o `useMutation` com o `createCliente`, desabilita o botão enquanto envia, mostra o erro traduzido e, no sucesso, invalida as consultas do domínio (`['clientes']`):
 
 ```ts
 // src/pages/cliente-novo/model.ts (trecho)
 const { createCliente } = useUseCases()
 const mutation = useMutation({
-  mutationFn: (input: CreateClienteInput) => createCliente.execute(input),
+  mutationFn: (input: CreateClienteRequest) => createCliente.execute(input),
   onSuccess: () => queryClient.invalidateQueries({ queryKey: ['clientes'] }),
 })
 ```
@@ -431,7 +426,7 @@ A tela não importa de 'src/http' ('@/http/api'): ela chama um use case, e é o 
 
 A tela chama o use case, e só o use case fala com a API. O contrário também vale: um use case que importa de `react`, do TanStack ou de uma tela é acusado (o `useQuery` e o `useMutation` ficam no model). Desfaça o import.
 
-As outras regras funcionam do mesmo jeito: uma tela sem `model.ts`, uma pasta nova em `src/components` fora das permitidas, um componente compartilhado que ninguém compartilha, um `.usecase.ts` sem o teste ao lado. A lista completa está em [Arquitetura](concepts/architecture.md#as-regras).
+As outras regras funcionam do mesmo jeito: uma tela sem `model.ts`, uma pasta nova em `src/components` fora das permitidas, um componente compartilhado que ninguém compartilha, um `services/<ação>.usecase.ts` sem o teste ao lado. A lista completa está em [Arquitetura](concepts/architecture.md#as-regras).
 
 ## 10. Feche com a verificação
 

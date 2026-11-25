@@ -4,7 +4,7 @@
       expect((await subject.{{key.get}}.execute({ id: '{{singular.kebab}}-1' })).{{test.editName}}).toBe({{test.editValue}})
       await expect(
         subject.{{key.update}}.execute({ id: '{{singular.kebab}}-missing', {{test.editName}}: {{test.editValue}} }),
-      ).rejects.toMatchObject({ code: '{{singular.constant}}_NOT_FOUND' })
+      ).rejects.toMatchObject({ status: 404 })
     })
 
     it('edita só os campos enviados e mantém os outros', async () => {

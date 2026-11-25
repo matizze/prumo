@@ -13,14 +13,14 @@ src/
     components/    componentes usados só por esta tela
   components/shared/       componentes usados por duas ou mais telas
   schemas/entities/        schemas zod das entidades
-  use-cases/<domínio>/     use cases (uma ação com Input, Output e execute), com mock e teste
-  http/api.ts              a instância da API (VITE_API_URL)
+  use-cases/<domínio>/     use cases: types/ (Request e Response), services/ (a classe e o teste) e mocks/, por domínio
+  http/                    a instância da API (api.ts, VITE_API_URL) e o erro dela como UIError (errors.ts)
   messages/<idioma>/       textos em pt-BR e en, um JSON por tela
 ```
 
 - Uma tela não importa de outra tela: o que as duas usam vai para `src/components/shared`.
 - A `view` não busca dado nem tem estado de dados: tudo chega do `model` por props.
-- Dado vem de um use case (`useUseCases()`, que o model chama com `useQuery` ou `useMutation`), nunca de um `fetch` solto. O use case usa o `http` (o mock ou a API), o `storage` ou outros use cases; nada aponta para cima. A tela não importa de `src/http`, e um use case não importa de `src/pages`, de `react` nem de `@tanstack/*` (o ESLint confere), e todo `*.usecase.ts` tem o `.types.ts` e o `.usecase.test.ts` ao lado (o `prumo check` confere).
+- Dado vem de um use case (`useUseCases()`, que o model chama com `useQuery` ou `useMutation`), nunca de um `fetch` solto. O use case usa o `http` (o mock ou a API), o `storage` ou outros use cases; nada aponta para cima. A tela não importa de `src/http`, e um use case não importa de `src/pages`, de `react` nem de `@tanstack/*` (o ESLint confere), e todo `services/<ação>.usecase.ts` tem o `types/<ação>.ts` e o `.usecase.test.ts` ao lado (o `prumo check` confere). O use case não trata erro: o `src/http/errors.ts` transforma o `HttpError` em `UIError` (`NOT_FOUND`, `UNAUTHORIZED`...), e o `errors.json` traduz.
 - Todo texto da tela mora em `src/messages/<idioma>/<tela>.json`, nos dois idiomas, e é lido por `useTranslations`.
 
 ## Comandos

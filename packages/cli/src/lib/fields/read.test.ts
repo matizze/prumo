@@ -191,7 +191,7 @@ describe('a dica do schema que falta, quando há schemas sem use case', () => {
     const root = makeProject({
       'src/schemas/entities/pao.ts': 'export const paoSchema = 1\n',
       'src/schemas/entities/usado.ts': 'export const usadoSchema = 1\n',
-      'src/use-cases/usados/list-usados.types.ts': 'import type { UsadoSchema } from "@/schemas"\n',
+      'src/use-cases/usados/types/list-usados.ts': 'import type { UsadoSchema } from "@/schemas"\n',
     })
     const plan = new ChangePlan(findProject(root))
     const message = (() => {
@@ -214,7 +214,7 @@ describe('a dica do schema que falta, quando há schemas sem use case', () => {
     const root = makeProject({
       'src/schemas/entities/item.ts': 'export const itemSchema = 1\n',
       'src/schemas/entities/pedido-item.ts': 'export const pedidoItemSchema = 1\n',
-      'src/use-cases/pedido-itens/list-pedido-itens.types.ts': 'import type { PedidoItemSchema } from "@/schemas"\n',
+      'src/use-cases/pedido-itens/types/list-pedido-itens.ts': 'import type { PedidoItemSchema } from "@/schemas"\n',
     })
     const plan = new ChangePlan(findProject(root))
     expect(() => readEntityFields(plan, domainNames('vendas'))).toThrow(

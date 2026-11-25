@@ -1,11 +1,9 @@
 import { z } from 'zod'
 {{types.schemaImport}}
-{{types.endpoint}}/** O que o use case recebe. */
-export const {{action.pascal}}Input = {{types.input}}
+{{types.endpoint}}export const {{action.pascal}}Request = {{types.input}}
 
-export type {{action.pascal}}Input = {{types.inputType}}
+export type {{action.pascal}}Request = {{types.inputType}}
 
-/** O que o use case devolve. */
-export const {{action.pascal}}Output = {{types.output}}
+export const {{action.pascal}}Response = {{types.output}}
 
-export type {{action.pascal}}Output = z.infer<typeof {{action.pascal}}Output>{{types.key}}
+export type {{action.pascal}}Response = z.infer<typeof {{action.pascal}}Response>{{types.key}}

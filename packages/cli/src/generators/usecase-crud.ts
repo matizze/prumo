@@ -9,11 +9,9 @@ import { domainNames, useCaseNames, type DomainNames, type UseCaseNames } from '
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'
 import { nameVars, renderTemplate, renderTemplateFile } from '../lib/templates.ts'
-import { addErrorMessages, type ErrorText } from './error-messages.ts'
 import {
   addUseCase,
   assertUseCaseFree,
-  FAILED_TEXT,
   FOLDER,
   requestVars,
   typesVars,
@@ -51,11 +49,9 @@ export interface CrudResult {
   /** Os campos lidos do schema. */
   fields: Field[]
   useCases: CrudUseCase[]
-  /** Avisos que não impedem o comando (o `errors.json` que falta). */
+  /** Avisos que não impedem o comando. */
   warnings: string[]
 }
-
-const NOT_FOUND_TEXT: ErrorText = { 'pt-BR': 'Registro não encontrado.', en: 'Record not found.' }
 
 /** Como cada operação se chama, se lê e se endereça (`:id` no caminho de um registro). */
 const OPERATIONS: Record<
@@ -76,12 +72,12 @@ const crudFile = (template: string, to: string): UseCaseFile => ({ template: `us
 export const CRUD_FILES: readonly UseCaseFile[] = [
   USE_CASE_FILES[0]!,
   USE_CASE_FILES[1]!,
-  crudFile('mock.ts.tpl', '{{action.kebab}}.mock.ts'),
-  crudFile('test.ts.tpl', '{{action.kebab}}.usecase.test.ts'),
+  crudFile('mock.ts.tpl', 'mocks/{{action.kebab}}.ts'),
+  crudFile('test.ts.tpl', 'services/{{action.kebab}}.usecase.test.ts'),
 ]
 
 /** A coleção do mock, criada com o primeiro use case do domínio. */
-export const COLLECTION_FILE: UseCaseFile = crudFile('collection.mock.ts.tpl', 'collection.mock.ts')
+export const COLLECTION_FILE: UseCaseFile = crudFile('collection.mock.ts.tpl', 'mocks/collection.ts')
 
 /** Os casos de teste de cada operação, que entram no teste do use case dela. */
 export const CASES_TEMPLATES: readonly string[] = CRUD_OPERATIONS.map((operation) => `usecase/crud/cases-${operation}.ts.tpl`)
@@ -91,10 +87,10 @@ interface Pieces {
   /** O import do schema, depois do `zod`. */
   imports: string
   input: string
-  /** O tipo do Input, quando não é o que o zod infere. */
+  /** O tipo do Request, quando não é o que o zod infere. */
   inputType?: string
   output: string
-  /** O `execute`, quando não é o padrão de `requestVars`. */
+  /** O que o `execute` faz antes da chamada, quando não é o padrão de `requestVars` (linhas terminadas em quebra de linha). */
   request?: string
   /** O import do mock: o schema que valida o corpo. */
   mockImport: string
@@ -102,11 +98,9 @@ interface Pieces {
   params: string
   /** O que o handler responde, sobre a coleção. */
   body: string
-  /** O Input do teste que vê o erro da API virar `<AÇÃO>_FAILED`. */
-  failInput: string
 }
 
-/** Os campos que as rotas com `:id` pedem no Input. */
+/** Os campos que as rotas com `:id` pedem no Request. */
 const ID_FIELD: Field = { name: 'id', type: 'string', optional: false }
 
 /** O texto que cada operação tem de diferente, a partir dos nomes do domínio e do que o schema aceita. */
@@ -139,11 +133,10 @@ function piecesOf(
 }) satisfies z.ZodType<${listQuery}>`,
         inputType: listQuery,
         output: `pageSchema(${schema})`,
-        request: `    const { sort, ...rest } = ${vars['action.pascal']}Input.parse(input)\n    const query = { ...rest, sort: sort && \`\${sort.key}:\${sort.direction}\` }`,
+        request: `    const { sort, ...rest } = ${vars['action.pascal']}Request.parse(input)\n    const query = { ...rest, sort: sort && \`\${sort.key}:\${sort.direction}\` }\n`,
         mockImport: '',
         params: '{ query }',
         body: `${collection}.list(query)`,
-        failInput: '{}',
       }
     case 'get':
       return {
@@ -153,7 +146,6 @@ function piecesOf(
         mockImport: '',
         params: '{ params }',
         body: `${collection}.get(params.id)`,
-        failInput: "{ id: '" + singular.kebab + "-1' }",
       }
     case 'create':
       return {
@@ -163,7 +155,6 @@ function piecesOf(
         mockImport: schemasImport(inputSchema),
         params: '{ body }',
         body: `${collection}.create(${inputSchema}.parse(body))`,
-        failInput: vars['test.newInput']!,
       }
     case 'update':
       return {
@@ -173,7 +164,6 @@ function piecesOf(
         mockImport: schemasImport(inputSchema),
         params: '{ params, body }',
         body: `${collection}.update(params.id, ${inputSchema}.partial().parse(body))`,
-        failInput: "{ id: '" + singular.kebab + "-1' }",
       }
     case 'remove':
       return {
@@ -183,7 +173,6 @@ function piecesOf(
         mockImport: '',
         params: '{ params }',
         body: `${collection}.remove(params.id)`,
-        failInput: "{ id: '" + singular.kebab + "-1' }",
       }
   }
 }
@@ -195,8 +184,7 @@ const actionOf = (operation: CrudOperation, { singular, plural }: DomainNames) =
 /**
  * Monta o plano do CRUD de um domínio: os cinco use cases (`list-livros`, `get-livro`, `create-livro`,
  * `update-livro` e `remove-livro`, com endpoints REST) em `src/use-cases/<domínio>/`, a coleção do
- * mock que os cinco dividem (`collection.mock.ts`, com as fixtures lidas do schema), o registro e o
- * texto de `<ENTIDADE>_NOT_FOUND` e dos `_FAILED` nos `errors.json`. Os campos (busca, ordem, fixtures e
+ * mock que os cinco dividem (`mocks/collection.ts`, com as fixtures lidas do schema) e o registro. Os campos (busca, ordem, fixtures e
  * testes) saem do schema. Nada vai para o disco; recusa, sem escrever, se
  * algum dos cinco já existe. Todo erro de uso é um `UsageError` (saída 2).
  */
@@ -222,7 +210,6 @@ export function generateCrudUseCases(project: Project, { name, entity }: CrudReq
     renderTemplateFile(COLLECTION_FILE.template, base),
   )
 
-  const notFoundCode = `${base['singular.constant']}_NOT_FOUND`
   const keys = Object.fromEntries(all.map(({ operation, names }) => [`key.${operation}`, names.action.camel]))
   const useCases = all.map(({ operation, names }): CrudUseCase => {
     const { method, record, access } = OPERATIONS[operation]
@@ -246,14 +233,12 @@ export function generateCrudUseCases(project: Project, { name, entity }: CrudReq
         'types.input': pieces.input,
         'types.inputType': pieces.inputType ?? typed['types.inputType']!,
         'types.output': pieces.output,
-        ...(pieces.request ? { 'usecase.request': pieces.request } : {}),
-        'usecase.notFound': record
-          ? `      if (error instanceof HttpError && error.status === 404) throw new UIError('${notFoundCode}', error.message)\n`
-          : '',
+        ...(pieces.request
+          ? { 'usecase.request': pieces.request, 'usecase.call': 'ENDPOINT.path, { method: ENDPOINT.method, query }' }
+          : {}),
         'mock.schemaImport': pieces.mockImport,
         'mock.params': pieces.params,
         'mock.body': pieces.body,
-        'test.failInput': pieces.failInput,
         'test.cases': renderTemplateFile(CASES_TEMPLATES[CRUD_OPERATIONS.indexOf(operation)]!, vars),
       },
       CRUD_FILES,
@@ -262,14 +247,5 @@ export function generateCrudUseCases(project: Project, { name, entity }: CrudReq
     return { operation, names, key: names.action.camel, access, endpoint }
   })
 
-  const warnings = addErrorMessages(plan, {
-    [notFoundCode]: NOT_FOUND_TEXT,
-    ...Object.fromEntries(
-      useCases.map(({ names, access }) => [
-        `${nameVars('action', names.action)['action.constant']}_FAILED`,
-        FAILED_TEXT[access],
-      ]),
-    ),
-  })
-  return { plan, names: domain, fields, useCases, warnings }
+  return { plan, names: domain, fields, useCases, warnings: [] }
 }

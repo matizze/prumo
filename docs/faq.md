@@ -87,13 +87,13 @@ src/components/shared/cartao.tsx  [shared-usage]  O módulo não é usado por ne
 
 É esperado: o que está em `shared` precisa ser usado por duas telas ou mais. A violação some quando duas telas o importarem. Se só uma tela o usa, mova-o para `src/pages/<tela>/components/`.
 
-### O `prumo check` acusa um use case sem `.types.ts` ou sem teste
+### O `prumo check` acusa um use case sem `types/<ação>.ts` ou sem teste
 
 ```text
-src/use-cases/auth/sign-in.usecase.ts  [use-case-files]  O use case 'sign-in' precisa do arquivo 'sign-in.usecase.test.ts' na mesma pasta.
+src/use-cases/auth/services/sign-in.usecase.ts  [use-case-files]  O use case 'sign-in' precisa do arquivo 'services/sign-in.usecase.test.ts' (a partir da pasta do domínio).
 ```
 
-Todo `*.usecase.ts` tem o `.types.ts` e o `.usecase.test.ts` na mesma pasta. Crie o arquivo que falta (copie o de outro use case do projeto e adapte) ou apague o use case que sobrou.
+Todo `services/<ação>.usecase.ts` tem o `types/<ação>.ts` na pasta irmã e o `<ação>.usecase.test.ts` ao lado. Crie o arquivo que falta (copie o de outro use case do projeto e adapte) ou apague o use case que sobrou.
 
 ### O app diz `Invalid VITE_DATA_SOURCE "storage"`
 

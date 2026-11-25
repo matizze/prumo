@@ -68,7 +68,7 @@ describe('paridade das ferramentas com os comandos', () => {
   it('o detalhe que saiu da ajuda do terminal está na descrição da ferramenta', () => {
     expect(tool('make_page').description).toContain(':param')
     expect(tool('make_page').description).toContain('auth.login')
-    expect(tool('make_usecase').description).toContain('<AÇÃO>_FAILED')
+    expect(tool('make_usecase').description).toContain('services/<ação>.usecase.ts')
     expect(tool('make_usecase').description).toContain('PATCH /livros/:id')
     expect(tool('make_usecase').description).toContain('store[]')
     expect(tool('make_schema').description).toContain('createdAt')

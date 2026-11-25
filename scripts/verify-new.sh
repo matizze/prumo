@@ -83,8 +83,8 @@ stage_cli() {
   prumo make:usecase paes --crud --entity pao
   prumo make:usecase pedidos --crud
   prumo make:usecase fases-2 --crud --entity fase-2
-  # make:usecase um a um: uma leitura (com a entidade de um schema como Output), uma escrita (com Input e
-  # Output em campos) e um local (sem API, no localStorage)
+  # make:usecase um a um: uma leitura (com a entidade de um schema como Response), uma escrita (com Request e
+  # Response em campos) e um local (sem API, no localStorage)
   prumo make:schema stores --fields "name:string,city:string"
   prumo make:usecase stores.get-stores --output "store[]"
   prumo make:usecase auth.sign-in --input "email:string,password:string" --output "token:string"

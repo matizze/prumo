@@ -3,14 +3,14 @@ import type { FormEvent } from 'react'
 import { getErrorMessage } from '@/errors'
 import { useTranslations } from '@/i18n'
 import { useUseCases } from '@/providers/use-cases'
-import type { {{uc.input}} } from '@/use-cases/{{uc.domain}}/{{uc.kebab}}.types'
+import type { {{uc.request}} } from '@/use-cases/{{uc.domain}}/types/{{uc.kebab}}'
 {{form.inputOf}}
 export function use{{page.pascal}}Model() {
   const t = useTranslations('{{page.camel}}')
   const queryClient = useQueryClient()
   const { {{uc.key}} } = useUseCases()
   const mutation = useMutation({
-    mutationFn: (input: {{uc.input}}) => {{uc.key}}.execute(input),
+    mutationFn: (input: {{uc.request}}) => {{uc.key}}.execute(input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['{{uc.domain}}'] }),
   })
   return {

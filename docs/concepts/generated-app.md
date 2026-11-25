@@ -22,6 +22,8 @@ meu-app/
     errors.ts                     getErrorMessage: o texto traduzido de um erro
     http/
       api.ts                      a instância da API (createHttp, VITE_API_URL)
+      errors.ts                   withErrors: o HttpError vira UIError (NOT_FOUND, UNAUTHORIZED...)
+      errors.test.ts              o teste da tradução
     providers/
       app.tsx                     QueryClient, i18n e use cases
       use-cases/index.ts          UseCasesProvider e useUseCases
@@ -53,20 +55,22 @@ Os comandos `make:*` acrescentam as camadas de cima a esse esqueleto. Depois de 
       index.ts                      o registro: createUseCases e mockRoutes
       auth/
         index.ts                    createAuthUseCases(deps) e authRoutes
-        sign-in.types.ts            ENDPOINT, SignInInput e SignInOutput (zod)
-        sign-in.usecase.ts          SignInUseCase (execute)
-        sign-in.mock.ts             a resposta de mentira do ENDPOINT
-        sign-in.usecase.test.ts     o teste, contra o mock (e contra a API, com API_TEST_URL)
+        types/sign-in.ts            ENDPOINT, SignInRequest e SignInResponse (zod)
+        services/sign-in.usecase.ts SignInUseCase (execute)
+        services/sign-in.usecase.test.ts  o teste, contra o mock (e contra a API, com API_TEST_URL)
+        mocks/sign-in.ts            a resposta de mentira do ENDPOINT
       livros/
         index.ts                    createLivrosUseCases(deps) e livrosRoutes
-        collection.mock.ts          os dados de exemplo e a coleção em memória dos cinco mocks
-        {list-livros,get-livro,create-livro,update-livro,remove-livro}.{types,usecase,mock,usecase.test}.ts
+        mocks/collection.ts         os dados de exemplo e a coleção em memória dos cinco mocks
+        types/{list-livros,get-livro,create-livro,update-livro,remove-livro}.ts
+        services/{list-livros,...}.usecase.ts  e  .usecase.test.ts
+        mocks/{list-livros,...}.ts
     pages/
       auth/login/                   a tela em subpasta (a pasta auth só agrupa): index, model, view e teste
       livros/                       a lista: index, model, view e teste
     messages/<idioma>/
       auth-login.json  livros.json  os textos das telas
-      errors.json                   um texto por código de erro (SIGN_IN_FAILED, LIVRO_NOT_FOUND...)
+      errors.json                   um texto por código de erro (NOT_FOUND, REQUEST_FAILED...)
 ```
 
 Os arquivos marcados como **ponto de registro** são os que os geradores editam para ligar o que criam (uma rota, um namespace de textos, um domínio). Você pode editá-los, desde que mantenha a forma descrita em [Pontos de registro](#pontos-de-registro).
@@ -167,7 +171,7 @@ O tratamento de erro já vem ligado, como o guia [Erros e notificações](../gui
 export const getErrorMessage = createErrorMessage(i18n)
 ```
 
-O `make:usecase --crud` acrescenta ao `errors.json` de cada idioma o texto de `<ENTIDADE>_NOT_FOUND`, o código que os use cases de ler, editar e remover lançam.
+O `errors.json` já traz o texto dos códigos genéricos que o `http` do app lança (`INVALID_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT` e `REQUEST_FAILED`), e o `make:usecase` não o altera: os use cases não tratam erro, e quem traduz o status em código é o `src/http/errors.ts`.
 
 ### `src/providers/app.tsx`
 
@@ -215,10 +219,10 @@ export function createAppUseCases(options: Partial<UseCaseOptions> = {}): UseCas
 
 - **`createUseCases(deps)`** espalha o `create<Domínio>UseCases(deps)` de cada domínio, e o tipo `UseCases` sai dele: registrar um domínio é acrescentar uma linha. As `deps` (`deps.ts`) são o `http` (o transporte) e o `storage` (a Web Storage API, para os use cases `--local`).
 - **`mockRoutes`** junta as rotas de mock de todos os domínios (`...authRoutes`, `...livrosRoutes`).
-- **`createAppUseCases(options)`** monta o container: a fonte vem da `VITE_DATA_SOURCE`: `http` usa a API, `mock` (o padrão, sem a variável) usa o `http` de mentira, e qualquer outro valor lança o erro do `resolveDataSource`. No `mock`, o `http` é o `createMockHttp(mockRoutes, { latencyMs })`, e no `http`, a instância `api`. O código dos use cases é o mesmo nos dois (o mock fica no transporte, não no use case).
+- **`createAppUseCases(options)`** monta o container: a fonte vem da `VITE_DATA_SOURCE`: `http` usa a API, `mock` (o padrão, sem a variável) usa o `http` de mentira, e qualquer outro valor lança o erro do `resolveDataSource`. No `mock`, o `http` é o `createMockHttp(mockRoutes, { latencyMs })`, e no `http`, a instância `api`; os dois passam pelo `withErrors` (`src/http/errors.ts`), então lançam os mesmos erros. O código dos use cases é o mesmo nos dois (o mock fica no transporte, não no use case).
 - **`UseCasesProvider` e `useUseCases()`** (`src/providers/use-cases/index.ts`), do `createUseCasesContext` do core, entregam o container às telas. Os testes passam outro ao `UseCasesProvider`, ou trocam um use case pelo `useCases` do `renderWithProviders`.
 
-Cada domínio tem a pasta `src/use-cases/<domínio>/`, criada pelo [`prumo make:usecase`](../reference/cli.md#prumo-makeusecase) com o primeiro use case dele: o `index.ts` (`create<Domínio>UseCases(deps)` e `<domínio>Routes`) e, por ação, `<ação>.types.ts`, `<ação>.usecase.ts`, `<ação>.mock.ts` e `<ação>.usecase.test.ts`.
+Cada domínio tem a pasta `src/use-cases/<domínio>/`, criada pelo [`prumo make:usecase`](../reference/cli.md#prumo-makeusecase) com o primeiro use case dele: o `index.ts` (`create<Domínio>UseCases(deps)` e `<domínio>Routes`) e, por ação, `types/<ação>.ts`, `services/<ação>.usecase.ts`, `mocks/<ação>.ts` e `services/<ação>.usecase.test.ts`.
 
 ### `src/test/render.tsx` e `setup.ts`
 
@@ -251,23 +255,23 @@ Altera `src/schemas/index.ts` (um `export *`). Com `--fields "titulo:string,ano:
 ### `prumo make:usecase <domínio.ação> [--input ...] [--output ...] [--endpoint ...] [--local]`
 
 ```text
-src/use-cases/<domínio>/<ação>.types.ts          ENDPOINT, Input, Output e (na leitura) a chave de cache
-src/use-cases/<domínio>/<ação>.usecase.ts        a classe <Ação>UseCase
-src/use-cases/<domínio>/<ação>.mock.ts           a rota de mock do ENDPOINT (fora do --local)
-src/use-cases/<domínio>/<ação>.usecase.test.ts   o teste, contra o mock e, com API_TEST_URL, contra a API
-src/use-cases/<domínio>/index.ts                 create<Domínio>UseCases e <domínio>Routes (com o primeiro use case do domínio)
+src/use-cases/<domínio>/types/<ação>.ts                  ENDPOINT, <Ação>Request, <Ação>Response e (na leitura) a chave de cache
+src/use-cases/<domínio>/services/<ação>.usecase.ts       a classe <Ação>UseCase
+src/use-cases/<domínio>/services/<ação>.usecase.test.ts  o teste, contra o mock e, com API_TEST_URL, contra a API
+src/use-cases/<domínio>/mocks/<ação>.ts                  a rota de mock do ENDPOINT (fora do --local)
+src/use-cases/<domínio>/index.ts                         create<Domínio>UseCases e <domínio>Routes (com o primeiro use case do domínio)
 ```
 
-Altera o `index.ts` do domínio e o `src/use-cases/index.ts` (import, `...create<Domínio>UseCases(deps)` e `...<domínio>Routes`, em ordem alfabética) e acrescenta `<AÇÃO>_FAILED` ao `src/messages/<idioma>/errors.json` de cada idioma (fora do `--local`). Veja a [referência](../reference/cli.md#prumo-makeusecase).
+Altera o `index.ts` do domínio e o `src/use-cases/index.ts` (import, `...create<Domínio>UseCases(deps)` e `...<domínio>Routes`, em ordem alfabética) (não mexe nos `errors.json`). Veja a [referência](../reference/cli.md#prumo-makeusecase).
 
 ### `prumo make:usecase <domínio> --crud [--entity <singular>]`
 
 ```text
-src/use-cases/<domínio>/{list,get,create,update,remove}-<entidade>.*   os cinco use cases, com os quatro arquivos de sempre
-src/use-cases/<domínio>/collection.mock.ts                             as fixtures e a coleção em memória que os mocks dividem
+src/use-cases/<domínio>/{types,services,mocks}/{list,get,create,update,remove}-<entidade>.*  os cinco use cases, com os quatro arquivos de sempre
+src/use-cases/<domínio>/mocks/collection.ts                                                   as fixtures e a coleção em memória que os mocks dividem
 ```
 
-Precisa do schema e lê os campos dele. Altera o registro como o `make:usecase` e acrescenta `<ENTIDADE>_NOT_FOUND` e os `_FAILED` ao `errors.json` de cada idioma.
+Precisa do schema e lê os campos dele. Altera o registro como o `make:usecase`.
 
 ## Pontos de registro
 

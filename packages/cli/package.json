@@ -1,6 +1,6 @@
 {
   "name": "@matizze/prumo-cli",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "O comando prumo: cria apps React organizados em camadas e confere a arquitetura.",
   "keywords": [
     "react",

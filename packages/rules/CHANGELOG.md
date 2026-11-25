@@ -1,5 +1,11 @@
 # @matizze/prumo-rules
 
+## 0.5.0
+
+### Minor Changes
+
+- 3324e47: A regra `use-case-files` do `prumo check` confere o layout do pratigo: todo `services/<ação>.usecase.ts` precisa do `types/<ação>.ts` (na pasta irmã `types`) e do `<ação>.usecase.test.ts` ao lado. Um use case no layout antigo (`<ação>.types.ts` na mesma pasta) passa a ser acusado.
+
 ## 0.4.0
 
 ### Minor Changes

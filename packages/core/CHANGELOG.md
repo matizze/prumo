@@ -1,5 +1,12 @@
 # @matizze/prumo-core
 
+## 0.4.0
+
+### Minor Changes
+
+- 61b3901: Sai o subcaminho `@matizze/prumo-core/repositories` (`createRepositoryContainer`, `createRepositoryContext`, os tipos `RepositoryOptions`, `RepositoryFactories`, `RepositoryContainerOf` e `RepositoryProviderProps`). O `resolveDataSource` e o contexto dos use cases ficam em `@matizze/prumo-core/use-cases`. Para migrar, veja o guia [Migrar para use cases](https://docs.prumo.matizze.com.br/guides/migrate-to-use-cases).
+- 6411393: Use cases no lugar do repository. Entram `@matizze/prumo-core/http` (`createHttp`, com o `query` que vira query string, `HttpError` com o `body` da resposta de erro e os tipos, e `createMockHttp`, um `http` de mentira que responde por rotas como `'GET /livros/:id'`, sem rede e sem dependência, com os `params` tipados pela chave da rota e o `MissingMockRouteError` para a rota sem mock), `@matizze/prumo-core/use-cases` (`IUseCase`, `UseCaseInput`, `UseCaseOutput`, `createUseCasesContext` e `resolveDataSource`) e `createMockCollection` em `@matizze/prumo-core/mock`, a coleção em memória que os mocks de um CRUD dividem. O módulo `repositories` sai (veja o changeset `remove-repositories-core`).
+
 ## 0.3.0
 
 ### Minor Changes

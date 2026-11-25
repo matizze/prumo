@@ -1,5 +1,0 @@
----
-'@matizze/prumo-cli': minor
----
-
-Entra o `prumo make:usecase <domínio>.<ação>`, o caminho novo para o que o app faz com dados: cria o use case em `src/use-cases/<domínio>/` (os tipos com o `ENDPOINT`, o Input e o Output em zod, a classe, a rota de mock e o teste, contra o mock e, com `API_TEST_URL`, contra a API) e o registra no índice do domínio e no registro geral. A leitura ou a escrita sai do verbo da ação (`get`, `list`, `search`, `find`, `check` e `count` são leitura), e `--read` e `--write` forçam. `--input` e `--output` usam a sintaxe do `--fields` (o `--output` aceita também uma entidade, `store` ou `store[]`), `--endpoint "PATCH /livros/:id"` troca o endereço padrão (cada `:parâmetro` sai de um campo do Input), e `--local` cria um use case sem API, sobre o `localStorage`. O `prumo new` passa a gerar `src/http/api.ts` e `src/use-cases/` (o registro, o `UseCasesProvider` e o `useUseCases()`, e os testes com o `http` de mentira); O `createHttp` vem do core. O `prumo list` e a ferramenta MCP `list` mostram os use cases, e o servidor MCP ganha a ferramenta `make_usecase`.

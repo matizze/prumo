@@ -1,5 +1,12 @@
 # @matizze/prumo-rules
 
+## 0.4.0
+
+### Minor Changes
+
+- 918f8fc: As telas podem ficar em subpastas: a tela é a primeira pasta de `src/pages` que tem `index.tsx` (`auth/login`), e a pasta sem ele só agrupa telas. O `page-structure`, o `no-cross-page-import` e o `prumo check` passam a enxergar as telas em qualquer profundidade.
+- 61b3901: Regras de camada para os use cases. Plugin de ESLint: `prumo/no-http-in-page` (um arquivo de `src/pages` não importa de `src/http`) e `prumo/use-case-imports` (um arquivo de `src/use-cases` não importa de `src/pages`, de `react` nem de `@tanstack/*`), as duas ligadas no `prumo.configs.recommended`. `prumo check`: a verificação `use-case-files` confere que todo `*.usecase.ts` tem o `.types.ts` e o `.usecase.test.ts` na mesma pasta (o mock não é cobrado), com a opção `useCasesDir`. Veja o guia [Migrar para use cases](https://docs.prumo.matizze.com.br/guides/migrate-to-use-cases).
+
 ## 0.3.0
 
 ### Minor Changes

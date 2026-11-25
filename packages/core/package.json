@@ -1,6 +1,6 @@
 {
   "name": "@matizze/prumo-core",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Infraestrutura comum dos produtos do Prumo: cliente HTTP e mock por rota, use cases, query keys, tipo Page, utilitários de mock, i18n, erros com código, guarda de login e provedor de query.",
   "keywords": [
     "react",

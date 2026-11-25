@@ -1,5 +1,23 @@
 # @matizze/prumo-cli
 
+## 0.10.0
+
+### Minor Changes
+
+- 94f2f9d: Entra o `prumo make:usecase <domínio>.<ação>`, o caminho novo para o que o app faz com dados: cria o use case em `src/use-cases/<domínio>/` (os tipos com o `ENDPOINT`, o Input e o Output em zod, a classe, a rota de mock e o teste, contra o mock e, com `API_TEST_URL`, contra a API) e o registra no índice do domínio e no registro geral. A leitura ou a escrita sai do verbo da ação (`get`, `list`, `search`, `find`, `check` e `count` são leitura), e `--read` e `--write` forçam. `--input` e `--output` usam a sintaxe do `--fields` (o `--output` aceita também uma entidade, `store` ou `store[]`), `--endpoint "PATCH /livros/:id"` troca o endereço padrão (cada `:parâmetro` sai de um campo do Input), e `--local` cria um use case sem API, sobre o `localStorage`. O `prumo new` passa a gerar `src/http/api.ts` e `src/use-cases/` (o registro, o `UseCasesProvider` e o `useUseCases()`, e os testes com o `http` de mentira); O `createHttp` vem do core. O `prumo list` e a ferramenta MCP `list` mostram os use cases, e o servidor MCP ganha a ferramenta `make_usecase`.
+- 3f428c9: `prumo make:page auth.login` (ou `auth/login`) cria a tela numa subpasta: `src/pages/auth/login/`, a rota `/auth/login`, o componente `AuthLoginPage` e as mensagens em `auth-login.json`. O comando recusa uma tela dentro de outra, uma pasta que já agrupa telas e nomes que dariam o mesmo componente (`auth/login` e `auth-login`). O `prumo list` e o MCP mostram o nome da tela com barra.
+  
+  Correção: o teste da tela gerada renderiza na rota da própria tela. O `home.test` do `prumo new` passou de `/home` para `/`, e uma tela criada com `--path /about` testa em `/about`.
+- 710b633: Use case passa a ser o único caminho: saem os comandos `make:repository` e `make:query`, a opção `--query` do `make:page` e as ferramentas MCP `make_repository` e `make_query`. O `prumo new` não gera mais `src/repositories/`, `src/queries/` nem o provider de repositórios, e o `providers/app.tsx` e o `test/render.tsx` usam só use cases. A `VITE_DATA_SOURCE` dos use cases volta a ser estrita (`mock` ou `http`; outro valor, como `storage`, lança o erro claro do `resolveDataSource`). O `prumo list` (texto e `--json`) não traz mais `repositories` nem `queries`, e as telas não têm mais o campo `query`. O próximo passo do `make:schema` passa a sugerir `prumo make:usecase <domínio> --crud`, e o `prumo check` acusa o `*.usecase.ts` sem o `.types.ts` ou o teste ao lado. Para migrar um app das versões 0.9 e anteriores, veja o guia [Migrar para use cases](https://docs.prumo.matizze.com.br/guides/migrate-to-use-cases).
+- d003818: `prumo make:usecase <domínio> --crud` gera os cinco use cases do CRUD de uma entidade (`listLivros`, `getLivro`, `createLivro`, `updateLivro` e `removeLivro`, com endpoints REST) a partir do schema, com uma coleção de mock que eles dividem (criar e depois listar mostra o item novo), testes contra o mock e contra a API (`API_TEST_URL`) e os textos de erro (`<ENTIDADE>_NOT_FOUND` e os `_FAILED`) nos dois idiomas. `prumo make:page <tela> --usecase <domínio>.<ação>` gera a tela de um use case: lista (leitura que devolve lista, com carregando, erro e vazio), detalhe (leitura com `:id` no endereço e o mesmo parâmetro no `--path`) ou formulário (escrita, com os campos do Input, envio, erro e sucesso). O model usa `useUseCases()` com `useQuery` ou `useMutation`, e a escrita invalida o prefixo do domínio. O `prumo list` e o MCP mostram o use case de cada tela e a variação `form`.
+
+### Patch Changes
+
+- 2bfb932: Os comentários dos modelos do app gerado (`src/http/api.ts` e o schema da entidade) deixam de citar o repositório: falam dos use cases e da API.
+- Updated dependencies [918f8fc]
+- Updated dependencies [61b3901]
+  - @matizze/prumo-rules@0.4.0
+
 ## 0.9.0
 
 ### Minor Changes

@@ -1,5 +1,12 @@
 # @matizze/prumo-testing
 
+## 0.4.0
+
+### Minor Changes
+
+- 61b3901: O `renderWithProviders` e o `renderHookWithProviders` deixam o container de repositórios: saem o `createRepositories`, a opção `repositories` e o campo `repositories` do resultado, e o `createTestRepositories`. O parâmetro de tipo dos use cases vem primeiro (`createRenderWithProviders<UseCases, ProviderProps>`), e o `createUseCases` passa a ser obrigatório quando o `UseCases` é declarado (só o `NoContainer` o dispensa). No teste de contrato sai o `repo` (o `@deprecated`): use o `subject`. Para migrar, veja o guia [Migrar para use cases](https://docs.prumo.matizze.com.br/guides/migrate-to-use-cases).
+- 69b614f: O `createRenderWithProviders` e o `createRenderHookWithProviders` aceitam o container de use cases (`createUseCases`, a opção `useCases` por teste e o campo `useCases` no resultado), com o novo `createTestUseCases`, e o container de repositórios sai (veja o changeset `remove-repositories-testing`). O contexto do contrato ganha `subject`. O `defineContractSuite` e o `runContractSuite` ganham a documentação e o exemplo com use cases (o mesmo contrato contra o mock e contra a API real).
+
 ## 0.3.2
 
 ### Patch Changes

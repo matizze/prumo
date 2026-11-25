@@ -126,4 +126,4 @@ A pasta `docs/` também é publicada como site, em [docs.prumo.matizze.com.br](h
 - **Links para fora de `docs/`:** o plugin de remark `website/src/remark/link-outside-docs.ts` troca o link relativo para um arquivo fora do site (o `CONTRIBUTING.md`, o `SECURITY.md`) pelo endereço do arquivo no GitHub.
 - **Build estrito:** link, âncora ou link de Markdown quebrados fazem o build falhar.
 
-O workflow `.github/workflows/docs.yml`, a cada push na `main` que muda `docs/` ou `website/`, gera a imagem (`website/Dockerfile`: o build do Docusaurus e um nginx), roda o teste de fumaça (`website/docker/smoke-test.sh`), envia para o `ghcr.io/matizze/prumo-docs` e chama o webhook do Portainer (secret `PORTAINER_WEBHOOK_DOCS`), que reinicia o serviço com a imagem nova.
+O workflow `.github/workflows/docs.yml`, a cada push na `main` que muda `docs/` ou `website/`, gera a imagem (`website/Dockerfile`: o build do Docusaurus e um nginx), roda o teste de fumaça (`website/docker/smoke-test.sh`), envia para o `ghcr.io/matizze/prumo-docs` e chama o webhook de deploy (secret `DEPLOY_WEBHOOK`, hoje o do Portainer), que reinicia o serviço com a imagem nova.

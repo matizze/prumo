@@ -1,9 +1,9 @@
 # Site da documentação (docs.prumo.matizze.com.br), a cada push na `main` que muda a documentação.
 #
 # Gera a imagem (website/Dockerfile: o Docusaurus gera o HTML de docs/ e o nginx o serve), testa a
-# imagem, envia para o ghcr.io/matizze/prumo-docs e chama o webhook do Portainer, que baixa a imagem
-# nova e reinicia o serviço prumo-docs_web. Só roda quando docs/ ou website/ mudam, para não gastar
-# minutos do Actions à toa. Aprovado por uma pessoa do time em 22/11/2026.
+# imagem, envia para o ghcr.io/matizze/prumo-docs e chama o webhook de deploy (secret DEPLOY_WEBHOOK,
+# hoje o do Portainer), que baixa a imagem nova e reinicia o serviço. Só roda quando docs/ ou website/
+# mudam.
 name: Documentação
 
 on:
@@ -52,12 +52,12 @@ jobs:
       - name: Envio para o GHCR
         run: docker push --all-tags "$IMAGE"
 
-      - name: Deploy (webhook do Portainer)
+      - name: Deploy (webhook)
         env:
-          WEBHOOK: ${{ secrets.PORTAINER_WEBHOOK_DOCS }}
+          WEBHOOK: ${{ secrets.DEPLOY_WEBHOOK }}
         run: |
           if [ -z "$WEBHOOK" ]; then
-            echo "::warning::Falta o secret PORTAINER_WEBHOOK_DOCS: a imagem foi enviada, mas o site não foi atualizado."
+            echo "::warning::Falta o secret DEPLOY_WEBHOOK: a imagem foi enviada, mas o site não foi atualizado."
             exit 0
           fi
           curl -fsS -X POST --retry 3 --retry-all-errors "$WEBHOOK"

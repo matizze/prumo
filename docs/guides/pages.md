@@ -36,7 +36,7 @@ Sem o use case, o `make:page` sai com 2 e diz o que falta (`o use case 'pedidos.
 | ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | leitura que devolve uma lista                  | a **lista**: o model chama o use case com `useQuery`, e a view mostra o carregando, o erro, o vazio e os itens |
 | leitura com `:id` no endereço                  | o **detalhe**, com `--path /pedidos/:id`: o model lê o parâmetro da rota e busca o registro  |
-| escrita                                        | o **formulário**, com um campo por campo do Input, o envio, o erro e o aviso de sucesso      |
+| escrita                                        | o **formulário**, com um campo por campo do Request, o envio, o erro e o aviso de sucesso      |
 
 ```bash
 pnpm exec prumo make:page pedidos --usecase pedidos.list-pedidos                          # lista
@@ -73,7 +73,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useState } from 'react'
 import { useTranslations } from '@/i18n'
 import { useUseCases } from '@/providers/use-cases'
-import { listClientesKey } from '@/use-cases/clientes/list-clientes.types'
+import { listClientesKey } from '@/use-cases/clientes/types/list-clientes'
 
 export function useClientesModel() {
   const t = useTranslations('clientes')
@@ -136,7 +136,7 @@ export function ClientesView(m: ClientesModel) {
 
 Os textos novos (`search` e `remove`) entram em `src/messages/pt-BR/clientes.json` e em `src/messages/en/clientes.json`; o `prumo check` acusa o que faltar num dos idiomas.
 
-A escrita invalida o prefixo do domínio (`['clientes']`) ao terminar, então a lista se atualiza sozinha. A tela de detalhe do registro removido, se ainda estiver montada, receberia `CLIENTE_NOT_FOUND`: saia dela ao remover.
+A escrita invalida o prefixo do domínio (`['clientes']`) ao terminar, então a lista se atualiza sozinha. A tela de detalhe do registro removido, se ainda estiver montada, receberia `NOT_FOUND`: saia dela ao remover.
 
 ## Componentes
 
@@ -200,7 +200,7 @@ import { useParams } from 'wouter'
 import { getErrorMessage } from '@/errors'
 import { useTranslations } from '@/i18n'
 import { useUseCases } from '@/providers/use-cases'
-import { getClienteKey } from '@/use-cases/clientes/get-cliente.types'
+import { getClienteKey } from '@/use-cases/clientes/types/get-cliente'
 
 export function useClienteModel() {
   const t = useTranslations('cliente')
@@ -262,9 +262,9 @@ import { useLocation } from 'wouter'
 
 const [, navigate] = useLocation()
 const { createCliente } = useUseCases()
-const create = useMutation({ mutationFn: (input: CreateClienteInput) => createCliente.execute(input) })
+const create = useMutation({ mutationFn: (input: CreateClienteRequest) => createCliente.execute(input) })
 
-const onSave = (input: CreateClienteInput) =>
+const onSave = (input: CreateClienteRequest) =>
   create.mutate(input, { onSuccess: (created) => navigate(`/clientes/${created.id}`) })
 ```
 

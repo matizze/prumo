@@ -117,7 +117,7 @@ prumo make:usecase <domínio.ação> [--input <campos>] [--output <campos|entida
 prumo make:usecase <domínio> --crud [--entity <singular>] [--root <pasta>] [--dry-run]
 ```
 
-Cria um **use case**: uma ação do app com nome de verbo (`get-stores`, `sign-in`, `add-item`), com um Input, um Output e um `execute`. É o caminho novo para tudo o que o app faz com dados. Veja [as camadas](../concepts/architecture.md#use-cases).
+Cria um **use case**: uma ação do app com nome de verbo (`get-stores`, `sign-in`, `add-item`), com um Request, um Response e um `execute`. É o caminho novo para tudo o que o app faz com dados. Veja [as camadas](../concepts/architecture.md#use-cases).
 
 O nome é `<domínio>.<ação>` (ou `<domínio>/<ação>`, como no `make:page`), cada parte em kebab-case: `auth.sign-in`, `stores/get-stores`. O domínio dá a pasta em `src/use-cases`, e a ação dá a classe (`GetStoresUseCase`) e a **chave no registro** (`getStores`, o que a tela lê de `useUseCases()`). As chaves são únicas no app: `stores.get-stores` e `orders.get-stores` dão conflito, e o comando recusa o segundo com a mensagem dizendo de quem é a chave. A ação não pode virar palavra reservada do JavaScript (`delete`).
 
@@ -125,11 +125,11 @@ Precisa do app com `src/use-cases/index.ts`, que o `prumo new` cria. Um app de a
 
 | Opção                          | O que faz                                                                                                            |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| `--input <campos>`             | Os campos do Input, na sintaxe do [`--fields`](#o-formato-do---fields). Padrão: `z.object({})`                        |
-| `--output <campos\|entidade>`  | Os campos do Output, ou o nome de uma entidade que já tem schema (`store`, ou `store[]` para a lista). Padrão: `z.unknown()` |
+| `--input <campos>`             | Os campos do Request, na sintaxe do [`--fields`](#o-formato-do---fields). Padrão: `z.object({})`                        |
+| `--output <campos\|entidade>`  | Os campos do Response, ou o nome de uma entidade que já tem schema (`store`, ou `store[]` para a lista). Padrão: `z.unknown()` |
 | `--endpoint "<MÉTODO> <caminho>"` | O endereço da API (`PATCH /livros/:id`). Padrão: `GET /<domínio>/<ação>` na leitura e `POST /<domínio>/<ação>` na escrita |
 | `--read`, `--write`            | Forçam o tipo, no lugar do verbo da ação                                                                            |
-| `--local`                      | Use case sem API: recebe o `storage` (o `localStorage`), sem `ENDPOINT` nem mock                                     |
+| `--local`                      | Use case sem API: recebe o `storage` (o `localStorage`), sem `ENDPOINT` nem `mocks/`                                     |
 | `--crud`                       | Gera os cinco use cases do CRUD de uma entidade, a partir do schema ([veja abaixo](#o---crud)). O nome é só o domínio, no plural |
 | `--entity <singular>`          | Com `--crud`, a entidade, no singular, a mesma do `make:schema`. Padrão: o nome sem o `s` final                       |
 | `--root <pasta>`               | A pasta do projeto, a que tem o `src`. Padrão: [a busca](#a-busca-do-projeto) a partir da pasta atual                |
@@ -137,38 +137,38 @@ Precisa do app com `src/use-cases/index.ts`, que o `prumo new` cria. Um app de a
 
 ### Leitura ou escrita
 
-O verbo no começo da ação decide: `get`, `list`, `search`, `find`, `check` e `count` são **leitura** (a tela usa com `useQuery`); o resto é **escrita** (`useMutation`). `--read` e `--write` forçam o tipo. Na leitura, o Input vai como `query` da chamada, e o use case ganha a chave de cache; na escrita, o Input vai como `body`. Uma escrita não pode usar `GET`, que não leva corpo.
+O verbo no começo da ação decide: `get`, `list`, `search`, `find`, `check` e `count` são **leitura** (a tela usa com `useQuery`); o resto é **escrita** (`useMutation`). `--read` e `--write` forçam o tipo. Na leitura, o Request vai como `query` da chamada, e o use case ganha a chave de cache; na escrita, o Request vai como `body`. Uma escrita não pode usar `GET`, que não leva corpo.
 
 ### O que o comando cria
 
 ```text
 src/use-cases/auth/
-  index.ts                 createAuthUseCases(deps) e as rotas de mock do domínio (criado com o primeiro use case)
-  sign-in.types.ts         ENDPOINT, SignInInput e SignInOutput (e, na leitura, a chave de cache)
-  sign-in.usecase.ts       SignInUseCase
-  sign-in.mock.ts          a rota de mock do ENDPOINT
-  sign-in.usecase.test.ts  o teste, contra o mock e, com API_TEST_URL, contra a API real
+  index.ts                          createAuthUseCases(deps) e as rotas de mock do domínio (criado com o primeiro use case)
+  types/sign-in.ts                  ENDPOINT, SignInRequest e SignInResponse (e, na leitura, a chave de cache)
+  services/sign-in.usecase.ts       SignInUseCase
+  services/sign-in.usecase.test.ts  o teste, contra o mock e, com API_TEST_URL, contra a API real
+  mocks/sign-in.ts                  a rota de mock do ENDPOINT
 ```
 
-- **`<ação>.types.ts`**: o `ENDPOINT` (`{ method, path }`, editável), o Input e o Output em zod (cada um com o tipo de mesmo nome: `SignInInput` é o schema e o tipo) e, na leitura, a função `<ação>Key(input)`, a chave de cache da consulta, com o domínio no prefixo (`['stores', 'get-stores', input]`): o model a usa no `queryKey`, e uma escrita invalida `['stores']`.
-- **`<ação>.usecase.ts`**: `export class SignInUseCase implements IUseCase<SignInInput, SignInOutput>`, com o `http` no construtor (campo `#http`). O `execute` valida o Input, chama a API e valida a resposta com o Output. Um `HttpError` vira `UIError` com o código `<AÇÃO>_FAILED` (`SIGN_IN_FAILED`), e o comando acrescenta o texto ao `src/messages/<idioma>/errors.json` dos dois idiomas (a chave que já existe fica; num app sem o `errors.json`, o comando avisa e segue). O corpo da resposta de erro (`HttpError.body`, o 422 com os erros de validação) fica no `HttpError`; o `UIError` ainda não tem onde carregá-lo.
-- **`<ação>.mock.ts`**: a rota de mock do `ENDPOINT`, com uma resposta de exemplo feita dos campos do Output (de uma entidade, um registro com `id` e `createdAt`; de uma lista, dois). O `createMockHttp` do core a usa: o mesmo código do use case roda no mock e em produção, e só o transporte muda.
-- **`<ação>.usecase.test.ts`**: o contrato do use case (`defineContractSuite` do `@matizze/prumo-testing`), que roda contra o mock e, com `API_TEST_URL`, contra a API real, mais um teste do `UIError`.
+- **`types/<ação>.ts`**: o `ENDPOINT` (`{ method, path }`, editável), o Request e o Response em zod (cada um com o tipo de mesmo nome: `SignInRequest` é o schema e o tipo) e, na leitura, a função `<ação>Key(input)`, a chave de cache da consulta, com o domínio no prefixo (`['stores', 'get-stores', input]`): o model a usa no `queryKey`, e uma escrita invalida `['stores']`.
+- **`services/<ação>.usecase.ts`**: `export class SignInUseCase implements IUseCase<SignInRequest, SignInResponse>`, com o `http` no construtor (campo `#http`). O `execute` valida o Request, chama a API e valida a resposta com o Response, em duas ou três linhas e **sem `try/catch`**. O erro da API é traduzido no `http` do app (`src/http/errors.ts`, o `withErrors`), num lugar só: 400 e 422 viram `INVALID_REQUEST`, 401 `UNAUTHORIZED`, 403 `FORBIDDEN`, 404 `NOT_FOUND`, 409 `CONFLICT`, e o resto e a falha de rede `REQUEST_FAILED`, todos com texto nos `errors.json` do `prumo new`. O comando não mexe nos `errors.json`. Veja [Erros e notificações](../guides/errors-and-notifications.md#do-erro-da-api-ao-texto).
+- **`mocks/<ação>.ts`**: a rota de mock do `ENDPOINT`, com uma resposta de exemplo feita dos campos do Response (de uma entidade, um registro com `id` e `createdAt`; de uma lista, dois). O `createMockHttp` do core a usa: o mesmo código do use case roda no mock e em produção, e só o transporte muda.
+- **`services/<ação>.usecase.test.ts`**: o contrato do use case (`defineContractSuite` do `@matizze/prumo-testing`), que roda contra o mock e, com `API_TEST_URL`, contra a API real.
 - **`index.ts` do domínio** e **`src/use-cases/index.ts`**: o use case entra em `create<Domínio>UseCases(deps)` e a rota em `<domínio>Routes`; o domínio entra no registro geral (`createUseCases(deps)` e `mockRoutes`), tudo em ordem alfabética. Veja o [registro](../concepts/generated-app.md#os-use-cases).
 
 ### O `--endpoint`
 
-`--endpoint "<MÉTODO> <caminho>"`, com `GET`, `POST`, `PUT`, `PATCH` ou `DELETE` e o caminho começando por `/`, sem `?` nem `#` (o que vai na query sai do Input). Cada `:parâmetro` do caminho sai do campo do Input de mesmo nome, que fica fora da query e do corpo e entra no caminho com `encodeURIComponent`:
+`--endpoint "<MÉTODO> <caminho>"`, com `GET`, `POST`, `PUT`, `PATCH` ou `DELETE` e o caminho começando por `/`, sem `?` nem `#` (o que vai na query sai do Request). Cada `:parâmetro` do caminho sai do campo do Request de mesmo nome, que fica fora da query e do corpo e entra no caminho com `encodeURIComponent`:
 
 ```bash
 prumo make:usecase livros.update-livro --endpoint "PATCH /livros/:id" --input "id:string,title?:string" --output livro
 ```
 
-O comando recusa um endpoint cujo `:parâmetro` não é um campo do Input, é opcional, é palavra reservada do JavaScript ou não é `string`, `number`, `int`, `boolean` ou `enum`, e dois parâmetros em que um é o começo do nome do outro. Não combina com `--local`.
+O comando recusa um endpoint cujo `:parâmetro` não é um campo do Request, é opcional, é palavra reservada do JavaScript ou não é `string`, `number`, `int`, `boolean` ou `enum`, e dois parâmetros em que um é o começo do nome do outro. Não combina com `--local`.
 
 ### `--input` e `--output`
 
-Os dois usam a sintaxe do [`--fields`](#o-formato-do---fields), e aceitam também `id` e `createdAt`. O `--output` aceita ainda o nome de uma entidade que já tem schema (`prumo make:schema`): `--output store` usa o `storeSchema`, e `--output store[]` uma lista dele (`z.array(storeSchema)`). Sem eles, o Input é um objeto vazio e o Output é `z.unknown()` (a API real pode devolver corpo, e um `z.void()` falharia no `parse`), e o comando **avisa**, sem falhar, para a pessoa preencher o `.types.ts`.
+Os dois usam a sintaxe do [`--fields`](#o-formato-do---fields), e aceitam também `id` e `createdAt`. O `--output` aceita ainda o nome de uma entidade que já tem schema (`prumo make:schema`): `--output store` usa o `storeSchema`, e `--output store[]` uma lista dele (`z.array(storeSchema)`). Sem eles, o Request é um objeto vazio e o Response é `z.unknown()` (a API real pode devolver corpo, e um `z.void()` falharia no `parse`), e o comando **avisa**, sem falhar, para a pessoa preencher o `types/<ação>.ts`.
 
 ### A fonte de dados
 
@@ -176,7 +176,7 @@ O registro lê a `VITE_DATA_SOURCE`: `http` usa a API (`src/http/api.ts`), e `mo
 
 ### `--local`
 
-Um use case sem API, como o carrinho do pratigo: a classe recebe o `storage` (a Web Storage API, o `localStorage`, que entra nas `deps` do registro) e não tem `ENDPOINT`, mock nem erro de API. O `execute` valida o Input, tem o lugar da regra marcado num comentário (o exemplo guarda o Input no `storage`, ou lê dele na leitura) e devolve o Output validado. O teste roda com o `localStorage` do jsdom.
+Um use case sem API, como o carrinho do pratigo: a classe recebe o `storage` (a Web Storage API, o `localStorage`, que entra nas `deps` do registro) e não tem `ENDPOINT` nem a pasta `mocks/`. O `execute` valida o Request, tem o lugar da regra marcado num comentário (o exemplo guarda o Request no `storage`, ou lê dele na leitura) e devolve o Response validado. O teste roda com o `localStorage` do jsdom.
 
 ### O `--crud`
 
@@ -187,7 +187,7 @@ prumo make:usecase livros --crud
 
 Gera os cinco use cases do CRUD de uma entidade de uma vez, num plano só. O nome é o domínio, no plural (`livros`), e o schema precisa existir: os campos (busca, ordem, dados de exemplo e testes) saem dele, e o `--entity` troca o singular quando a regra de tirar o `s` erra (`--entity pao` para `paes`). Não combina com `--input`, `--output`, `--endpoint`, `--read`, `--write` nem `--local`.
 
-| Chave no registro | Endereço             | Input                                             | Output                  |
+| Chave no registro | Endereço             | Request                                           | Response                |
 | ----------------- | -------------------- | ------------------------------------------------- | ----------------------- |
 | `listLivros`      | `GET /livros`        | o `LivroListQuery` do schema: `search`, `sort`, `page` e `page_size` | `Page<LivroSchema>` (`{ items, total }`) |
 | `getLivro`        | `GET /livros/:id`    | `{ id }`                                          | `LivroSchema`           |
@@ -195,9 +195,9 @@ Gera os cinco use cases do CRUD de uma entidade de uma vez, num plano só. O nom
 | `updateLivro`     | `PATCH /livros/:id`  | o `id` e o `LivroInput` com todos os campos opcionais | `LivroSchema`       |
 | `removeLivro`     | `DELETE /livros/:id` | `{ id }`                                          | `void`                  |
 
-Cada use case tem os arquivos de sempre (`list-livros.types.ts`, `.usecase.ts`, `.mock.ts` e `.usecase.test.ts`, e assim por diante). A leitura (`list` e `get`) ganha a chave de cache `<ação>Key(input)`, com o domínio no prefixo. O `sort` do `listLivros` vai na query como `<campo>:<asc|desc>`. O 404 de `getLivro`, `updateLivro` e `removeLivro` vira `UIError('LIVRO_NOT_FOUND')`, e os outros erros da API viram o `<AÇÃO>_FAILED` de cada um. O comando acrescenta o texto de `LIVRO_NOT_FOUND` e dos cinco `_FAILED` ao `errors.json` dos dois idiomas.
+Cada use case tem os arquivos de sempre (`types/list-livros.ts`, `services/list-livros.usecase.ts` e o teste ao lado, `mocks/list-livros.ts`, e assim por diante). A leitura (`list` e `get`) ganha a chave de cache `<ação>Key(input)`, com o domínio no prefixo. O `sort` do `listLivros` vai na query como `<campo>:<asc|desc>`. O 404 de `getLivro`, `updateLivro` e `removeLivro` chega à tela como `UIError('NOT_FOUND')`, pelo `withErrors` do app.
 
-Os mocks dos cinco dividem **uma coleção em memória**, `src/use-cases/livros/collection.mock.ts`: as fixtures do domínio (três registros, no formato do schema) e um `createMockCollection` do core. Assim, `createLivro` e depois `listLivros` mostra o item novo, e `updateLivro` e `removeLivro` mudam o que o resto lê. Os testes dos cinco cobrem o que o contrato do repositório cobre (lista com ids únicos, busca sem diferenciar maiúsculas e acentos, ordem e página com o total de antes da página, busca por id, criação com `id` e data, edição só dos campos enviados, remoção e o `LIVRO_NOT_FOUND`), contra o mock e, com `API_TEST_URL`, contra a API.
+Os mocks dos cinco dividem **uma coleção em memória**, `src/use-cases/livros/mocks/collection.ts`: as fixtures do domínio (três registros, no formato do schema) e um `createMockCollection` do core. Assim, `createLivro` e depois `listLivros` mostra o item novo, e `updateLivro` e `removeLivro` mudam o que o resto lê. Os testes dos cinco cobrem o que o contrato do repositório cobre (lista com ids únicos, busca sem diferenciar maiúsculas e acentos, ordem e página com o total de antes da página, busca por id, criação com `id` e data, edição só dos campos enviados, remoção e o 404 de um id que não existe), contra o mock e, com `API_TEST_URL`, contra a API.
 
 O comando recusa, com 2 e sem escrever nada, quando algum dos cinco já existe, dizendo qual (`o use case 'livros.get-livro' já existe`), ou quando a chave de um deles já é de outro use case. A tela de cada um sai do [`make:page --usecase`](#prumo-makepage).
 
@@ -209,18 +209,16 @@ Como os outros `make:*`, o comando valida tudo antes de escrever e nunca sobresc
 prumo make:usecase: stores.get-stores (leitura, GET /stores/get-stores).
 
 Criados (5):
-  src/use-cases/stores/get-stores.mock.ts
-  src/use-cases/stores/get-stores.types.ts
-  src/use-cases/stores/get-stores.usecase.test.ts
-  src/use-cases/stores/get-stores.usecase.ts
   src/use-cases/stores/index.ts
+  src/use-cases/stores/mocks/get-stores.ts
+  src/use-cases/stores/services/get-stores.usecase.test.ts
+  src/use-cases/stores/services/get-stores.usecase.ts
+  src/use-cases/stores/types/get-stores.ts
 
-Alterados (3):
-  src/messages/en/errors.json
-  src/messages/pt-BR/errors.json
+Alterados (1):
   src/use-cases/index.ts
 
-Aviso: sem --input, o Input é um objeto vazio: descreva os campos em src/use-cases/stores/get-stores.types.ts.
+Aviso: sem --input, o Request é um objeto vazio: descreva os campos em src/use-cases/stores/types/get-stores.ts.
 
 Próximo passo: no model da tela, const { getStores } = useUseCases() e useQuery({ queryKey: getStoresKey(input), queryFn: () => getStores.execute(input) }).
 ```
@@ -275,7 +273,7 @@ A tela usa um use case que já existe (`prumo make:usecase`). O model pega o use
 | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | leitura que devolve lista (`z.array(<entidade>Schema)` ou `pageSchema(<entidade>Schema)`) | A **lista**, com carregando, erro e vazio, e um campo de texto de cada registro                |
 | leitura com `:id` no endereço e o mesmo parâmetro no `--path`             | O **detalhe**: o model lê o parâmetro com o `useParams` e a view mostra o registro                      |
-| escrita                                                                   | O **formulário** com os campos do Input, o envio, o texto do erro e um aviso de sucesso                 |
+| escrita                                                                   | O **formulário** com os campos do Request, o envio, o texto do erro e um aviso de sucesso                 |
 
 ```ts
 // src/pages/livros/model.ts (livros.list-livros)
@@ -284,17 +282,17 @@ const input = {}
 const list = useQuery({ queryKey: listLivrosKey(input), queryFn: () => listLivros.execute(input) })
 ```
 
-O formulário lê os campos do Input do `.types.ts` do use case, pela árvore (`z.object({ ... })`, ou o `<entidade>InputSchema` do `--crud`, com `.partial()` e `.extend({ ... })`), e usa só elementos nativos, sem biblioteca de formulário: um `<input>` por campo (`type` pelo tipo: `text`, `number`, `checkbox`, `date`, `datetime-local`, e `email` e `password` pelo nome do campo), um `<select>` no enum, e `required` nos obrigatórios. O model lê o `FormData` no formato do Input, desabilita o botão enquanto envia e mostra o erro com o `getErrorMessage` de `@/errors` (o `UIError` pelo `errors.json`: `LIVRO_NOT_FOUND`, `SIGN_IN_FAILED`); o teste da tela preenche os campos e envia o formulário contra o mock. Os textos (título, rótulos, envio, sucesso, carregando, erro e vazio) entram nas mensagens dos dois idiomas, e os rótulos saem do nome do campo, para a pessoa traduzir. Funciona com tela em subpasta (`auth.login`).
+O formulário lê os campos do Request de `types/<ação>.ts` do use case, pela árvore (`z.object({ ... })`, ou o `<entidade>InputSchema` do `--crud`, com `.partial()` e `.extend({ ... })`), e usa só elementos nativos, sem biblioteca de formulário: um `<input>` por campo (`type` pelo tipo: `text`, `number`, `checkbox`, `date`, `datetime-local`, e `email` e `password` pelo nome do campo), um `<select>` no enum, e `required` nos obrigatórios. O model lê o `FormData` no formato do Input, desabilita o botão enquanto envia e mostra o erro com o `getErrorMessage` de `@/errors` (o `UIError` pelo `errors.json`: `LIVRO_NOT_FOUND`, `SIGN_IN_FAILED`); o teste da tela preenche os campos e envia o formulário contra o mock. Os textos (título, rótulos, envio, sucesso, carregando, erro e vazio) entram nas mensagens dos dois idiomas, e os rótulos saem do nome do campo, para a pessoa traduzir. Funciona com tela em subpasta (`auth.login`).
 
 Limitações de hoje:
 
 - O formulário de **update** não lê o `:id` da rota nem carrega o registro: o `id` é um campo do formulário, como os outros, e os campos começam vazios.
-- O checkbox desmarcado envia `false` (o campo `boolean` sempre vai no Input).
-- A **lista** exige o Output `<entidade>[]` (`z.array(<entidade>Schema)`) ou `Page` (`pageSchema(<entidade>Schema)`); outro formato é erro de uso.
+- O checkbox desmarcado envia `false` (o campo `boolean` sempre vai no Request).
+- A **lista** exige o Response `<entidade>[]` (`z.array(<entidade>Schema)`) ou `Page` (`pageSchema(<entidade>Schema)`); outro formato é erro de uso.
 - Os rótulos de um `enum` mostram o valor (`lido`, `lendo`), sem tradução: troque na view.
 - Depois de um envio com sucesso o formulário volta ao começo, e editar um campo tira o aviso.
 
-São erro de uso: um use case que não existe; uma leitura que não devolve lista de entidade e não tem `:parâmetro` (a mensagem diz como ajustar o Output); um `--path` com parâmetro que o endereço do use case não tem, ou o contrário; um `--path` com parâmetro numa escrita; e, na lista e no detalhe, um Input com campo obrigatório que a tela não preenche.
+São erro de uso: um use case que não existe; uma leitura que não devolve lista de entidade e não tem `:parâmetro` (a mensagem diz como ajustar o Response); um `--path` com parâmetro que o endereço do use case não tem, ou o contrário; um `--path` com parâmetro numa escrita; e, na lista e no detalhe, um Input com campo obrigatório que a tela não preenche.
 
 O comando valida tudo antes de escrever e nunca sobrescreve. Saem com 2, sem deixar nada pela metade: nome inválido ou reservado (ou com segmento vazio); tela que já existe; tela dentro de outra tela (`auth/login` com `src/pages/auth/index.tsx`); pasta que já agrupa telas (`auth` com `src/pages/auth/login/index.tsx`); nome que dá o mesmo componente e as mesmas mensagens de outra tela (`auth/login` e `auth-login`, e a mensagem diz o conflito); `--path` inválido, com rota repetida ou que conflita com uma do `App.tsx`; `App.tsx` ou índice de mensagens que falta. No fim, mostra o que fez, os avisos e o comando dos testes da tela nova.
 
@@ -400,10 +398,10 @@ Um objeto com quatro listas, sempre presentes (vazias quando não há nada), ord
 |                | `fields`    | Os campos que o leitor reconhece (`name`, `type`, `optional` e, no `enum`, `values`), sem `id` e `createdAt`; `null` se o schema foi editado à mão e o leitor o recusa |
 |                | `problem`   | O motivo curto da recusa; `null` quando `fields` foi lido                                                                              |
 | `useCases`     | `domain`    | O nome da pasta em `src/use-cases`                                                                                                     |
-|                | `name`      | A ação, em kebab-case (o arquivo `<ação>.usecase.ts`)                                                                                  |
+|                | `name`      | A ação, em kebab-case (o arquivo `services/<ação>.usecase.ts`)                                                                                  |
 |                | `key`       | A chave no registro (`useUseCases().<chave>`): a ação em camelCase                                                                     |
-|                | `kind`      | `read` (o `.types.ts` tem a chave de cache `<chave>Key`), `write` (tem `ENDPOINT`, sem a chave) ou `local` (sem `ENDPOINT`: usa o `storage`) |
-|                | `endpoint`  | O `ENDPOINT` do `.types.ts`, como `GET /stores/get-stores`; `null` no `local`                                                          |
+|                | `kind`      | `read` (o `types/<ação>.ts` tem a chave de cache `<chave>Key`), `write` (tem `ENDPOINT`, sem a chave) ou `local` (sem `ENDPOINT`: usa o `storage`) |
+|                | `endpoint`  | O `ENDPOINT` de `types/<ação>.ts`, como `GET /stores/get-stores`; `null` no `local`                                                          |
 | `pages`        | `name`      | O caminho da tela a partir de `src/pages`, com barra nas subpastas (`auth/login`)                                                      |
 |                | `route`     | A rota da tela no `src/App.tsx`: o `path` da `<Route>` mais interna que a usa, composto com os `<Route nest>` de fora (`/admin` + `/usuarios` vira `/admin/usuarios`); `*` para a curinga (sem `path`, ou `path="*"`); o texto da expressão de um `path={...}` que não é literal (por exemplo, `{ROUTES.lenta}`); `null` só quando nenhuma `<Route>` usa a tela. A tela pode vir de um `import` padrão ou de um `lazy(() => import('@/pages/<nome>'))` |
 |                | `routeKind` | `literal`, `catchAll` ou `expression`; `null` quando `route` é `null`                                                                  |

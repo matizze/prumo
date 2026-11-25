@@ -169,10 +169,10 @@ src/pages/relatorios/model.ts  [page-structure]  A tela 'relatorios' precisa do 
 
 ### `use-case-files`
 
-**Todo `*.usecase.ts` de `src/use-cases` tem o `.types.ts` e o teste ao lado.** Para `sign-in.usecase.ts`, a mesma pasta precisa de `sign-in.types.ts` (o endereço, o Input e o Output) e de `sign-in.usecase.test.ts`. O mock (`sign-in.mock.ts`) não é cobrado: o use case `--local` roda no navegador e não tem mock.
+**Todo `services/<ação>.usecase.ts` de `src/use-cases` tem o `types/<ação>.ts` e o teste ao lado.** Para `services/sign-in.usecase.ts`, a pasta do domínio precisa de `types/sign-in.ts` (o endereço, o Request e o Response) e de `services/sign-in.usecase.test.ts`. O mock (`mocks/sign-in.ts`) não é cobrado: o use case `--local` roda no navegador e não tem mock.
 
 ```text
-src/use-cases/auth/sign-in.usecase.ts  [use-case-files]  O use case 'sign-in' precisa do arquivo 'sign-in.usecase.test.ts' na mesma pasta.
+src/use-cases/auth/services/sign-in.usecase.ts  [use-case-files]  O use case 'sign-in' precisa do arquivo 'services/sign-in.usecase.test.ts' (a partir da pasta do domínio).
 ```
 
 ### `messages`

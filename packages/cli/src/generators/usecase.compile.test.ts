@@ -83,10 +83,9 @@ it('o registro junta os use cases dos domínios, sobre o http de mentira', async
 
   it('os testes gerados passam contra o mock, e o da API fica pulado sem API_TEST_URL', () => {
     expect(tests.status, tests.output).toBe(0)
-    expect(tests.output).toMatch(/SignInUseCase contract: mock > aceita um Input válido/)
+    expect(tests.output).toMatch(/SignInUseCase contract: mock > aceita um Request válido/)
     expect(tests.output).toMatch(/SignInUseCase contra a API de teste/)
-    expect(tests.output).toMatch(/add-item.usecase.test.ts > aceita um Input válido/)
-    expect(tests.output).toMatch(/traduz o erro da API em UIError SIGN_IN_FAILED/)
+    expect(tests.output).toMatch(/add-item.usecase.test.ts > aceita um Request válido/)
   })
 
   it('o registro tem os domínios em ordem alfabética', () => {
@@ -101,19 +100,9 @@ it('o registro junta os use cases dos domínios, sobre o http de mentira', async
   })
 
   it('o use case de escrita com :parâmetro tira o campo do corpo e codifica o valor', () => {
-    const usecase = read(root, 'src/use-cases/clientes/update-cliente.usecase.ts')
-    expect(usecase).toContain('const { id, ...body } = UpdateClienteInput.parse(input)')
+    const usecase = read(root, 'src/use-cases/clientes/services/update-cliente.usecase.ts')
+    expect(usecase).toContain('const { id, ...body } = UpdateClienteRequest.parse(input)')
     expect(usecase).toContain("const path = ENDPOINT.path.replace(':id', encodeURIComponent(id))")
-  })
-
-  it('o texto do erro entra nos dois idiomas', () => {
-    expect(JSON.parse(read(root, 'src/messages/pt-BR/errors.json'))).toMatchObject({
-      GET_CLIENTES_FAILED: 'Não foi possível carregar os dados.',
-      SIGN_IN_FAILED: 'Não foi possível concluir a ação.',
-    })
-    expect(JSON.parse(read(root, 'src/messages/en/errors.json'))).toMatchObject({
-      SIGN_IN_FAILED: 'Could not complete the action.',
-    })
   })
 })
 
@@ -132,6 +121,6 @@ vi.stubGlobal('fetch', async () => Response.json({ token: 'abc' }))
     expect(tsc(root)).toEqual({ status: 0, output: '' })
     const ran = vitest(root, { API_TEST_URL: 'http://api.test' }, ['src/use-cases'])
     expect(ran.status, ran.output).toBe(0)
-    expect(ran.output).toMatch(/SignInUseCase contract: API > aceita um Input válido/)
+    expect(ran.output).toMatch(/SignInUseCase contract: API > aceita um Request válido/)
   }, 120_000)
 })

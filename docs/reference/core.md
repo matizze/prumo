@@ -118,19 +118,19 @@ type UseCaseOutput<U> // o TOutput de um use case
 Uma ação do app com nome de verbo. `UseCaseInput<SignInUseCase>` e `UseCaseOutput<SignInUseCase>` extraem os tipos.
 
 ```ts
-export class SignInUseCase implements IUseCase<SignInInput, SignInOutput> {
+export class SignInUseCase implements IUseCase<SignInRequest, SignInResponse> {
   readonly #http: Http
 
   constructor(http: Http) {
     this.#http = http
   }
 
-  async execute(input: SignInInput): Promise<SignInOutput> {
+  async execute(input: SignInRequest): Promise<SignInResponse> {
     const body = await this.#http('/auth/sign-in', {
       method: 'POST',
-      body: SignInInput.parse(input),
+      body: SignInRequest.parse(input),
     })
-    return SignInOutput.parse(body)
+    return SignInResponse.parse(body)
   }
 }
 ```

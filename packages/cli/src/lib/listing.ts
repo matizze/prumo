@@ -37,7 +37,7 @@ export interface ListedSchema {
 
 export type UseCaseKind = 'read' | 'write' | 'local'
 
-/** Um use case de `src/use-cases/<domínio>/<ação>.usecase.ts`. */
+/** Um use case de `src/use-cases/<domínio>/services/<ação>.usecase.ts`. */
 export interface ListedUseCase {
   /** O domínio: o nome da pasta, `stores`. */
   domain: string
@@ -46,11 +46,11 @@ export interface ListedUseCase {
   /** A chave no registro (`useUseCases()`): a ação em camelCase, `getStores`. */
   key: string
   /**
-   * `read` (a chave de cache `<chave>Key` no `.types.ts`), `write` (chama a API, sem a chave) ou
+   * `read` (a chave de cache `<chave>Key` em `types/<ação>.ts`), `write` (chama a API, sem a chave) ou
    * `local` (sem `ENDPOINT`: usa o `storage`).
    */
   kind: UseCaseKind
-  /** O `ENDPOINT` do `.types.ts`, como `GET /stores/get-stores`; `null` no `local`. */
+  /** O `ENDPOINT` de `types/<ação>.ts`, como `GET /stores/get-stores`; `null` no `local`. */
   endpoint: string | null
 }
 
@@ -144,7 +144,7 @@ function listSchemas(project: Project): ListedSchema[] {
 const ENDPOINT =
   /\bENDPOINT\s*=\s*\{\s*method:\s*['"](\w+)['"]\s*,\s*path:\s*['"]([^'"]*)['"]/
 
-/** O `ENDPOINT` de um `.types.ts` (`GET /stores/:id`) e os `:parâmetros` do caminho; `null` sem `ENDPOINT` (o use case local). */
+/** O `ENDPOINT` de um `types/<ação>.ts` (`GET /stores/:id`) e os `:parâmetros` do caminho; `null` sem `ENDPOINT` (o use case local). */
 export function endpointOf(types: string): { method: string; path: string; params: string[] } | null {
   const match = ENDPOINT.exec(types)
   if (!match) return null
@@ -156,22 +156,22 @@ export function endpointOf(types: string): { method: string; path: string; param
   }
 }
 
-/** O use case tem a chave de cache `<chave>Key` no `.types.ts`: é uma leitura (a tela usa com `useQuery`). */
+/** O use case tem a chave de cache `<chave>Key` em `types/<ação>.ts`: é uma leitura (a tela usa com `useQuery`). */
 export function hasQueryKey(types: string, key: string): boolean {
   return new RegExp(`\\bexport\\s+(?:function|const)\\s+${key}Key\\b`).test(types)
 }
 
-/** Os use cases do projeto, por domínio e ação, lidos do `.types.ts` ao lado de cada `.usecase.ts`. */
+/** Os use cases do projeto, por domínio e ação, lidos de `types/<ação>.ts` para cada `services/<ação>.usecase.ts`. */
 export function listUseCases(project: Project): ListedUseCase[] {
   const base = path.join(project.src, 'use-cases')
   const result: ListedUseCase[] = []
   for (const folder of entries(base)) {
     if (!folder.isDirectory()) continue
-    for (const file of entries(path.join(base, folder.name))) {
+    for (const file of entries(path.join(base, folder.name, 'services'))) {
       const name = /^(.+)\.usecase\.ts$/.exec(file.name)?.[1]
       if (!file.isFile() || name === undefined || !isValidName(name)) continue
       const key = deriveNames(name).camel
-      const types = readIfExists(path.join(base, folder.name, `${name}.types.ts`)) ?? ''
+      const types = readIfExists(path.join(base, folder.name, 'types', `${name}.ts`)) ?? ''
       const endpoint = endpointOf(types)
       const kind: UseCaseKind = !endpoint ? 'local' : hasQueryKey(types, key) ? 'read' : 'write'
       result.push({

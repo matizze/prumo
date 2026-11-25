@@ -65,51 +65,51 @@ describe('use-case-files', () => {
   it('o use case com os tipos e o teste ao lado passa limpo, com ou sem mock', () => {
     const root = makeProject(
       files([
-        'get-livro.usecase.ts',
-        'get-livro.types.ts',
-        'get-livro.usecase.test.ts',
-        'get-livro.mock.ts',
-        'save-draft.usecase.ts',
-        'save-draft.types.ts',
-        'save-draft.usecase.test.ts',
+        'services/get-livro.usecase.ts',
+        'types/get-livro.ts',
+        'services/get-livro.usecase.test.ts',
+        'mocks/get-livro.ts',
+        'services/save-draft.usecase.ts',
+        'types/save-draft.ts',
+        'services/save-draft.usecase.test.ts',
       ]),
     )
     expect(check({ root })).toEqual([])
   })
 
-  it('acusa o que falta ao lado de cada use case, com o arquivo e a mensagem', () => {
+  it('acusa o que falta de cada use case, com o arquivo e a mensagem', () => {
     const root = makeProject(
       files([
-        'get-livro.usecase.ts',
-        'get-livro.usecase.test.ts',
-        'list-livros.usecase.ts',
-        'list-livros.types.ts',
-        'remove-livro.usecase.ts',
+        'services/get-livro.usecase.ts',
+        'services/get-livro.usecase.test.ts',
+        'services/list-livros.usecase.ts',
+        'types/list-livros.ts',
+        'services/remove-livro.usecase.ts',
         'index.ts',
       ]),
     )
     const violations = check({ root })
 
     expect(violations.map(({ rule, file }) => [rule, file])).toEqual([
-      ['use-case-files', 'src/use-cases/livros/get-livro.usecase.ts'],
-      ['use-case-files', 'src/use-cases/livros/list-livros.usecase.ts'],
-      ['use-case-files', 'src/use-cases/livros/remove-livro.usecase.ts'],
-      ['use-case-files', 'src/use-cases/livros/remove-livro.usecase.ts'],
+      ['use-case-files', 'src/use-cases/livros/services/get-livro.usecase.ts'],
+      ['use-case-files', 'src/use-cases/livros/services/list-livros.usecase.ts'],
+      ['use-case-files', 'src/use-cases/livros/services/remove-livro.usecase.ts'],
+      ['use-case-files', 'src/use-cases/livros/services/remove-livro.usecase.ts'],
     ])
     expect(violations.map((v) => v.message)).toEqual([
-      "O use case 'get-livro' precisa do arquivo 'get-livro.types.ts' na mesma pasta.",
-      "O use case 'list-livros' precisa do arquivo 'list-livros.usecase.test.ts' na mesma pasta.",
-      "O use case 'remove-livro' precisa do arquivo 'remove-livro.types.ts' na mesma pasta.",
-      "O use case 'remove-livro' precisa do arquivo 'remove-livro.usecase.test.ts' na mesma pasta.",
+      "O use case 'get-livro' precisa do arquivo 'types/get-livro.ts' (a partir da pasta do domínio).",
+      "O use case 'list-livros' precisa do arquivo 'services/list-livros.usecase.test.ts' (a partir da pasta do domínio).",
+      "O use case 'remove-livro' precisa do arquivo 'types/remove-livro.ts' (a partir da pasta do domínio).",
+      "O use case 'remove-livro' precisa do arquivo 'services/remove-livro.usecase.test.ts' (a partir da pasta do domínio).",
     ])
   })
 
   it('a pasta dos use cases é uma opção, e projeto sem ela não acusa nada', () => {
-    const root = makeProject({ 'app/domain/x/a.usecase.ts': '' })
+    const root = makeProject({ 'app/domain/x/services/a.usecase.ts': '' })
     expect(check({ root })).toEqual([])
     expect(check({ root, useCasesDir: 'app/domain' }).map((v) => v.file)).toEqual([
-      'app/domain/x/a.usecase.ts',
-      'app/domain/x/a.usecase.ts',
+      'app/domain/x/services/a.usecase.ts',
+      'app/domain/x/services/a.usecase.ts',
     ])
   })
 })

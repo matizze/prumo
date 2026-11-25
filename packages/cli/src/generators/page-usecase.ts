@@ -50,7 +50,7 @@ function controlType({ name, type }: Field): string {
   return { string: 'text', number: 'number', int: 'number', boolean: 'checkbox', date: 'date', datetime: 'datetime-local', enum: 'text' }[type]
 }
 
-/** De onde o model tira o valor do campo no `FormData`, no formato do Input. */
+/** De onde o model tira o valor do campo no `FormData`, no formato do Request. */
 function readExpression(field: Field, input: string): string {
   const raw = `form.get('${field.name}')`
   const value = {
@@ -107,13 +107,13 @@ function block(entries: readonly string[], indent: string, trailingComma = true)
 /** Os marcadores do formulário: a leitura do `FormData`, os rótulos, os campos da view, o teste e as mensagens. */
 function formVars(model: UseCaseModel): Record<string, string> {
   const input = model.fields()
-  const type = `${model.names.action.pascal}Input`
+  const type = `${model.names.action.pascal}Request`
   const labels = input.map((field) => [field.name, camelToSentence(field.name)] as const)
   return {
     'form.inputOf':
       input.length === 0
         ? ''
-        : `\n/** Lê os campos do formulário, no formato do Input do use case. */\nfunction inputOf(form: FormData): ${type} {\n  return ${block(input.map((field) => `${field.name}: ${readExpression(field, type)}`), '  ')}\n}\n`,
+        : `\n/** Lê os campos do formulário, no formato do Request do use case. */\nfunction inputOf(form: FormData): ${type} {\n  return ${block(input.map((field) => `${field.name}: ${readExpression(field, type)}`), '  ')}\n}\n`,
     // O formulário volta ao começo depois de criar; o `form` se guarda antes, porque o `currentTarget` do evento não vale depois do envio
     'form.submit':
       input.length === 0
@@ -129,7 +129,7 @@ function formVars(model: UseCaseModel): Record<string, string> {
 /**
  * Prepara a tela de um use case. O use case que lê e devolve uma lista (um array ou uma `Page` de uma
  * entidade) dá a lista; o que lê um registro por um `:parâmetro` do endereço, com o mesmo parâmetro no
- * `--path`, dá o detalhe; o que escreve dá o formulário com os campos do Input. Os outros casos são
+ * `--path`, dá o detalhe; o que escreve dá o formulário com os campos do Request. Os outros casos são
  * erro de uso, com o que mudar.
  */
 export function useCasePage(plan: ChangePlan, reference: string, route: RoutePath): UseCasePage {
@@ -154,10 +154,10 @@ export function useCasePage(plan: ChangePlan, reference: string, route: RoutePat
     }
     const others = required.filter((name) => name !== route.param)
     if (others.length > 0) {
-      throw new UsageError(`${where} pede também ${others.join(', ')} no Input, e a tela de detalhe só tem o ':${route.param}' da rota: deixe ${others.length > 1 ? 'esses campos opcionais' : 'esse campo opcional'} no Input.`)
+      throw new UsageError(`${where} pede também ${others.join(', ')} no Request, e a tela de detalhe só tem o ':${route.param}' da rota: deixe ${others.length > 1 ? 'esses campos opcionais' : 'esse campo opcional'} no Request.`)
     }
     if (output.kind !== 'item') {
-      throw new UsageError(`a tela de detalhe precisa que o Output de ${where} seja uma entidade (<entidade>Schema): ajuste o Output em ${model.types}.`)
+      throw new UsageError(`a tela de detalhe precisa que o Response de ${where} seja uma entidade (<entidade>Schema): ajuste o Response em ${model.types}.`)
     }
     kind = 'detail'
   } else {
@@ -165,10 +165,10 @@ export function useCasePage(plan: ChangePlan, reference: string, route: RoutePat
       throw new UsageError(`o endereço de ${where} não tem parâmetro: tire o ':${route.param}' do --path (ou use um use case que leia um registro por ':id').`)
     }
     if (output.kind !== 'list') {
-      throw new UsageError(`a tela de lista precisa que o Output de ${where} seja uma lista de entidade (z.array(<entidade>Schema) ou pageSchema(<entidade>Schema)): ajuste o Output em ${model.types} (com --output <entidade>[], na criação).`)
+      throw new UsageError(`a tela de lista precisa que o Response de ${where} seja uma lista de entidade (z.array(<entidade>Schema) ou pageSchema(<entidade>Schema)): ajuste o Response em ${model.types} (com --output <entidade>[], na criação).`)
     }
     if (required.length > 0) {
-      throw new UsageError(`${where} pede ${required.join(', ')} no Input, e a tela de lista chama o use case sem entrada: deixe ${required.length > 1 ? 'esses campos opcionais' : 'esse campo opcional'} no Input.`)
+      throw new UsageError(`${where} pede ${required.join(', ')} no Request, e a tela de lista chama o use case sem entrada: deixe ${required.length > 1 ? 'esses campos opcionais' : 'esse campo opcional'} no Request.`)
     }
     kind = 'list'
   }
@@ -177,7 +177,7 @@ export function useCasePage(plan: ChangePlan, reference: string, route: RoutePat
     ...nameVars('uc', names.action),
     'uc.domain': names.domain.kebab,
     'uc.key': names.action.camel,
-    'uc.input': `${names.action.pascal}Input`,
+    'uc.request': `${names.action.pascal}Request`,
     'uc.keyFn': `${names.action.camel}Key`,
   }
   const warnings: string[] = []
@@ -185,8 +185,8 @@ export function useCasePage(plan: ChangePlan, reference: string, route: RoutePat
 
   // O que a tela mostra do registro, lido do schema e dos dados de exemplo do mock
   const folder = path.join('src', 'use-cases', names.domain.kebab)
-  const collection = path.join(folder, 'collection.mock.ts')
-  const mock = readIfExists(path.join(project.root, collection)) === undefined ? path.join(folder, `${names.action.kebab}.mock.ts`) : collection
+  const collection = path.join(folder, 'mocks', 'collection.ts')
+  const mock = readIfExists(path.join(project.root, collection)) === undefined ? path.join(folder, 'mocks', `${names.action.kebab}.ts`) : collection
   const fixtures = { file: mock, text: readIfExists(path.join(project.root, mock)) }
   const shape = shapeOf(project, output.entity, fixtures, kind === 'detail')
   if (shape.warning) warnings.push(shape.warning)

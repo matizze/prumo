@@ -1,4 +1,4 @@
-import { rmSync, writeFileSync } from 'node:fs'
+import { rmSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { UsageError } from '../errors.ts'
@@ -6,15 +6,10 @@ import { fixtureProject } from '../test/fixture-project.ts'
 import { generateSchema } from './schema.ts'
 import { generateUseCase, type UseCaseRequest } from './usecase.ts'
 
-/** Um projeto de fixture, com o schema `stores` (entidade `store`) e o `errors.json` de cada idioma já no disco. */
-function projectWithStores({ errors = true } = {}) {
+/** Um projeto de fixture, com o schema `stores` (entidade `store`) já no disco. */
+function projectWithStores() {
   const project = fixtureProject()
   generateSchema(project, { name: 'stores', fields: 'name:string,city:string' }).plan.commit()
-  if (errors) {
-    for (const language of ['pt-BR', 'en']) {
-      writeFileSync(path.join(project.messages, language, 'errors.json'), '{}\n')
-    }
-  }
   return project
 }
 
@@ -38,48 +33,47 @@ describe('generateUseCase', () => {
     expect(result.endpoint).toEqual({ method: 'GET', path: '/stores/get-stores', params: [] })
     expect(result.plan.summary()).toEqual({
       created: [
-        'src/use-cases/stores/get-stores.mock.ts',
-        'src/use-cases/stores/get-stores.types.ts',
-        'src/use-cases/stores/get-stores.usecase.test.ts',
-        'src/use-cases/stores/get-stores.usecase.ts',
         'src/use-cases/stores/index.ts',
+        'src/use-cases/stores/mocks/get-stores.ts',
+        'src/use-cases/stores/services/get-stores.usecase.test.ts',
+        'src/use-cases/stores/services/get-stores.usecase.ts',
+        'src/use-cases/stores/types/get-stores.ts',
       ],
-      modified: ['src/messages/en/errors.json', 'src/messages/pt-BR/errors.json', 'src/use-cases/index.ts'],
+      modified: ['src/use-cases/index.ts'],
     })
-    expect(text(result, 'get-stores.types.ts')).toBe(`import { z } from 'zod'
+    expect(text(result, 'types/get-stores.ts')).toBe(`import { z } from 'zod'
 import { storeSchema } from '@/schemas'
 
-/** O endereço da API: o use case chama e o mock responde por ele. */
 export const ENDPOINT = { method: 'GET', path: '/stores/get-stores' } as const
 
-/** O que o use case recebe. */
-export const GetStoresInput = z.object({})
+export const GetStoresRequest = z.object({})
 
-export type GetStoresInput = z.infer<typeof GetStoresInput>
+export type GetStoresRequest = z.infer<typeof GetStoresRequest>
 
-/** O que o use case devolve. */
-export const GetStoresOutput = z.array(storeSchema)
+export const GetStoresResponse = z.array(storeSchema)
 
-export type GetStoresOutput = z.infer<typeof GetStoresOutput>
+export type GetStoresResponse = z.infer<typeof GetStoresResponse>
 
-/** A chave de cache da consulta (\`queryKey\`): o prefixo é o domínio, e uma escrita invalida \`['stores']\`. */
-export function getStoresKey(input: GetStoresInput) {
+export function getStoresKey(input: GetStoresRequest) {
   return ['stores', 'get-stores', input] as const
 }
 `)
-    const usecase = text(result, 'get-stores.usecase.ts')
-    expect(usecase).toContain('export class GetStoresUseCase implements IUseCase<GetStoresInput, GetStoresOutput> {')
+    const usecase = text(result, 'services/get-stores.usecase.ts')
+    expect(usecase).toContain('export class GetStoresUseCase implements IUseCase<GetStoresRequest, GetStoresResponse> {')
     expect(usecase).toContain('readonly #http: Http')
-    expect(usecase).toContain('const query = GetStoresInput.parse(input)')
-    expect(usecase).toContain('{ method: ENDPOINT.method, query }')
-    expect(usecase).toContain("throw new UIError('GET_STORES_FAILED', error.message)")
-    expect(text(result, 'get-stores.mock.ts')).toContain("id: 'store-1',")
-    expect(text(result, 'get-stores.mock.ts')).toContain(
-      '[`${ENDPOINT.method} ${ENDPOINT.path}` as const]: (): GetStoresOutput => [',
+    expect(usecase).toContain(
+      'const response = await this.#http(ENDPOINT.path, { method: ENDPOINT.method, query: GetStoresRequest.parse(input) })',
+    )
+    expect(usecase).toContain('return GetStoresResponse.parse(response)')
+    expect(usecase).not.toContain('try')
+    expect(usecase).not.toContain('UIError')
+    expect(text(result, 'mocks/get-stores.ts')).toContain("id: 'store-1',")
+    expect(text(result, 'mocks/get-stores.ts')).toContain(
+      '[`${ENDPOINT.method} ${ENDPOINT.path}` as const]: (): GetStoresResponse => [',
     )
   })
 
-  it('escrita: o Input vai no corpo, e o Output em campos vira z.object', () => {
+  it('escrita: o Request vai no corpo, e o Response em campos vira z.object', () => {
     const result = generateUseCase(projectWithStores(), {
       name: 'auth.sign-in',
       input: 'email:string,password:string',
@@ -88,26 +82,28 @@ export function getStoresKey(input: GetStoresInput) {
 
     expect(result.kind).toBe('write')
     expect(result.endpoint).toMatchObject({ method: 'POST', path: '/auth/sign-in' })
-    const types = text(result, 'sign-in.types.ts')
-    expect(types).toContain('export const SignInInput = z.object({\n  email: z.string(),\n  password: z.string(),\n})')
-    expect(types).toContain('export const SignInOutput = z.object({\n  token: z.string(),\n})')
+    const types = text(result, 'types/sign-in.ts')
+    expect(types).toContain('export const SignInRequest = z.object({\n  email: z.string(),\n  password: z.string(),\n})')
+    expect(types).toContain('export const SignInResponse = z.object({\n  token: z.string(),\n})')
     expect(types).not.toContain('signInKey')
-    expect(text(result, 'sign-in.usecase.ts')).toContain('{ method: ENDPOINT.method, body }')
-    expect(text(result, 'sign-in.mock.ts')).toContain("(): SignInOutput => ({ token: 'Token 1' })")
+    expect(text(result, 'services/sign-in.usecase.ts')).toContain(
+      'this.#http(ENDPOINT.path, { method: ENDPOINT.method, body: SignInRequest.parse(input) })',
+    )
+    expect(text(result, 'mocks/sign-in.ts')).toContain("(): SignInResponse => ({ token: 'Token 1' })")
     expect(result.warnings).toEqual([])
   })
 
-  it('sem --input e --output: avisa, e o Output padrão depende do tipo', () => {
+  it('sem --input e --output: avisa, e o Response padrão depende do tipo', () => {
     const project = projectWithStores()
     const read = generateUseCase(project, { name: 'stores.count-stores' })
-    expect(text(read, 'count-stores.types.ts')).toContain('CountStoresOutput = z.unknown()')
-    expect(text(read, 'count-stores.mock.ts')).toContain('(): CountStoresOutput => ({})')
+    expect(text(read, 'types/count-stores.ts')).toContain('CountStoresResponse = z.unknown()')
+    expect(text(read, 'mocks/count-stores.ts')).toContain('(): CountStoresResponse => ({})')
     const write = generateUseCase(project, { name: 'stores.close-store' })
-    expect(text(write, 'close-store.types.ts')).toContain('CloseStoreOutput = z.unknown()')
-    expect(text(write, 'close-store.mock.ts')).toContain('(): CloseStoreOutput => ({})')
+    expect(text(write, 'types/close-store.ts')).toContain('CloseStoreResponse = z.unknown()')
+    expect(text(write, 'mocks/close-store.ts')).toContain('(): CloseStoreResponse => ({})')
     expect(write.warnings).toEqual([
-      'sem --input, o Input é um objeto vazio: descreva os campos em src/use-cases/stores/close-store.types.ts.',
-      'sem --output, o Output é z.unknown(): descreva o que o use case devolve em src/use-cases/stores/close-store.types.ts.',
+      'sem --input, o Request é um objeto vazio: descreva os campos em src/use-cases/stores/types/close-store.ts.',
+      'sem --output, o Response é z.unknown(): descreva o que o use case devolve em src/use-cases/stores/types/close-store.ts.',
     ])
   })
 
@@ -135,26 +131,26 @@ export function getStoresKey(input: GetStoresInput) {
     })
 
     expect(result.endpoint).toEqual({ method: 'PATCH', path: '/stores/:id', params: ['id'] })
-    const usecase = text(result, 'update-store.usecase.ts')
-    expect(usecase).toContain('const { id, ...body } = UpdateStoreInput.parse(input)')
+    const usecase = text(result, 'services/update-store.usecase.ts')
+    expect(usecase).toContain('const { id, ...body } = UpdateStoreRequest.parse(input)')
     expect(usecase).toContain("const path = ENDPOINT.path.replace(':id', encodeURIComponent(id))")
     expect(usecase).toContain('this.#http(path, { method: ENDPOINT.method, body })')
   })
 
-  it('--endpoint só com :parâmetros no Input: nada vai na query nem no corpo, e vários parâmetros se encadeiam', () => {
+  it('--endpoint só com :parâmetros no Request: nada vai na query nem no corpo, e vários parâmetros se encadeiam', () => {
     const project = projectWithStores()
     const one = generateUseCase(project, { name: 'stores.get-store', endpoint: 'GET /stores/:id', input: 'id:string' })
-    expect(text(one, 'get-store.usecase.ts')).toContain('const { id } = GetStoreInput.parse(input)')
-    expect(text(one, 'get-store.usecase.ts')).toContain('this.#http(path, { method: ENDPOINT.method })')
+    expect(text(one, 'services/get-store.usecase.ts')).toContain('const { id } = GetStoreRequest.parse(input)')
+    expect(text(one, 'services/get-store.usecase.ts')).toContain('this.#http(path, { method: ENDPOINT.method })')
     const two = generateUseCase(project, {
       name: 'stores.get-item',
       endpoint: 'GET /stores/:storeId/items/:itemId',
       input: 'storeId:string,itemId:int,page?:int',
     })
-    expect(text(two, 'get-item.usecase.ts')).toContain(
+    expect(text(two, 'services/get-item.usecase.ts')).toContain(
       "const path = ENDPOINT.path\n      .replace(':storeId', encodeURIComponent(storeId))\n      .replace(':itemId', encodeURIComponent(itemId))",
     )
-    expect(text(two, 'get-item.usecase.ts')).toContain('const { storeId, itemId, ...query } = GetItemInput.parse(input)')
+    expect(text(two, 'services/get-item.usecase.ts')).toContain('const { storeId, itemId, ...query } = GetItemRequest.parse(input)')
   })
 
   it.each([
@@ -170,8 +166,8 @@ export function getStoresKey(input: GetStoresInput) {
     const project = projectWithStores()
     const gen = (endpoint: string, input?: string) =>
       generateUseCase(project, { name: 'stores.update-store', endpoint, input })
-    expect(() => gen('PATCH /stores/:id')).toThrow("o parâmetro ':id' do caminho não é um campo do Input: acrescente 'id:string' ao --input")
-    expect(() => gen('PATCH /stores/:id', 'id?:string')).toThrow("o campo 'id' do Input tem que ser obrigatório")
+    expect(() => gen('PATCH /stores/:id')).toThrow("o parâmetro ':id' do caminho não é um campo do Request: acrescente 'id:string' ao --input")
+    expect(() => gen('PATCH /stores/:id', 'id?:string')).toThrow("o campo 'id' do Request tem que ser obrigatório")
     expect(() => gen('PATCH /stores/:id/:idx', 'id:string,idx:string')).toThrow("':id' é o começo de ':idx'")
     expect(() => gen('PATCH /stores/:path', 'path:string')).toThrow("tem o nome de uma variável do execute gerado")
   })
@@ -181,7 +177,7 @@ export function getStoresKey(input: GetStoresInput) {
     const gen = (endpoint: string, input: string) =>
       generateUseCase(project, { name: 'stores.update-store', endpoint, input })
     expect(() => gen('PATCH /stores/:delete', 'delete:string')).toThrow("':delete' é palavra reservada")
-    expect(() => gen('PATCH /stores/:day', 'day:date')).toThrow("o campo 'day' do Input é date")
+    expect(() => gen('PATCH /stores/:day', 'day:date')).toThrow("o campo 'day' do Request é date")
     expect(gen('PATCH /stores/:kind', 'kind:enum(a|b)').endpoint?.params).toEqual(['kind'])
   })
 
@@ -200,9 +196,9 @@ export function getStoresKey(input: GetStoresInput) {
       "a entidade do --output 'Loja' é inválido",
     )
     const one = generateUseCase(project, { name: 'stores.get-store', output: 'store' })
-    expect(text(one, 'get-store.types.ts')).toContain('export const GetStoreOutput = storeSchema')
-    expect(text(one, 'get-store.mock.ts')).toContain(
-      "(): GetStoreOutput => ({\n    id: 'store-1',\n    name: 'Exemplo 1',\n    city: 'City 1',\n    createdAt: '2026-01-05T12:00:00.000Z',\n  }),",
+    expect(text(one, 'types/get-store.ts')).toContain('export const GetStoreResponse = storeSchema')
+    expect(text(one, 'mocks/get-store.ts')).toContain(
+      "(): GetStoreResponse => ({\n    id: 'store-1',\n    name: 'Exemplo 1',\n    city: 'City 1',\n    createdAt: '2026-01-05T12:00:00.000Z',\n  }),",
     )
   })
 
@@ -212,7 +208,7 @@ export function getStoresKey(input: GetStoresInput) {
       input: 'id:string',
       output: 'id:string,createdAt:datetime',
     })
-    expect(text(result, 'get-store.types.ts')).toContain('createdAt: z.iso.datetime(),')
+    expect(text(result, 'types/get-store.ts')).toContain('createdAt: z.iso.datetime(),')
   })
 
   it('campo inválido no --input diz de onde veio', () => {
@@ -224,7 +220,7 @@ export function getStoresKey(input: GetStoresInput) {
     )
   })
 
-  it('--local: sem ENDPOINT, mock e erro de API; recebe o storage', () => {
+  it('--local: sem ENDPOINT nem mocks; recebe o storage', () => {
     const result = generateUseCase(projectWithStores(), {
       name: 'cart.add-item',
       local: true,
@@ -236,30 +232,30 @@ export function getStoresKey(input: GetStoresInput) {
     expect(result.endpoint).toBeNull()
     expect(result.plan.summary()).toEqual({
       created: [
-        'src/use-cases/cart/add-item.types.ts',
-        'src/use-cases/cart/add-item.usecase.test.ts',
-        'src/use-cases/cart/add-item.usecase.ts',
         'src/use-cases/cart/index.ts',
+        'src/use-cases/cart/services/add-item.usecase.test.ts',
+        'src/use-cases/cart/services/add-item.usecase.ts',
+        'src/use-cases/cart/types/add-item.ts',
       ],
       modified: ['src/use-cases/index.ts'],
     })
-    expect(text(result, 'add-item.types.ts')).not.toContain('ENDPOINT')
-    const usecase = text(result, 'add-item.usecase.ts')
+    expect(text(result, 'types/add-item.ts')).not.toContain('ENDPOINT')
+    const usecase = text(result, 'services/add-item.usecase.ts')
     expect(usecase).toContain('readonly #storage: Storage')
     expect(usecase).toContain("const STORAGE_KEY = 'cart:add-item'")
     expect(usecase).toContain('// A regra do use case entra aqui.')
-    expect(usecase).toContain('return AddItemOutput.parse({})')
+    expect(usecase).toContain('return AddItemResponse.parse({})')
     expect(text(result, 'index.ts')).toContain('addItem: new AddItemUseCase(deps.storage)')
     expect(text(result, 'index.ts')).not.toContain('Routes,')
   })
 
   it('--local na leitura lê do storage e leva a chave de cache', () => {
     const result = generateUseCase(projectWithStores(), { name: 'cart.get-items', local: true, output: 'count:int' })
-    const usecase = text(result, 'get-items.usecase.ts')
-    expect(usecase).toContain('GetItemsInput.parse(input)\n')
+    const usecase = text(result, 'services/get-items.usecase.ts')
+    expect(usecase).toContain('GetItemsRequest.parse(input)\n')
     expect(usecase).toContain('const stored = this.#storage.getItem(STORAGE_KEY)')
-    expect(usecase).toContain('return GetItemsOutput.parse(stored === null ? { count: 10 } : JSON.parse(stored))')
-    expect(text(result, 'get-items.types.ts')).toContain('export function getItemsKey(')
+    expect(usecase).toContain('return GetItemsResponse.parse(stored === null ? { count: 10 } : JSON.parse(stored))')
+    expect(text(result, 'types/get-items.ts')).toContain('export function getItemsKey(')
   })
 
   it('--local com --endpoint é recusado', () => {
@@ -268,20 +264,11 @@ export function getStoresKey(input: GetStoresInput) {
     )
   })
 
-  it('o texto do erro entra nos dois idiomas, e fica de fora no --local', () => {
+  it('o use case gerado não trata erro, e o errors.json não muda', () => {
     const project = projectWithStores()
     const http = generateUseCase(project, { name: 'stores.get-stores' })
-    const file = (language: string) =>
-      JSON.parse(http.plan.readText(path.join(project.messages, language, 'errors.json'))) as Record<string, string>
-    expect(file('pt-BR').GET_STORES_FAILED).toBe('Não foi possível carregar os dados.')
-    expect(file('en').GET_STORES_FAILED).toBe('Could not load the data.')
-    const local = generateUseCase(project, { name: 'cart.add-item', local: true })
-    expect(local.plan.summary().modified).toEqual(['src/use-cases/index.ts'])
-  })
-
-  it('um app sem o namespace de erros avisa, sem falhar', () => {
-    const result = generateUseCase(projectWithStores({ errors: false }), { name: 'stores.get-stores' })
-    expect(result.warnings.join('\n')).toContain('o texto de GET_STORES_FAILED não foi acrescentado')
+    expect(http.plan.summary().modified).toEqual(['src/use-cases/index.ts'])
+    expect(http.warnings.join('\n')).not.toContain('errors.json')
   })
 
   it('o segundo use case do domínio reaproveita o índice: ordena as chaves e as rotas', () => {

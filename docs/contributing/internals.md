@@ -80,7 +80,7 @@ O servidor do `prumo mcp` (o comando fica em `commands/mcp.ts`, que só confere 
 ### `lib/`
 
 - `names.ts`: o kebab, o PascalCase e o camelCase de um nome, o plural e o singular (`clientes` → `cliente`, com a recusa dos plurais ambíguos e das palavras reservadas), o `--entity` e os nomes de um use case (`get-stores` → `GetStoresUseCase` e a chave `getStores`).
-- `entity.ts` e `use-case-model.ts`: o que o `make:usecase --crud` e o `make:page --usecase` leem do projeto: os campos do schema da entidade e o Input e o Output de um use case (o endereço, a leitura ou escrita e se o Output é lista, entidade ou outro formato), para a tela escolher entre lista, detalhe e formulário.
+- `entity.ts` e `use-case-model.ts`: o que o `make:usecase --crud` e o `make:page --usecase` leem do projeto: os campos do schema da entidade e o Request e o Response de um use case (o endereço, a leitura ou escrita e se o Output é lista, entidade ou outro formato), para a tela escolher entre lista, detalhe e formulário.
 - `fields/`: o `--fields` (`parse.ts`, `types.ts`), os valores de exemplo (`samples.ts`), a geração do código dos modelos (`generate.ts`) e o **leitor do schema** (`read.ts`, e `page-shape.ts` para o `make:page`), que lê com o ts-morph os campos de um `<entidade>.ts` gerado (o `z.object`, o `pick` do schema de entrada e a `SortKey`) para o `make:usecase --crud` e o `make:page`. Um campo fora dos tipos do `--fields` é erro de uso, com a linha.
 - `plan.ts`: o `ChangePlan`, descrito acima.
 - `route-elements.ts` e `ast.ts`: a leitura das rotas do `<Switch>` do `App.tsx` e dos literais de texto, que o `list` e os codemods compartilham.

@@ -66,7 +66,7 @@ function typeOfZod(expression: Node, loose = false): Omit<Field, 'name' | 'optio
   return { type: 'enum', values }
 }
 
-/** A chamada de base de cada tipo que um `.types.ts` costuma usar, com ou sem refinamentos (`z.string().min(8)`, `z.email()`). */
+/** A chamada de base de cada tipo que um `types/<ação>.ts` costuma usar, com ou sem refinamentos (`z.string().min(8)`, `z.email()`). */
 const LOOSE_ZOD: Record<string, FieldType> = {
   'z.string': 'string',
   'z.email': 'string',
@@ -79,7 +79,7 @@ const LOOSE_ZOD: Record<string, FieldType> = {
   'z.iso.datetime': 'datetime',
 }
 
-/** O tipo pela chamada de base da cadeia (`z.string().min(8)` é texto), para o `.types.ts` que a pessoa refinou à mão. */
+/** O tipo pela chamada de base da cadeia (`z.string().min(8)` é texto), para o `types/<ação>.ts` que a pessoa refinou à mão. */
 function looseTypeOfZod(expression: Node): { type: FieldType } | undefined {
   let current = expression
   let integer = false
@@ -210,11 +210,14 @@ function unusedSchemasHint(plan: ChangePlan, names: DomainNames): string {
   const typesFiles = existsSync(useCases)
     ? readdirSync(useCases, { withFileTypes: true })
         .filter((entry) => entry.isDirectory())
-        .flatMap((entry) =>
-          readdirSync(path.join(useCases, entry.name))
-            .filter((file) => file.endsWith('.types.ts'))
-            .map((file) => readFileSync(path.join(useCases, entry.name, file), 'utf8')),
-        )
+        .flatMap((entry) => {
+          const types = path.join(useCases, entry.name, 'types')
+          return existsSync(types)
+            ? readdirSync(types)
+                .filter((file) => file.endsWith('.ts'))
+                .map((file) => readFileSync(path.join(types, file), 'utf8'))
+            : []
+        })
     : []
   const candidates = readdirSync(entities)
     .filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'))

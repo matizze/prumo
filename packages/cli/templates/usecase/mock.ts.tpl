@@ -1,6 +1,5 @@
-import { ENDPOINT, type {{action.pascal}}Output } from './{{action.kebab}}.types'
+import { ENDPOINT, type {{action.pascal}}Response } from '../types/{{action.kebab}}'
 
-/** A rota de mock do `ENDPOINT`: uma resposta de exemplo, no formato do Output. */
 export const {{action.camel}}Routes = {
-  [`${ENDPOINT.method} ${ENDPOINT.path}` as const]: (): {{action.pascal}}Output => {{mock.response}},
+  [`${ENDPOINT.method} ${ENDPOINT.path}` as const]: (): {{action.pascal}}Response => {{mock.response}},
 }

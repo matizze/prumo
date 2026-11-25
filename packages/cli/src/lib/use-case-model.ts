@@ -8,7 +8,7 @@ import { deriveNames, useCaseNames, type UseCaseNames } from './names.ts'
 import { displayPath } from './paths.ts'
 import type { ChangePlan } from './plan.ts'
 
-/** O que o Output do use case é, para a tela escolher entre lista e detalhe. */
+/** O que o Response do use case é, para a tela escolher entre lista e detalhe. */
 export interface OutputShape {
   /** Uma lista (`z.array(<x>Schema)` ou `pageSchema(<x>Schema)`), um registro (`<x>Schema`) ou outra coisa. */
   kind: 'list' | 'item' | 'other'
@@ -25,12 +25,12 @@ export interface UseCaseModel {
   access: 'read' | 'write'
   /** Os `:parâmetros` do `ENDPOINT`; vazio sem eles e no use case local. */
   params: string[]
-  /** Os nomes dos campos obrigatórios do Input (lidos sem exigir o tipo de cada campo). */
+  /** Os nomes dos campos obrigatórios do Request (lidos sem exigir o tipo de cada campo). */
   required: string[]
-  /** Os campos do Input, na ordem do `.types.ts`; lança `UsageError` se um campo tem um tipo que o leitor não conhece. */
+  /** Os campos do Request, na ordem de `types/<ação>.ts`; lança `UsageError` se um campo tem um tipo que o leitor não conhece. */
   fields: () => Field[]
   output: OutputShape
-  /** Onde o use case está, relativo à raiz: o `.types.ts`. */
+  /** Onde o use case está, relativo à raiz: `types/<ação>.ts`. */
   types: string
 }
 
@@ -51,7 +51,7 @@ function objectArgument(call: Node) {
 }
 
 /**
- * Os campos do Input, lidos do `.types.ts` pela árvore. Vale `z.object({ ... })` (com os campos que o
+ * Os campos do Request, lidos de `types/<ação>.ts` pela árvore. Vale `z.object({ ... })` (com os campos que o
  * `--input` gera, ou refinados à mão) e a entidade que o `make:usecase --crud` usa: `<entidade>InputSchema`,
  * com `.partial()` e `.extend({ ... })` no fim. Os campos da entidade saem do schema dela.
  */
@@ -61,7 +61,7 @@ function inputFields(plan: ChangePlan, source: SourceFile, variable: string, fil
   }
   const declaration = source.getVariableDeclaration(variable)
   const initializer = declaration?.getInitializer()
-  if (!declaration || !initializer) return fail(1, `não achei 'export const ${variable} = ...': não sei ler o Input`)
+  if (!declaration || !initializer) return fail(1, `não achei 'export const ${variable} = ...': não sei ler o Request`)
 
   let expression = unwrap(initializer)
   const object = isCall(expression, 'z.object') ? objectArgument(expression) : undefined
@@ -95,7 +95,7 @@ function inputFields(plan: ChangePlan, source: SourceFile, variable: string, fil
   return [...base, ...extras]
 }
 
-/** Os nomes dos campos obrigatórios do Input: sem `.optional()` no fim, lidos mesmo que o tipo do campo não seja um dos do `--fields`. */
+/** Os nomes dos campos obrigatórios do Request: sem `.optional()` no fim, lidos mesmo que o tipo do campo não seja um dos do `--fields`. */
 function requiredInputs(plan: ChangePlan, source: SourceFile, variable: string, file: string): string[] {
   const initializer = source.getVariableDeclaration(variable)?.getInitializer()
   const expression = initializer && unwrap(initializer)
@@ -130,16 +130,16 @@ function outputShape(source: SourceFile, variable: string): OutputShape {
 
 /**
  * Lê um use case do projeto (`<domínio>.<ação>`) para gerar a tela dele: se é leitura ou escrita, os
- * `:parâmetros` do endereço, os campos do Input e o que o Output é. `UsageError` se o use case não existe.
+ * `:parâmetros` do endereço, os campos do Request e o que o Response é. `UsageError` se o use case não existe.
  */
 export function readUseCase(plan: ChangePlan, reference: string): UseCaseModel {
   const names = useCaseNames(reference)
   const { domain, action } = names
   const folder = path.join(plan.project.src, 'use-cases', domain.kebab)
-  const typesFile = path.join(folder, `${action.kebab}.types.ts`)
-  if (!plan.hasFile(path.join(folder, `${action.kebab}.usecase.ts`)) || !plan.hasFile(typesFile)) {
+  const typesFile = path.join(folder, 'types', `${action.kebab}.ts`)
+  if (!plan.hasFile(path.join(folder, 'services', `${action.kebab}.usecase.ts`)) || !plan.hasFile(typesFile)) {
     throw new UsageError(
-      `o use case '${domain.kebab}.${action.kebab}' não existe: falta src/use-cases/${domain.kebab}/${action.kebab}.usecase.ts. Rode prumo make:usecase ${domain.kebab}.${action.kebab} (ou prumo list para ver o que há).`,
+      `o use case '${domain.kebab}.${action.kebab}' não existe: falta src/use-cases/${domain.kebab}/services/${action.kebab}.usecase.ts. Rode prumo make:usecase ${domain.kebab}.${action.kebab} (ou prumo list para ver o que há).`,
     )
   }
   const file = displayPath(plan.project.root, typesFile)
@@ -148,9 +148,9 @@ export function readUseCase(plan: ChangePlan, reference: string): UseCaseModel {
     names,
     access: hasQueryKey(source.getFullText(), action.camel) ? 'read' : 'write',
     params: endpointOf(source.getFullText())?.params ?? [],
-    required: requiredInputs(plan, source, `${action.pascal}Input`, file),
-    fields: () => inputFields(plan, source, `${action.pascal}Input`, file),
-    output: outputShape(source, `${action.pascal}Output`),
+    required: requiredInputs(plan, source, `${action.pascal}Request`, file),
+    fields: () => inputFields(plan, source, `${action.pascal}Request`, file),
+    output: outputShape(source, `${action.pascal}Response`),
     types: file,
   }
 }

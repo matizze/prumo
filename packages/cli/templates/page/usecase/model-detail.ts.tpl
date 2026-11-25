@@ -3,7 +3,7 @@ import { useParams } from 'wouter'
 import { getErrorMessage } from '@/errors'
 import { useTranslations } from '@/i18n'
 import { useUseCases } from '@/providers/use-cases'
-import { {{uc.keyFn}} } from '@/use-cases/{{uc.domain}}/{{uc.kebab}}.types'
+import { {{uc.keyFn}} } from '@/use-cases/{{uc.domain}}/types/{{uc.kebab}}'
 
 export function use{{page.pascal}}Model() {
   const t = useTranslations('{{page.camel}}')

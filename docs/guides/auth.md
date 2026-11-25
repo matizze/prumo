@@ -16,14 +16,14 @@ pnpm exec prumo make:usecase auth.sign-in --input "email:string,password:string"
 pnpm exec prumo make:page auth.login --usecase auth.sign-in
 ```
 
-O primeiro cria `src/use-cases/auth/` (`sign-in.types.ts`, `sign-in.usecase.ts`, `sign-in.mock.ts`, `sign-in.usecase.test.ts` e o `index.ts` do domínio) e registra a chave `signIn`; o segundo cria a tela `src/pages/auth/login/` (a pasta `auth` só agrupa), na rota `/auth/login`, com um formulário de `email` e `password` (o campo `password` sai com `type="password"`), o envio, o erro e o aviso de sucesso. O `execute` do use case valida o Input, faz o `POST /auth/sign-in` e valida a resposta com o Output:
+O primeiro cria `src/use-cases/auth/` (`types/sign-in.ts`, `services/sign-in.usecase.ts`, `services/sign-in.usecase.test.ts`, `mocks/sign-in.ts` e o `index.ts` do domínio) e registra a chave `signIn`; o segundo cria a tela `src/pages/auth/login/` (a pasta `auth` só agrupa), na rota `/auth/login`, com um formulário de `email` e `password` (o campo `password` sai com `type="password"`), o envio, o erro e o aviso de sucesso. O `execute` do use case valida o Request, faz o `POST /auth/sign-in` e valida a resposta com o Response:
 
 ```ts
-// src/use-cases/auth/sign-in.types.ts
+// src/use-cases/auth/types/sign-in.ts
 export const ENDPOINT = { method: 'POST', path: '/auth/sign-in' } as const
 
-export const SignInInput = z.object({ email: z.string(), password: z.string() })
-export const SignInOutput = z.object({ token: z.string() })
+export const SignInRequest = z.object({ email: z.string(), password: z.string() })
+export const SignInResponse = z.object({ token: z.string() })
 ```
 
 O model da tela chama o use case com o `useMutation`:
@@ -32,21 +32,19 @@ O model da tela chama o use case com o `useMutation`:
 // src/pages/auth/login/model.ts (trecho)
 const { signIn } = useUseCases()
 const mutation = useMutation({
-  mutationFn: (input: SignInInput) => signIn.execute(input),
+  mutationFn: (input: SignInRequest) => signIn.execute(input),
   onSuccess: () => queryClient.invalidateQueries({ queryKey: ['auth'] }),
 })
 ```
 
 Com `VITE_DATA_SOURCE=mock` (o padrão), o `http` de mentira responde `{ token: 'Token 1' }`, e a tela funciona sem backend. Com `VITE_DATA_SOURCE=http`, o mesmo código chama a API ([Ligar uma API real](real-api.md)). Ajuste o que for do seu backend:
 
-- **O endereço e o formato.** Edite o `ENDPOINT` e o Output no `sign-in.types.ts` (o `token` pode ser `accessToken` e `refreshToken`), e o mock acompanha.
-- **A credencial errada.** O erro da API vira `UIError('SIGN_IN_FAILED')`, com um texto genérico no `errors.json`. Para uma mensagem própria, traduza o 401 no `catch` do `.usecase.ts` e acrescente o texto aos dois idiomas:
+- **O endereço e o formato.** Edite o `ENDPOINT` e o Response em `types/sign-in.ts` (o `token` pode ser `accessToken` e `refreshToken`), e o mock acompanha.
+- **A credencial errada.** O 401 da API chega à tela como `UIError('UNAUTHORIZED')`, pelo `src/http/errors.ts` do app, com o texto genérico do `errors.json` ("Entre na sua conta para continuar."). Para uma mensagem própria do login, troque o código no `toUIError` ou lance o seu no use case, e acrescente o texto aos dois idiomas:
 
 ```ts
-// src/use-cases/auth/sign-in.usecase.ts (o catch)
-if (error instanceof HttpError && error.status === 401) {
-  throw new UIError('AUTH_INVALID_CREDENTIALS', error.message)
-}
+// src/use-cases/auth/services/sign-in.usecase.ts
+throw new UIError('AUTH_INVALID_CREDENTIALS', 'Credenciais inválidas.')
 ```
 
 ```json

@@ -27,7 +27,9 @@ O `execute` de um use case gerado não tem `try/catch`: o erro do `http` sobe co
 | 403                                | `FORBIDDEN`        | Você não tem permissão para isso.             |
 | 404                                | `NOT_FOUND`        | Não encontramos o que você procura.           |
 | 409                                | `CONFLICT`         | Isso entra em conflito com o que já existe.   |
-| 5xx, outros status e falha de rede | `REQUEST_FAILED`   | Não foi possível concluir a ação. Tente de novo. |
+| 5xx, outros status e falha de rede (`NetworkError`) | `REQUEST_FAILED` | Não foi possível concluir a ação. Tente de novo. |
+
+A falha de rede é o `NetworkError` que o `createHttp` lança quando o `fetch` rejeita. Um `TypeError` qualquer é bug de código e não vira `REQUEST_FAILED`: ele aparece como erro de programação.
 
 No 400 e no 422, a `message` do `UIError` é a `message` do corpo da resposta, quando houver (ela serve para logs e testes, não para a tela). O `MissingMockRouteError` (uma rota que falta no mock) não é traduzido: é erro de programação.
 
@@ -40,8 +42,8 @@ export function toUIError(error: unknown): unknown {
     }
     return new UIError(CODES[error.status] ?? 'REQUEST_FAILED', error.message)
   }
-  if (error instanceof TypeError) return new UIError('REQUEST_FAILED', error.message)
-  return error
+  if (error instanceof NetworkError) return new UIError('REQUEST_FAILED', error.message)
+  return error // um TypeError de bug de código passa como veio
 }
 ```
 

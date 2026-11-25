@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createHttp, HttpError, type HttpAuth } from './index.ts'
+import { createHttp, HttpError, NetworkError, type HttpAuth } from './index.ts'
 import { withQuery } from './http.ts'
 
 interface Call {
@@ -95,6 +95,29 @@ describe('createHttp', () => {
     expect((await reply(new Response('<html>', { status: 502 }))).body).toBeUndefined()
     expect((await reply(new Response('{ quebrado', { status: 500 }))).body).toBeUndefined()
     expect(new HttpError(400, 'x', { a: 1 }).body).toEqual({ a: 1 })
+  })
+
+  it('o fetch que rejeita vira NetworkError, com a causa; um erro de outro lugar passa como veio', async () => {
+    const offline = (async () => {
+      throw new TypeError('Failed to fetch')
+    }) as unknown as typeof fetch
+    const failure = await createHttp({ baseUrl: '', fetch: offline })('/a', { method: 'POST' }).catch(
+      (caught: unknown) => caught,
+    )
+    expect(failure).toBeInstanceOf(NetworkError)
+    expect(failure).toMatchObject({ name: 'NetworkError', message: 'POST /a: falha de rede' })
+    expect((failure as NetworkError).cause).toBeInstanceOf(TypeError)
+
+    // O cabeçalho que o app monta é código do app: se quebra, o erro é o bug, e não uma falha de rede
+    const bug = new TypeError('headers is not a function')
+    const broken = createHttp({
+      baseUrl: '',
+      headers: () => {
+        throw bug
+      },
+      fetch: fakeFetch([]).fetcher,
+    })
+    await expect(broken('/a')).rejects.toBe(bug)
   })
 
   describe('sessão', () => {

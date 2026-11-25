@@ -104,6 +104,20 @@ describe('use-case-files', () => {
     ])
   })
 
+  it('um use case fora de services/ (o layout da 0.10) acusa a migração, uma vez e sem cobrar o resto', () => {
+    const root = makeProject(files(['get-livro.usecase.ts', 'get-livro.types.ts', 'list-livros.usecase.ts']))
+    const violations = check({ root })
+
+    expect(violations.map(({ rule, file }) => [rule, file])).toEqual([
+      ['use-case-files', 'src/use-cases/livros/get-livro.usecase.ts'],
+      ['use-case-files', 'src/use-cases/livros/list-livros.usecase.ts'],
+    ])
+    expect(violations.map((v) => v.message)).toEqual([
+      "O use case 'get-livro' está fora de services/: mova para services/ e os tipos para types/ (veja o guia de migração).",
+      "O use case 'list-livros' está fora de services/: mova para services/ e os tipos para types/ (veja o guia de migração).",
+    ])
+  })
+
   it('a pasta dos use cases é uma opção, e projeto sem ela não acusa nada', () => {
     const root = makeProject({ 'app/domain/x/services/a.usecase.ts': '' })
     expect(check({ root })).toEqual([])

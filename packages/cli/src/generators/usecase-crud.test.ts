@@ -67,7 +67,7 @@ describe('generateCrudUseCases', () => {
     expect(collection).toContain("searchFields: (item) => [item.titulo, item.autor ?? ''],")
     expect(collection).toContain("    autor: (item) => item.autor ?? '',\n")
     expect(text(result, 'mocks/update-livro.ts')).toContain('livrosCollection.update(params.id, livroInputSchema.partial().parse(body))')
-    expect(text(result, 'mocks/list-livros.ts')).toContain('({ query }: Call) =>\n    livrosCollection.list(query),')
+    expect(text(result, 'mocks/list-livros.ts')).toContain('export const listLivrosRoutes = mockRoute(ENDPOINT, ({ query }) =>\n  livrosCollection.list(query),\n)')
     expect(text(result, 'services/remove-livro.usecase.test.ts')).toContain("subject.removeLivro.execute({ id: 'livro-1' })")
   })
 

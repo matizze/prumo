@@ -1,5 +1,4 @@
+import { mockRoute } from '@matizze/prumo-core/http'
 import { ENDPOINT, type {{action.pascal}}Response } from '../types/{{action.kebab}}'
 
-export const {{action.camel}}Routes = {
-  [`${ENDPOINT.method} ${ENDPOINT.path}` as const]: (): {{action.pascal}}Response => {{mock.response}},
-}
+export const {{action.camel}}Routes = mockRoute(ENDPOINT, (): {{action.pascal}}Response => {{mock.response}})

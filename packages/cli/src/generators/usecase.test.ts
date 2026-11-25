@@ -69,7 +69,7 @@ export function getStoresKey(input: GetStoresRequest) {
     expect(usecase).not.toContain('UIError')
     expect(text(result, 'mocks/get-stores.ts')).toContain("id: 'store-1',")
     expect(text(result, 'mocks/get-stores.ts')).toContain(
-      '[`${ENDPOINT.method} ${ENDPOINT.path}` as const]: (): GetStoresResponse => [',
+      'export const getStoresRoutes = mockRoute(ENDPOINT, (): GetStoresResponse => [',
     )
   })
 
@@ -198,7 +198,7 @@ export function getStoresKey(input: GetStoresRequest) {
     const one = generateUseCase(project, { name: 'stores.get-store', output: 'store' })
     expect(text(one, 'types/get-store.ts')).toContain('export const GetStoreResponse = storeSchema')
     expect(text(one, 'mocks/get-store.ts')).toContain(
-      "(): GetStoreResponse => ({\n    id: 'store-1',\n    name: 'Exemplo 1',\n    city: 'City 1',\n    createdAt: '2026-01-05T12:00:00.000Z',\n  }),",
+      "export const getStoreRoutes = mockRoute(ENDPOINT, (): GetStoreResponse => ({\n    id: 'store-1',\n    name: 'Exemplo 1',\n    city: 'City 1',\n    createdAt: '2026-01-05T12:00:00.000Z',\n  }))"
     )
   })
 

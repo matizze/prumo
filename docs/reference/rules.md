@@ -171,8 +171,11 @@ src/pages/relatorios/model.ts  [page-structure]  A tela 'relatorios' precisa do 
 
 **Todo `services/<ação>.usecase.ts` de `src/use-cases` tem o `types/<ação>.ts` e o teste ao lado.** Para `services/sign-in.usecase.ts`, a pasta do domínio precisa de `types/sign-in.ts` (o endereço, o Request e o Response) e de `services/sign-in.usecase.test.ts`. O mock (`mocks/sign-in.ts`) não é cobrado: o use case `--local` roda no navegador e não tem mock.
 
+Um `*.usecase.ts` fora de `services/` é o layout da 0.10 (os tipos ao lado, na mesma pasta). Ele acusa uma vez, com a migração, e não cobra os outros arquivos.
+
 ```text
 src/use-cases/auth/services/sign-in.usecase.ts  [use-case-files]  O use case 'sign-in' precisa do arquivo 'services/sign-in.usecase.test.ts' (a partir da pasta do domínio).
+src/use-cases/auth/sign-in.usecase.ts           [use-case-files]  O use case 'sign-in' está fora de services/: mova para services/ e os tipos para types/ (veja o guia de migração).
 ```
 
 ### `messages`

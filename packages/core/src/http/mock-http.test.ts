@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
-import { createMockHttp, HttpError, MissingMockRouteError, type MockRequest } from './index.ts'
+import {
+  createMockHttp,
+  HttpError,
+  MissingMockRouteError,
+  mockRoute,
+  type MockRequest,
+} from './index.ts'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -199,5 +205,54 @@ describe('createMockHttp', () => {
 
     // Sem latencyMs, não há timer: não trava com os timers falsos
     expect(await createMockHttp({ 'GET /a': () => 'ok' })('/a')).toBe('ok')
+  })
+})
+
+describe('mockRoute', () => {
+  const ENDPOINT = { method: 'POST', path: '/livros/:id/capitulos' } as const
+
+  it('devolve { "<MÉTODO> <caminho>": handler }, com a chave do endereço', () => {
+    const handler = () => null
+    const routes = mockRoute(ENDPOINT, handler)
+    expect(Object.keys(routes)).toEqual(['POST /livros/:id/capitulos'])
+    expect(routes['POST /livros/:id/capitulos']).toBe(handler)
+  })
+
+  it('o createMockHttp atende a rota montada, e a espalha junto com outras', async () => {
+    const http = createMockHttp({
+      ...mockRoute(ENDPOINT, ({ params, body }) => ({ id: params.id, body })),
+      ...mockRoute({ method: 'GET', path: '/livros' }, () => []),
+    })
+    expect(await http('/livros/7/capitulos', { method: 'POST', body: { n: 1 } })).toEqual({
+      id: '7',
+      body: { n: 1 },
+    })
+    expect(await http('/livros')).toEqual([])
+  })
+
+  it('os params do handler saem do caminho, no tipo', () => {
+    mockRoute(ENDPOINT, ({ params }) => {
+      expectTypeOf(params).toEqualTypeOf<{ id: string }>()
+      return null
+    })
+    mockRoute({ method: 'GET', path: '/livros' }, ({ params }) => {
+      expectTypeOf(params).toEqualTypeOf<Record<never, never>>()
+      return null
+    })
+  })
+
+  it('o tipo do endereço recusa método errado e caminho sem barra (checado na compilação)', () => {
+    // Nunca chamada: só o compilador a confere
+    const _types = () => {
+      // @ts-expect-error o método precisa ser um dos cinco
+      mockRoute({ method: 'FETCH', path: '/livros' }, () => null)
+      // @ts-expect-error o caminho precisa começar com barra
+      mockRoute({ method: 'GET', path: 'livros' }, () => null)
+      mockRoute(ENDPOINT, ({ params }) => {
+        // @ts-expect-error só existe o :id
+        return params.slug
+      })
+    }
+    expect(_types).toBeTypeOf('function')
   })
 })

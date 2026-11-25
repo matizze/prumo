@@ -1,5 +1,5 @@
 import { UIError } from '@matizze/prumo-core/errors'
-import { HttpError } from '@matizze/prumo-core/http'
+import { HttpError, NetworkError } from '@matizze/prumo-core/http'
 import { expect, it } from 'vitest'
 import { toUIError, withErrors } from './errors'
 
@@ -25,8 +25,14 @@ it('a mensagem do corpo de um 422 vai para o UIError', () => {
   })
 })
 
-it('a falha de rede vira REQUEST_FAILED', () => {
-  expect(toUIError(new TypeError('Failed to fetch'))).toMatchObject({ code: 'REQUEST_FAILED' })
+it('a falha de rede (o NetworkError do createHttp) vira REQUEST_FAILED', () => {
+  const network = new NetworkError('GET /a: falha de rede', { cause: new TypeError('Failed to fetch') })
+  expect(toUIError(network)).toMatchObject({ code: 'REQUEST_FAILED' })
+})
+
+it('um TypeError de bug de código não vira falha de rede: passa como veio', () => {
+  const bug = new TypeError('Cannot read properties of undefined')
+  expect(toUIError(bug)).toBe(bug)
 })
 
 it('o erro que não é do transporte passa como veio', () => {

@@ -1,6 +1,7 @@
 export {
   createHttp,
   HttpError,
+  NetworkError,
   type Http,
   type HttpAuth,
   type HttpOptions,
@@ -10,6 +11,7 @@ export {
 export {
   createMockHttp,
   MissingMockRouteError,
+  mockRoute,
   type MockHandler,
   type MockHttpOptions,
   type MockRequest,

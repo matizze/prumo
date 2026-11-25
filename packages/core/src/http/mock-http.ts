@@ -174,3 +174,21 @@ export function createMockHttp<Key extends MockRouteKey>(
     return throughJson(response)
   }
 }
+
+/**
+ * Uma rota do mock a partir do endereço do use case (o `ENDPOINT` de `types/<ação>.ts`): devolve
+ * `{ '<MÉTODO> <caminho>': handler }`, para espalhar no `createMockHttp`. O `params` do handler sai
+ * do `path`, como nas rotas do `createMockHttp`, e a chave não se repete à mão: quem muda o caminho
+ * no `ENDPOINT` muda o mock junto.
+ *
+ * ```ts
+ * export const signInRoutes = mockRoute(ENDPOINT, ({ body }) => ({ token: 'Token 1' }))
+ * ```
+ */
+export function mockRoute<M extends Method, P extends `/${string}`>(
+  endpoint: { readonly method: M; readonly path: P },
+  handler: MockHandler<`${M} ${P}`>,
+): { [Key in `${M} ${P}`]: MockHandler<Key> } {
+  const key = `${endpoint.method} ${endpoint.path}` as `${M} ${P}`
+  return { [key]: handler } as { [Key in `${M} ${P}`]: MockHandler<Key> }
+}

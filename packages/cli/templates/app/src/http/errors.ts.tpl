@@ -1,5 +1,5 @@
 import { UIError } from '@matizze/prumo-core/errors'
-import { HttpError, type Http } from '@matizze/prumo-core/http'
+import { HttpError, NetworkError, type Http } from '@matizze/prumo-core/http'
 
 const CODES: Readonly<Record<number, string>> = {
   401: 'UNAUTHORIZED',
@@ -17,7 +17,8 @@ function bodyMessage(body: unknown): string | undefined {
 /**
  * O erro do `http` como a tela o entende: o status vira o código do errors.json (400 e 422,
  * INVALID_REQUEST; 401, UNAUTHORIZED; 403, FORBIDDEN; 404, NOT_FOUND; 409, CONFLICT; o resto e a
- * falha de rede, REQUEST_FAILED). O que não é do transporte passa como veio.
+ * falha de rede, REQUEST_FAILED). Só o `NetworkError` do `createHttp` (o fetch que não chegou à API)
+ * vira REQUEST_FAILED: um TypeError qualquer é bug de código e passa como veio.
  */
 export function toUIError(error: unknown): unknown {
   if (error instanceof HttpError) {
@@ -26,7 +27,7 @@ export function toUIError(error: unknown): unknown {
     }
     return new UIError(CODES[error.status] ?? 'REQUEST_FAILED', error.message)
   }
-  if (error instanceof TypeError) return new UIError('REQUEST_FAILED', error.message)
+  if (error instanceof NetworkError) return new UIError('REQUEST_FAILED', error.message)
   return error
 }
 

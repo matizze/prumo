@@ -9,7 +9,7 @@ O exemplo usa um app de pedidos: a pessoa entra com usuário e senha, a API devo
 A sessão tem dois consumidores que vivem em mundos diferentes:
 
 - as **telas**, dentro do React, que precisam saber quem é a pessoa e reagir quando ela entra ou sai;
-- o **cliente HTTP** (veja [Ligar uma API real](real-api.md#3-o-cliente-http-e-o-token)), fora do React, que precisa do token a cada chamada e de uma renovação quando a API responde 401.
+- o **cliente HTTP** (veja [Ligar uma API real](real-api.md#2-o-cliente-http-e-o-token)), fora do React, que precisa do token a cada chamada e de uma renovação quando a API responde 401.
 
 Por isso a sessão é um módulo de TypeScript puro (estado e inscrição, sem React), e o provedor e o hook só o mostram às telas:
 
@@ -157,7 +157,7 @@ export const appSession = createSession({
 })
 ```
 
-A conexão com o cliente HTTP, com a renovação no 401, está em [Ligar uma API real](real-api.md#3-o-cliente-http-e-o-token).
+A conexão com o cliente HTTP, com a renovação no 401, está em [Ligar uma API real](real-api.md#2-o-cliente-http-e-o-token).
 
 ## Provedor e `useSession`
 
@@ -217,9 +217,9 @@ Ligue o provedor no `src/providers/app.tsx`, **dentro** do `QueryProvider` (ele 
 // src/providers/app.tsx
 <QueryProvider createClient={createClient}>
   <I18nProvider>
-    <RepositoryProvider>
+    <UseCasesProvider>
       <SessionProvider>{children}</SessionProvider>
-    </RepositoryProvider>
+    </UseCasesProvider>
   </I18nProvider>
 </QueryProvider>
 ```
@@ -299,7 +299,7 @@ function SoAdmin({ children }: { children: ReactNode }) {
 // <Route path="/relatorios"><Autenticada><SoAdmin><RelatoriosPage /></SoAdmin></Autenticada></Route>
 ```
 
-O guarda esconde a tela, mas **não protege os dados**: a autorização de verdade é da API. O repositório traduz o 403 em `UIError('SEM_PERMISSAO')` (veja [Ligar uma API real](real-api.md#6-quando-a-api-não-segue-o-formato)).
+O guarda esconde a tela, mas **não protege os dados**: a autorização de verdade é da API. O use case traduz o 403 em `UIError('SEM_PERMISSAO')` (veja [Ligar uma API real](real-api.md#5-quando-a-api-não-segue-o-formato)).
 
 ## Testar com a sessão
 

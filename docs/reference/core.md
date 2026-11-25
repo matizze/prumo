@@ -10,7 +10,6 @@ pnpm add @matizze/prumo-core
 | --------------------------------------------------- | --------------------------------------------------------------------------------- |
 | [`@matizze/prumo-core/http`](#http)                 | `createHttp`, `createMockHttp`, `HttpError` e os tipos do cliente                 |
 | [`@matizze/prumo-core/use-cases`](#use-cases)       | `IUseCase`, `createUseCasesContext`, `resolveDataSource`                          |
-| [`@matizze/prumo-core/repositories`](#repositories) | `createRepositoryContainer`, `resolveDataSource`, `createRepositoryContext`       |
 | [`@matizze/prumo-core/query`](#query)               | `createQueryKeys`, `createQueryClient`, `QueryProvider`, `ErrorMeta`               |
 | [`@matizze/prumo-core/i18n`](#i18n)                 | `defineI18n`, `createFormat`, `resolveLocale` e os tipos de mensagens              |
 | [`@matizze/prumo-core/errors`](#errors)             | `UIError`, `createErrorMessage`                                                    |
@@ -145,7 +144,7 @@ function createUseCasesContext<C>(createDefault?: () => C): {
 }
 ```
 
-Cria o provedor e o hook do container de use cases do app, tipado com o container dele. É o mesmo desenho do [`createRepositoryContext`](#createrepositorycontextcreatedefault): `value` injeta o container (nos testes), e sem ele o provedor chama `createDefault` uma vez por montagem. Sem `value` nem `createDefault`, o provedor lança um erro. O hook lança fora do provedor.
+Cria o provedor e o hook do container de use cases do app, tipado com o container dele. `value` injeta o container (nos testes), e sem ele o provedor chama `createDefault` uma vez por montagem. Sem `value` nem `createDefault`, o provedor lança um erro. O hook lança fora do provedor (`useUseCases must be used within a UseCasesProvider`).
 
 ```tsx
 export const { UseCasesProvider, useUseCases } = createUseCasesContext(() =>
@@ -153,37 +152,6 @@ export const { UseCasesProvider, useUseCases } = createUseCasesContext(() =>
 )
 
 const { signIn } = useUseCases()
-```
-
-`@matizze/prumo-core/use-cases` também exporta o `resolveDataSource`, o mesmo de [`repositories`](#repositories), reexportado: escolhe a fonte de dados (`mock` ou `http`) a partir de uma variável de ambiente e falha em vez de cair em silêncio em outra.
-
----
-
-## repositories
-
-O container de repositórios: um objeto com um repositório por domínio, criado a partir de um mapa de fábricas, e o contexto React que o entrega às queries.
-
-### `createRepositoryContainer(factories, options)`
-
-```ts
-function createRepositoryContainer<S extends string, F extends RepositoryFactories<S>>(
-  factories: F,
-  options: RepositoryOptions<S>,
-): RepositoryContainerOf<F>
-```
-
-Chama cada fábrica com as mesmas `options` e devolve o container. O tipo do container sai do mapa: cada chave guarda o que a fábrica dela devolve.
-
-```ts
-const factories = {
-  clientes: createClientesRepository,
-  pedidos: createPedidosRepository,
-}
-
-export type RepositoryContainer = RepositoryContainerOf<typeof factories>
-// { clientes: IClientesRepository; pedidos: IPedidosRepository }
-
-const repositories = createRepositoryContainer(factories, { dataSource: 'mock' })
 ```
 
 ### `resolveDataSource(value, sources, fallback, name?)`
@@ -202,34 +170,6 @@ Converte um texto de configuração (uma variável de ambiente, por exemplo) num
 ```ts
 resolveDataSource(import.meta.env.VITE_DATA_SOURCE, ['mock', 'http'], 'mock', 'VITE_DATA_SOURCE')
 ```
-
-### `createRepositoryContext(createDefault?)`
-
-```ts
-function createRepositoryContext<C>(createDefault?: () => C): {
-  RepositoryProvider: (props: RepositoryProviderProps<C>) => ReactElement
-  useRepositories: () => C
-}
-```
-
-Cria o contexto de repositórios do app, tipado pelo container.
-
-- **`RepositoryProvider`** recebe `children` e, opcionalmente, `value` (o container; os testes passam um). Sem `value`, cria o container com `createDefault`, uma vez por montagem. Sem `value` e sem `createDefault`, lança um erro.
-- **`useRepositories()`** devolve o container. Fora de um `RepositoryProvider`, lança `useRepositories must be used within a RepositoryProvider`.
-
-```ts
-export const { RepositoryProvider, useRepositories } =
-  createRepositoryContext<RepositoryContainer>(createRepositories)
-```
-
-### Tipos
-
-| Tipo                          | Descrição                                                                                                        |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `RepositoryOptions<S>`        | `{ dataSource: S; latencyMs?: number }`: o que toda fábrica recebe. `latencyMs` é a latência dos mocks (padrão de cada mock: 300; use 0 nos testes). |
-| `RepositoryFactories<S>`      | `Record<string, (options: RepositoryOptions<S>) => unknown>`: o mapa de fábricas.                                |
-| `RepositoryContainerOf<F>`    | O container tipado de um mapa de fábricas.                                                                       |
-| `RepositoryProviderProps<C>`  | `{ children: ReactNode; value?: C }`.                                                                            |
 
 ---
 

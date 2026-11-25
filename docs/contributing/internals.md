@@ -41,7 +41,7 @@ O tarball leva só o `dist/`, o `package.json` e o README (e, no cli, os `templa
 
 ## A CLI
 
-A CLI usa o [commander](https://github.com/tj/commander.js). Os comandos são `new`, `make:schema`, `make:repository`, `make:query`, `make:page`, `check` e `list`; a referência de uso está em [Referência da CLI](../reference/cli.md).
+A CLI usa o [commander](https://github.com/tj/commander.js). Os comandos são `new`, `make:schema`, `make:usecase`, `make:page`, `check`, `list` e `mcp`; a referência de uso está em [Referência da CLI](../reference/cli.md).
 
 ```text
 packages/cli/
@@ -51,8 +51,8 @@ packages/cli/
     errors.ts       UsageError (saída 2, só `prumo: <mensagem>`) e ExitError (código próprio)
     io.ts           o que um comando recebe do mundo: cwd, out e err
     commands/       um arquivo por comando: argumentos, opções, chamada ao gerador e saída
-    generators/     app, schema, repository, query e page: recebem as opções e devolvem um plano
-    codemods/       as edições do app, com o ts-morph: rota, índices, container, fábrica e fontes
+    generators/     app, schema, usecase (e o `--crud`) e page: recebem as opções e devolvem um plano
+    codemods/       as edições do app, com o ts-morph: rota, índices de schemas e de mensagens, registro dos use cases
     lib/            nomes, campos e leitor do schema, plano, modelos, versões e apoio
     test/           o apoio dos testes (fora do pacote publicado): pastas temporárias, exec, o app gerado e o projeto de compilação
   templates/        os modelos .tpl, com marcadores de nome
@@ -70,7 +70,7 @@ O gerador não toca o disco: valida tudo (nome, entidade, campos, camada de baix
 
 ### `codemods/`
 
-As edições de arquivos que já existem, feitas pela árvore de sintaxe e não por texto solto: `add-route` (a rota no `<Switch>` do `App.tsx`), `register-schema`, `register-repository` e `register-query` (os índices e o container), `register-messages` (o namespace de cada idioma), `register-source` (a fonte em `DATA_SOURCES`, na fábrica e no teste de contrato) e `messages` (os idiomas do projeto). Cada um recusa, com mensagem clara, o arquivo que não tem a forma esperada (os pontos de registro estão em [Anatomia do app gerado](../concepts/generated-app.md#pontos-de-registro)).
+As edições de arquivos que já existem, feitas pela árvore de sintaxe e não por texto solto: `add-route` (a rota no `<Switch>` do `App.tsx`), `register-schema` (o índice de schemas), `register-use-case` (o registro dos use cases e das rotas de mock), `register-messages` (o namespace de cada idioma) e `messages` (os idiomas do projeto). Cada um recusa, com mensagem clara, o arquivo que não tem a forma esperada (os pontos de registro estão em [Anatomia do app gerado](../concepts/generated-app.md#pontos-de-registro)).
 
 ### `mcp/`
 
@@ -79,7 +79,7 @@ O servidor do `prumo mcp` (o comando fica em `commands/mcp.ts`, que só confere 
 ### `lib/`
 
 - `names.ts`: o kebab, o PascalCase e o camelCase de um nome, o plural e o singular (`clientes` → `cliente`, com a recusa dos plurais ambíguos e das palavras reservadas) e o `--entity`.
-- `fields/`: o `--fields` (`parse.ts`, `types.ts`), os valores de exemplo (`samples.ts`), a geração do código dos modelos (`generate.ts`) e o **leitor do schema** (`read.ts`, e `page-shape.ts` para o `make:page`), que lê com o ts-morph os campos de um `<entidade>.ts` gerado (o `z.object`, o `pick` do schema de entrada e a `SortKey`) para o `make:repository` e o `make:page`. Um campo fora dos tipos do `--fields` é erro de uso, com a linha.
+- `fields/`: o `--fields` (`parse.ts`, `types.ts`), os valores de exemplo (`samples.ts`), a geração do código dos modelos (`generate.ts`) e o **leitor do schema** (`read.ts`, e `page-shape.ts` para o `make:page`), que lê com o ts-morph os campos de um `<entidade>.ts` gerado (o `z.object`, o `pick` do schema de entrada e a `SortKey`) para o `make:usecase --crud` e o `make:page`. Um campo fora dos tipos do `--fields` é erro de uso, com a linha.
 - `plan.ts`: o `ChangePlan`, descrito acima.
 - `route-elements.ts` e `ast.ts`: a leitura das rotas do `<Switch>` do `App.tsx` e dos literais de texto, que o `list` e os codemods compartilham.
 - `templates.ts`: carrega um `.tpl` e troca os marcadores `{{nome}}` (um marcador sem valor é erro do modelo).
@@ -103,7 +103,7 @@ Os testes de compilação (`generators/*.compile.test.ts`) vão além: o `test/c
 
 ### `verify:new`
 
-O `scripts/verify-new.sh` (`pnpm verify:new`) é o portão do app novo: empacota os pacotes, cria um app com `prumo new --packages` numa pasta temporária fora do monorepo, roda nele todos os comandos (`make:schema` com campos de todos os tipos, `make:usecase` de leitura, de escrita e local, `make:repository` nas três fontes, `make:query` e as quatro variações do `make:page`, inclusive um domínio com dígito na entidade), o `prumo list` (texto e `--json`, que o script confere), a etapa MCP e o `pnpm verify` do app (typecheck, lint, `prumo check` e testes). A etapa MCP roda o `scripts/drive-mcp.mjs` da cli: um cliente do SDK (`@modelcontextprotocol/client`, devDependency da cli) abre o servidor pelo `.mcp.json` que o `new` criou, confere as sete ferramentas e gera, só por elas, o domínio `autores`, dois use cases e duas telas, com um `dry_run`, um erro de uso, o `check` e o `list`. O script não edita arquivo do app (só a CLI e o servidor MCP mudam o app): se o verify do app falha, o achado é dos modelos, dos comandos, do servidor ou dos pacotes. Pesa (instala dependências), então roda por uma vez, e deve rodar ao mudar os modelos, o `new`, qualquer `make:*` ou o servidor MCP.
+O `scripts/verify-new.sh` (`pnpm verify:new`) é o portão do app novo: empacota os pacotes, cria um app com `prumo new --packages` numa pasta temporária fora do monorepo, roda nele todos os comandos (`make:schema` com campos de todos os tipos, `make:usecase` de leitura, de escrita, local e o `--crud`, e as variações do `make:page`, com título, parâmetro e as telas de use case, inclusive um domínio com dígito na entidade), o `prumo list` (texto e `--json`, que o script confere), a etapa MCP e o `pnpm verify` do app (typecheck, lint, `prumo check` e testes). A etapa MCP roda o `scripts/drive-mcp.mjs` da cli: um cliente do SDK (`@modelcontextprotocol/client`, devDependency da cli) abre o servidor pelo `.mcp.json` que o `new` criou, confere as cinco ferramentas e gera, só por elas, o domínio `autores` (os use cases do CRUD), dois use cases e as telas, com um `dry_run`, um erro de uso, o `check` e o `list`. O script não edita arquivo do app (só a CLI e o servidor MCP mudam o app): se o verify do app falha, o achado é dos modelos, dos comandos, do servidor ou dos pacotes. Pesa (instala dependências), então roda por uma vez, e deve rodar ao mudar os modelos, o `new`, qualquer `make:*` ou o servidor MCP.
 
 ## Publicação
 

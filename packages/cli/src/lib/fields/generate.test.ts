@@ -132,7 +132,7 @@ describe('int e enum', () => {
     expect(vars['test.sortKey']).toBe('ano')
   })
 
-  it('make:page --query não trata o enum como texto de exibição', () => {
+  it('as telas de use case não tratam o enum como texto de exibição', () => {
     const schema = {
       file: 'src/schemas/entities/livro.ts',
       camel: 'livro',

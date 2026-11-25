@@ -1,11 +1,11 @@
 {
   "name": "@matizze/prumo-core",
   "version": "0.3.0",
-  "description": "Infraestrutura comum dos produtos do Prumo: container de repositórios, query keys, tipo Page, utilitários de mock, i18n, erros com código, guarda de login e provedor de query.",
+  "description": "Infraestrutura comum dos produtos do Prumo: cliente HTTP e mock por rota, use cases, query keys, tipo Page, utilitários de mock, i18n, erros com código, guarda de login e provedor de query.",
   "keywords": [
     "react",
     "architecture",
-    "repository-pattern",
+    "use-cases",
     "tanstack-query",
     "i18n",
     "typescript",
@@ -32,7 +32,6 @@
     "./auth": "./src/auth/index.ts",
     "./http": "./src/http/index.ts",
     "./use-cases": "./src/use-cases/index.ts",
-    "./repositories": "./src/repositories/index.ts",
     "./i18n": "./src/i18n/index.ts"
   },
   "files": [
@@ -73,10 +72,6 @@
       "./use-cases": {
         "types": "./dist/use-cases/index.d.ts",
         "default": "./dist/use-cases/index.js"
-      },
-      "./repositories": {
-        "types": "./dist/repositories/index.d.ts",
-        "default": "./dist/repositories/index.js"
       },
       "./i18n": {
         "types": "./dist/i18n/index.d.ts",

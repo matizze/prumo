@@ -114,7 +114,7 @@ describe('registerUseCaseDomain', () => {
     )
     expect(once).toContain('export const mockRoutes = {\n  ...authRoutes,\n  ...ordersRoutes,\n  ...storesRoutes,\n}')
     expect(once).toContain(
-      "import { createAuthUseCases, authRoutes } from './auth'\nimport type { UseCaseDeps } from './deps'\nimport type { UseCaseOptions } from './options'\nimport { createOrdersUseCases, ordersRoutes } from './orders'\nimport { createStoresUseCases, storesRoutes } from './stores'",
+      "import { createAuthUseCases, authRoutes } from './auth'\nimport type { UseCaseDeps } from './deps'\nimport { DATA_SOURCES, type UseCaseOptions } from './options'\nimport { createOrdersUseCases, ordersRoutes } from './orders'\nimport { createStoresUseCases, storesRoutes } from './stores'",
     )
     registerUseCaseDomain(plan, useCaseNames('auth.sign-out'))
     expect(read(plan, 'use-cases/index.ts')).toBe(once)

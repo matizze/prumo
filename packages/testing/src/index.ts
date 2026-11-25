@@ -3,7 +3,6 @@ export {
   createRenderHookWithProviders,
   createRenderWithProviders,
   createTestQueryClient,
-  createTestRepositories,
   createTestUseCases,
   type NoContainer,
   type NoProviderProps,

@@ -1,20 +1,14 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { listPages, pageOf } from '@matizze/prumo-rules/check'
 import { addRouteSnippet, messageLanguages, registerMessageNamespace } from '../codemods/index.ts'
 import { UsageError } from '../errors.ts'
-import { contractEntity } from '../lib/contract.ts'
-import { readIfExists, shapeOf } from '../lib/entity.ts'
-import { domainIdSample, literal } from '../lib/fields/index.ts'
 import {
-  assertValidName,
-  deriveNames,
   pageNames,
   RESERVED_WORDS,
   type Names,
   type PageNames,
 } from '../lib/names.ts'
-import { displayPath } from '../lib/paths.ts'
 import { ChangePlan } from '../lib/plan.ts'
 import type { Project } from '../lib/project.ts'
 import { nameVars, renderTemplate, renderTemplateFile } from '../lib/templates.ts'
@@ -36,14 +30,6 @@ export const PAGE_FILES: readonly PageFile[] = [
   { template: 'page/index-test.tsx.tpl', to: `${PAGE_DIR}/index.test.tsx` },
 ]
 
-/** Os arquivos de uma tela com `--query`: o model lê a lista, e a view a mostra. */
-export const PAGE_LIST_FILES: readonly PageFile[] = [
-  { template: 'page/index.tsx.tpl', to: `${PAGE_DIR}/index.tsx` },
-  { template: 'page/model-domain.ts.tpl', to: `${PAGE_DIR}/model.ts` },
-  { template: 'page/view-domain.tsx.tpl', to: `${PAGE_DIR}/view.tsx` },
-  { template: 'page/index-domain-test.tsx.tpl', to: `${PAGE_DIR}/index.test.tsx` },
-]
-
 /** Os arquivos de uma tela cuja rota tem parâmetro: o model lê o parâmetro e a view o mostra. */
 export const PAGE_PARAM_FILES: readonly PageFile[] = [
   { template: 'page/index.tsx.tpl', to: `${PAGE_DIR}/index.tsx` },
@@ -52,19 +38,11 @@ export const PAGE_PARAM_FILES: readonly PageFile[] = [
   { template: 'page/index-param-test.tsx.tpl', to: `${PAGE_DIR}/index.test.tsx` },
 ]
 
-/** Os arquivos de uma tela de detalhe (`--query` e rota com parâmetro): o model busca o registro. */
-export const PAGE_DETAIL_FILES: readonly PageFile[] = [
-  { template: 'page/index.tsx.tpl', to: `${PAGE_DIR}/index.tsx` },
-  { template: 'page/model-detail.ts.tpl', to: `${PAGE_DIR}/model.ts` },
-  { template: 'page/view-detail.tsx.tpl', to: `${PAGE_DIR}/view.tsx` },
-  { template: 'page/index-detail-test.tsx.tpl', to: `${PAGE_DIR}/index.test.tsx` },
-]
-
 /** Os messageLangs dos modelos de mensagens: o `pt-BR` e o `en`. */
 export const MESSAGE_LANGUAGES = ['pt-BR', 'en'] as const
 
-/** Os textos que a tela leva além do título: os da lista com `--query` (`domain`) ou os de cada tela de use case. */
-export const MESSAGE_VARIANTS = ['title', 'domain', 'usecase-list', 'usecase-detail', 'usecase-form'] as const
+/** Os textos que a tela leva além do título: os de cada tela de use case. */
+export const MESSAGE_VARIANTS = ['title', 'usecase-list', 'usecase-detail', 'usecase-form'] as const
 
 export type MessagesVariant = (typeof MESSAGE_VARIANTS)[number]
 
@@ -148,16 +126,14 @@ export function parseRoutePath(route: string): RoutePath {
 export interface PageRequest {
   /** O nome da tela, em kebab-case: `clientes`. Em subpasta, `auth.login` ou `auth/login`. */
   name: string
-  /** O domínio cuja query a tela usa (o nome dele, no plural), criada por `make:query`. */
-  query?: string | undefined
   /**
    * O use case que a tela usa (`<domínio>.<ação>`, como `livros.list-livros`): lista, detalhe ou
-   * formulário, conforme ele. Não combina com `query`.
+   * formulário, conforme ele.
    */
   useCase?: string | undefined
   /**
    * A rota da tela (`--path`). Padrão: `/<nome>`. A tela inicial de um app novo usa `/`. Com um
-   * parâmetro (`/livros/:id`), a tela o lê com o `useParams`; com `query`, vira a tela de detalhe.
+   * parâmetro (`/livros/:id`), a tela o lê com o `useParams`.
    */
   route?: string | undefined
 }
@@ -172,8 +148,6 @@ export interface PageOptions {
 export interface PageResult {
   plan: ChangePlan
   names: PageNames
-  /** O domínio da query, se a tela tem uma. */
-  query?: Names
   /** O use case da tela e o que ela mostra dele, se a tela tem um. */
   useCase?: UseCasePage
   /** A rota nova no `src/App.tsx`: `/clientes`. */
@@ -218,131 +192,41 @@ function routeElement(names: Names, route: string): string {
   return `<Route path="${route}">\n  <${names.pascal}Page />\n</Route>`
 }
 
-/** O `src/queries/<domínio>.ts` (ou `.tsx`, ou a pasta com `index`), se existe. */
-function queryFileOf(project: Project, kebab: string): string | undefined {
-  return [`${kebab}.ts`, `${kebab}.tsx`, `${kebab}/index.ts`, `${kebab}/index.tsx`]
-    .map((file) => path.join(project.src, 'queries', file))
-    .find((file) => existsSync(file))
-}
-
-/**
- * A entidade do domínio (`Livro`), lida do contrato do repositório (a lista é `Page<LivroSchema>`;
- * sem ela, o primeiro `<X>Schema`) e, se o contrato não existe, do hook `use<Entidade>Detail` da
- * query. `undefined` se nenhum dos dois diz.
- */
-function entityOf(project: Project, domain: Names, queryText: string): string | undefined {
-  const contract = readIfExists(
-    path.join(project.src, 'repositories', domain.kebab, 'repository.contract.ts'),
-  )
-  const fromContract = contract ? contractEntity(contract) : undefined
-  return fromContract ?? /\buse([A-Z][A-Za-z0-9]*)Detail\b/.exec(queryText)?.[1]
-}
-
-/** O que a tela usa da query: a entidade e o hook de detalhe, conferidos no arquivo da query. */
-function queryOf(
-  project: Project,
-  domain: Names,
-  detail: boolean,
-): { entity: string | undefined } {
-  const file = queryFileOf(project, domain.kebab)
-  if (!file) {
-    throw new UsageError(
-      `a query '${domain.kebab}' não existe: falta src/queries/${domain.kebab}.ts; rode prumo make:query ${domain.kebab}.`,
-    )
-  }
-  const text = readFileSync(file, 'utf8')
-  const list = `use${domain.pascal}List`
-  if (!new RegExp(`\\b${list}\\b`).test(text)) {
-    throw new UsageError(
-      `a query '${domain.kebab}' não tem o hook ${list} em ${displayPath(project.root, file)}: o model da tela lê a lista por ele; rode prumo make:query ${domain.kebab}.`,
-    )
-  }
-  const entity = entityOf(project, domain, text)
-  if (detail) {
-    const hook = entity ? `use${entity}Detail` : undefined
-    if (!entity || !new RegExp(`\\b${hook}\\b`).test(text)) {
-      throw new UsageError(
-        `a query '${domain.kebab}' não tem o hook use<Entidade>Detail em ${displayPath(project.root, file)}: a tela de detalhe (--query com um caminho com parâmetro) busca o registro por ele.`,
-      )
-    }
-  }
-  return { entity }
-}
-
 /**
  * Monta o plano de uma tela nova: `index`, `model`, `view` e o teste a partir dos modelos, as
- * mensagens (`title` e, com `--query`, os textos de carregando e de erro) em cada idioma, o
- * namespace nos índices de mensagens e a rota no `src/App.tsx`. São quatro variações: só o título;
- * com `query`, a lista; com parâmetro na rota, a tela que o lê; com os dois, o detalhe. Nada vai
- * para o disco: quem chama mostra o `summary()` ou faz o `commit()`. Valida os nomes, a query e a
- * rota antes de montar qualquer coisa; todo erro de uso é um `UsageError` (saída 2).
+ * mensagens em cada idioma, o namespace nos índices de mensagens e a rota no `src/App.tsx`. São
+ * três variações: só o título; com parâmetro na rota, a tela que o lê; com `useCase`, a lista, o
+ * detalhe ou o formulário dele. Nada vai para o disco: quem chama mostra o `summary()` ou faz o
+ * `commit()`. Valida os nomes, o use case e a rota antes de montar qualquer coisa; todo erro de uso
+ * é um `UsageError` (saída 2).
  */
 export function generatePage(
   project: Project,
-  { name, query, route, useCase }: PageRequest,
+  { name, route, useCase }: PageRequest,
   { plan = new ChangePlan(project), languages }: PageOptions = {},
 ): PageResult {
   const names = pageNames(name)
-  if (query !== undefined && useCase !== undefined) {
-    throw new UsageError("use '--query' ou '--usecase', não os dois: a tela usa um use case ou a query de um domínio.")
-  }
-  let domain: Names | undefined
-  if (query !== undefined) {
-    assertValidName(query, 'o nome do domínio da query')
-    domain = deriveNames(query)
-  }
   assertPageFree(project, names)
   const pagePath = route ?? `/${names.path}`
   const routePath = parseRoutePath(pagePath)
   const usecasePage = useCase === undefined ? undefined : useCasePage(plan, useCase, routePath)
-  const detailPage = domain !== undefined && routePath.param !== undefined
-  const used = domain ? queryOf(project, domain, detailPage) : undefined
-  const fixtures = domain && {
-    file: `src/repositories/${domain.kebab}/fixtures.ts`,
-    text: readIfExists(path.join(project.src, 'repositories', domain.kebab, 'fixtures.ts')),
-  }
-  const shape = domain && fixtures ? shapeOf(project, used?.entity, fixtures, detailPage) : undefined
-  // O id do primeiro registro das fixtures: o teste de detalhe abre a rota com ele
-  const firstId = usecasePage?.firstId ?? (fixtures ? (domainIdSample(fixtures.text).sample ?? 'registro-1') : 'exemplo')
-  if (detailPage && routePath.param === `use${used?.entity}Detail`) {
-    throw new UsageError(
-      `o parâmetro ':${routePath.param}' tem o nome do hook de detalhe que o model gerado chama: use outro, como :id.`,
-    )
-  }
   const messageLangs = languages ?? messageLanguages(project)
-  const detailLike = detailPage || usecasePage?.kind === 'detail'
 
   const vars = {
     ...nameVars('page', names),
     'page.path': names.path,
-    ...(domain ? nameVars('domain', domain) : {}),
-    ...(shape
-      ? {
-          'field.name': shape.field,
-          'field.sample': literal(shape.sample ?? firstId),
-        }
-      : {}),
     'route.path': pagePath,
     ...(routePath.param
       ? {
           'param.name': routePath.param,
           'param.example': 'exemplo',
-          'route.example': routePath.example(detailLike ? firstId : 'exemplo'),
-          ...(detailPage ? { 'detail.hook': `use${used?.entity}Detail` } : {}),
+          'route.example': routePath.example(usecasePage?.kind === 'detail' ? usecasePage.firstId : 'exemplo'),
         }
       : {}),
     ...usecasePage?.vars,
   }
-  const files =
-    usecasePage?.files ??
-    (detailPage
-      ? PAGE_DETAIL_FILES
-      : routePath.param
-        ? PAGE_PARAM_FILES
-        : domain
-          ? PAGE_LIST_FILES
-          : PAGE_FILES)
-  const variant: MessagesVariant = usecasePage ? `usecase-${usecasePage.kind}` : domain ? 'domain' : 'title'
+  const files = usecasePage?.files ?? (routePath.param ? PAGE_PARAM_FILES : PAGE_FILES)
+  const variant: MessagesVariant = usecasePage ? `usecase-${usecasePage.kind}` : 'title'
   for (const { template, to } of files) {
     plan.createSource(
       path.join(project.root, renderTemplate(to, vars)),
@@ -367,8 +251,7 @@ export function generatePage(
     plan,
     names,
     route: pagePath,
-    warnings: [...(shape?.warning ? [shape.warning] : []), ...(usecasePage?.warnings ?? [])],
-    ...(domain ? { query: domain } : {}),
+    warnings: usecasePage?.warnings ?? [],
     ...(usecasePage ? { useCase: usecasePage } : {}),
   }
 }

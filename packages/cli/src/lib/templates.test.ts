@@ -6,14 +6,10 @@ import {
   MESSAGE_LANGUAGES,
   MESSAGE_VARIANTS,
   messagesTemplate,
-  PAGE_DETAIL_FILES,
   PAGE_FILES,
-  PAGE_LIST_FILES,
   PAGE_PARAM_FILES,
 } from '../generators/page.ts'
-import { HTTP_CLIENT_FILES, REPOSITORY_FILES, SOURCE_FILES } from '../generators/repository.ts'
 import { USE_CASE_PAGE_FILES } from '../generators/page-usecase.ts'
-import { QUERY_FILE } from '../generators/query.ts'
 import { CASES_TEMPLATES, COLLECTION_FILE, CRUD_FILES } from '../generators/usecase-crud.ts'
 import { DOMAIN_INDEX_FILE, LOCAL_USE_CASE_FILES, USE_CASE_FILES } from '../generators/usecase.ts'
 import { SCHEMA_FILE } from '../generators/schema.ts'
@@ -75,14 +71,8 @@ describe('nameVars', () => {
 const GENERATED: { template: string; to: string }[] = [
   ...APP_FILES,
   ...PAGE_FILES,
-  ...PAGE_LIST_FILES,
   ...PAGE_PARAM_FILES,
-  ...PAGE_DETAIL_FILES,
   SCHEMA_FILE,
-  QUERY_FILE,
-  ...REPOSITORY_FILES,
-  ...Object.values(SOURCE_FILES),
-  ...HTTP_CLIENT_FILES,
   ...USE_CASE_FILES,
   ...LOCAL_USE_CASE_FILES,
   DOMAIN_INDEX_FILE,
@@ -135,7 +125,7 @@ describe('os modelos', () => {
     }
     for (const marker of markers)
       expect(marker).toMatch(
-        /^((plural|singular|page|domain|action|app|uc)\.(kebab|pascal|camel|constant|title)|page\.path|route\.(path|example)|param\.(name|example)|detail\.hook|field\.(name|sample)|fields\.[A-Za-z]+|test\.[A-Za-z]+|types\.[A-Za-z]+|usecase\.[A-Za-z]+|mock\.[A-Za-z]+|key\.[a-z]+|form\.[A-Za-z]+|list\.items|uc\.(key|input|keyFn|domain))$/,
+        /^((plural|singular|page|domain|action|app|uc)\.(kebab|pascal|camel|constant|title)|page\.path|route\.(path|example)|param\.(name|example)|field\.(name|sample)|fields\.[A-Za-z]+|test\.[A-Za-z]+|types\.[A-Za-z]+|usecase\.[A-Za-z]+|mock\.[A-Za-z]+|key\.[a-z]+|form\.[A-Za-z]+|list\.items|uc\.(key|input|keyFn|domain))$/,
       )
   })
 
@@ -152,15 +142,11 @@ describe('os modelos', () => {
       'param.example': 'exemplo',
       'field.name': 'nome',
       'field.sample': "'Exemplo 1'",
-      'detail.hook': 'useClienteDetail',
     }
-    // O schema, os use cases, o repositório e as queries dependem dos nomes de domínio e entidade: os testes dos geradores os renderizam
+    // O schema e os use cases dependem dos nomes de domínio e entidade: os testes dos geradores os renderizam
     const needsFields = (template: string) =>
       template === SCHEMA_FILE.template ||
-      template === QUERY_FILE.template ||
       [
-        ...REPOSITORY_FILES,
-        ...Object.values(SOURCE_FILES),
         ...USE_CASE_FILES,
         ...LOCAL_USE_CASE_FILES,
         DOMAIN_INDEX_FILE,

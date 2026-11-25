@@ -6,7 +6,7 @@ import path from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineContractSuite, runContractSuite } from './contract.ts'
 
-/** Um repositório de mentira, com campo privado: o `repo` do contrato precisa prender o `this`. */
+/** Um objeto de mentira, com campo privado: o `subject` do contrato precisa prender o `this`. */
 class Counter {
   #value = 0
 
@@ -28,10 +28,10 @@ const trace = {
   disposed: 0,
 }
 
-let outsideRepo: Counter | undefined
+let outsideSubject: Counter | undefined
 
-const contract = defineContractSuite<Counter>('Counter', ({ repo, subject, create }) => {
-  outsideRepo = repo
+const contract = defineContractSuite<Counter>('Counter', ({ subject, create }) => {
+  outsideSubject = subject
 
   // Hook do caso: roda antes de a instância nascer
   beforeEach(() => {
@@ -39,31 +39,29 @@ const contract = defineContractSuite<Counter>('Counter', ({ repo, subject, creat
   })
 
   it('repassa os métodos e os getters para a instância do teste', () => {
-    expect(repo.increment()).toBe(1)
-    expect(repo.increment()).toBe(2)
-    expect(repo.value).toBe(2)
-    expect('increment' in repo).toBe(true)
-    // subject é o mesmo objeto que repo (o nome antigo), a mesma instância do teste
+    expect(subject.increment()).toBe(1)
+    expect(subject.increment()).toBe(2)
     expect(subject.value).toBe(2)
-    expect(subject.increment).toBe(repo.increment)
+    expect('increment' in subject).toBe(true)
+    expect(subject.increment).toBe(subject.increment)
   })
 
   it('cria uma instância nova por teste, sem o estado do anterior', () => {
-    expect(repo.value).toBe(0)
+    expect(subject.value).toBe(0)
   })
 
   it('entrega outra instância, com o estado de partida, no create do contexto', () => {
-    repo.increment()
+    subject.increment()
     const other = create()
-    expect(other).not.toBe(repo)
+    expect(other).not.toBe(subject)
     expect(other.value).toBe(0)
   })
 })
 
 // Declarado antes de a suíte rodar: nenhum teste do contrato começou, então a instância não existe
-describe('o repo do contrato', () => {
+describe('o subject do contrato', () => {
   it('recusa o uso fora de um teste, antes da criação', () => {
-    expect(() => outsideRepo?.increment()).toThrow(/só existe dentro de um teste/)
+    expect(() => outsideSubject?.increment()).toThrow(/só existe dentro de um teste/)
   })
 })
 
@@ -92,82 +90,82 @@ describe('runContractSuite', () => {
   })
 })
 
-/** O `repo` se usa como uma variável comum: spy, atribuição e reflexão valem para a instância do teste. */
+/** O `subject` se usa como uma variável comum: spy, atribuição e reflexão valem para a instância do teste. */
 type Extended = Counter & { extra?: number }
 
-const extendable = defineContractSuite<Extended>('Proxy do repo', ({ repo }) => {
-  it('vi.spyOn(repo, método) vê a chamada e troca o retorno, sem mexer no resto da instância', () => {
-    const spy = vi.spyOn(repo, 'increment').mockReturnValue(42)
+const extendable = defineContractSuite<Extended>('Proxy do subject', ({ subject }) => {
+  it('vi.spyOn(subject, método) vê a chamada e troca o retorno, sem mexer no resto da instância', () => {
+    const spy = vi.spyOn(subject, 'increment').mockReturnValue(42)
 
-    expect(repo.increment()).toBe(42)
+    expect(subject.increment()).toBe(42)
     expect(spy).toHaveBeenCalledTimes(1)
     expect(vi.isMockFunction(spy)).toBe(true)
     spy.mockRestore()
-    expect(repo.increment()).toBe(1)
-    expect(repo.value).toBe(1)
+    expect(subject.increment()).toBe(1)
+    expect(subject.value).toBe(1)
   })
 
   it('o spy do teste anterior não vale para a instância nova', () => {
-    expect(vi.isMockFunction(repo.increment)).toBe(false)
-    expect(repo.increment()).toBe(1)
+    expect(vi.isMockFunction(subject.increment)).toBe(false)
+    expect(subject.increment()).toBe(1)
   })
 
   it('o spy chama o método de verdade, com o this da instância (campos privados)', () => {
-    const spy = vi.spyOn(repo, 'increment')
+    const spy = vi.spyOn(subject, 'increment')
 
-    expect(repo.increment()).toBe(1)
-    expect(repo.increment()).toBe(2)
+    expect(subject.increment()).toBe(1)
+    expect(subject.increment()).toBe(2)
     expect(spy).toHaveBeenCalledTimes(2)
     expect(spy).toHaveNthReturnedWith(2, 2)
   })
 
   it('a atribuição troca o método da instância e grava propriedade nova', () => {
-    repo.increment = () => 99
-    repo.extra = 7
+    subject.increment = () => 99
+    subject.extra = 7
 
-    expect(repo.increment()).toBe(99)
-    expect(repo.extra).toBe(7)
-    expect('extra' in repo).toBe(true)
+    expect(subject.increment()).toBe(99)
+    expect(subject.extra).toBe(7)
+    expect('extra' in subject).toBe(true)
   })
 
   it('a atribuição do teste anterior não vale para a instância nova', () => {
-    expect(repo.extra).toBeUndefined()
-    expect('extra' in repo).toBe(false)
-    expect(repo.increment()).toBe(1)
+    expect(subject.extra).toBeUndefined()
+    expect('extra' in subject).toBe(false)
+    expect(subject.increment()).toBe(1)
   })
 
   it('Object.defineProperty, delete, Object.keys e o descritor valem para a instância', () => {
-    expect(Object.keys(repo)).toEqual([])
+    expect(Object.keys(subject)).toEqual([])
 
-    Object.defineProperty(repo, 'extra', { value: 3, configurable: true, enumerable: true })
-    expect(repo.extra).toBe(3)
-    expect(Object.keys(repo)).toEqual(['extra'])
-    expect(Object.getOwnPropertyDescriptor(repo, 'extra')).toMatchObject({
+    Object.defineProperty(subject, 'extra', { value: 3, configurable: true, enumerable: true })
+    expect(subject.extra).toBe(3)
+    expect(Object.keys(subject)).toEqual(['extra'])
+    expect(Object.getOwnPropertyDescriptor(subject, 'extra')).toMatchObject({
       value: 3,
       enumerable: true,
     })
 
-    expect(delete repo.extra).toBe(true)
-    expect(repo.extra).toBeUndefined()
-    expect(Object.keys(repo)).toEqual([])
+    expect(delete subject.extra).toBe(true)
+    expect(subject.extra).toBeUndefined()
+    expect(Object.keys(subject)).toEqual([])
   })
 
   it('o protótipo é o da instância, então instanceof funciona', () => {
-    expect(repo instanceof Counter).toBe(true)
-    expect(Object.getPrototypeOf(repo)).toBe(Counter.prototype)
+    expect(subject instanceof Counter).toBe(true)
+    expect(Object.getPrototypeOf(subject)).toBe(Counter.prototype)
   })
 
   it('o mesmo método lido duas vezes é a mesma função', () => {
-    expect(repo.increment).toBe(repo.increment)
+    expect(subject.increment).toBe(subject.increment)
   })
 
   it('recusa definir propriedade explicitamente não configurável: a referência vale para vários testes', () => {
-    expect(() => Object.defineProperty(repo, 'fixa', { value: 1, configurable: false })).toThrow(
+    expect(() => Object.defineProperty(subject, 'fixa', { value: 1, configurable: false })).toThrow(
       /não configurável/,
     )
     // Sem dizer o contrário, a propriedade vai para a instância do teste, como em qualquer objeto
-    Object.defineProperty(repo, 'solta', { value: 1 })
-    expect((repo as Counter & { solta: number }).solta).toBe(1)
+    Object.defineProperty(subject, 'solta', { value: 1 })
+    expect((subject as Counter & { solta: number }).solta).toBe(1)
   })
 })
 
@@ -215,19 +213,19 @@ describe('o mesmo contrato contra duas implementações', () => {
     const { status, tests } = runFixture()
     const byImplementation = (name: string) => tests.filter((t) => t.fullName.includes(name))
 
-    expect(byImplementation('NotesRepository: MapNotesRepository')).toHaveLength(3)
-    expect(byImplementation('NotesRepository: MapNotesRepository').map((t) => t.status)).toEqual([
+    expect(byImplementation('Notes: MapNotes')).toHaveLength(3)
+    expect(byImplementation('Notes: MapNotes').map((t) => t.status)).toEqual([
       'passed',
       'passed',
       'passed',
     ])
 
-    const broken = byImplementation('NotesRepository: BrokenNotesRepository')
+    const broken = byImplementation('Notes: BrokenNotes')
     expect(broken).toHaveLength(3)
     // O defeito tem de ser acusado pelos casos que o tocam; o que não o toca segue passando
     expect(broken.filter((t) => t.status === 'failed').map((t) => t.fullName)).toEqual([
-      'NotesRepository: BrokenNotesRepository guarda a nota e devolve pelo id',
-      'NotesRepository: BrokenNotesRepository recusa um id que não existe',
+      'Notes: BrokenNotes guarda a nota e devolve pelo id',
+      'Notes: BrokenNotes recusa um id que não existe',
     ])
     expect(status).toBe(1)
   }, 60_000)

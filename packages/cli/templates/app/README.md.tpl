@@ -15,12 +15,11 @@ pnpm install
 Os geradores do Prumo criam as camadas do app, cada uma com o seu comando:
 
 ```sh
-pnpm exec prumo make:schema <domínio>      # o schema da entidade
-pnpm exec prumo make:usecase <domínio.ação>  # um use case: tipos, classe, mock e teste
-pnpm exec prumo make:repository <domínio>  # o contrato e o mock
-pnpm exec prumo make:query <domínio>       # as queries e mutations
-pnpm exec prumo make:page <tela>           # uma tela, com a rota e as mensagens
-pnpm exec prumo check                      # confere a arquitetura
+pnpm exec prumo make:schema <domínio>          # o schema da entidade
+pnpm exec prumo make:usecase <domínio.ação>    # um use case: tipos, classe, mock e teste
+pnpm exec prumo make:usecase <domínio> --crud  # os cinco use cases do CRUD de uma entidade
+pnpm exec prumo make:page <tela>               # uma tela, com a rota e as mensagens
+pnpm exec prumo check                          # confere a arquitetura
 ```
 
 ## Agentes de IA

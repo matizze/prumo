@@ -33,13 +33,13 @@ const PAGE_DIR = 'src/pages/{{page.path}}'
 const pageFiles = (model: string, view: string, test: string): readonly PageFile[] => [
   { template: 'page/index.tsx.tpl', to: `${PAGE_DIR}/index.tsx` },
   { template: `page/usecase/${model}`, to: `${PAGE_DIR}/model.ts` },
-  { template: view.startsWith('page/') ? view : `page/usecase/${view}`, to: `${PAGE_DIR}/view.tsx` },
-  { template: test.startsWith('page/') ? test : `page/usecase/${test}`, to: `${PAGE_DIR}/index.test.tsx` },
+  { template: `page/usecase/${view}`, to: `${PAGE_DIR}/view.tsx` },
+  { template: `page/usecase/${test}`, to: `${PAGE_DIR}/index.test.tsx` },
 ]
 
-/** Os arquivos de cada tela: a lista e o detalhe reaproveitam a view e o teste da tela com `--query` quando servem. */
+/** Os arquivos de cada tela de use case. */
 export const USE_CASE_PAGE_FILES: Record<UseCasePageKind, readonly PageFile[]> = {
-  list: pageFiles('model-list.ts.tpl', 'view-list.tsx.tpl', 'page/index-domain-test.tsx.tpl'),
+  list: pageFiles('model-list.ts.tpl', 'view-list.tsx.tpl', 'test-list.tsx.tpl'),
   detail: pageFiles('model-detail.ts.tpl', 'view-detail.tsx.tpl', 'test-detail.tsx.tpl'),
   form: pageFiles('model-form.ts.tpl', 'view-form.tsx.tpl', 'test-form.tsx.tpl'),
 }

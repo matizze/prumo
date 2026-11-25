@@ -7,11 +7,11 @@ import { exec } from '../test/run.ts'
 
 const read = (root: string, file: string) => readFileSync(path.join(root, file), 'utf8')
 
-/** Um projeto de fixture com o schema, o repositório e a query (`make:query`) de um domínio. */
-async function withQuery(args: string[] = ['clientes'], schemaArgs: string[] = []) {
+/** Um projeto de fixture com o schema e os use cases do CRUD (`make:usecase --crud`) de um domínio. */
+async function withUseCases(args: string[] = ['clientes'], schemaArgs: string[] = []) {
   const { root } = fixtureProject()
-  for (const command of ['make:schema', 'make:repository', 'make:query']) {
-    const made = await exec([command, ...args, ...(command === 'make:schema' ? schemaArgs : [])], root)
+  for (const command of [['make:schema', ...schemaArgs], ['make:usecase', '--crud']]) {
+    const made = await exec([command[0]!, ...args, ...command.slice(1)], root)
     expect(made.code, made.stderr).toBe(0)
   }
   return root
@@ -32,41 +32,41 @@ describe('prumo make:page', () => {
     expect(read(root, 'src/messages/pt-BR/index.ts')).toContain('pedidosRecentes')
   })
 
-  it('com --query e --path: o detalhe da entidade do contrato, sem --entity', async () => {
-    const root = await withQuery(['paes', '--entity', 'pao'])
-    const result = await exec(['make:page', 'pao', '--query', 'paes', '--path', '/paes/:id'], root)
+  it('com --usecase e --path: o detalhe da entidade, com a entidade do schema', async () => {
+    const root = await withUseCases(['paes', '--entity', 'pao'])
+    const result = await exec(['make:page', 'pao', '--usecase', 'paes.get-pao', '--path', '/paes/:id'], root)
 
     expect(result.code, result.stderr).toBe(0)
-    expect(result.stdout).toContain('prumo make:page: pao (rota /paes/:id, query paes).')
-    expect(read(root, 'src/pages/pao/model.ts')).toContain('usePaoDetail(id)')
+    expect(result.stdout).toContain('prumo make:page: pao (rota /paes/:id, use case paes.get-pao, detalhe).')
+    expect(read(root, 'src/pages/pao/model.ts')).toContain('getPao')
     expect(JSON.parse(read(root, 'src/messages/en/pao.json'))).toHaveProperty('loading')
   })
 
-  it('com --query: a lista, com o campo de texto do schema', async () => {
-    const root = await withQuery()
-    const result = await exec(['make:page', 'clientes', '--query', 'clientes'], root)
+  it('com --usecase: a lista, com o campo de texto do schema', async () => {
+    const root = await withUseCases()
+    const result = await exec(['make:page', 'clientes', '--usecase', 'clientes.list-clientes'], root)
 
     expect(result.code, result.stderr).toBe(0)
     expect(read(root, 'src/pages/clientes/view.tsx')).toContain('{i.name}')
-    expect(read(root, 'src/pages/clientes/model.ts')).toContain('useClientesList()')
+    expect(read(root, 'src/pages/clientes/model.ts')).toContain('const { listClientes } = useUseCases()')
   })
 
   it('sem campo de texto: mostra o id e escreve o aviso, com saída 0', async () => {
-    const root = await withQuery(['clientes'], ['--fields', 'idade:int'])
-    const result = await exec(['make:page', 'clientes', '--query', 'clientes'], root)
+    const root = await withUseCases(['clientes'], ['--fields', 'idade:int'])
+    const result = await exec(['make:page', 'clientes', '--usecase', 'clientes.list-clientes'], root)
 
     expect(result.code, result.stderr).toBe(0)
     expect(result.stdout).toContain('Aviso: o schema do domínio (src/schemas/entities/cliente.ts) não tem campo de texto')
     expect(read(root, 'src/pages/clientes/view.tsx')).toContain('{i.id}')
   })
 
-  it('--query sem a query: saída 2, a dica, e nada criado', async () => {
+  it('--usecase que não existe: saída 2, a mensagem, e nada criado', async () => {
     const { root } = fixtureProject()
-    const result = await exec(['make:page', 'clientes', '--query', 'clientes'], root)
+    const result = await exec(['make:page', 'clientes', '--usecase', 'clientes.list-clientes'], root)
 
     expect(result.code).toBe(2)
     expect(result.stdout).toBe('')
-    expect(result.stderr).toContain('rode prumo make:query clientes')
+    expect(result.stderr).toContain("o use case 'clientes.list-clientes' não existe")
     expect(existsSync(path.join(root, 'src/pages/clientes'))).toBe(false)
   })
 
@@ -86,10 +86,10 @@ describe('prumo make:page', () => {
     expect(read(root, 'src/App.tsx')).toBe(before)
   })
 
-  it('--path ou --query vazio: saída 2', async () => {
+  it('--path ou --usecase vazio: saída 2', async () => {
     const { root } = fixtureProject()
     expect((await exec(['make:page', 'a', '--path', ''], root)).code).toBe(2)
-    expect((await exec(['make:page', 'a', '--query', ''], root)).code).toBe(2)
+    expect((await exec(['make:page', 'a', '--usecase', ''], root)).code).toBe(2)
   })
 
   it('--dry-run: lista o que seria feito e não escreve nada', async () => {

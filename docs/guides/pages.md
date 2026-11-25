@@ -18,22 +18,21 @@ pnpm exec prumo make:page auth.login
 
 A tela fica em `src/pages/auth/login/`, a rota é `/auth/login`, o componente é `AuthLoginPage` e os textos ficam em `src/messages/<idioma>/auth-login.json`. A pasta `auth`, sem `index.tsx`, só agrupa. Uma tela não fica dentro de outra, e `auth/login` e `auth-login` não coexistem (dariam o mesmo arquivo de mensagens e o mesmo componente).
 
-Para uma tela que lista um domínio de dados, passe `--query`:
+Para uma tela que usa um use case, passe `--usecase`:
 
 ```bash
-pnpm exec prumo make:page pedidos --query pedidos
+pnpm exec prumo make:page pedidos --usecase pedidos.list-pedidos
 ```
 
-O model passa a ler a lista pelo hook da query (`usePedidosList`) e a view mostra o carregando, o erro e a lista. A view mostra o primeiro campo de texto de cada registro, lido do schema que o projeto tem (o `name` num schema sem `--fields`; o primeiro campo `string` obrigatório num schema criado com [`--fields`](domains.md#os-campos-do-domínio---fields)). Se o schema não tem campo de texto, ou o Prumo não o encontra, a view mostra o `id` e o comando avisa. A query precisa existir: o fluxo, da camada de baixo para a de cima, é `make:schema` → `make:repository` → `make:query` → `make:page`:
+A tela depende do use case: uma leitura que devolve uma lista vira a **lista** (o model chama o use case com `useQuery`, e a view mostra o carregando, o erro e a lista); uma leitura com `:id` no endereço vira o **detalhe** (com `--path /pedidos/:id`); uma escrita vira o **formulário**, com os campos do Input, o envio, o erro e o aviso de sucesso. A view mostra o primeiro campo de texto de cada registro, lido do schema que o projeto tem (o `name` num schema sem `--fields`; o primeiro campo `string` obrigatório num schema criado com [`--fields`](domains.md#os-campos-do-domínio---fields)). Se o schema não tem campo de texto, ou o Prumo não o encontra, a view mostra o `id` e o comando avisa. O use case precisa existir: o fluxo, da camada de baixo para a de cima, é `make:schema` → `make:usecase` → `make:page`:
 
 ```bash
 pnpm exec prumo make:schema pedidos
-pnpm exec prumo make:repository pedidos
-pnpm exec prumo make:query pedidos
-pnpm exec prumo make:page pedidos --query pedidos
+pnpm exec prumo make:usecase pedidos --crud
+pnpm exec prumo make:page pedidos --usecase pedidos.list-pedidos
 ```
 
-Sem a query, o `make:page` sai com 2 e diz o comando a rodar (`rode prumo make:query pedidos`).
+Sem o use case, o `make:page` sai com 2 e diz o que falta (`o use case 'pedidos.list-pedidos' não existe`).
 
 Use `--dry-run` para ver o que seria criado e alterado sem escrever nada.
 
@@ -161,22 +160,26 @@ export function useClienteModel() {
 
 O caminho tem **no máximo um parâmetro** (`:nome`, sem `?`, `*` nem `+`); o `make:page` recusa o resto, e o caminho que repete ou conflita com uma rota do `App.tsx`. Precisa de um segundo parâmetro? Gere com um e acrescente o outro ao model à mão.
 
-Com `--query`, a tela é de **detalhe**: o model busca o registro com o `use<Entidade>Detail` da query.
+Com `--usecase` de uma leitura com `:id` no endereço, a tela é de **detalhe**: o model busca o registro com o use case.
 
 ```bash
-pnpm exec prumo make:page cliente --query clientes --path /clientes/:id
+pnpm exec prumo make:page cliente --usecase clientes.get-cliente --path /clientes/:id
 ```
 
 ```ts
 // src/pages/cliente/model.ts
+import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'wouter'
 import { useTranslations } from '@/i18n'
-import { useClienteDetail } from '@/queries/clientes'
+import { useUseCases } from '@/providers/use-cases'
+import { getClienteKey } from '@/use-cases/clientes/get-cliente.types'
 
 export function useClienteModel() {
   const t = useTranslations('cliente')
   const { id } = useParams<{ id: string }>()
-  const detail = useClienteDetail(id)
+  const { getCliente } = useUseCases()
+  const input = { id }
+  const detail = useQuery({ queryKey: getClienteKey(input), queryFn: () => getCliente.execute(input) })
 
   return {
     title: t('title'),

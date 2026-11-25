@@ -4,7 +4,7 @@ Guia para agentes de IA e pessoas que contribuem com este monorepo.
 
 ## O que é
 
-O Prumo é uma **ferramenta** da Matizze para criar e manter aplicações React organizadas em camadas (telas com `index`, `model` e `view`, domínios com schema, repositório e queries, textos em dois idiomas) e conferir a arquitetura. **Não tem frontend:** nenhum componente de interface, ícone, tema, CSS, Storybook, tela pronta, catálogo de blocos ou padrão de tela. A interface é do produto.
+O Prumo é uma **ferramenta** da Matizze para criar e manter aplicações React organizadas em camadas (telas com `index`, `model` e `view`, domínios com schema e use cases, textos em dois idiomas) e conferir a arquitetura. **Não tem frontend:** nenhum componente de interface, ícone, tema, CSS, Storybook, tela pronta, catálogo de blocos ou padrão de tela. A interface é do produto.
 
 Onde ler mais:
 
@@ -17,10 +17,10 @@ Onde ler mais:
 
 Quatro pacotes em `packages/`, versionados separadamente:
 
-- `core`: infraestrutura do app gerado (container de repositórios, query keys, i18n tipado, erros com código, utilitários de mock, guarda de rota).
+- `core`: infraestrutura do app gerado (cliente HTTP e mock por rota, use cases, query keys, i18n tipado, erros com código, utilitários de mock, guarda de rota).
 - `rules`: o plugin de ESLint e a análise do projeto que o `prumo check` roda.
-- `testing`: `renderWithProviders`, setup do DOM e o teste de contrato de repositórios.
-- `cli`: o comando `prumo` (`new`, `make:schema`, `make:usecase`, `make:repository`, `make:query`, `make:page`, `check`, `list` e `mcp`). Cada comando tem o seu gerador em `packages/cli/src/generators/`, que devolve um plano antes de escrever, e o servidor MCP, que descreve as ferramentas a partir dos comandos, fica em `packages/cli/src/mcp/`. Os modelos são arquivos `.tpl` com marcadores de nome em `packages/cli/templates/`.
+- `testing`: `renderWithProviders`, setup do DOM e o teste de contrato de use cases.
+- `cli`: o comando `prumo` (`new`, `make:schema`, `make:usecase`, `make:page`, `check`, `list` e `mcp`). Cada comando tem o seu gerador em `packages/cli/src/generators/`, que devolve um plano antes de escrever, e o servidor MCP, que descreve as ferramentas a partir dos comandos, fica em `packages/cli/src/mcp/`. Os modelos são arquivos `.tpl` com marcadores de nome em `packages/cli/templates/`.
 
 Os pacotes são publicados no npm (`@matizze`, acesso público) pelo workflow de release, quando a `develop` vai para a `main`. Publicar é decisão de uma pessoa: não publique por conta própria.
 

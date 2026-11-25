@@ -46,11 +46,13 @@ describe('os use cases gerados compilam (tsc estrito) e passam nos testes', () =
       `import { expect, it, vi } from 'vitest'
 import { createAppUseCases } from './index'
 
-it('com VITE_DATA_SOURCE=storage (dos repositórios) os use cases usam o mock', async () => {
+it('VITE_DATA_SOURCE só aceita mock ou http: outro valor lança o erro claro', () => {
   vi.stubEnv('VITE_DATA_SOURCE', 'storage')
-  const useCases = createAppUseCases({ latencyMs: 0 })
-  expect(await useCases.getClientes.execute({})).toHaveLength(2)
-  vi.unstubAllEnvs()
+  try {
+    expect(() => createAppUseCases({ latencyMs: 0 })).toThrow('Invalid VITE_DATA_SOURCE "storage". Expected one of: mock, http.')
+  } finally {
+    vi.unstubAllEnvs()
+  }
 })
 
 it('o registro junta os use cases dos domínios, sobre o http de mentira', async () => {

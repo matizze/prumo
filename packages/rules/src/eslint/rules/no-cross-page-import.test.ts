@@ -54,10 +54,10 @@ createRuleTester().run('no-cross-page-import', noCrossPageImport, {
     },
     { filename: view, code: "type Row = import('./model').Row" },
     { filename: view, code: "type Fn = typeof import('wouter').useLocation" },
-    // Fora das telas: shared, ui, repositórios e pacotes npm
+    // Fora das telas: shared, ui, use cases e pacotes npm
     { filename: view, code: "import { Card } from '@/components/ui/card'" },
     { filename: view, code: "import { Table } from '@/components/shared/table'" },
-    { filename: view, code: "import { tasks } from '@/queries'" },
+    { filename: view, code: "import { getTasks } from '@/use-cases'" },
     { filename: view, code: "import { Link } from 'wouter'" },
     { filename: view, code: "import { x } from '../../components/shared/table'" },
     // A pasta pages em si e o alias de outro lugar não contam

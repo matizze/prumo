@@ -7,15 +7,15 @@ export interface ContainerProviderProps<C> {
 }
 
 interface ContainerContextNames {
-  /** O nome do provedor, para as mensagens de erro (`RepositoryProvider`). */
+  /** O nome do provedor, para as mensagens de erro (`UseCasesProvider`). */
   provider: string
-  /** O nome do hook (`useRepositories`). */
+  /** O nome do hook (`useUseCases`). */
   hook: string
-  /** O nome da função que cria o contexto (`createRepositoryContext`). */
+  /** O nome da função que cria o contexto (`createUseCasesContext`). */
   factory: string
 }
 
-/** O contexto de um container injetado no React, que `createRepositoryContext` e `createUseCasesContext` dividem. */
+/** O contexto de um container injetado no React, que `createUseCasesContext` usa. */
 export function createContainerContext<C>(names: ContainerContextNames, createDefault?: () => C) {
   const Context = createContext<C | null>(null)
 

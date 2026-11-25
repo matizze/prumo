@@ -1,6 +1,6 @@
 import { Node, Project as MorphProject } from 'ts-morph'
 
-/** O que uma tela com `--query` mostra do registro, lido do que o projeto tem. */
+/** O que uma tela de use case mostra do registro, lido do que o projeto tem. */
 export interface DomainShape {
   /** O campo que a tela mostra: o primeiro de texto, ou `id`. */
   field: string

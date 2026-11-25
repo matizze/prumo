@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // O cliente MCP do portão (`pnpm verify:new`): liga ao servidor prumo do app gerado do jeito que o
 // agente liga (o comando do .mcp.json do app, por stdio, com o app como pasta de trabalho), confere as
-// ferramentas e gera, só por elas, um domínio (schema, repositório com storage e query), dois use cases
+// ferramentas e gera, só por elas, um domínio (schema e os cinco use cases do CRUD), mais dois use cases
 // (uma leitura com a entidade como Output e uma escrita) e as telas (lista, detalhe, uma em subpasta e
 // duas de use case, a lista e o formulário), confere os erros de uso e roda o check e o list. Sai com 0 se
 // tudo deu certo e com 1 no primeiro erro. Não escreve nada: quem escreve é o servidor.
@@ -63,7 +63,7 @@ try {
   await client.connect(transport)
   const { tools } = await client.listTools()
   const names = tools.map((tool) => tool.name).sort()
-  const expected = ['check', 'list', 'make_page', 'make_query', 'make_repository', 'make_schema', 'make_usecase']
+  const expected = ['check', 'list', 'make_page', 'make_schema', 'make_usecase']
   assert(
     JSON.stringify(names) === JSON.stringify(expected),
     `as ferramentas do servidor são ${names.join(', ')} (esperado: ${expected.join(', ')})`,
@@ -76,8 +76,7 @@ try {
     entity: 'autor',
     fields: 'nome:string,pais:string,nascimento:date,ativo:boolean,obras?:int',
   })
-  await call('make_repository', { dominio: 'autores', entity: 'autor', data_source: 'storage' })
-  await call('make_query', { dominio: 'autores', entity: 'autor' })
+  await call('make_usecase', { nome: 'autores', entity: 'autor', crud: true })
   // Os use cases do domínio: uma leitura que devolve a lista de autores e uma escrita com campos
   await call('make_usecase', { nome: 'catalogo.get-autores', output: 'autor[]' })
   await call('make_usecase', {
@@ -92,8 +91,8 @@ try {
   const usecaseList = await call('make_page', { nome: 'catalogo-autores', usecase: 'catalogo.get-autores' })
   assert(usecaseList.text.includes('use case catalogo.get-autores, lista'), 'o make_page --usecase não disse que a tela é uma lista')
   await call('make_page', { nome: 'catalogo/registrar', usecase: 'catalogo.registrar-autor' })
-  await call('make_page', { nome: 'autores', query: 'autores' })
-  await call('make_page', { nome: 'autor', query: 'autores', path: '/autores/:id' })
+  await call('make_page', { nome: 'autores', usecase: 'autores.list-autores' })
+  await call('make_page', { nome: 'autor', usecase: 'autores.get-autor', path: '/autores/:id' })
   // Uma tela em subpasta, pelo nome com ponto: a rota, a pasta e o nome do list levam a barra
   await call('make_page', { nome: 'conta.perfil' })
   // Uma simulação: não escreve, e a tela não existe depois
@@ -106,16 +105,11 @@ try {
     repeated.result.isError === true && repeated.text.includes("a chave 'getAutores' do registro já é do use case"),
     'o make_usecase com uma chave repetida deveria voltar com isError e a mensagem da chave',
   )
-  const both = await invoke('make_page', { nome: 'misto', query: 'autores', usecase: 'catalogo.get-autores' })
+  const missing = await invoke('make_page', { nome: 'editoras', usecase: 'editoras.list-editoras' })
+  assert(missing.result.isError === true, 'make_page de um use case que não existe deveria voltar com isError')
   assert(
-    both.result.isError === true && both.text.includes("use '--query' ou '--usecase', não os dois"),
-    'o make_page com query e usecase deveria voltar com isError e a mensagem de uso',
-  )
-  const bad = await invoke('make_query', { dominio: 'editoras' })
-  assert(bad.result.isError === true, 'make_query de um domínio sem repositório deveria voltar com isError')
-  assert(
-    bad.text.includes('falta o repositório editoras') && !bad.text.includes('erro inesperado'),
-    'o erro de uso não trouxe a mensagem esperada (falta o repositório editoras)',
+    missing.text.includes("o use case 'editoras.list-editoras' não existe") && !missing.text.includes('erro inesperado'),
+    'o erro de uso não trouxe a mensagem esperada (o use case não existe)',
   )
 
   const checked = await call('check', {})
@@ -144,24 +138,25 @@ try {
   )
   assert(!('catalogo.get-obras' in useCases), 'o dry_run criou o use case get-obras')
 
-  const repository = listing.repositories?.find((r) => r.domain === 'autores')
-  assert(repository?.sources.includes('storage'), 'o list não mostra o repositório autores com a fonte storage')
-  assert(
-    listing.queries?.some((q) => q.domain === 'autores'),
-    'o list não mostra a query autores',
-  )
+  for (const key of ['listAutores', 'getAutor', 'createAutor', 'updateAutor', 'removeAutor']) {
+    assert(
+      Object.values(useCases).some((text) => text.startsWith(`${key} `)),
+      `o list não mostra o use case ${key} do CRUD de autores`,
+    )
+  }
+  assert(!('repositories' in listing) && !('queries' in listing), 'o list ainda traz repositórios ou queries')
 
   const pages = Object.fromEntries((listing.pages ?? []).map((p) => [p.name, p]))
-  const summary = (p) => (p ? `${p.variation} ${p.route} query=${p.query}` : 'ausente')
+  const summary = (p) => (p ? `${p.variation} ${p.route} useCase=${p.useCase}` : 'ausente')
   const list = pages.autores
   assert(
-    list?.variation === 'list' && list.route === '/autores' && list.query === 'autores',
-    `a tela autores deveria ser lista em /autores com query autores (${summary(list)})`,
+    list?.variation === 'list' && list.route === '/autores' && list.useCase === 'autores.list-autores',
+    `a tela autores deveria ser lista em /autores do use case autores.list-autores (${summary(list)})`,
   )
   const detail = pages.autor
   assert(
-    detail?.variation === 'detail' && detail.route === '/autores/:id' && detail.query === 'autores',
-    `a tela autor deveria ser detalhe em /autores/:id com query autores (${summary(detail)})`,
+    detail?.variation === 'detail' && detail.route === '/autores/:id' && detail.useCase === 'autores.get-autor',
+    `a tela autor deveria ser detalhe em /autores/:id do use case autores.get-autor (${summary(detail)})`,
   )
   const nested = pages['conta/perfil']
   assert(
@@ -170,13 +165,13 @@ try {
   )
   const byUseCase = pages['catalogo-autores']
   assert(
-    byUseCase?.variation === 'list' && byUseCase.useCase === 'catalogo.get-autores' && byUseCase.query === null,
-    `a tela catalogo-autores deveria ser lista do use case catalogo.get-autores (${summary(byUseCase)} useCase=${byUseCase?.useCase})`,
+    byUseCase?.variation === 'list' && byUseCase.useCase === 'catalogo.get-autores',
+    `a tela catalogo-autores deveria ser lista do use case catalogo.get-autores (${summary(byUseCase)})`,
   )
   const form = pages['catalogo/registrar']
   assert(
     form?.variation === 'form' && form.route === '/catalogo/registrar' && form.useCase === 'catalogo.registrar-autor',
-    `a tela catalogo/registrar deveria ser formulário do use case catalogo.registrar-autor (${summary(form)} useCase=${form?.useCase})`,
+    `a tela catalogo/registrar deveria ser formulário do use case catalogo.registrar-autor (${summary(form)})`,
   )
   assert(!('simulada' in pages), 'o dry_run criou a tela simulada')
 } catch (error) {

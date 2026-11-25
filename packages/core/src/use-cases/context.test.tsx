@@ -89,11 +89,3 @@ describe('createUseCasesContext', () => {
     ).toThrow('useUseCases must be used within a UseCasesProvider')
   })
 })
-
-describe('resolveDataSource', () => {
-  it('também sai de use-cases', async () => {
-    const { resolveDataSource } = await import('./index.ts')
-    expect(resolveDataSource(undefined, ['mock', 'http'] as const, 'mock')).toBe('mock')
-    expect(() => resolveDataSource('x', ['mock', 'http'] as const, 'mock')).toThrow('Invalid')
-  })
-})

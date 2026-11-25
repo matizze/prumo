@@ -333,7 +333,7 @@ describe('@matizze/prumo-cli empacotado', () => {
         { cwd: product, encoding: 'utf8' },
       )
       expect(result.stderr).toBe('')
-      expect(result.stdout.trim()).toBe('@matizze/prumo-rules 2')
+      expect(result.stdout.trim()).toBe('@matizze/prumo-rules 4')
     })
 
     it('tem o dist do rules e do cli onde o exports aponta', () => {

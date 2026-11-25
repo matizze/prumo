@@ -1,5 +1,5 @@
 /** As verificações do `prumo check`, pelo nome que aparece em cada violação. */
-export type CheckRule = 'components-folders' | 'shared-usage' | 'page-structure' | 'messages'
+export type CheckRule = 'components-folders' | 'shared-usage' | 'page-structure' | 'use-case-files' | 'messages'
 
 /** Uma violação achada no projeto. */
 export interface Violation {
@@ -22,6 +22,8 @@ export interface CheckOptions {
   pagesDir?: string
   /** Arquivos que toda tela tem na própria pasta. Padrão: `['index.tsx', 'model.ts', 'view.tsx']`. */
   requiredPageFiles?: string[]
+  /** Pasta dos use cases, relativa à raiz. Padrão: `'src/use-cases'`. */
+  useCasesDir?: string
   /** Pasta dos componentes, relativa à raiz. Padrão: `'src/components'`. */
   componentsDir?: string
   /** As únicas subpastas permitidas na pasta dos componentes. Padrão: `['layout', 'shared', 'ui']`. */

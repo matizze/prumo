@@ -10,7 +10,7 @@ O Prumo separa os três em camadas com fronteiras que uma ferramenta consegue ve
 
 | Assunto                  | Onde mora                                                          | Quem conhece                     |
 | ------------------------ | ------------------------------------------------------------------ | -------------------------------- |
-| De onde vêm os dados     | `schemas/`, `use-cases/`, `http/` (e, enquanto a transição não termina, `repositories/` e `queries/`) | O model da tela |
+| De onde vêm os dados     | `schemas/`, `use-cases/`, `http/` | O model da tela |
 | O que a tela diz         | `messages/<idioma>/<tela>.json`                                    | O model da tela                  |
 | Como a tela aparece      | `view.tsx` e os componentes                                        | Só a view                        |
 
@@ -29,12 +29,11 @@ flowchart TB
   index --> model
   index --> view
   view --> comps
-  model --> q["src/queries/clientes.ts<br/>useClientesList, useCreateCliente..."]
+  model --> uc["useUseCases()<br/>listClientes, createCliente..."]
   model --> m["src/messages/(idioma)/clientes.json"]
-  q --> ctx["useRepositories()<br/>(o container)"]
-  ctx --> contract["IClientesRepository<br/>(o contrato)"]
-  contract --> mock["MockClientesRepository"]
-  contract -.-> http["HttpClientesRepository<br/>(do produto)"]
+  uc --> uca["src/use-cases/clientes/<br/>(Input, Output, execute)"]
+  uca --> http["src/http/api.ts<br/>(a API)"]
+  uca -.-> mock["http de mentira<br/>(os .mock.ts)"]
   view --> ui["src/components/ui<br/>(design system do produto)"]
   view --> shared["src/components/shared"]
 ```
@@ -44,7 +43,7 @@ flowchart TB
 Uma tela é a primeira pasta, a partir de `src/pages`, que tem `index.tsx`, e toda tela tem três arquivos:
 
 - **`index.tsx`** é o ponto de entrada da rota. Chama o model e entrega o resultado à view. Não tem lógica.
-- **`model.ts`** é um hook (`use<Tela>Model`) que reúne o que a tela precisa: os dados (pelas queries do domínio), os textos (pelo `useTranslations`), o estado da interação e as ações. Não tem JSX.
+- **`model.ts`** é um hook (`use<Tela>Model`) que reúne o que a tela precisa: os dados (pelos use cases do domínio, com `useQuery` e `useMutation`), os textos (pelo `useTranslations`), o estado da interação e as ações. Não tem JSX.
 - **`view.tsx`** é a apresentação. Recebe o model inteiro por props, cujo tipo é `ReturnType<typeof use<Tela>Model>`, e não busca dado, não traduz texto e não guarda estado de dados.
 
 Componentes que só essa tela usa ficam em `components/`, dentro da pasta dela. As subpastas de uma tela (`components/`, por exemplo, mesmo com um `index.tsx`) são parte dela e nunca viram tela.
@@ -67,7 +66,7 @@ Um componente que só uma tela usa não é compartilhado: mora na pasta da tela.
 
 ### Use cases
 
-O **use case** é o caminho novo para tudo o que o app faz com dados: uma ação com nome de verbo (`getStores`, `signIn`, `addItem`), com um Input, um Output e um `execute`. É o padrão do frontend do pratigo, com três acréscimos do Prumo: validação com zod, mock para trabalhar sem backend e um teste em cada use case. O `prumo make:usecase` cria um por vez, e o repositório e as queries (abaixo) continuam funcionando enquanto a transição não termina.
+O **use case** é o caminho novo para tudo o que o app faz com dados: uma ação com nome de verbo (`getStores`, `signIn`, `addItem`), com um Input, um Output e um `execute`. É o padrão do frontend do pratigo, com três acréscimos do Prumo: validação com zod, mock para trabalhar sem backend e um teste em cada use case. O `prumo make:usecase` cria um por vez, ou os cinco de um CRUD com `--crud`.
 
 | Camada     | Responde a                       | Pasta            |
 | ---------- | -------------------------------- | ---------------- |
@@ -85,19 +84,18 @@ const login = useMutation({ mutationFn: (input: SignInInput) => signIn.execute(i
 
 O **mock fica no transporte, não no use case**: com `VITE_DATA_SOURCE=mock` (o padrão), o registro recebe um `http` de mentira (`createMockHttp`, do core), que responde a cada `ENDPOINT` com a rota do `*.mock.ts`. O código do use case que roda no desenvolvimento e nos testes é o mesmo que vai para produção, e só a rede é trocada. Os arquivos e a anatomia estão em [`prumo make:usecase`](../reference/cli.md#prumo-makeusecase) e na [anatomia do app](generated-app.md#os-use-cases).
 
-### Domínios de dados (repositório e queries)
+### Domínios de dados
 
-Um domínio (clientes, pedidos, produtos) tem três partes, cada uma numa pasta:
+Um domínio (clientes, pedidos, produtos) tem duas partes, cada uma numa pasta:
 
 - **Schema** (`src/schemas/entities/<entidade>.ts`): o schema zod da entidade e os tipos derivados dele (a entidade, a entrada de criar e editar, a consulta da lista). É a fonte da verdade sobre a forma do dado.
-- **Repositório** (`src/repositories/<domínio>/`): o **contrato** (`IClientesRepository`, uma interface com `list`, `get`, `create`, `update` e `remove`), uma implementação em memória (`mock`) com fixtures e o teste do contrato. As outras fontes (`http`, `storage`) são outras classes que cumprem o mesmo contrato.
-- **Queries** (`src/queries/<domínio>.ts`): as query keys, as queries e os hooks do TanStack Query. Os hooks pegam o repositório do container (`useRepositories()`), nunca de um import direto, e as mutations atualizam o cache do domínio (invalidam as queries afetadas).
+- **Use cases** (`src/use-cases/<domínio>/`): as ações do domínio (`listClientes`, `getCliente`, `createCliente`, `updateCliente`, `removeCliente`), cada uma com o Input, o Output, o mock e o teste. A tela escolhe o use case pelo `useUseCases()`, nunca por um import direto, e as mutations atualizam o cache do domínio (invalidam as queries afetadas).
 
-O **container** (`src/repositories/index.ts`) é um mapa de fábricas: cada domínio registra uma função que cria o repositório dele. Os testes trocam um repositório pelo container, sem mock de módulo.
+O **registro** (`src/use-cases/index.ts`) junta os use cases de todos os domínios e as rotas de mock deles. Os testes trocam um use case pelo `renderWithProviders`, sem mock de módulo.
 
 ### Regras de negócio e operações entre domínios
 
-O que não é CRUD de um domínio só tem lugar fixo por convenção (o Prumo não gera nem cobra): as **regras** são funções puras em `src/rules/` (recebem os dados e "hoje" como argumento), e as **operações que envolvem mais de um domínio** são mutations em `src/queries/<nome>.ts`, que pegam os repositórios do container, aplicam as regras e invalidam os domínios afetados. O model da tela usa as mesmas regras para ligar e desligar ações. Veja [Regras de negócio e operações entre domínios](../guides/domains.md#regras-de-negócio-e-operações-entre-domínios).
+O que não é CRUD de um domínio só tem lugar fixo por convenção (o Prumo não gera nem cobra): as **regras** são funções puras em `src/rules/` (recebem os dados e "hoje" como argumento), e as **operações que envolvem mais de um domínio** são use cases próprios, que recebem os outros use cases, aplicam as regras e devolvem o resultado (a tela invalida os domínios afetados). O model da tela usa as mesmas regras para ligar e desligar ações. Veja [Regras de negócio e operações entre domínios](../guides/domains.md#regras-de-negócio-e-operações-entre-domínios).
 
 ### Textos (`src/messages/<idioma>/`)
 
@@ -105,7 +103,7 @@ Cada tela tem um JSON por idioma, com o mesmo nome da tela. O `index.ts` de cada
 
 ### Provedores e infraestrutura
 
-`src/providers/` reúne o que envolve o app: o `QueryClient` (com o tratamento global de erro), o i18n, os provedores dos use cases e dos repositórios e, se o app tem login, a sessão (`src/providers/session/`, veja [Sessão e login](../guides/auth.md)). A infraestrutura vem do `@matizze/prumo-core`, e o app guarda só a configuração: quais idiomas, quais fontes de dados, como notificar um erro.
+`src/providers/` reúne o que envolve o app: o `QueryClient` (com o tratamento global de erro), o i18n, o provedor dos use cases e, se o app tem login, a sessão (`src/providers/session/`, veja [Sessão e login](../guides/auth.md)). A infraestrutura vem do `@matizze/prumo-core`, e o app guarda só a configuração: quais idiomas, quais fontes de dados, como notificar um erro.
 
 ## As regras
 
@@ -115,9 +113,12 @@ O Prumo cobra a arquitetura em dois lugares. O **plugin de ESLint** olha um arqu
 | ----------------------------- | --------------------- | ----------------------------------------------------------------------------------------------- |
 | `prumo/no-cross-page-import`  | ESLint                | Uma tela não importa da pasta de outra tela, nem pelo alias nem por caminho relativo            |
 | `prumo/page-structure`        | ESLint                | O `index.tsx` de uma tela tem `model.ts` e `view.tsx` ao lado                                   |
+| `prumo/no-http-in-page`       | ESLint                | Uma tela não importa de `src/http`: ela chama um use case                                       |
+| `prumo/use-case-imports`      | ESLint                | Um use case não importa de `src/pages`, de `react` nem de `@tanstack/*`                         |
 | `page-structure`              | `prumo check`         | Toda tela de `src/pages`, em qualquer profundidade, tem `index.tsx`, `model.ts` e `view.tsx`     |
 | `components-folders`          | `prumo check`         | `src/components` só tem as subpastas `ui`, `shared` e `layout`                                  |
 | `shared-usage`                | `prumo check`         | O que está em `components/shared` é usado por duas ou mais telas                                |
+| `use-case-files`              | `prumo check`         | Todo `*.usecase.ts` tem o `.types.ts` e o `.usecase.test.ts` ao lado                            |
 | `messages`                    | `prumo check`         | Os idiomas têm as mesmas chaves, os mesmos argumentos ICU, nenhum texto vazio e os mesmos namespaces registrados |
 
 ### Por que cada regra existe
@@ -138,11 +139,11 @@ A referência completa das regras, com as opções e as mensagens, está em [rul
 
 Algumas convenções não são cobradas por regra, mas o código gerado as segue:
 
-- **O dado vem de um hook de `src/queries`**, que usa o repositório do container. Nada de `fetch` solto numa tela.
+- **O dado vem de um use case**, pelo `useUseCases()`. Nada de `fetch` solto numa tela.
 - **Todo texto visível mora em `src/messages`**, nos dois idiomas, e é lido pelo `useTranslations`.
-- **O repositório não conhece idioma.** Ele lança `UIError` com um código estável (`CLIENTE_NOT_FOUND`), e a interface traduz o código. Veja [Erros e notificações](../guides/errors-and-notifications.md).
+- **O use case não conhece idioma.** Ele lança `UIError` com um código estável (`CLIENTE_NOT_FOUND`), e a interface traduz o código. Veja [Erros e notificações](../guides/errors-and-notifications.md).
 - **Nomes em kebab-case** para telas, domínios e componentes (`pedidos-recentes`). O Prumo deriva o resto: `PedidosRecentesPage`, `usePedidosRecentesModel`, o namespace `pedidosRecentes`, a rota `/pedidos-recentes`.
-- **Todo comportamento novo tem teste.** Cada comando que gera código (`make:repository`, `make:page`) cria o teste do que gerou.
+- **Todo comportamento novo tem teste.** Cada comando que gera código (`make:usecase`, `make:page`) cria o teste do que gerou.
 
 ## O que fica de fora
 

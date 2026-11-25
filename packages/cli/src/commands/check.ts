@@ -42,6 +42,6 @@ export const registerCheck: RegisterCommand = (program, io) => {
     ],
     anchor: 'prumo-check',
     agentDetail:
-      "Confere as pastas de src/components (só as permitidas), o uso de components/shared pelas telas, a estrutura de cada tela (index, model e view) e os textos completos nos idiomas (as mesmas chaves em todos, e os placeholders ICU iguais). Escreve uma violação por linha: o arquivo, a regra entre colchetes e a mensagem. Só lê; nunca escreve.\n\nCom violação, o código de saída é 1, mas o resultado da ferramenta não é erro: as violações vêm no texto, para você corrigir e rodar de novo. Sem violação, diz que não há nenhuma.",
+      "Confere as pastas de src/components (só as permitidas), o uso de components/shared pelas telas, a estrutura de cada tela (index, model e view), os arquivos de cada use case (o .types.ts e o teste ao lado do .usecase.ts) e os textos completos nos idiomas (as mesmas chaves em todos, e os placeholders ICU iguais). Escreve uma violação por linha: o arquivo, a regra entre colchetes e a mensagem. Só lê; nunca escreve.\n\nCom violação, o código de saída é 1, mas o resultado da ferramenta não é erro: as violações vêm no texto, para você corrigir e rodar de novo. Sem violação, diz que não há nenhuma.",
   })
 }
